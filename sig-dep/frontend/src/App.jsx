@@ -1,0 +1,127 @@
+import { lazy, Suspense, useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { refreshSession } from './lib/api';
+import { useAuth } from './store/auth';
+import AppLayout from './components/layout/AppLayout';
+import { ConfirmProvider, Spinner, Toaster } from './components/ui';
+import Login from './pages/Login';
+import ChangePassword from './pages/ChangePassword';
+import { Forbidden, NotFound } from './pages/Errors';
+
+const p = (loader) => lazy(loader);
+const Dashboard = p(() => import('./pages/Dashboard'));
+const Organigramme = p(() => import('./pages/organisation/Organigramme'));
+const Structure = p(() => import('./pages/organisation/Structure'));
+const Cadre = p(() => import('./pages/organisation/Cadre'));
+const AgentsList = p(() => import('./pages/personnel/AgentsList'));
+const AgentDetail = p(() => import('./pages/personnel/AgentDetail'));
+const AgentForm = p(() => import('./pages/personnel/AgentForm'));
+const Profil = p(() => import('./pages/personnel/Profil'));
+const UsersList = p(() => import('./pages/comptes/UsersList'));
+const UserDetail = p(() => import('./pages/comptes/UserDetail'));
+const UserCreate = p(() => import('./pages/comptes/UserCreate'));
+const Roles = p(() => import('./pages/comptes/Roles'));
+const Delegations = p(() => import('./pages/comptes/Delegations'));
+const PresencesList = p(() => import('./pages/presences/PresencesList'));
+const PresenceCreate = p(() => import('./pages/presences/PresenceCreate'));
+const PresenceSheet = p(() => import('./pages/presences/PresenceSheet'));
+const CourriersList = p(() => import('./pages/courriers/CourriersList'));
+const CourrierForm = p(() => import('./pages/courriers/CourrierForm'));
+const CourrierDetail = p(() => import('./pages/courriers/CourrierDetail'));
+const InstructionsList = p(() => import('./pages/instructions/InstructionsList'));
+const InstructionForm = p(() => import('./pages/instructions/InstructionForm'));
+const InstructionDetail = p(() => import('./pages/instructions/InstructionDetail'));
+const TachesList = p(() => import('./pages/taches/TachesList'));
+const TacheForm = p(() => import('./pages/taches/TacheForm'));
+const TacheDetail = p(() => import('./pages/taches/TacheDetail'));
+const DocumentsList = p(() => import('./pages/documents/DocumentsList'));
+const DocumentForm = p(() => import('./pages/documents/DocumentForm'));
+const DocumentDetail = p(() => import('./pages/documents/DocumentDetail'));
+const PipList = p(() => import('./pages/pip/PipList'));
+const PipForm = p(() => import('./pages/pip/PipForm'));
+const PipDetail = p(() => import('./pages/pip/PipDetail'));
+const Notifications = p(() => import('./pages/Notifications'));
+const Audit = p(() => import('./pages/systeme/Audit'));
+const Systeme = p(() => import('./pages/systeme/Systeme'));
+const Rapports = p(() => import('./pages/Rapports'));
+
+function RequireAuth({ children }) {
+  const { user, ready } = useAuth();
+  const location = useLocation();
+  if (!ready) return <div className="flex min-h-screen items-center justify-center"><Spinner label="Ouverture de la session…" /></div>;
+  if (!user) return <Navigate to="/connexion" replace state={{ from: location.pathname }} />;
+  if (user.mustChangePassword && location.pathname !== '/changer-mot-de-passe') return <Navigate to="/changer-mot-de-passe" replace />;
+  return children;
+}
+
+/** Garde d’affichage (le backend reste la seule barrière de sécurité). */
+function Guard({ perms, children }) {
+  const can = useAuth((s) => s.can);
+  if (perms && !can(...perms)) return <Forbidden />;
+  return children;
+}
+
+const G = (perms, el) => <Guard perms={perms}>{el}</Guard>;
+
+export default function App() {
+  const { setReady, user } = useAuth();
+  useEffect(() => {
+    refreshSession().catch(() => {}).finally(() => setReady());
+  }, [setReady]);
+
+  return (
+    <ConfirmProvider>
+      <Suspense fallback={<Spinner />}>
+        <Routes>
+          <Route path="/connexion" element={user && !user.mustChangePassword ? <Navigate to="/" replace /> : <Login />} />
+          <Route path="/changer-mot-de-passe" element={<RequireAuth>{user?.mustChangePassword ? <ChangePassword /> : <Navigate to="/" replace />}</RequireAuth>} />
+          <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
+            <Route index element={<Dashboard />} />
+            <Route path="mot-de-passe" element={<ChangePassword />} />
+            <Route path="organigramme" element={G(['organisation.consulter'], <Organigramme />)} />
+            <Route path="structures/:type/:id" element={G(['organisation.consulter'], <Structure />)} />
+            <Route path="cadre-organique" element={G(['organisation.consulter'], <Cadre />)} />
+            <Route path="personnel" element={G(['personnel.consulter', 'personnel.suivre'], <AgentsList />)} />
+            <Route path="personnel/nouveau" element={G(['personnel.gerer', 'personnel.suivre'], <AgentForm />)} />
+            <Route path="personnel/:id" element={<AgentDetail />} />
+            <Route path="personnel/:id/modifier" element={G(['personnel.gerer', 'personnel.suivre'], <AgentForm />)} />
+            <Route path="profil" element={<Profil />} />
+            <Route path="comptes" element={G(['comptes.consulter', 'comptes.preparer'], <UsersList />)} />
+            <Route path="comptes/nouveau" element={G(['comptes.creer', 'comptes.preparer', 'comptes.creer_initial'], <UserCreate />)} />
+            <Route path="comptes/:id" element={G(['comptes.consulter', 'comptes.preparer'], <UserDetail />)} />
+            <Route path="roles" element={G(['roles.gerer'], <Roles />)} />
+            <Route path="delegations" element={G(['delegations.gerer'], <Delegations />)} />
+            <Route path="presences" element={G(['presences.consulter', 'presences.preparer_direction'], <PresencesList />)} />
+            <Route path="presences/nouvelle" element={G(['presences.saisir', 'presences.preparer_direction'], <PresenceCreate />)} />
+            <Route path="presences/:id" element={<PresenceSheet />} />
+            <Route path="courriers" element={G(['courriers.consulter'], <CourriersList />)} />
+            <Route path="courriers/nouveau" element={G(['courriers.enregistrer'], <CourrierForm />)} />
+            <Route path="courriers/:id" element={G(['courriers.consulter'], <CourrierDetail />)} />
+            <Route path="courriers/:id/modifier" element={G(['courriers.enregistrer'], <CourrierForm />)} />
+            <Route path="instructions" element={G(['instructions.consulter'], <InstructionsList />)} />
+            <Route path="instructions/nouvelle" element={G(['instructions.emettre'], <InstructionForm />)} />
+            <Route path="instructions/:id" element={G(['instructions.consulter'], <InstructionDetail />)} />
+            <Route path="taches" element={G(['taches.consulter'], <TachesList />)} />
+            <Route path="taches/nouvelle" element={G(['taches.attribuer'], <TacheForm />)} />
+            <Route path="taches/:id" element={G(['taches.consulter'], <TacheDetail />)} />
+            <Route path="documents" element={G(['documents.consulter'], <DocumentsList />)} />
+            <Route path="documents/nouveau" element={G(['documents.rediger'], <DocumentForm />)} />
+            <Route path="documents/:id" element={G(['documents.consulter'], <DocumentDetail />)} />
+            <Route path="documents/:id/modifier" element={G(['documents.rediger'], <DocumentForm />)} />
+            <Route path="pip" element={G(['pip.consulter'], <PipList />)} />
+            <Route path="pip/nouveau" element={G(['pip.rediger'], <PipForm />)} />
+            <Route path="pip/:id" element={G(['pip.consulter'], <PipDetail />)} />
+            <Route path="pip/:id/modifier" element={G(['pip.rediger'], <PipForm />)} />
+            <Route path="notifications" element={<Notifications />} />
+            <Route path="audit" element={G(['audit.consulter'], <Audit />)} />
+            <Route path="rapports" element={G(['rapports.consulter'], <Rapports />)} />
+            <Route path="systeme" element={G(['systeme.etat', 'systeme.parametres'], <Systeme />)} />
+            <Route path="acces-refuse" element={<Forbidden />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
+      </Suspense>
+      <Toaster />
+    </ConfirmProvider>
+  );
+}

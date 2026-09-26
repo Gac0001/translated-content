@@ -33,8 +33,9 @@ function header(doc, { reference } = {}) {
   doc.font('Helvetica').fontSize(9).fillColor('#222').text(SG_NOM.toUpperCase(), { width: w, align: 'center' });
   doc.font('Helvetica-Bold').fontSize(9.5).fillColor(BLUE).text(DEP_NOM.toUpperCase(), { width: w, align: 'center' });
   doc.font('Helvetica').fontSize(8).fillColor(GREY).text('(DEP)', { width: w, align: 'center' });
+  const endY = doc.y;
   if (reference) doc.fontSize(8).fillColor(GREY).text(`Réf. : ${reference}`, x, 42, { width: w, align: 'right' });
-  const y = doc.y + 6;
+  const y = endY + 6;
   doc.moveTo(x, y).lineTo(x + w, y).lineWidth(0.7).strokeColor(BLUE).stroke();
   doc.y = y + 10;
   doc.x = x;
