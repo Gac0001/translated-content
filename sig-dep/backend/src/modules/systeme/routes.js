@@ -1,0 +1,96 @@
+'use strict';
+/** Administration technique : état du système, paramètres généraux, sauvegardes PostgreSQL. */
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const { spawn } = require('child_process');
+const { z } = require('zod');
+const db = require('../../db/knex');
+const config = require('../../config/env');
+const validate = require('../../middleware/validate');
+const { requirePerm } = require('../../middleware/auth');
+const { audit } = require('../../services/audit');
+const { notFound, badRequest, AppError } = require('../../utils/errors');
+
+const router = express.Router();
+
+// Paramètres lisibles par tout utilisateur authentifié (en-têtes, libellés)
+router.get('/parametres/publics', async (req, res) => {
+  const rows = await db('parametres').whereIn('cle', ['pays', 'autorite_tutelle', 'direction_nom', 'direction_sigle', 'ville']);
+  res.json(Object.fromEntries(rows.map((r) => [r.cle, r.valeur])));
+});
+
+router.get('/etat', requirePerm('systeme.etat'), async (req, res) => {
+  const t0 = Date.now();
+  await db.raw('select 1');
+  const latence = Date.now() - t0;
+  const [version, size, migrations, counts] = await Promise.all([
+    db.raw('select version()'), db.raw('select pg_size_pretty(pg_database_size(current_database())) as taille'),
+    db('knex_migrations').orderBy('id'),
+    db.raw(`select (select count(*) from users) as comptes, (select count(*) from agents) as agents, (select count(*) from audit_logs) as audit,
+      (select count(*) from attachments where deleted_at is null) as pieces, (select coalesce(sum(size_bytes),0) from attachments) as octets`),
+  ]);
+  let backups = [];
+  try { backups = fs.readdirSync(config.backupDir).filter((f) => f.endsWith('.sql') || f.endsWith('.dump')); } catch (e) { /* ignore */ }
+  res.json({
+    api: { statut: 'Opérationnelle', node: process.version, uptimeSecondes: Math.round(process.uptime()), memoireMo: Math.round(process.memoryUsage().rss / 1048576), environnement: config.env },
+    baseDeDonnees: { statut: 'Opérationnelle', latenceMs: latence, version: version.rows[0].version.split(',')[0], taille: size.rows[0].taille, migrations: migrations.map((m) => m.name) },
+    stockage: { piecesJointes: Number(counts.rows[0].pieces), volumeMo: Math.round(Number(counts.rows[0].octets) / 1048576 * 10) / 10, sauvegardes: backups.length },
+    volumes: counts.rows[0],
+  });
+});
+
+router.get('/parametres', requirePerm('systeme.parametres'), async (req, res) => {
+  res.json({ data: await db('parametres').orderBy('cle') });
+});
+
+router.put('/parametres/:cle', requirePerm('systeme.parametres'), validate({ params: z.object({ cle: z.string().max(80) }), body: z.object({ valeur: z.string().max(2000) }) }), async (req, res) => {
+  const before = await db('parametres').where({ cle: req.valid.params.cle }).first();
+  if (!before) throw notFound('Paramètre inconnu.');
+  if (req.valid.params.cle === 'direction_nom' && req.valid.body.valeur !== 'Direction d’Études et Planification') {
+    throw badRequest('L’appellation officielle « Direction d’Études et Planification » ne peut pas être modifiée.');
+  }
+  await db('parametres').where({ cle: before.cle }).update({ valeur: req.valid.body.valeur, updated_at: db.fn.now(), updated_by: req.ctx.userId });
+  await audit(req, { action: 'MODIFICATION', module: 'systeme', entite: 'parametre', entiteId: before.cle, avant: { valeur: before.valeur }, apres: req.valid.body });
+  res.json({ message: 'Paramètre enregistré.' });
+});
+
+router.get('/sauvegardes', requirePerm('systeme.sauvegardes'), async (req, res) => {
+  fs.mkdirSync(config.backupDir, { recursive: true });
+  const files = fs.readdirSync(config.backupDir).filter((f) => /\.(sql|dump)$/.test(f)).map((f) => {
+    const st = fs.statSync(path.join(config.backupDir, f));
+    return { fichier: f, tailleOctets: st.size, date: st.mtime };
+  }).sort((a, b) => b.date - a.date);
+  res.json({ data: files, repertoire: config.backupDir });
+});
+
+router.post('/sauvegardes', requirePerm('systeme.sauvegardes'), async (req, res) => {
+  fs.mkdirSync(config.backupDir, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const file = path.join(config.backupDir, `sig-dep-${stamp}.dump`);
+  const url = new URL(config.databaseUrl);
+  const env = { ...process.env, PGPASSWORD: decodeURIComponent(url.password) };
+  const args = ['-h', url.hostname, '-p', url.port || '5432', '-U', decodeURIComponent(url.username), '-F', 'c', '-f', file, url.pathname.slice(1)];
+  await new Promise((resolve, reject) => {
+    const p = spawn(config.pgDumpPath, args, { env });
+    let err = '';
+    p.stderr.on('data', (d) => { err += d; });
+    p.on('error', () => reject(new AppError(500, 'PG_DUMP_INDISPONIBLE', 'pg_dump est introuvable. Installez les outils clients PostgreSQL ou renseignez PG_DUMP_PATH dans le fichier .env.')));
+    p.on('close', (code) => (code === 0 ? resolve() : reject(new AppError(500, 'SAUVEGARDE_ECHEC', `Échec de la sauvegarde : ${err.trim().slice(0, 300)}`))));
+  }).catch(async (e) => {
+    await audit(req, { action: 'SAUVEGARDE', module: 'systeme', resultat: 'ECHEC', message: e.message });
+    throw e;
+  });
+  const size = fs.statSync(file).size;
+  await audit(req, { action: 'SAUVEGARDE', module: 'systeme', message: `${path.basename(file)} (${size} octets)` });
+  res.status(201).json({ fichier: path.basename(file), tailleOctets: size, message: 'Sauvegarde réalisée.' });
+});
+
+router.get('/sauvegardes/:fichier', requirePerm('systeme.sauvegardes'), validate({ params: z.object({ fichier: z.string().regex(/^sig-dep-[0-9T-]+\.(dump|sql)$/) }) }), async (req, res) => {
+  const p = path.join(config.backupDir, req.valid.params.fichier);
+  if (!fs.existsSync(p)) throw notFound('Sauvegarde introuvable.');
+  await audit(req, { action: 'EXPORT', module: 'systeme', message: `Téléchargement de la sauvegarde ${req.valid.params.fichier}` });
+  res.download(p);
+});
+
+module.exports = router;

@@ -1,0 +1,344 @@
+'use strict';
+/**
+ * Comptes utilisateurs, rôles, permissions et délégations.
+ *
+ * Circuit :
+ *  - l’Admin crée les comptes institutionnels initiaux (Secrétaire Général, Directeur) ;
+ *  - le Directeur crée/autorise les comptes de la DEP ;
+ *  - le Bureau Secrétariat de Direction peut PRÉPARER des comptes sur délégation du Directeur
+ *    (comptes créés désactivés, en attente d’autorisation du Directeur).
+ */
+const express = require('express');
+const bcrypt = require('bcrypt');
+const { z } = require('zod');
+const db = require('../../db/knex');
+const validate = require('../../middleware/validate');
+const { requirePerm } = require('../../middleware/auth');
+const { audit } = require('../../services/audit');
+const { notify } = require('../../services/notifications');
+const { revokeAllForUser } = require('../../services/tokens');
+const { temporaryPassword } = require('../../utils/password');
+const { notFound, badRequest, forbidden, conflict } = require('../../utils/errors');
+const { ROLE_LIBELLES, DELEGABLE_PERMISSIONS } = require('../../constants');
+
+const router = express.Router();
+const idParam = z.object({ id: z.coerce.number().int().positive() });
+const usernameSchema = z.string().trim().toLowerCase().min(3).max(60).regex(/^[a-z0-9._-]+$/, 'lettres minuscules, chiffres, point, tiret uniquement');
+
+const DEP_ROLES = ['CHEF_DIVISION', 'CHEF_BUREAU', 'AGENT'];
+const ADMIN_ALLOWED_MODULES = ['systeme', 'audit', 'comptes'];
+
+async function rolesOf(userId, trx = db) {
+  return (await trx('user_roles as ur').join('roles as r', 'r.id', 'ur.role_id').where('ur.user_id', userId).select('r.code')).map((r) => r.code);
+}
+
+async function userView(id) {
+  const u = await db('users as u')
+    .leftJoin('agents as ag', 'ag.id', 'u.agent_id')
+    .leftJoin('affectations as a', function j() { this.on('a.agent_id', 'u.agent_id').andOn('a.est_active', db.raw('true')); })
+    .leftJoin('bureaux as b', 'b.id', 'a.bureau_id').leftJoin('divisions as d', 'd.id', 'a.division_id')
+    .leftJoin('users as au', 'au.id', 'u.autorise_par')
+    .where('u.id', id)
+    .first('u.id', 'u.username', 'u.statut', 'u.must_change_password', 'u.failed_attempts', 'u.locked_until', 'u.last_login_at',
+      'u.created_at', 'u.autorise_at', 'au.username as autorise_par_username', 'u.agent_id', 'ag.matricule', 'ag.nom', 'ag.postnom', 'ag.prenom',
+      'ag.est_autorite', 'a.niveau', 'b.nom as bureau_nom', 'b.est_secretariat_direction', 'd.nom as division_nom');
+  if (!u) return null;
+  u.roles = await rolesOf(id);
+  u.delegations = (await db('user_permissions as up').join('permissions as p', 'p.id', 'up.permission_id').leftJoin('users as g', 'g.id', 'up.granted_by')
+    .where('up.user_id', id).whereNull('up.revoked_at').select('up.id', 'p.code', 'p.libelle', 'up.granted_at', 'up.motif', 'g.username as granted_by'));
+  return u;
+}
+
+/** Le Directeur (et le Bureau Secrétariat par délégation) ne gère que les comptes de la DEP. */
+async function assertManageable(ctx, targetId) {
+  const target = await db('users').where({ id: targetId }).first();
+  if (!target) throw notFound('Compte introuvable.');
+  const roles = await rolesOf(targetId);
+  if (ctx.primaryRole === 'ADMIN' || ctx.roles.includes('ADMIN')) return { target, roles };
+  if (roles.includes('ADMIN') || roles.includes('SECRETAIRE_GENERAL') || roles.includes('DIRECTEUR')) {
+    throw forbidden('Ce compte institutionnel relève de l’administration technique du système.');
+  }
+  if (target.id === ctx.userId) throw forbidden('Vous ne pouvez pas modifier votre propre compte par cette opération.');
+  return { target, roles };
+}
+
+async function checkRoleCoherence(agentId, roles, trx = db) {
+  const aff = await trx('affectations as a').leftJoin('bureaux as b', 'b.id', 'a.bureau_id').leftJoin('postes_organiques as p', 'p.id', 'a.poste_id')
+    .where({ 'a.agent_id': agentId, 'a.est_active': true }).first('a.*', 'b.est_secretariat_direction', 'p.role_associe');
+  for (const r of roles) {
+    if (r === 'CHEF_DIVISION') {
+      if (!aff || aff.niveau !== 'DIVISION') throw badRequest('Le rôle Chef de Division exige une affectation au niveau d’une Division.');
+      if (aff.est_secretariat_direction) throw forbidden('Le Bureau Secrétariat de Direction n’est pas une Division : son Chef ne peut recevoir le rôle Chef de Division.', 'SECRETARIAT_DIVISION_PERMISSION');
+    }
+    if (r === 'CHEF_BUREAU' && (!aff || aff.niveau !== 'BUREAU' || aff.role_associe !== 'CHEF_BUREAU')) {
+      throw badRequest('Le rôle Chef de Bureau exige une affectation au poste de Chef de Bureau.');
+    }
+    if (r === 'AGENT' && (!aff || aff.niveau !== 'BUREAU')) throw badRequest('Le rôle Agent exige une affectation dans un Bureau.');
+    if (r === 'DIRECTEUR' && (!aff || aff.niveau !== 'DIRECTION')) throw badRequest('Le rôle Directeur exige une affectation au niveau de la Direction.');
+  }
+}
+
+async function setRoles(trx, userId, roles, grantedBy) {
+  const ids = await trx('roles').whereIn('code', roles).select('id', 'code');
+  if (ids.length !== roles.length) throw badRequest('Rôle inconnu.');
+  await trx('user_roles').where({ user_id: userId }).del();
+  if (ids.length) await trx('user_roles').insert(ids.map((r) => ({ user_id: userId, role_id: r.id, granted_by: grantedBy })));
+}
+
+// ─── Consultation ───────────────────────────────────────────────────────────
+router.get('/', requirePerm('comptes.consulter', 'comptes.preparer'), validate({ query: z.object({ q: z.string().max(80).optional(), statut: z.enum(['ACTIF', 'DESACTIVE', 'VERROUILLE']).optional(), role: z.string().max(40).optional() }) }), async (req, res) => {
+  const { q, statut, role } = req.valid.query;
+  const query = db('users as u')
+    .leftJoin('agents as ag', 'ag.id', 'u.agent_id')
+    .leftJoin('affectations as a', function j() { this.on('a.agent_id', 'u.agent_id').andOn('a.est_active', db.raw('true')); })
+    .leftJoin('bureaux as b', 'b.id', 'a.bureau_id').leftJoin('divisions as d', 'd.id', 'a.division_id')
+    .select('u.id', 'u.username', 'u.statut', 'u.must_change_password', 'u.last_login_at', 'u.locked_until', 'u.created_at', 'u.autorise_par',
+      'ag.matricule', 'ag.nom', 'ag.postnom', 'ag.prenom', 'b.nom as bureau_nom', 'd.nom as division_nom',
+      db.raw(`ARRAY(SELECT r.code FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id) as roles`))
+    .orderBy('u.username');
+  if (!req.ctx.roles.includes('ADMIN')) {
+    // Directeur / Bureau Secrétariat : uniquement les comptes des Agents de la DEP
+    query.whereNotExists(db('user_roles as ur').join('roles as r', 'r.id', 'ur.role_id').whereRaw('ur.user_id = u.id').whereIn('r.code', ['ADMIN', 'SECRETAIRE_GENERAL']));
+  }
+  if (q) query.where((w) => w.whereILike('u.username', `%${q}%`).orWhereILike('ag.nom', `%${q}%`).orWhereILike('ag.prenom', `%${q}%`));
+  if (statut) query.where('u.statut', statut);
+  if (role) query.whereExists(db('user_roles as ur').join('roles as r', 'r.id', 'ur.role_id').whereRaw('ur.user_id = u.id').where('r.code', role));
+  res.json({ data: await query });
+});
+
+router.get('/roles', requirePerm('comptes.consulter', 'roles.gerer', 'comptes.preparer'), async (req, res) => {
+  const roles = await db('roles').orderBy('id');
+  const perms = await db('permissions').orderBy(['module', 'code']);
+  const rp = await db('role_permissions as rp').join('roles as r', 'r.id', 'rp.role_id').join('permissions as p', 'p.id', 'rp.permission_id').select('r.code as role', 'p.code as permission');
+  res.json({
+    roles: roles.map((r) => ({ ...r, permissions: rp.filter((x) => x.role === r.code).map((x) => x.permission) })),
+    permissions: perms,
+  });
+});
+
+router.get('/delegations', requirePerm('delegations.gerer'), async (req, res) => {
+  const rows = await db('user_permissions as up').join('permissions as p', 'p.id', 'up.permission_id').join('users as u', 'u.id', 'up.user_id')
+    .leftJoin('agents as ag', 'ag.id', 'u.agent_id').leftJoin('users as g', 'g.id', 'up.granted_by')
+    .select('up.*', 'p.code', 'p.libelle', 'u.username', 'ag.nom', 'ag.prenom', 'g.username as granted_by_username').orderBy('up.granted_at', 'desc');
+  const chef = await db('users as u').join('affectations as a', function j() { this.on('a.agent_id', 'u.agent_id').andOn('a.est_active', db.raw('true')); })
+    .join('bureaux as b', 'b.id', 'a.bureau_id').join('postes_organiques as p', 'p.id', 'a.poste_id')
+    .where({ 'b.est_secretariat_direction': true, 'p.role_associe': 'CHEF_BUREAU' }).first('u.id', 'u.username');
+  res.json({ data: rows, chefSecretariat: chef || null, delegables: await db('permissions').where({ delegable: true }) });
+});
+
+router.get('/:id', requirePerm('comptes.consulter', 'comptes.preparer'), validate({ params: idParam }), async (req, res) => {
+  const u = await userView(req.valid.params.id);
+  if (!u) throw notFound('Compte introuvable.');
+  if (!req.ctx.roles.includes('ADMIN') && u.roles.some((r) => ['ADMIN', 'SECRETAIRE_GENERAL'].includes(r))) throw forbidden();
+  const connexions = await db('login_history').where({ user_id: u.id }).orderBy('created_at', 'desc').limit(30);
+  const sessions = await db('refresh_tokens').where({ user_id: u.id }).whereNull('revoked_at').where('expires_at', '>', db.fn.now())
+    .select('id', 'ip', 'user_agent', 'created_at', 'expires_at').orderBy('created_at', 'desc');
+  res.json({ ...u, connexions, sessions });
+});
+
+// ─── Création des comptes institutionnels initiaux (Admin) ──────────────────
+const initialSchema = z.object({
+  type: z.enum(['SECRETAIRE_GENERAL', 'DIRECTEUR']),
+  username: usernameSchema,
+  matricule: z.string().trim().min(2).max(40),
+  nom: z.string().trim().min(2).max(100),
+  postnom: z.string().trim().max(100).optional().nullable(),
+  prenom: z.string().trim().max(100).optional().nullable(),
+  sexe: z.enum(['M', 'F']),
+  email: z.union([z.email(), z.literal('')]).optional().nullable().transform((v) => v || null),
+  telephone: z.string().trim().max(40).optional().nullable(),
+  date_prise_fonction: z.string().date().optional(),
+});
+
+router.post('/initial', requirePerm('comptes.creer_initial'), validate({ body: initialSchema }), async (req, res) => {
+  const b = req.valid.body;
+  const existing = await db('users as u').join('user_roles as ur', 'ur.user_id', 'u.id').join('roles as r', 'r.id', 'ur.role_id')
+    .where('r.code', b.type).whereNot('u.statut', 'DESACTIVE').first('u.id');
+  if (existing) throw conflict(`Un compte ${ROLE_LIBELLES[b.type]} actif existe déjà. Désactivez-le avant d’en créer un nouveau.`);
+  const temp = temporaryPassword();
+  const hash = await bcrypt.hash(temp, 12);
+  const dep = await db('directions').where({ code: 'DEP' }).first();
+  const user = await db.transaction(async (trx) => {
+    let agent = await trx('agents').where({ matricule: b.matricule }).first();
+    if (!agent) {
+      [agent] = await trx('agents').insert({
+        matricule: b.matricule, nom: b.nom, postnom: b.postnom, prenom: b.prenom, sexe: b.sexe, email: b.email, telephone: b.telephone,
+        est_autorite: b.type === 'SECRETAIRE_GENERAL',
+        grade_id: (await trx('grades').where({ code: b.type === 'DIRECTEUR' ? 'DIR' : 'SG' }).first() || {}).id,
+        fonction_id: (await trx('fonctions').where({ code: b.type === 'DIRECTEUR' ? 'F-DIR' : 'F-SG' }).first() || {}).id,
+      }).returning('*');
+    }
+    if (b.type === 'DIRECTEUR') {
+      const poste = await trx('postes_organiques').where({ niveau: 'DIRECTION', role_associe: 'DIRECTEUR' }).first();
+      const cur = await trx('affectations').where({ agent_id: agent.id, est_active: true }).first();
+      if (!cur || cur.niveau !== 'DIRECTION') {
+        const other = await trx('affectations').where({ niveau: 'DIRECTION', est_active: true, poste_id: poste.id }).whereNot('agent_id', agent.id).first();
+        if (other) await trx('affectations').where({ id: other.id }).update({ est_active: false, date_fin: trx.raw('CURRENT_DATE'), motif_cloture: 'Nomination d’un nouveau Directeur', closed_by: req.ctx.userId });
+        if (cur) await trx('affectations').where({ id: cur.id }).update({ est_active: false, date_fin: trx.raw('CURRENT_DATE'), motif_cloture: 'Nomination comme Directeur', closed_by: req.ctx.userId });
+        await trx('affectations').insert({ agent_id: agent.id, direction_id: dep.id, niveau: 'DIRECTION', poste_id: poste.id, date_debut: b.date_prise_fonction || new Date().toISOString().slice(0, 10), motif: 'Compte institutionnel initial', created_by: req.ctx.userId });
+      }
+    }
+    if (await trx('users').where({ agent_id: agent.id }).first()) throw conflict('Cette personne possède déjà un compte.');
+    const [u] = await trx('users').insert({ username: b.username, password_hash: hash, agent_id: agent.id, statut: 'ACTIF', must_change_password: true, created_by: req.ctx.userId }).returning('*');
+    await setRoles(trx, u.id, [b.type], req.ctx.userId);
+    return u;
+  });
+  await audit(req, { action: 'CREATION', module: 'comptes', entite: 'user', entiteId: user.id, apres: { username: user.username, role: b.type }, message: `Création du compte institutionnel initial (${ROLE_LIBELLES[b.type]})` });
+  await notify(user.id, { type: 'COMPTE_CREE', titre: 'Votre compte SIG-DEP a été créé', message: 'Changez votre mot de passe temporaire.', lien: '/profil', expediteur: req.ctx.userId });
+  res.status(201).json({ id: user.id, username: user.username, motDePasseTemporaire: temp, message: 'Compte créé. Communiquez le mot de passe temporaire de façon sécurisée : il devra être changé à la première connexion.' });
+});
+
+// ─── Création des comptes de la DEP (Directeur / Bureau Secrétariat par délégation) ──
+router.post('/', requirePerm('comptes.creer', 'comptes.preparer'), validate({
+  body: z.object({ agent_id: z.coerce.number().int().positive(), username: usernameSchema, roles: z.array(z.enum(DEP_ROLES)).min(1).max(2) }),
+}), async (req, res) => {
+  const b = req.valid.body;
+  const agent = await db('agents').where({ id: b.agent_id }).whereNull('archived_at').first();
+  if (!agent) throw notFound('Agent introuvable.');
+  if (agent.est_autorite) throw forbidden('Les comptes des autorités sont créés par l’administration technique.');
+  if (await db('users').where({ agent_id: agent.id }).first()) throw conflict('Cet Agent possède déjà un compte.');
+  await checkRoleCoherence(agent.id, b.roles);
+  const autorise = req.ctx.can('comptes.creer');
+  const temp = temporaryPassword();
+  const hash = await bcrypt.hash(temp, 12);
+  const user = await db.transaction(async (trx) => {
+    const [u] = await trx('users').insert({
+      username: b.username, password_hash: hash, agent_id: agent.id, must_change_password: true, created_by: req.ctx.userId,
+      statut: autorise ? 'ACTIF' : 'DESACTIVE',
+      autorise_par: autorise ? req.ctx.userId : null, autorise_at: autorise ? trx.fn.now() : null,
+    }).returning('*');
+    await setRoles(trx, u.id, b.roles, req.ctx.userId);
+    return u;
+  });
+  await audit(req, { action: 'CREATION', module: 'comptes', entite: 'user', entiteId: user.id, apres: { username: user.username, roles: b.roles, statut: user.statut }, message: autorise ? 'Compte créé et autorisé' : 'Compte préparé — en attente d’autorisation du Directeur' });
+  if (autorise) {
+    await notify(user.id, { type: 'COMPTE_CREE', titre: 'Votre compte SIG-DEP a été créé', message: 'Changez votre mot de passe temporaire.', lien: '/profil', expediteur: req.ctx.userId });
+  } else {
+    const directeurs = await db('users as u').join('user_roles as ur', 'ur.user_id', 'u.id').join('roles as r', 'r.id', 'ur.role_id').where('r.code', 'DIRECTEUR').where('u.statut', 'ACTIF').pluck('u.id');
+    await notify(directeurs, { type: 'COMPTE_CREE', titre: `Compte préparé en attente d’autorisation : ${user.username}`, lien: `/comptes/${user.id}`, expediteur: req.ctx.userId });
+  }
+  res.status(201).json({
+    id: user.id, username: user.username, statut: user.statut, motDePasseTemporaire: temp,
+    message: autorise ? 'Compte créé. Le mot de passe temporaire devra être changé à la première connexion.' : 'Compte préparé. Il sera actif après autorisation du Directeur.',
+  });
+});
+
+router.post('/:id/autoriser', requirePerm('comptes.creer'), validate({ params: idParam }), async (req, res) => {
+  const { target } = await assertManageable(req.ctx, req.valid.params.id);
+  if (target.autorise_par) throw badRequest('Ce compte est déjà autorisé.');
+  await db('users').where({ id: target.id }).update({ statut: 'ACTIF', autorise_par: req.ctx.userId, autorise_at: db.fn.now(), updated_at: db.fn.now() });
+  await audit(req, { action: 'ACTIVATION', module: 'comptes', entite: 'user', entiteId: target.id, avant: { statut: target.statut }, apres: { statut: 'ACTIF' }, message: 'Autorisation du compte par le Directeur' });
+  await notify(target.id, { type: 'COMPTE_CREE', titre: 'Votre compte SIG-DEP est activé', lien: '/profil', expediteur: req.ctx.userId });
+  res.json({ message: 'Compte autorisé et activé.' });
+});
+
+// ─── Rôles d’un compte ──────────────────────────────────────────────────────
+router.put('/:id/roles', requirePerm('roles.gerer', 'comptes.creer'), validate({ params: idParam, body: z.object({ roles: z.array(z.enum(['ADMIN', 'SECRETAIRE_GENERAL', 'DIRECTEUR', 'CHEF_DIVISION', 'CHEF_BUREAU', 'AGENT'])).min(1).max(3) }) }), async (req, res) => {
+  const { target, roles: before } = await assertManageable(req.ctx, req.valid.params.id);
+  const roles = [...new Set(req.valid.body.roles)];
+  const isAdmin = req.ctx.roles.includes('ADMIN');
+  if (!isAdmin && roles.some((r) => !DEP_ROLES.includes(r))) throw forbidden('Vous ne pouvez attribuer que les rôles Chef de Division, Chef de Bureau ou Agent.');
+  if (target.id === req.ctx.userId && before.includes('ADMIN') && !roles.includes('ADMIN')) throw badRequest('Vous ne pouvez pas retirer votre propre rôle Admin.');
+  if (target.agent_id) await checkRoleCoherence(target.agent_id, roles.filter((r) => r !== 'ADMIN' && r !== 'SECRETAIRE_GENERAL'));
+  else if (roles.some((r) => r !== 'ADMIN')) throw badRequest('Un compte non lié à un Agent ne peut recevoir qu’un rôle technique.');
+  await db.transaction(async (trx) => {
+    await setRoles(trx, target.id, roles, req.ctx.userId);
+    await trx('users').where({ id: target.id }).increment('token_version', 1);
+  });
+  await audit(req, { action: 'CHANGEMENT_ROLE', module: 'comptes', entite: 'user', entiteId: target.id, avant: { roles: before }, apres: { roles } });
+  res.json({ message: 'Rôles mis à jour.', roles });
+});
+
+// ─── Statut, mot de passe, sessions ─────────────────────────────────────────
+router.post('/:id/activer', requirePerm('comptes.activer'), validate({ params: idParam }), async (req, res) => {
+  const { target } = await assertManageable(req.ctx, req.valid.params.id);
+  await db('users').where({ id: target.id }).update({ statut: 'ACTIF', failed_attempts: 0, locked_until: null, updated_at: db.fn.now(), ...(target.autorise_par || !req.ctx.can('comptes.creer') ? {} : { autorise_par: req.ctx.userId, autorise_at: db.fn.now() }) });
+  await audit(req, { action: 'ACTIVATION', module: 'comptes', entite: 'user', entiteId: target.id, avant: { statut: target.statut }, apres: { statut: 'ACTIF' } });
+  res.json({ message: 'Compte activé.' });
+});
+
+router.post('/:id/desactiver', requirePerm('comptes.activer'), validate({ params: idParam, body: z.object({ motif: z.string().trim().max(300).optional() }) }), async (req, res) => {
+  const { target } = await assertManageable(req.ctx, req.valid.params.id);
+  if (target.id === req.ctx.userId) throw badRequest('Vous ne pouvez pas désactiver votre propre compte.');
+  await db.transaction(async (trx) => {
+    await trx('users').where({ id: target.id }).update({ statut: 'DESACTIVE', updated_at: trx.fn.now() });
+    await revokeAllForUser(target.id, 'DESACTIVATION', trx);
+  });
+  await audit(req, { action: 'DESACTIVATION', module: 'comptes', entite: 'user', entiteId: target.id, avant: { statut: target.statut }, apres: { statut: 'DESACTIVE' }, message: req.valid.body.motif });
+  res.json({ message: 'Compte désactivé et sessions révoquées.' });
+});
+
+router.post('/:id/reinitialiser-mot-de-passe', requirePerm('comptes.reinitialiser'), validate({ params: idParam }), async (req, res) => {
+  const { target } = await assertManageable(req.ctx, req.valid.params.id);
+  const temp = temporaryPassword();
+  const hash = await bcrypt.hash(temp, 12);
+  await db.transaction(async (trx) => {
+    await trx('users').where({ id: target.id }).update({ password_hash: hash, must_change_password: true, failed_attempts: 0, locked_until: null, statut: target.statut === 'VERROUILLE' ? 'ACTIF' : target.statut, updated_at: trx.fn.now() });
+    await revokeAllForUser(target.id, 'REINITIALISATION_MDP', trx);
+  });
+  await audit(req, { action: 'REINITIALISATION_MDP', module: 'comptes', entite: 'user', entiteId: target.id });
+  await notify(target.id, { type: 'MDP_REINITIALISE', titre: 'Votre mot de passe a été réinitialisé', message: 'Vous devrez le changer à la prochaine connexion.', lien: '/profil', expediteur: req.ctx.userId });
+  res.json({ motDePasseTemporaire: temp, message: 'Mot de passe réinitialisé. Il devra être changé à la prochaine connexion.' });
+});
+
+router.post('/:id/deverrouiller', requirePerm('comptes.deverrouiller'), validate({ params: idParam }), async (req, res) => {
+  const { target } = await assertManageable(req.ctx, req.valid.params.id);
+  if (target.statut !== 'VERROUILLE') throw badRequest('Ce compte n’est pas verrouillé.');
+  await db('users').where({ id: target.id }).update({ statut: 'ACTIF', failed_attempts: 0, locked_until: null, updated_at: db.fn.now() });
+  await audit(req, { action: 'DEVERROUILLAGE', module: 'comptes', entite: 'user', entiteId: target.id, avant: { statut: 'VERROUILLE' }, apres: { statut: 'ACTIF' } });
+  res.json({ message: 'Compte déverrouillé.' });
+});
+
+router.post('/:id/revoquer-sessions', requirePerm('sessions.revoquer'), validate({ params: idParam }), async (req, res) => {
+  const { target } = await assertManageable(req.ctx, req.valid.params.id);
+  await revokeAllForUser(target.id, 'REVOCATION_ADMIN');
+  await audit(req, { action: 'REVOCATION_SESSION', module: 'comptes', entite: 'user', entiteId: target.id });
+  res.json({ message: 'Toutes les sessions de ce compte ont été révoquées.' });
+});
+
+// ─── Permissions des rôles (Admin) ──────────────────────────────────────────
+router.put('/roles/:code/permissions', requirePerm('roles.gerer'), validate({ params: z.object({ code: z.string().max(40) }), body: z.object({ permissions: z.array(z.string().max(60)).max(200) }) }), async (req, res) => {
+  const role = await db('roles').where({ code: req.valid.params.code }).first();
+  if (!role) throw notFound('Rôle introuvable.');
+  const perms = await db('permissions').whereIn('code', req.valid.body.permissions);
+  if (perms.length !== new Set(req.valid.body.permissions).size) throw badRequest('Permission inconnue.');
+  if (role.code === 'ADMIN') {
+    const bad = perms.filter((p) => !ADMIN_ALLOWED_MODULES.includes(p.module) && p.code !== 'organisation.consulter');
+    if (bad.length) throw forbidden(`L’Admin est un administrateur technique : il ne peut recevoir de permission fonctionnelle (${bad.map((p) => p.code).join(', ')}).`, 'ADMIN_TECHNIQUE');
+  }
+  if (['CHEF_BUREAU', 'AGENT', 'SECRETAIRE_GENERAL', 'ADMIN'].includes(role.code)) {
+    const bad = perms.filter((p) => p.reservee_division);
+    if (bad.length) throw forbidden(`Les permissions réservées aux Divisions ne peuvent être attribuées au rôle ${role.libelle}.`, 'PERMISSION_DIVISION');
+  }
+  const before = (await db('role_permissions as rp').join('permissions as p', 'p.id', 'rp.permission_id').where('rp.role_id', role.id).pluck('p.code'));
+  await db.transaction(async (trx) => {
+    await trx('role_permissions').where({ role_id: role.id }).del();
+    if (perms.length) await trx('role_permissions').insert(perms.map((p) => ({ role_id: role.id, permission_id: p.id })));
+  });
+  await audit(req, { action: 'CHANGEMENT_ROLE', module: 'comptes', entite: 'role', entiteId: role.code, avant: { permissions: before }, apres: { permissions: req.valid.body.permissions } });
+  res.json({ message: 'Permissions du rôle mises à jour.' });
+});
+
+// ─── Délégations du Directeur au Chef du Bureau Secrétariat de Direction ────
+router.post('/:id/delegations', requirePerm('delegations.gerer'), validate({ params: idParam, body: z.object({ permission: z.enum(DELEGABLE_PERMISSIONS), motif: z.string().trim().min(3).max(300) }) }), async (req, res) => {
+  const target = await db('users as u').join('affectations as a', function j() { this.on('a.agent_id', 'u.agent_id').andOn('a.est_active', db.raw('true')); })
+    .join('bureaux as b', 'b.id', 'a.bureau_id').leftJoin('postes_organiques as p', 'p.id', 'a.poste_id')
+    .where('u.id', req.valid.params.id).first('u.id', 'b.est_secretariat_direction', 'p.role_associe');
+  if (!target || !target.est_secretariat_direction || target.role_associe !== 'CHEF_BUREAU') {
+    throw forbidden('Les délégations administratives du Directeur ne concernent que le Chef du Bureau Secrétariat de Direction.');
+  }
+  const perm = await db('permissions').where({ code: req.valid.body.permission, delegable: true }).first();
+  const [row] = await db('user_permissions').insert({ user_id: target.id, permission_id: perm.id, granted_by: req.ctx.userId, motif: req.valid.body.motif }).returning('*');
+  await audit(req, { action: 'DELEGATION', module: 'comptes', entite: 'user', entiteId: target.id, apres: { permission: perm.code, motif: req.valid.body.motif } });
+  res.status(201).json(row);
+});
+
+router.delete('/delegations/:id', requirePerm('delegations.gerer'), validate({ params: idParam }), async (req, res) => {
+  const row = await db('user_permissions').where({ id: req.valid.params.id }).whereNull('revoked_at').first();
+  if (!row) throw notFound('Délégation introuvable.');
+  await db('user_permissions').where({ id: row.id }).update({ revoked_at: db.fn.now(), revoked_by: req.ctx.userId });
+  await audit(req, { action: 'REVOCATION_DELEGATION', module: 'comptes', entite: 'user', entiteId: row.user_id, avant: row });
+  res.json({ message: 'Délégation révoquée (conservée dans l’historique).' });
+});
+
+module.exports = router;

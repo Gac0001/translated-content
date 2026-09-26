@@ -1,0 +1,47 @@
+'use strict';
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env'), quiet: true });
+
+const env = process.env.NODE_ENV || 'development';
+const root = path.resolve(__dirname, '../..');
+
+function required(name, fallback) {
+  const v = process.env[name] ?? fallback;
+  if (v === undefined || v === '') throw new Error(`Variable d’environnement manquante : ${name}`);
+  return v;
+}
+
+const config = {
+  env,
+  isProd: env === 'production',
+  isTest: env === 'test',
+  port: Number(process.env.PORT || 4000),
+  databaseUrl: env === 'test'
+    ? required('DATABASE_URL_TEST', 'postgres://sigdep:sigdep@localhost:5432/sig_dep_test')
+    : required('DATABASE_URL'),
+  jwt: {
+    accessSecret: required('JWT_ACCESS_SECRET', env === 'test' ? 'secret-de-test-uniquement' : undefined),
+    accessTtl: process.env.ACCESS_TOKEN_TTL || '15m',
+    refreshTtlDays: Number(process.env.REFRESH_TOKEN_TTL_DAYS || 7),
+  },
+  corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:5173').split(',').map((s) => s.trim()).filter(Boolean),
+  cookieSecure: process.env.COOKIE_SECURE === 'true',
+  security: {
+    maxFailedLogins: Number(process.env.MAX_FAILED_LOGINS || 5),
+    lockMinutes: Number(process.env.LOCK_DURATION_MINUTES || 15),
+    loginWindowMinutes: Number(process.env.LOGIN_RATE_LIMIT_WINDOW_MINUTES || 15),
+    loginMax: Number(process.env.LOGIN_RATE_LIMIT_MAX || 20),
+  },
+  uploadDir: path.resolve(root, process.env.UPLOAD_DIR || './storage/uploads'),
+  backupDir: path.resolve(root, process.env.BACKUP_DIR || './storage/backups'),
+  maxUploadBytes: Number(process.env.MAX_UPLOAD_MB || 15) * 1024 * 1024,
+  presenceAutolockHours: Number(process.env.PRESENCE_AUTOLOCK_HOURS || 24),
+  seedDemo: process.env.SEED_DEMO !== 'false',
+  pgDumpPath: process.env.PG_DUMP_PATH || 'pg_dump',
+};
+
+if (config.isProd && /remplacer-par/.test(config.jwt.accessSecret)) {
+  throw new Error('JWT_ACCESS_SECRET doit être défini avec une valeur secrète en production.');
+}
+
+module.exports = config;
