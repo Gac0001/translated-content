@@ -86,7 +86,7 @@ async function setRoles(trx, userId, roles, grantedBy) {
 }
 
 // ─── Consultation ───────────────────────────────────────────────────────────
-router.get('/', requirePerm('comptes.consulter', 'comptes.preparer'), validate({ query: z.object({ q: z.string().max(80).optional(), statut: z.enum(['ACTIF', 'DESACTIVE', 'VERROUILLE']).optional(), role: z.string().max(40).optional() }) }), async (req, res) => {
+router.get('/', requirePerm('comptes.consulter'), validate({ query: z.object({ q: z.string().max(80).optional(), statut: z.enum(['ACTIF', 'DESACTIVE', 'VERROUILLE']).optional(), role: z.string().max(40).optional() }) }), async (req, res) => {
   const { q, statut, role } = req.valid.query;
   const query = db('users as u')
     .leftJoin('agents as ag', 'ag.id', 'u.agent_id')
@@ -106,7 +106,7 @@ router.get('/', requirePerm('comptes.consulter', 'comptes.preparer'), validate({
   res.json({ data: await query });
 });
 
-router.get('/roles', requirePerm('comptes.consulter', 'roles.gerer', 'comptes.preparer'), async (req, res) => {
+router.get('/roles', requirePerm('comptes.consulter', 'roles.gerer'), async (req, res) => {
   const roles = await db('roles').orderBy('id');
   const perms = await db('permissions').orderBy(['module', 'code']);
   const rp = await db('role_permissions as rp').join('roles as r', 'r.id', 'rp.role_id').join('permissions as p', 'p.id', 'rp.permission_id').select('r.code as role', 'p.code as permission');
@@ -126,7 +126,7 @@ router.get('/delegations', requirePerm('delegations.gerer'), async (req, res) =>
   res.json({ data: rows, chefSecretariat: chef || null, delegables: await db('permissions').where({ delegable: true }) });
 });
 
-router.get('/:id', requirePerm('comptes.consulter', 'comptes.preparer'), validate({ params: idParam }), async (req, res) => {
+router.get('/:id', requirePerm('comptes.consulter'), validate({ params: idParam }), async (req, res) => {
   const u = await userView(req.valid.params.id);
   if (!u) throw notFound('Compte introuvable.');
   if (!req.ctx.roles.includes('ADMIN') && u.roles.some((r) => ['ADMIN', 'SECRETAIRE_GENERAL'].includes(r))) throw forbidden();
@@ -188,52 +188,11 @@ router.post('/initial', requirePerm('comptes.creer_initial'), validate({ body: i
   res.status(201).json({ id: user.id, username: user.username, motDePasseTemporaire: temp, message: 'Compte créé. Communiquez le mot de passe temporaire de façon sécurisée : il devra être changé à la première connexion.' });
 });
 
-// ─── Création des comptes de la DEP (Directeur / Bureau Secrétariat par délégation) ──
-router.post('/', requirePerm('comptes.creer', 'comptes.preparer'), validate({
-  body: z.object({ agent_id: z.coerce.number().int().positive(), username: usernameSchema, roles: z.array(z.enum(DEP_ROLES)).min(1).max(2) }),
-}), async (req, res) => {
-  const b = req.valid.body;
-  const agent = await db('agents').where({ id: b.agent_id }).whereNull('archived_at').first();
-  if (!agent) throw notFound('Agent introuvable.');
-  if (agent.est_autorite) throw forbidden('Les comptes des autorités sont créés par l’administration technique.');
-  if (await db('users').where({ agent_id: agent.id }).first()) throw conflict('Cet Agent possède déjà un compte.');
-  await checkRoleCoherence(agent.id, b.roles);
-  const autorise = req.ctx.can('comptes.creer');
-  const temp = temporaryPassword();
-  const hash = await bcrypt.hash(temp, 12);
-  const user = await db.transaction(async (trx) => {
-    const [u] = await trx('users').insert({
-      username: b.username, password_hash: hash, agent_id: agent.id, must_change_password: true, created_by: req.ctx.userId,
-      statut: autorise ? 'ACTIF' : 'DESACTIVE',
-      autorise_par: autorise ? req.ctx.userId : null, autorise_at: autorise ? trx.fn.now() : null,
-    }).returning('*');
-    await setRoles(trx, u.id, b.roles, req.ctx.userId);
-    return u;
-  });
-  await audit(req, { action: 'CREATION', module: 'comptes', entite: 'user', entiteId: user.id, apres: { username: user.username, roles: b.roles, statut: user.statut }, message: autorise ? 'Compte créé et autorisé' : 'Compte préparé — en attente d’autorisation du Directeur' });
-  if (autorise) {
-    await notify(user.id, { type: 'COMPTE_CREE', titre: 'Votre compte SIG-DEP a été créé', message: 'Changez votre mot de passe temporaire.', lien: '/profil', expediteur: req.ctx.userId });
-  } else {
-    const directeurs = await db('users as u').join('user_roles as ur', 'ur.user_id', 'u.id').join('roles as r', 'r.id', 'ur.role_id').where('r.code', 'DIRECTEUR').where('u.statut', 'ACTIF').pluck('u.id');
-    await notify(directeurs, { type: 'COMPTE_CREE', titre: `Compte préparé en attente d’autorisation : ${user.username}`, lien: `/comptes/${user.id}`, expediteur: req.ctx.userId });
-  }
-  res.status(201).json({
-    id: user.id, username: user.username, statut: user.statut, motDePasseTemporaire: temp,
-    message: autorise ? 'Compte créé. Le mot de passe temporaire devra être changé à la première connexion.' : 'Compte préparé. Il sera actif après autorisation du Directeur.',
-  });
-});
-
-router.post('/:id/autoriser', requirePerm('comptes.creer'), validate({ params: idParam }), async (req, res) => {
-  const { target } = await assertManageable(req.ctx, req.valid.params.id);
-  if (target.autorise_par) throw badRequest('Ce compte est déjà autorisé.');
-  await db('users').where({ id: target.id }).update({ statut: 'ACTIF', autorise_par: req.ctx.userId, autorise_at: db.fn.now(), updated_at: db.fn.now() });
-  await audit(req, { action: 'ACTIVATION', module: 'comptes', entite: 'user', entiteId: target.id, avant: { statut: target.statut }, apres: { statut: 'ACTIF' }, message: 'Autorisation du compte par le Directeur' });
-  await notify(target.id, { type: 'COMPTE_CREE', titre: 'Votre compte SIG-DEP est activé', lien: '/profil', expediteur: req.ctx.userId });
-  res.json({ message: 'Compte autorisé et activé.' });
-});
+// Les comptes des agents de la DEP sont créés par enrôlement (module enrolement),
+// uniquement pour les agents inscrits sur la liste déclarative validée.
 
 // ─── Rôles d’un compte ──────────────────────────────────────────────────────
-router.put('/:id/roles', requirePerm('roles.gerer', 'comptes.creer'), validate({ params: idParam, body: z.object({ roles: z.array(z.enum(['ADMIN', 'SECRETAIRE_GENERAL', 'DIRECTEUR', 'CHEF_DIVISION', 'CHEF_BUREAU', 'AGENT'])).min(1).max(3) }) }), async (req, res) => {
+router.put('/:id/roles', requirePerm('roles.gerer'), validate({ params: idParam, body: z.object({ roles: z.array(z.enum(['ADMIN', 'SECRETAIRE_GENERAL', 'DIRECTEUR', 'CHEF_DIVISION', 'CHEF_BUREAU', 'AGENT'])).min(1).max(3) }) }), async (req, res) => {
   const { target, roles: before } = await assertManageable(req.ctx, req.valid.params.id);
   const roles = [...new Set(req.valid.body.roles)];
   const isAdmin = req.ctx.roles.includes('ADMIN');
@@ -252,7 +211,7 @@ router.put('/:id/roles', requirePerm('roles.gerer', 'comptes.creer'), validate({
 // ─── Statut, mot de passe, sessions ─────────────────────────────────────────
 router.post('/:id/activer', requirePerm('comptes.activer'), validate({ params: idParam }), async (req, res) => {
   const { target } = await assertManageable(req.ctx, req.valid.params.id);
-  await db('users').where({ id: target.id }).update({ statut: 'ACTIF', failed_attempts: 0, locked_until: null, updated_at: db.fn.now(), ...(target.autorise_par || !req.ctx.can('comptes.creer') ? {} : { autorise_par: req.ctx.userId, autorise_at: db.fn.now() }) });
+  await db('users').where({ id: target.id }).update({ statut: 'ACTIF', failed_attempts: 0, locked_until: null, updated_at: db.fn.now() });
   await audit(req, { action: 'ACTIVATION', module: 'comptes', entite: 'user', entiteId: target.id, avant: { statut: target.statut }, apres: { statut: 'ACTIF' } });
   res.json({ message: 'Compte activé.' });
 });
@@ -342,3 +301,6 @@ router.delete('/delegations/:id', requirePerm('delegations.gerer'), validate({ p
 });
 
 module.exports = router;
+module.exports.setRoles = setRoles;
+module.exports.checkRoleCoherence = checkRoleCoherence;
+module.exports.usernameSchema = usernameSchema;

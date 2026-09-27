@@ -1,6 +1,6 @@
 'use strict';
 /** Présences, courriers, documents, PIP, comptes, audit, exports. */
-const { db, login, loginAdmin, api, userId } = require('./helpers');
+const { db, login, loginAdmin, api, userId, enroler } = require('./helpers');
 
 describe('Présences hebdomadaires', () => {
   test('workflow Brouillon → Vérifiée → Soumise → Verrouillée et rectificatif', async () => {
@@ -187,20 +187,24 @@ describe('Comptes et audit', () => {
     await db('users').where({ username: 'sg.nouveau' }).update({ statut: 'DESACTIVE' });
   });
 
-  test('le Bureau Secrétariat prépare un compte ; le Directeur l’autorise', async () => {
+  test('le Bureau Secrétariat enrôle un agent d’une Division après validation de la liste par le Directeur', async () => {
     const dir = api(await login('directeur'));
     const bur = await db('bureaux').where({ code: 'BUR-PRG' }).first();
     const poste = await db('postes_organiques').where({ code: 'P-AG-BUR-PRG' }).first();
-    const ag = await api(await login('cb.secretariat')).post('/agents', { matricule: 'DEP-0500', nom: 'NOUVEL', prenom: 'Agent', sexe: 'F' });
+    const grade = await db('grades').where({ code: 'ATA2' }).first();
+    const ag = await api(await login('cb.secretariat')).post('/agents', { matricule: 'DEP-0500', nom: 'NOUVEL', prenom: 'Agent', sexe: 'F', grade_id: grade.id });
     expect(ag.status).toBe(201);
     expect((await dir.post(`/agents/${ag.body.id}/affectations`, { bureau_id: bur.id, poste_id: poste.id, date_debut: '2026-09-01' })).status).toBe(201);
-    const cbs = api(await login('cb.secretariat'));
-    const u = await cbs.post('/users', { agent_id: ag.body.id, username: 'nouvel.agent', roles: ['AGENT'] });
+    const tokenCbs = await login('cb.secretariat');
+    // Ajouté après la dernière validation : pas encore enrôlable
+    expect((await enroler(tokenCbs, ag.body.id, { username: 'nouvel.agent' })).status).toBe(403);
+    expect((await dir.post('/liste-declarative/valider', {})).status).toBe(201);
+    const u = await enroler(tokenCbs, ag.body.id, { username: 'nouvel.agent' });
     expect(u.status).toBe(201);
-    expect(u.body.statut).toBe('DESACTIVE');
     expect(u.body.motDePasseTemporaire).toBeTruthy();
-    expect((await dir.post(`/users/${u.body.id}/autoriser`)).status).toBe(200);
-    expect((await db('users').where({ id: u.body.id }).first()).statut).toBe('ACTIF');
+    const cree = await db('users').where({ id: u.body.id }).first();
+    expect(cree.statut).toBe('ACTIF');
+    expect(cree.must_change_password).toBe(true);
     // Nouvelle affectation : l’ancienne est clôturée, pas supprimée
     const bur2 = await db('bureaux').where({ code: 'BUR-SEV' }).first();
     const poste2 = await db('postes_organiques').where({ code: 'P-AG-BUR-SEV' }).first();

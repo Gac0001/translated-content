@@ -67,7 +67,7 @@ export const NOTIF_TYPES = {
 };
 
 export const DELEGATIONS = {
-  'comptes.preparer': 'préparation des comptes', 'personnel.suivre': 'suivi administratif du personnel',
+  'personnel.suivre': 'suivi administratif du personnel',
   'presences.preparer_direction': 'préparation des listes de présence', 'courriers.enregistrer': 'enregistrement des courriers',
   'dossiers.transmettre': 'transmission des dossiers',
 };

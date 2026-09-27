@@ -137,7 +137,9 @@ const FONCTIONS = [
   { code: 'F-STAT', libelle: 'Statisticien', grade: 'ATA2' },
   { code: 'F-SEC', libelle: 'Secrétaire de direction', grade: 'AGA1' },
   { code: 'F-ASS', libelle: 'Assistant administratif', grade: 'AGA2' },
+  { code: 'F-AGA', libelle: 'Agent administratif', grade: 'AGA1' },
   { code: 'F-HUI', libelle: 'Huissier', grade: 'AA1' },
+  { code: 'F-AUX', libelle: 'Agent auxiliaire', grade: 'AA2' },
 ];
 
 module.exports = { DIRECTION, SECRETARIAT, DIVISIONS, MISSIONS_DEP, RESPONSABILITES, GRADES, FONCTIONS };

@@ -43,7 +43,6 @@ const DIVISION_ONLY_PERMISSIONS = ['division.gerer', 'division.superviser', 'div
 
 /** Permissions que le Directeur peut déléguer au Chef du Bureau Secrétariat de Direction. */
 const DELEGABLE_PERMISSIONS = [
-  'comptes.preparer',
   'personnel.suivre',
   'presences.preparer_direction',
   'courriers.enregistrer',

@@ -26,13 +26,14 @@ exports.seed = async function seed(knex) {
   const hash = await bcrypt.hash(DEMO_PASSWORD, 10);
   let seq = 1;
 
-  async function personne({ nom, postnom, prenom, sexe, grade, fonction, username, role, niveau, division, bureau, poste, autorite = false }) {
+  async function personne({ nom, postnom, prenom, sexe, grade, fonction, username, role, niveau, division, bureau, poste, autorite = false, compte = true }) {
     const matricule = `DEP-${String(seq++).padStart(4, '0')}`;
     const [agent] = await knex('agents').insert({
       matricule: autorite ? `SG-0001` : matricule, nom, postnom, prenom, sexe,
-      grade_id: grades[grade], fonction_id: fonctions[fonction],
-      telephone: `+243 81 000 ${String(seq).padStart(4, '0')}`,
-      email: `${username}@economie-numerique.gouv.cd`, statut: 'ACTIF', est_autorite: autorite,
+      grade_id: grades[grade], fonction_id: fonction ? fonctions[fonction] : null,
+      telephone: compte ? `+243 81 000 ${String(seq).padStart(4, '0')}` : null,
+      email: compte ? `${username}@economie-numerique.gouv.cd` : null, statut: 'ACTIF', est_autorite: autorite,
+      liste_declarative: !autorite, enrole_at: compte && !autorite ? knex.fn.now() : null,
     }).returning('*');
     if (niveau) {
       await knex('affectations').insert({
@@ -43,6 +44,7 @@ exports.seed = async function seed(knex) {
         date_debut: '2025-01-06', est_active: true, motif: 'Affectation initiale', created_by: admin.id,
       });
     }
+    if (!compte) return null;
     const [user] = await knex('users').insert({
       username, password_hash: hash, agent_id: agent.id, statut: 'ACTIF',
       must_change_password: false, created_by: admin.id, password_changed_at: knex.fn.now(),
@@ -88,6 +90,19 @@ exports.seed = async function seed(knex) {
       await personne({ nom: anom, postnom: apostnom, prenom: aprenom, sexe: asexe, grade: i === 1 ? 'ATA1' : 'ATA2', fonction: i === 1 ? 'F-CE' : (code === 'BUR-PRG' ? 'F-STAT' : 'F-ANA'), username: `ag.${slug}${i}`, role: 'AGENT', niveau: 'BUREAU', division, bureau: code, poste: `P-AG-${code}` });
     }
   }
+
+  // Agents inscrits sur la liste déclarative mais pas encore enrôlés (démonstration de l’enrôlement).
+  await personne({ nom: 'LUFUNDA', postnom: 'KIALA', prenom: 'Odette', sexe: 'F', grade: 'AGA1', niveau: 'BUREAU', bureau: 'BSD', poste: 'P-AG-BSD', compte: false });
+  await personne({ nom: 'MASIKA', postnom: 'KAHINDO', prenom: 'Rodrigue', sexe: 'M', grade: 'ATA2', niveau: 'BUREAU', division: 'DIV-SCI', bureau: 'BUR-STR', poste: 'P-AG-BUR-STR', compte: false });
+  await personne({ nom: 'BOLAMBA', postnom: 'EKOFO', prenom: 'Ruth', sexe: 'F', grade: 'ATA1', compte: false });
+
+  // Liste déclarative validée par le Directeur (instantané initial).
+  const { agentsInscrits, snapshotEntry } = require('../../services/listeDeclarative');
+  const inscrits = await agentsInscrits(knex);
+  await knex('listes_declaratives_validations').insert({
+    direction_id: dep.id, valide_par: directeur.id, valide_par_role: 'DIRECTEUR', nb_agents: inscrits.length,
+    agents: JSON.stringify(inscrits.map(snapshotEntry)), commentaire: 'Validation initiale (données de démonstration)',
+  });
 
   // Délégations du Directeur au Chef du Bureau Secrétariat de Direction
   const delegables = await knex('permissions').where({ delegable: true });

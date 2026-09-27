@@ -85,6 +85,8 @@ Mot de passe commun : **`Demo@2026`**. Désactivez-les en production avec `SEED_
 | `cb.eap`, `cb.doi`, `cb.str`, `cb.coi`, `cb.prg`, `cb.sev` | Chef de Bureau | Bureaux des Divisions |
 | `ag.eap1`, `ag.eap2`, `ag.doi1`, … `ag.sev2` | Agent | Bureaux des Divisions |
 
+La liste déclarative de démonstration est **déjà validée** par le Directeur. Trois agents fictifs y figurent **sans compte**, pour essayer l’enrôlement : un agent du Bureau Secrétariat de Direction (enrôlable par l’Admin), un agent du Bureau Stratégies et un agent sans affectation (enrôlables par le Secrétariat).
+
 Le seed `05_demo_activites.js` ajoute aussi une activité de démonstration, avec des dates relatives au jour du seed : instructions, tâches (dont une en retard), courriers, documents avec visas, présences de la semaine précédente et fiches PIP. Les tableaux de bord et les rapports sont ainsi parlants dès l’installation.
 
 L’organigramme créé par le seed est **celui de la DEP** (liste officielle des agents, 2026) :
@@ -103,13 +105,36 @@ Les **comptes de démonstration** reposent sur des personnes fictives. Le person
 ### Import du personnel réel
 
 1. Installer sans démonstration : `SEED_DEMO=false` dans `backend/.env`, puis `npm run migrate` et `npm run seed`.
-2. L’Admin crée le compte du Directeur (Comptes → Nouveau compte → « Compte institutionnel initial »).
+2. L’Admin crée le compte du Directeur (Comptes → « Compte institutionnel »).
 3. Le Directeur ouvre **Personnel → Importer une liste** et dépose la liste officielle : document **Word** (tableau « N° / NOM, POSTNOM & PRENOM / MATRICULE / FONCTION » avec lignes de section « 1. Bureau Secrétariat de Direction », « 2.1. Bureau … »), **Excel** ou **CSV**. Un modèle Excel prérempli avec les structures est téléchargeable depuis la même page.
 4. L’**analyse** n’enregistre rien. Elle rattache chaque ligne à sa structure (sans tenir compte des accents ni de la numérotation), découpe nom / postnom / prénom et normalise les matricules (`1.234.567` → `1234567`). Elle propose aussi le poste (grade CD au niveau d’une Division → Chef de Division ; grade CB dans un Bureau → Chef de Bureau) et signale les anomalies : doublons, grade inconnu, structure non reconnue, responsable déjà en poste, structures sans responsable.
 5. Chaque ligne peut être corrigée ou exclue, puis **l’import s’exécute en une seule transaction** (tout ou rien, revalidé par le serveur). Les Agents sont créés avec leurs affectations et l’opération est auditée. Les matricules déjà présents sont ignorés, ou mis à jour et réaffectés au choix, avec clôture de l’ancienne affectation.
-6. Compléter ensuite sur les fiches le **sexe** (facultatif, jamais déduit du prénom), le téléphone et l’**adresse électronique** (nécessaire aux notifications par e-mail), désigner les responsables manquants et créer les comptes.
+6. Les agents importés sont inscrits sur la **liste déclarative**, que le Directeur valide ensuite (section suivante). Désigner les responsables manquants avant la validation.
+7. Les informations complémentaires (sexe, date de naissance, date de mise en service, carte IGAP, fonction, photo, commission d’affectation, téléphone, adresse électronique) sont saisies à l’**enrôlement**.
 
 Le Bureau Secrétariat de Direction peut importer les fiches sur délégation (`personnel.suivre`) ; les affectations restent réservées au Directeur. Le fichier importé n’est jamais conservé sur le serveur.
+
+### Création des comptes : liste déclarative et enrôlement
+
+Les comptes des agents ne se créent plus librement : ils sont **enrôlés** à partir de la liste déclarative validée.
+
+1. **L’Admin crée le compte du Directeur** (Comptes → « Compte institutionnel »).
+2. **Le Directeur valide la liste déclarative** (menu « Liste déclarative », bouton « Valider la liste »). Seuls le Directeur et l’Admin voient et peuvent utiliser ce bouton. La validation enregistre un instantané daté et non modifiable (matricule, grade, Division, Bureau de chaque agent), exportable en PDF (avec bloc de signature) ou en Excel.
+3. **L’Admin enrôle les agents du Bureau Secrétariat de Direction** (menu « Enrôlement des agents »). Il peut techniquement enrôler tous les agents, mais l’écran lui propose de commencer par le Secrétariat.
+4. **Les membres du Bureau Secrétariat de Direction** (quel que soit leur rôle) reçoivent alors l’option d’enrôlement et créent les comptes des agents **des Divisions et des autres Bureaux**. Les comptes du Secrétariat restent réservés à l’Admin. Les agents des autres structures n’ont ni l’option ni l’accès, qui est refusé par l’API (403).
+
+**Enrôlement.** L’agent doit figurer sur la liste validée. On le recherche par nom ou matricule. Le formulaire reprend les informations connues : nom, postnom, prénom, matricule, grade, ainsi que la Division, le Bureau et le poste, verrouillés si l’agent est déjà affecté. Les champs suivants sont **obligatoires** :
+
+* sexe, date de naissance, date de mise en service (postérieure aux 18 ans de l’agent) ;
+* numéro de la carte **IGAP** (unique) ;
+* **fonction**, choisie parmi celles du grade de l’agent (le serveur contrôle aussi cette correspondance) ;
+* **photo** de l’agent et **commission d’affectation** (PDF ou image).
+
+Le lieu de naissance, le téléphone, l’adresse électronique et l’adresse sont facultatifs. Si l’agent n’a pas d’affectation, la Division, le Bureau et le poste se choisissent à l’enrôlement. Le compte est créé actif, avec un mot de passe temporaire à changer à la première connexion. L’opération est auditée.
+
+**Revalidation.** Un agent ajouté à la liste après la validation, ou dont la matricule, le grade ou l’affectation a changé, n’est pas enrôlable tant que le Directeur n’a pas **revalidé** la liste (statut « À revalider »). Une fois le compte créé, les mutations suivent le circuit ordinaire des affectations, sans revalidation. Un agent qui a un compte ne peut pas être retiré de la liste.
+
+Le tableau de bord de l’Admin, du Directeur et du Secrétariat affiche l’avancement de la mise en service : compte du Directeur, validation de la liste, comptes du Secrétariat, comptes des Divisions.
 
 ### Commandes utiles (backend)
 
@@ -225,14 +250,14 @@ Une autorisation dépend à la fois du **rôle**, des **permissions**, de l’**
 
 | Rôle | Périmètre | Principales permissions |
 |---|---|---|
-| Admin | `SYSTEME` | paramètres, état du système, sauvegardes, audit, comptes initiaux (SG et Directeur), activation, réinitialisation, déverrouillage, révocation des sessions, gestion des rôles. **Aucune** permission de validation fonctionnelle. Le rôle ADMIN ne peut pas recevoir de permission métier. |
+| Admin | `SYSTEME` | paramètres, état du système, sauvegardes, audit, comptes initiaux (SG et Directeur), validation de la liste déclarative, enrôlement de tous les agents (d’abord le Bureau Secrétariat de Direction), activation, réinitialisation, déverrouillage, révocation des sessions, gestion des rôles. **Aucune** permission de validation fonctionnelle. Le rôle ADMIN ne peut pas recevoir de permission métier. |
 | Secrétaire Général | `SUPERVISION_GLOBALE` (lecture) | consultation de toute la DEP (documents : validés uniquement), instructions **au Directeur uniquement**, validation et clôture de ses propres instructions |
-| Directeur | `DIRECTION` | tout le fonctionnel de la DEP : organisation, cadre organique, personnel, affectations, création et autorisation des comptes DEP, délégations, courriers, instructions, validation finale des documents et PIP, verrouillage des présences, rapports |
+| Directeur | `DIRECTION` | tout le fonctionnel de la DEP : organisation, cadre organique, personnel, affectations, validation de la liste déclarative des agents, activation des comptes, délégations, courriers, instructions, validation finale des documents et PIP, verrouillage des présences, rapports |
 | Chef de Division | `DIVISION` | sa Division et ses Bureaux : instructions aux Chefs de Bureau, examen et validation au niveau Division, vérification des PIP, présences du périmètre, rapports |
 | Chef de Bureau | `BUREAU` | son Bureau : tâches aux Agents, présences (saisie, vérification, soumission), examen et transmission des documents, rapports du Bureau |
 | Agent | `PERSONNEL` | ses tâches, ses documents, son profil, ses notifications, informations collectives validées du Bureau |
 
-**Délégations du Directeur** (table `user_permissions`, écran « Délégations ») au seul Chef du Bureau Secrétariat de Direction : `comptes.preparer`, `personnel.suivre`, `presences.preparer_direction`, `courriers.enregistrer`, `dossiers.transmettre`. Ces délégations ne changent ni son rang ni son périmètre.
+**Délégations du Directeur** (table `user_permissions`, écran « Délégations ») au seul Chef du Bureau Secrétariat de Direction : `personnel.suivre`, `presences.preparer_direction`, `courriers.enregistrer`, `dossiers.transmettre`. Ces délégations ne changent ni son rang ni son périmètre. L’enrôlement (`comptes.enroler`) n’est pas une délégation : il est accordé à tous les membres actifs du Bureau Secrétariat de Direction du fait de leur affectation, pour les agents des autres structures uniquement.
 
 La matrice complète figure dans `backend/src/db/seed-data/permissions.js`. L’Admin peut la modifier dans l’écran « Rôles et permissions », dans la limite des garde-fous ci-dessus.
 
@@ -253,7 +278,7 @@ Directeur → Chef du Bureau Secrétariat de Direction → Agents du Bureau Secr
 
 | Module | Workflow |
 |---|---|
-| Comptes | Admin → comptes initiaux (SG, Directeur). Directeur → comptes DEP (actifs). Bureau Secrétariat (délégation) → comptes **préparés** (désactivés) → autorisation du Directeur. Mot de passe temporaire à changer, verrouillage après 5 échecs pendant 15 min (déverrouillage automatique ou par l’Admin), historique des connexions, révocation des sessions. |
+| Comptes | Admin → comptes initiaux (SG, Directeur). Directeur → validation de la liste déclarative. Admin → enrôlement du Bureau Secrétariat de Direction. Bureau Secrétariat → enrôlement des agents des Divisions et des autres Bureaux (voir section 1). Mot de passe temporaire à changer, verrouillage après 5 échecs pendant 15 min (déverrouillage automatique ou par l’Admin), historique des connexions, révocation des sessions. |
 | Affectations | Une nouvelle affectation **clôture** la précédente (date de fin et motif) sans rien supprimer. Un seul responsable par structure. Notification à l’Agent. |
 | Présences | `Brouillon → Vérifiée → Soumise → Verrouillée`. La soumission verrouille la liste en écriture (API et déclencheur PostgreSQL). Le Directeur réceptionne ; à défaut, verrouillage automatique après `PRESENCE_AUTOLOCK_HOURS`. Toute correction passe par un **rectificatif** lié à l’original. |
 | Courriers | Enregistrement numéroté (`DEP/CE/2026/0001`, `DEP/CS/…`), transmissions horodatées avec accusé de réception, annotations, statut « Traité », classement, archivage. Les courriers confidentiels ne sont visibles que de leur chaîne de transmission, du Directeur et du SG. |
@@ -350,7 +375,7 @@ Les tests réinitialisent la base `sig_dep_test` (migrations et seeds), puis vé
 * la chaîne hiérarchique des instructions (SG → Directeur uniquement) et les tâches limitées au Bureau ;
 * les périmètres de données, la lecture seule du SG et l’absence de droits fonctionnels de l’Admin ;
 * les workflows des présences, courriers, documents (versions conservées) et PIP ;
-* les comptes préparés puis autorisés, l’historique des affectations et le journal d’audit en lecture seule ;
+* la liste déclarative (validation réservée au Directeur et à l’Admin, revalidation après modification) et l’enrôlement (portée Admin / Secrétariat, pièces et champs obligatoires, fonction conforme au grade, carte IGAP unique), l’historique des affectations et le journal d’audit en lecture seule ;
 * les exports PDF, Excel et Word, et les tableaux de bord de chaque rôle ;
 * la gestion des structures : postes créés automatiquement, Bureau rattaché au Directeur, propagation d’un changement de rattachement, archivage protégé ;
 * la recherche globale limitée au périmètre, et la sérialisation du journal d’audit ;
@@ -453,7 +478,7 @@ Sauvegardez aussi le dossier `backend/storage/uploads` (pièces jointes et photo
    ```
 
    En production, l’API fait confiance à un seul proxy (`trust proxy = 1`), ce qui lui permet d’enregistrer la vraie adresse IP dans l’audit.
-6. **Première connexion** : se connecter en `admin` / `dep@2026`, changer le mot de passe, puis créer les comptes du Secrétaire Général et du Directeur (Comptes → Nouveau compte → « Compte institutionnel initial »). Le Directeur crée ensuite, ou autorise, les comptes de la DEP.
+6. **Première connexion** : se connecter en `admin` / `dep@2026`, changer le mot de passe, puis créer les comptes du Secrétaire Général et du Directeur (Comptes → « Compte institutionnel »). Le Directeur valide ensuite la liste déclarative ; l’Admin enrôle le Bureau Secrétariat de Direction, qui enrôle les autres agents.
 7. **Exploitation** : sauvegardes planifiées, mises à jour de sécurité, surveillance des journaux (`pm2 logs`), consultation régulière du journal d’audit et des comptes verrouillés.
 
 En cas de perte du mot de passe Admin :

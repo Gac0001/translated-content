@@ -15,12 +15,15 @@ const PERMISSIONS = [
   // Comptes
   ['comptes.consulter', 'comptes', 'Consulter les comptes utilisateurs'],
   ['comptes.creer_initial', 'comptes', 'Créer les comptes institutionnels initiaux (Secrétaire Général, Directeur)'],
-  ['comptes.creer', 'comptes', 'Créer et autoriser les comptes de la DEP'],
-  ['comptes.preparer', 'comptes', 'Préparer les comptes de la DEP sur instruction du Directeur', { delegable: true }],
+  ['comptes.enroler', 'comptes', 'Enrôler les agents de la liste déclarative validée (création des comptes)'],
   ['comptes.activer', 'comptes', 'Activer ou désactiver un compte'],
   ['comptes.reinitialiser', 'comptes', 'Réinitialiser un mot de passe'],
   ['comptes.deverrouiller', 'comptes', 'Déverrouiller un compte'],
   ['sessions.revoquer', 'comptes', 'Révoquer les sessions d’un utilisateur'],
+  // Liste déclarative des agents
+  ['liste.consulter', 'personnel', 'Consulter la liste déclarative des agents de la Direction'],
+  ['liste.gerer', 'personnel', 'Constituer la liste déclarative (import, inscription, retrait)'],
+  ['liste.valider', 'personnel', 'Valider la liste déclarative des agents de la Direction'],
   // Organisation et personnel
   ['organisation.consulter', 'organisation', 'Consulter l’organigramme et le cadre organique'],
   ['organisation.gerer', 'organisation', 'Gérer les structures de la DEP'],
@@ -89,6 +92,7 @@ const MATRICE = {
     'systeme.parametres', 'systeme.etat', 'systeme.sauvegardes', 'audit.consulter', 'roles.gerer',
     'comptes.consulter', 'comptes.creer_initial', 'comptes.activer', 'comptes.reinitialiser',
     'comptes.deverrouiller', 'sessions.revoquer', 'organisation.consulter',
+    'comptes.enroler', 'liste.consulter', 'liste.gerer', 'liste.valider',
   ],
   SECRETAIRE_GENERAL: [
     'supervision.globale', 'organisation.consulter', 'personnel.consulter', 'presences.consulter',
@@ -98,7 +102,7 @@ const MATRICE = {
   DIRECTEUR: [
     'organisation.consulter', 'organisation.gerer', 'cadre.gerer',
     'personnel.consulter', 'personnel.gerer', 'personnel.suivre', 'affectations.gerer', 'delegations.gerer',
-    'comptes.consulter', 'comptes.creer', 'comptes.activer',
+    'comptes.consulter', 'comptes.activer', 'liste.consulter', 'liste.gerer', 'liste.valider',
     'presences.consulter', 'presences.verrouiller',
     'courriers.consulter', 'courriers.enregistrer', 'courriers.transmettre', 'courriers.annoter', 'courriers.classer',
     'dossiers.transmettre',

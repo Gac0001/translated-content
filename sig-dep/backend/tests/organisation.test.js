@@ -1,6 +1,6 @@
 'use strict';
 /** Gestion des structures par le Directeur : création, postes, rattachement, archivage. */
-const { db, login, api, userId } = require('./helpers');
+const { db, login, loginAdmin, api, userId, enroler } = require('./helpers');
 
 describe('Gestion des structures', () => {
   let dir;
@@ -33,18 +33,22 @@ describe('Gestion des structures', () => {
     expect(b.status).toBe(201);
     expect(b.body).toMatchObject({ rang_organique: 'BUREAU', parent_type: 'DIRECTION', division_id: null, superieur_direct: 'DIRECTEUR', est_secretariat_direction: false });
     // Affecter un Chef de Bureau (nouvel Agent) puis lui créer un compte
-    const ag = await dir.post('/agents', { matricule: 'DEP-0700', nom: 'LUMBU', prenom: 'Joël', sexe: 'M' });
+    const cb = await db('grades').where({ code: 'CB' }).first();
+    const ag = await dir.post('/agents', { matricule: 'DEP-0700', nom: 'LUMBU', prenom: 'Joël', sexe: 'M', grade_id: cb.id });
     const poste = await db('postes_organiques').where({ bureau_id: b.body.id, role_associe: 'CHEF_BUREAU' }).first();
     expect((await dir.post(`/agents/${ag.body.id}/affectations`, { bureau_id: b.body.id, poste_id: poste.id, date_debut: '2026-09-01' })).status).toBe(201);
-    const u = await dir.post('/users', { agent_id: ag.body.id, username: 'cb.cellule', roles: ['CHEF_BUREAU'] });
+    // Le Directeur revalide la liste déclarative, puis l’Admin enrôle l’agent (création de son compte)
+    expect((await dir.post('/liste-declarative/valider', {})).status).toBe(201);
+    const u = await enroler(await loginAdmin(), ag.body.id, { username: 'cb.cellule', sexe: 'M' });
     expect(u.status).toBe(201);
+    expect(u.body.role).toBe('CHEF_BUREAU');
     await db('users').where({ id: u.body.id }).update({ must_change_password: false });
     const { request, app } = require('./helpers');
     const l = await request(app).post('/api/auth/login').send({ username: 'cb.cellule', password: u.body.motDePasseTemporaire });
-    const cb = api(l.body.accessToken);
-    const me = await cb.get('/hierarchie/contacts?sens=ASCENDANT');
+    const cbc = api(l.body.accessToken);
+    const me = await cbc.get('/hierarchie/contacts?sens=ASCENDANT');
     expect(me.body.data.map((c) => c.username)).toEqual(['directeur']);
-    expect((await cb.get('/auth/me')).body.user.perimetre).toBe('BUREAU');
+    expect((await cbc.get('/auth/me')).body.user.perimetre).toBe('BUREAU');
     // Le Directeur l’instruit directement ; aucun Chef de Division ne le peut
     expect((await dir.post('/instructions', { destinataire_user_id: u.body.id, objet: 'Plan de communication', contenu: 'Préparer le plan' })).status).toBe(201);
     expect((await api(await login('cd.edi')).post('/instructions', { destinataire_user_id: u.body.id, objet: 'Interdit', contenu: 'Contenu test' })).status).toBe(403);

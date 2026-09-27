@@ -98,7 +98,7 @@ export default function AgentDetail() {
               {manage && !a.archived_at && <Link to={`/personnel/${id}/modifier`} className="btn-secondary"><Pencil size={16} /> Modifier</Link>}
               {can('affectations.gerer') && !a.est_autorite && !a.archived_at && <button type="button" className="btn-secondary" onClick={() => setModal('aff')}><ArrowRightLeft size={16} /> Affecter</button>}
               {can('affectations.gerer') && a.affectation_id && <button type="button" className="btn-secondary" onClick={() => setModal('clo')}><XCircle size={16} /> Clôturer l’affectation</button>}
-              {can('comptes.creer', 'comptes.preparer') && !a.user_id && a.niveau && <Link to={`/comptes/nouveau?agent=${id}`} className="btn-primary"><UserPlus size={16} /> Créer le compte</Link>}
+              {can('comptes.enroler') && !a.user_id && a.liste_declarative && !a.archived_at && <Link to={`/comptes/enrolement?agent=${id}`} className="btn-primary"><UserPlus size={16} /> Enrôler (créer le compte)</Link>}
               {can('personnel.gerer') && !a.archived_at && <button type="button" className="btn-ghost text-red-700" onClick={archive}><Archive size={16} /> Archiver</button>}
             </>} />
           <AgentView a={a} photoVersion={v} extraActions={manage && <label className="btn-ghost mt-2 cursor-pointer text-xs no-print"><Upload size={14} /> Photo<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => upload(e.target.files[0])} /></label>} />

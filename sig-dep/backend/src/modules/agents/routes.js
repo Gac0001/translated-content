@@ -105,7 +105,8 @@ async function superieurOf(agentId) {
 }
 
 async function fiche(agentId) {
-  const agent = await baseQuery().where('ag.id', agentId).first([...listColumns, 'ag.date_naissance', 'ag.adresse', 'ag.grade_id', 'ag.fonction_id', 'a.poste_id', 'a.id as affectation_id', 'ag.created_at', 'ag.archived_at']);
+  const agent = await baseQuery().where('ag.id', agentId).first([...listColumns, 'ag.date_naissance', 'ag.adresse', 'ag.grade_id', 'ag.fonction_id', 'a.poste_id', 'a.id as affectation_id', 'ag.created_at', 'ag.archived_at',
+    'ag.lieu_naissance', 'ag.date_mise_en_service', 'ag.numero_carte_igap', 'ag.commission_attachment_id', 'ag.liste_declarative', 'ag.enrole_at']);
   if (!agent) throw notFound('Agent introuvable.');
   const historique = await db('affectations as a')
     .leftJoin('bureaux as b', 'b.id', 'a.bureau_id').leftJoin('divisions as d', 'd.id', 'a.division_id')
@@ -168,6 +169,24 @@ router.get('/:id', validate({ params: idParam }), async (req, res) => {
   res.json(await fiche(id));
 });
 
+router.get('/:id/commission', validate({ params: idParam }), async (req, res) => {
+  const { id } = req.valid.params;
+  if (id !== req.ctx.agentId && !req.ctx.can('liste.consulter')) {
+    if (!req.ctx.can('personnel.consulter') && !req.ctx.can('personnel.suivre')) throw forbidden();
+    await assertAgentInScope(req.ctx, id);
+  }
+  const ag = await db('agents').where({ id }).first('commission_attachment_id');
+  const att = ag && ag.commission_attachment_id ? await db('attachments').where({ id: ag.commission_attachment_id }).whereNull('deleted_at').first() : null;
+  if (!att) throw notFound('Aucune commission d’affectation enregistrée.');
+  const p = safePath(att.stored_name);
+  if (!fs.existsSync(p)) throw notFound('Fichier absent du stockage.');
+  await audit(req, { action: 'TELECHARGEMENT', module: 'personnel', entite: 'agent', entiteId: id, message: 'Commission d’affectation' });
+  res.setHeader('Content-Type', att.mime_type);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(att.original_name)}`);
+  fs.createReadStream(p).pipe(res);
+});
+
 router.get('/:id/photo', requirePerm('organisation.consulter'), validate({ params: idParam }), async (req, res) => {
   const a = await db('agents').where({ id: req.valid.params.id }).first('photo_path');
   if (!a || !a.photo_path) throw notFound('Aucune photo.');
@@ -194,13 +213,14 @@ const agentSchema = z.object({
 });
 
 function assertCanManage(ctx) {
-  if (!ctx.can('personnel.gerer') && !ctx.can('personnel.suivre')) throw forbidden('Permission insuffisante pour gérer le personnel.', 'PERMISSION_REQUISE');
+  if (!ctx.can('personnel.gerer') && !ctx.can('personnel.suivre') && !ctx.can('liste.gerer')) throw forbidden('Permission insuffisante pour gérer le personnel.', 'PERMISSION_REQUISE');
 }
 
 router.post('/', validate({ body: agentSchema }), async (req, res) => {
   assertCanManage(req.ctx);
-  const [row] = await db('agents').insert(req.valid.body).returning('*');
-  await audit(req, { action: 'CREATION', module: 'personnel', entite: 'agent', entiteId: row.id, apres: row });
+  // Tout nouvel agent est inscrit sur la liste déclarative, qui devra être revalidée par le Directeur.
+  const [row] = await db('agents').insert({ ...req.valid.body, liste_declarative: true }).returning('*');
+  await audit(req, { action: 'CREATION', module: 'personnel', entite: 'agent', entiteId: row.id, apres: row, message: 'Inscription sur la liste déclarative (à revalider)' });
   res.status(201).json(row);
 });
 

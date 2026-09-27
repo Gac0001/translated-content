@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { CheckCircle2, KeyRound, LogOut, Power, ShieldCheck, Unlock } from 'lucide-react';
+import { KeyRound, LogOut, Power, ShieldCheck, Unlock } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, Badge, Modal, runAction, useConfirm, DataTable } from '../../components/ui';
@@ -42,14 +42,13 @@ export default function UserDetail() {
         <>
           <PageHeader title={u.username} subtitle={[u.prenom, u.nom, u.postnom].filter(Boolean).join(' ')} breadcrumb={[{ label: 'Comptes', to: '/comptes' }, { label: u.username }]}
             actions={<>
-              {u.statut === 'DESACTIVE' && !u.autorise_par_username && can('comptes.creer') && <button type="button" className="btn-success" onClick={() => act('autoriser', 'Compte autorisé et activé.')}><CheckCircle2 size={16} /> Autoriser</button>}
               {can('comptes.activer') && (u.statut === 'DESACTIVE'
                 ? <button type="button" className="btn-secondary" onClick={() => act('activer', 'Compte activé.')}><Power size={16} /> Activer</button>
                 : <button type="button" className="btn-secondary" onClick={() => act('desactiver', 'Compte désactivé.', { title: 'Désactiver le compte', message: 'Le compte sera désactivé et toutes ses sessions révoquées.', danger: true })}><Power size={16} /> Désactiver</button>)}
               {u.statut === 'VERROUILLE' && can('comptes.deverrouiller') && <button type="button" className="btn-secondary" onClick={() => act('deverrouiller', 'Compte déverrouillé.')}><Unlock size={16} /> Déverrouiller</button>}
               {can('comptes.reinitialiser') && <button type="button" className="btn-secondary" onClick={() => act('reinitialiser-mot-de-passe', 'Mot de passe réinitialisé.', { title: 'Réinitialiser le mot de passe', message: 'Un mot de passe temporaire sera généré ; les sessions seront révoquées.' })}><KeyRound size={16} /> Réinitialiser le mot de passe</button>}
               {can('sessions.revoquer') && <button type="button" className="btn-secondary" onClick={() => act('revoquer-sessions', 'Sessions révoquées.', { title: 'Révoquer les sessions', message: 'L’utilisateur sera déconnecté de tous ses appareils.' })}><LogOut size={16} /> Révoquer les sessions</button>}
-              {can('roles.gerer', 'comptes.creer') && <button type="button" className="btn-primary" onClick={() => setRolesOpen(true)}><ShieldCheck size={16} /> Rôles</button>}
+              {can('roles.gerer') && <button type="button" className="btn-primary" onClick={() => setRolesOpen(true)}><ShieldCheck size={16} /> Rôles</button>}
             </>} />
           <div className="grid gap-4 lg:grid-cols-3">
             <Card title="Compte" className="lg:col-span-2">

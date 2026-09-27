@@ -122,6 +122,7 @@ describe('Périmètres de données', () => {
     expect((await sg.get('/presences')).status).toBe(200);
     expect((await sg.post('/courriers', { sens: 'ENTRANT', expediteur: 'X', destinataire: 'Y', objet: 'Objet', date_courrier: '2026-09-01' })).status).toBe(403);
     expect((await sg.post('/documents', { type_document: 'RAPPORT', titre: 'Test' })).status).toBe(403);
-    expect((await sg.post('/users', { agent_id: 1, username: 'x.y', roles: ['AGENT'] })).status).toBe(403);
+    expect((await sg.get('/enrolement/candidats')).status).toBe(403);
+    expect((await sg.post('/liste-declarative/valider', {})).status).toBe(403);
   });
 });

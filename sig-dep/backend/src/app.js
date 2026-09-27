@@ -50,11 +50,12 @@ const protectedModules = {
   hierarchie: './modules/hierarchie/routes',
   recherche: './modules/recherche/routes',
   imports: './modules/imports/routes',
+  'liste-declarative': './modules/listeDeclarative/routes',
+  enrolement: './modules/enrolement/routes',
 };
 for (const [path, mod] of Object.entries(protectedModules)) {
-  let router;
-  try { router = require(mod); } catch (e) { if (e.code === 'MODULE_NOT_FOUND' && e.message.includes(mod.slice(2))) continue; throw e; }
-  app.use(`/api/${path}`, authenticate, router);
+  // Un module manquant doit empêcher le démarrage, jamais être ignoré.
+  app.use(`/api/${path}`, authenticate, require(mod));
 }
 
 app.use('/api', (req, res) => res.status(404).json({ error: { code: 'INTROUVABLE', message: 'Ressource introuvable.' } }));

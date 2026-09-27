@@ -24,7 +24,7 @@ const upload = multer({
 });
 
 function assertCanImport(ctx) {
-  if (!ctx.can('personnel.gerer') && !ctx.can('personnel.suivre')) throw forbidden('L’import du personnel est réservé au Directeur et au Bureau Secrétariat de Direction (sur délégation).', 'PERMISSION_REQUISE');
+  if (!ctx.can('personnel.gerer') && !ctx.can('personnel.suivre') && !ctx.can('liste.gerer')) throw forbidden('L’import du personnel est réservé à l’Admin, au Directeur et au Bureau Secrétariat de Direction (sur délégation).', 'PERMISSION_REQUISE');
 }
 
 async function referentiel() {
@@ -94,7 +94,7 @@ router.post('/personnel/analyser', (req, res, next) => {
           ],
           grades: ref.grades.map((g) => ({ id: g.id, code: g.code, libelle: g.libelle })),
         },
-        peutAffecter: req.ctx.can('affectations.gerer'),
+        peutAffecter: req.ctx.can('affectations.gerer') || req.ctx.can('liste.gerer'),
       });
     } catch (e) { return next(e); }
   });
@@ -123,7 +123,8 @@ router.post('/personnel/executer', validate({ body: z.object({
 }) }), async (req, res) => {
   assertCanImport(req.ctx);
   const { lignes, date_affectation: dateAff, mode_existants: mode } = req.valid.body;
-  const affecter = req.ctx.can('affectations.gerer');
+  // La liste déclarative (avec affectations) est constituée par le Directeur ou l’Admin, puis validée par le Directeur.
+  const affecter = req.ctx.can('affectations.gerer') || req.ctx.can('liste.gerer');
   const ref = await referentiel();
   const bureaux = new Map(ref.bureaux.map((b) => [b.id, b]));
   const divisions = new Map(ref.divisions.map((d) => [d.id, d]));
@@ -174,6 +175,7 @@ router.post('/personnel/executer', validate({ body: z.object({
       const data = {
         nom: l.nom.toUpperCase(), postnom: l.postnom ? l.postnom.toUpperCase() : null, prenom: l.prenom || null,
         sexe: l.sexe || null, grade_id: l.grade_id || null, telephone: l.telephone || null, email: l.email || null,
+        liste_declarative: true,
       };
       if (l.role === 'CHEF_BUREAU') data.fonction_id = (await trx('fonctions').where({ code: 'F-CB' }).first() || {}).id || null;
       if (l.role === 'CHEF_DIVISION') data.fonction_id = (await trx('fonctions').where({ code: 'F-CD' }).first() || {}).id || null;

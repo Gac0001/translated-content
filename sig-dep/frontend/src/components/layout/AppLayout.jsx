@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import {
   LayoutDashboard, Network, BookOpen, Users, UserCog, CalendarCheck, Mail, Send, ListTodo, FileText, FolderKanban,
-  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck,
+  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth, useCompteurs } from '../../store/auth';
@@ -27,7 +27,9 @@ const MENU = [
   { to: '/documents', label: 'Documents de service', icon: FileText, perms: ['documents.consulter'], counter: 'documents' },
   { to: '/pip', label: 'Projets PIP', icon: FolderKanban, perms: ['pip.consulter'], counter: 'pip' },
   { section: 'Administration' },
-  { to: '/comptes', label: 'Comptes utilisateurs', icon: UserCog, perms: ['comptes.consulter', 'comptes.preparer'] },
+  { to: '/liste-declarative', label: 'Liste déclarative', icon: ListChecks, perms: ['liste.consulter'] },
+  { to: '/comptes/enrolement', label: 'Enrôlement des agents', icon: UserPlus, perms: ['comptes.enroler'] },
+  { to: '/comptes', label: 'Comptes utilisateurs', icon: UserCog, perms: ['comptes.consulter'], end: true },
   { to: '/roles', label: 'Rôles et permissions', icon: ShieldCheck, perms: ['roles.gerer'] },
   { to: '/audit', label: 'Journal d’audit', icon: ScrollText, perms: ['audit.consulter'] },
   { to: '/systeme', label: 'Système', icon: Settings, perms: ['systeme.etat', 'systeme.parametres'] },

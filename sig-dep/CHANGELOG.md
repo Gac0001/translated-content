@@ -1,5 +1,21 @@
 # Journal des versions — SIG-DEP
 
+## 1.4.0
+
+### Liste déclarative et enrôlement des agents
+- **Liste déclarative** des agents de la Direction (menu « Liste déclarative ») : statut (non validée, validée, à revalider), écarts depuis la dernière validation, inscription et retrait, historique des validations, exports PDF (bloc de signature du Directeur) et Excel.
+- **Validation** réservée au Directeur et à l’Admin, seuls à voir le bouton « Valider la liste ». Chaque validation enregistre un instantané daté, non modifiable (table en ajout seul).
+- **Enrôlement** (menu « Enrôlement des agents ») : un compte ne peut être créé que pour un agent de la liste validée. Le formulaire est prérempli à partir de la fiche. Sont obligatoires : sexe, date de naissance, date de mise en service, numéro de carte IGAP (unique), fonction conforme au grade, photo et commission d’affectation. La structure se choisit à l’enrôlement si l’agent n’est pas encore affecté.
+- **Portée** : l’Admin enrôle tous les agents, en commençant par le Bureau Secrétariat de Direction. Les membres de ce Bureau enrôlent ensuite les agents des Divisions et des autres Bureaux, mais pas ceux du Secrétariat. Aucun autre utilisateur ne voit l’option.
+- Un agent ajouté ou modifié (matricule, grade, affectation) après la validation n’est enrôlable qu’après **revalidation**.
+- La fiche Agent affiche le lieu de naissance, la date de mise en service, le numéro de carte IGAP, la commission d’affectation (téléchargeable) et la situation sur la liste.
+- Le tableau de bord affiche l’avancement de la mise en service des comptes.
+- Fonctions « Agent administratif » (AGA1) et « Agent auxiliaire » (AA2) ajoutées au référentiel.
+
+### Changements
+- Le Directeur ne crée plus les comptes des agents : il valide la liste déclarative. L’ancien circuit « compte préparé par le Secrétariat puis autorisé par le Directeur » (`POST /api/users`, `/autoriser`, permissions `comptes.creer` et `comptes.preparer`) est supprimé. La création des comptes institutionnels (SG, Directeur) par l’Admin est inchangée.
+- Les modules de l’API sont chargés explicitement : un module manquant fait échouer le démarrage au lieu d’être ignoré.
+
 ## 1.3.0
 
 ### Organigramme réel et import du personnel

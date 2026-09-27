@@ -31,6 +31,30 @@ function api(token) {
   return { get: wrap('get'), post: wrap('post'), put: wrap('put'), del: wrap('delete') };
 }
 
+// Image PNG 1×1 et PDF minimal pour les pièces jointes de l’enrôlement.
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+const PDF = Buffer.from('%PDF-1.4\n%commission de test\n%%EOF\n');
+let igapSeq = 0;
+
+/** Enrôle un agent (création de son compte) avec des informations complémentaires valides par défaut. */
+async function enroler(token, agentId, fields = {}) {
+  const { photo = true, commission = true, ...rest } = fields;
+  const data = {
+    sexe: 'F', date_naissance: '1985-03-10', date_mise_en_service: '2010-01-04',
+    numero_carte_igap: `IGAP-T${process.pid}-${++igapSeq}`, ...rest,
+  };
+  if (data.fonction_id === undefined) {
+    const ag = await db('agents').where({ id: agentId }).first();
+    const f = ag && ag.grade_id ? await db('fonctions').where({ grade_id: ag.grade_id }).first() : null;
+    if (f) data.fonction_id = f.id;
+  }
+  const r = request(app).post(`/api/enrolement/agents/${agentId}`).set('Authorization', `Bearer ${token}`);
+  for (const [k, v] of Object.entries(data)) if (v !== undefined && v !== null) r.field(k, String(v));
+  if (photo) r.attach('photo', PNG, { filename: 'photo.png', contentType: 'image/png' });
+  if (commission) r.attach('commission', PDF, { filename: 'commission.pdf', contentType: 'application/pdf' });
+  return r;
+}
+
 async function userId(username) { return (await db('users').where({ username }).first()).id; }
 
-module.exports = { app, db, request, login, loginAdmin, api, userId, DEMO, ADMIN_NEW };
+module.exports = { app, db, request, login, loginAdmin, api, userId, enroler, PNG, PDF, DEMO, ADMIN_NEW };

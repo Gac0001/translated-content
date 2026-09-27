@@ -7,6 +7,7 @@ import { useAuth } from '../store/auth';
 import { useApi, Loadable, PageHeader, Card, Stat, StatusBadge, Progress, Empty, Badge, RangBadge, InfoAlert } from '../components/ui';
 import { fmtDate, fmtDateTime, fmtMontant, isOverdue } from '../lib/format';
 import { DEP_NOM, ROLES, STATUTS, PERIMETRES, NOTIF_TYPES, DELEGATIONS } from '../lib/labels';
+import { Progression } from './comptes/ListeDeclarative';
 
 const sum = (obj = {}, keys) => keys.reduce((s, k) => s + (obj[k] || 0), 0);
 const ACTIVE = ['TRANSMISE', 'RECUE', 'EN_COURS', 'A_CORRIGER', 'EN_RETARD'];
@@ -59,6 +60,23 @@ function Echeances({ rows }) {
       <span className={`shrink-0 text-xs ${isOverdue(r.echeance, r.statut) ? 'font-semibold text-red-700' : 'text-slate-600'}`}>{fmtDate(r.echeance)}</span>
     </div>
   )} />;
+}
+
+/** Mise en service des comptes : affichée tant que des agents de la liste n’ont pas de compte ou que la liste est à valider. */
+function MiseEnService({ p }) {
+  const can = useAuth((s) => s.can);
+  const restant = p.secretariat.total - p.secretariat.avecCompte + p.autres.total - p.autres.avecCompte;
+  if (p.statutListe === 'VALIDEE' && restant === 0 && p.directeur) return null;
+  const actions = <>
+    {can('liste.consulter') && <Link to="/liste-declarative" className="text-sm text-dep-700 hover:underline">Liste déclarative</Link>}
+    {can('comptes.enroler') && <Link to="/comptes/enrolement" className="text-sm text-dep-700 hover:underline">Enrôlement</Link>}
+  </>;
+  return (
+    <Card title="Mise en service des comptes" actions={actions}>
+      {can('liste.valider') && p.statutListe !== 'VALIDEE' && <div className="mb-3"><InfoAlert tone="warning">La liste déclarative des agents {p.statutListe === 'A_REVALIDER' ? 'a changé et doit être revalidée' : 'attend votre validation'}. <Link to="/liste-declarative" className="font-medium underline">Ouvrir la liste</Link></InfoAlert></div>}
+      <Progression p={p} />
+    </Card>
+  );
 }
 
 function AdminPanel({ a }) {
@@ -294,6 +312,7 @@ export default function Dashboard() {
       <Loadable state={state}>
         {(d) => (
           <div className="space-y-6">
+            {d.miseEnService && <MiseEnService p={d.miseEnService} />}
             {user.roles.includes('ADMIN') && d.admin && <AdminPanel a={d.admin} />}
             {d.role === 'SECRETAIRE_GENERAL' && <SGPanel d={d} />}
             {d.role === 'DIRECTEUR' && <DirecteurPanel d={d} />}

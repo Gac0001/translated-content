@@ -23,6 +23,8 @@ const UserDetail = p(() => import('./pages/comptes/UserDetail'));
 const UserCreate = p(() => import('./pages/comptes/UserCreate'));
 const Roles = p(() => import('./pages/comptes/Roles'));
 const Delegations = p(() => import('./pages/comptes/Delegations'));
+const ListeDeclarative = p(() => import('./pages/comptes/ListeDeclarative'));
+const Enrolement = p(() => import('./pages/comptes/Enrolement'));
 const PresencesList = p(() => import('./pages/presences/PresencesList'));
 const PresenceCreate = p(() => import('./pages/presences/PresenceCreate'));
 const PresenceSheet = p(() => import('./pages/presences/PresenceSheet'));
@@ -88,9 +90,11 @@ export default function App() {
             <Route path="personnel/:id" element={<AgentDetail />} />
             <Route path="personnel/:id/modifier" element={G(['personnel.gerer', 'personnel.suivre'], <AgentForm />)} />
             <Route path="profil" element={<Profil />} />
-            <Route path="comptes" element={G(['comptes.consulter', 'comptes.preparer'], <UsersList />)} />
-            <Route path="comptes/nouveau" element={G(['comptes.creer', 'comptes.preparer', 'comptes.creer_initial'], <UserCreate />)} />
-            <Route path="comptes/:id" element={G(['comptes.consulter', 'comptes.preparer'], <UserDetail />)} />
+            <Route path="liste-declarative" element={G(['liste.consulter'], <ListeDeclarative />)} />
+            <Route path="comptes/enrolement" element={G(['comptes.enroler'], <Enrolement />)} />
+            <Route path="comptes" element={G(['comptes.consulter'], <UsersList />)} />
+            <Route path="comptes/nouveau" element={G(['comptes.creer_initial'], <UserCreate />)} />
+            <Route path="comptes/:id" element={G(['comptes.consulter'], <UserDetail />)} />
             <Route path="roles" element={G(['roles.gerer'], <Roles />)} />
             <Route path="delegations" element={G(['delegations.gerer'], <Delegations />)} />
             <Route path="presences" element={G(['presences.consulter', 'presences.preparer_direction'], <PresencesList />)} />

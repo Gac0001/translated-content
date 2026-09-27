@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
-import { Card, KeyValues, StatusBadge, Badge, RangBadge } from '../../components/ui';
+import { FileCheck2 } from 'lucide-react';
+import { download } from '../../lib/api';
+import { Card, KeyValues, StatusBadge, Badge, RangBadge, toast } from '../../components/ui';
 import { fmtDate } from '../../lib/format';
 import AgentPhoto from './AgentPhoto';
 
@@ -14,7 +16,10 @@ export default function AgentView({ a, photoVersion, extraActions }) {
           <div className="flex-1">
             <KeyValues items={[
               ['Nom', a.nom], ['Postnom', a.postnom], ['Prénom', a.prenom], ['Sexe', a.sexe === 'F' ? 'Féminin' : a.sexe === 'M' ? 'Masculin' : 'Non renseigné'],
-              ['Matricule', a.matricule], ['Date de naissance', fmtDate(a.date_naissance)], ['Grade', a.grade], ['Fonction', a.fonction],
+              ['Matricule', a.matricule], ['Date de naissance', fmtDate(a.date_naissance)], a.lieu_naissance && ['Lieu de naissance', a.lieu_naissance], ['Grade', a.grade], ['Fonction', a.fonction],
+              ['Date de mise en service', fmtDate(a.date_mise_en_service)], ['N° carte IGAP', a.numero_carte_igap],
+              a.commission_attachment_id && ['Commission d’affectation', <button key="c" type="button" className="inline-flex items-center gap-1 text-dep-700 hover:underline" onClick={() => download(`/agents/${a.id}/commission`, 'commission.pdf').catch(() => toast.error('Téléchargement impossible.'))}><FileCheck2 size={14} /> Télécharger</button>],
+              ['Liste déclarative', a.liste_declarative ? (a.enrole_at ? `Inscrit — enrôlé le ${fmtDate(a.enrole_at)}` : 'Inscrit — non enrôlé') : 'Non inscrit'],
               ['Téléphone', a.telephone], ['Adresse électronique', a.email], ['Adresse', a.adresse], ['Statut', <StatusBadge key="s" value={a.statut} />],
             ]} />
           </div>

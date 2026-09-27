@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Share2 } from 'lucide-react';
+import { ListChecks, Plus, Share2, UserPlus } from 'lucide-react';
 import { useAuth } from '../../store/auth';
 import { useApi, PageHeader, DataTable, StatusBadge, Select, Spinner, ErrorAlert, Badge } from '../../components/ui';
 import { fmtDateTime } from '../../lib/format';
@@ -18,7 +18,9 @@ export default function UsersList() {
       <PageHeader title="Comptes utilisateurs" breadcrumb={[{ label: 'Administration' }, { label: 'Comptes' }]}
         actions={<>
           {can('delegations.gerer') && <Link to="/delegations" className="btn-secondary"><Share2 size={16} /> Délégations</Link>}
-          {can('comptes.creer', 'comptes.preparer', 'comptes.creer_initial') && <Link to="/comptes/nouveau" className="btn-primary"><Plus size={16} /> Nouveau compte</Link>}
+          {can('liste.consulter') && <Link to="/liste-declarative" className="btn-secondary"><ListChecks size={16} /> Liste déclarative</Link>}
+          {can('comptes.enroler') && <Link to="/comptes/enrolement" className="btn-secondary"><UserPlus size={16} /> Enrôler un agent</Link>}
+          {can('comptes.creer_initial') && <Link to="/comptes/nouveau" className="btn-primary"><Plus size={16} /> Compte institutionnel</Link>}
         </>} />
       <ErrorAlert message={state.error} />
       {state.loading && !state.data ? <Spinner /> : (

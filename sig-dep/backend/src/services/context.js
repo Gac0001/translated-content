@@ -62,6 +62,9 @@ async function loadContext(userId, trx = db) {
   if (inSecretariat) {
     for (const p of DIVISION_ONLY_PERMISSIONS) permissions.delete(p);
     if (perimetre === PERIMETRES.DIVISION) perimetre = PERIMETRES.BUREAU;
+    // Les membres du Bureau Secrétariat de Direction enrôlent les agents des autres structures
+    // (accordé par la structure d’affectation, quel que soit le rôle).
+    if (user.statut === 'ACTIF') permissions.add('comptes.enroler');
   }
   // Un rôle Chef de Division sans affectation de Division ne confère pas les permissions de Division.
   if (primaryRole === 'CHEF_DIVISION' && perimetre !== PERIMETRES.DIVISION) {
@@ -87,6 +90,8 @@ async function loadContext(userId, trx = db) {
     bureauId: aff ? aff.bureau_id : null,
     inSecretariat,
     isAdminOnly: roles.length > 0 && roles.every((r) => r === 'ADMIN'),
+    // Portée de l’enrôlement : l’Admin enrôle tous les agents, le Secrétariat ceux des autres structures.
+    enrolement: roles.includes('ADMIN') ? 'TOUS' : inSecretariat ? 'HORS_SECRETARIAT' : null,
   };
   ctx.can = (perm) => ctx.permissions.has(perm);
   return ctx;
