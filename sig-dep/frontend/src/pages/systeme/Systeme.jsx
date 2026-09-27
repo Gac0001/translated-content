@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { DatabaseBackup, Download, Save } from 'lucide-react';
+import { DatabaseBackup, Download, Mail, PlugZap, RotateCcw, Save, Send } from 'lucide-react';
 import api, { download, errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
-import { useApi, Loadable, PageHeader, Card, KeyValues, runAction, toast, DataTable, InfoAlert } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, KeyValues, runAction, toast, DataTable, InfoAlert, Badge, Field } from '../../components/ui';
 import { fmtDateTime, fmtTaille } from '../../lib/format';
 
 function Parametres() {
@@ -51,12 +51,71 @@ function Sauvegardes() {
   );
 }
 
+const ETATS_MAIL = { EN_ATTENTE: ['En attente', 'bg-amber-50 text-amber-800 ring-amber-200'], ENVOYE: ['Envoyé', 'bg-emerald-50 text-emerald-800 ring-emerald-200'], ECHEC: ['Échec', 'bg-red-50 text-red-800 ring-red-200'], ANNULE: ['Annulé', 'bg-slate-100 text-slate-700 ring-slate-200'] };
+
+function Messagerie() {
+  const state = useApi('/systeme/messagerie');
+  const [dest, setDest] = useState('');
+  const [busy, setBusy] = useState(null);
+  const run = async (key, fn, msg) => {
+    setBusy(key);
+    try { const r = await runAction(fn, msg); state.reload(); return r; } catch { return null; } finally { setBusy(null); }
+  };
+  const verifier = async () => {
+    const r = await run('verif', () => api.post('/systeme/messagerie/verifier'));
+    if (r) (r.data.ok ? toast.success : toast.error)(r.data.message);
+  };
+  return (
+    <Card title="Messagerie (notifications par e-mail)" actions={<>
+      <button type="button" className="btn-secondary" disabled={!!busy} onClick={verifier}><PlugZap size={16} /> Tester la connexion</button>
+      <button type="button" className="btn-secondary" disabled={!!busy} onClick={() => run('traiter', () => api.post('/systeme/messagerie/traiter'), 'File d’envoi traitée.')}><Send size={16} /> Envoyer la file maintenant</button>
+    </>}>
+      <Loadable state={state}>
+        {(m) => (
+          <div className="space-y-4">
+            {!m.configuration.active && <InfoAlert tone="warning">La messagerie est désactivée. Renseignez le serveur SMTP dans <code>backend/.env</code> (variables <code>SMTP_*</code>, <code>MAIL_FROM</code>, <code>APP_URL</code>) puis <code>MAIL_ENABLED=true</code>, et redémarrez l’API.</InfoAlert>}
+            <div className="grid gap-4 lg:grid-cols-2">
+              <KeyValues items={[
+                ['État', m.configuration.active ? <Badge key="a" className="bg-emerald-50 text-emerald-800 ring-emerald-200">Activée</Badge> : <Badge key="a">Désactivée</Badge>],
+                ['Transport', m.configuration.transport], ['Serveur', m.configuration.serveur], ['Sécurité', m.configuration.securite],
+                ['Authentification', m.configuration.authentification ? 'Oui' : 'Non'], ['Expéditeur', m.configuration.expediteur],
+                ['Liens vers', m.configuration.adresseApplication], ['Tentatives maximales', m.configuration.tentativesMax],
+              ]} />
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+                  {[['EN_ATTENTE', 'En attente'], ['ENVOYE', 'Envoyés'], ['ECHEC', 'Échecs'], ['ANNULE', 'Annulés']].map(([k, l]) => (
+                    <div key={k} className="rounded-md bg-slate-50 p-2"><div className="text-lg font-semibold tabular-nums">{m.file[k] || 0}</div><div className="text-xs text-slate-600">{l}</div></div>
+                  ))}
+                </div>
+                <p className="text-sm text-slate-600">Envoyés sur les dernières 24 h : <b>{m.envoyes24h}</b>. Comptes actifs sans adresse électronique : <b>{m.comptesSansAdresse}</b>.</p>
+                {(m.file.ECHEC || 0) > 0 && <button type="button" className="btn-secondary" disabled={!!busy} onClick={() => run('relancer', () => api.post('/systeme/messagerie/relancer'), 'E-mails en échec remis en file.')}><RotateCcw size={16} /> Relancer les échecs</button>}
+                <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-end">
+                  <Field label="Envoyer un e-mail de test à" className="flex-1"><input type="email" className="input" placeholder="adresse@exemple.cd" value={dest} onChange={(e) => setDest(e.target.value)} /></Field>
+                  <button type="button" className="btn-primary" disabled={!dest || !!busy || !m.configuration.active} onClick={() => run('test', () => api.post('/systeme/messagerie/test', { destinataire: dest }), `E-mail de test envoyé à ${dest}.`)}><Mail size={16} /> Envoyer</button>
+                </div>
+              </div>
+            </div>
+            <DataTable searchable={false} pageSize={10} rows={m.recents} empty="Aucun e-mail." columns={[
+              { key: 'created_at', header: 'Créé le', render: (r) => fmtDateTime(r.created_at) },
+              { key: 'to_email', header: 'Destinataire' },
+              { key: 'subject', header: 'Sujet', render: (r) => <span className="text-xs">{r.subject}</span> },
+              { key: 'statut', header: 'État', render: (r) => <Badge className={ETATS_MAIL[r.statut][1]}>{ETATS_MAIL[r.statut][0]}</Badge> },
+              { key: 'tentatives', header: 'Tentatives' },
+              { key: 'derniere_erreur', header: 'Dernière erreur / envoi', render: (r) => (r.statut === 'ENVOYE' ? <span className="text-xs">{fmtDateTime(r.sent_at)}</span> : <span className="text-xs text-red-700">{r.derniere_erreur}</span>) },
+            ]} />
+          </div>
+        )}
+      </Loadable>
+    </Card>
+  );
+}
+
 export default function Systeme() {
   const can = useAuth((s) => s.can);
   const etat = useApi(can('systeme.etat') ? '/systeme/etat' : null);
   return (
     <>
-      <PageHeader title="Système" subtitle="État technique, paramètres et sauvegardes." breadcrumb={[{ label: 'Administration' }, { label: 'Système' }]} />
+      <PageHeader title="Système" subtitle="État technique, paramètres, messagerie et sauvegardes." breadcrumb={[{ label: 'Administration' }, { label: 'Système' }]} />
       <div className="space-y-4">
         {can('systeme.etat') && (
           <Loadable state={etat}>
@@ -70,6 +129,7 @@ export default function Systeme() {
           </Loadable>
         )}
         {can('systeme.parametres') && <Parametres />}
+        {can('systeme.parametres') && <Messagerie />}
         {can('systeme.sauvegardes') && <Sauvegardes />}
       </div>
     </>

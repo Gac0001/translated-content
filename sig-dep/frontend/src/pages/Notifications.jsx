@@ -6,10 +6,11 @@ import { useCompteurs } from '../store/auth';
 import { useApi, Loadable, PageHeader, Card, Tabs, Empty, Badge, runAction } from '../components/ui';
 import { fmtDateTime } from '../lib/format';
 import { NOTIF_TYPES } from '../lib/labels';
+import NotificationPreferences from '../components/NotificationPreferences';
 
 export default function Notifications() {
   const [filtre, setFiltre] = useState('');
-  const state = useApi(`/notifications?limit=200${filtre ? '&non_lues=true' : ''}`);
+  const state = useApi(`/notifications?limit=200${filtre === 'non' ? '&non_lues=true' : ''}`);
   const setNonLues = useCompteurs((s) => s.setNonLues);
   const navigate = useNavigate();
   const open = async (n) => {
@@ -20,7 +21,8 @@ export default function Notifications() {
   return (
     <>
       <PageHeader title="Notifications" breadcrumb={[{ label: 'Notifications' }]} actions={<button type="button" className="btn-secondary" onClick={all}><CheckCheck size={16} /> Tout marquer comme lu</button>} />
-      <Tabs value={filtre} onChange={setFiltre} tabs={[{ value: '', label: 'Toutes' }, { value: 'non', label: 'Non lues', count: state.data?.nonLues }]} />
+      <Tabs value={filtre} onChange={setFiltre} tabs={[{ value: '', label: 'Toutes' }, { value: 'non', label: 'Non lues', count: state.data?.nonLues }, { value: 'preferences', label: 'Préférences e-mail' }]} />
+      {filtre === 'preferences' ? <NotificationPreferences /> : (
       <Loadable state={state}>
         {(d) => (
           <Card bodyClass="p-0">
@@ -43,6 +45,7 @@ export default function Notifications() {
           </Card>
         )}
       </Loadable>
+      )}
     </>
   );
 }

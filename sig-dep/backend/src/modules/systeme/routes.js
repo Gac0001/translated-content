@@ -10,6 +10,7 @@ const config = require('../../config/env');
 const validate = require('../../middleware/validate');
 const { requirePerm } = require('../../middleware/auth');
 const { audit } = require('../../services/audit');
+const mailer = require('../../services/mailer');
 const { notFound, badRequest, AppError } = require('../../utils/errors');
 
 const router = express.Router();
@@ -91,6 +92,53 @@ router.get('/sauvegardes/:fichier', requirePerm('systeme.sauvegardes'), validate
   if (!fs.existsSync(p)) throw notFound('Sauvegarde introuvable.');
   await audit(req, { action: 'EXPORT', module: 'systeme', message: `Téléchargement de la sauvegarde ${req.valid.params.fichier}` });
   res.download(p);
+});
+
+// ─── Messagerie (notifications par e-mail) ──────────────────────────────────
+router.get('/messagerie', requirePerm('systeme.parametres'), async (req, res) => {
+  const m = config.mail;
+  const stats = await db('email_outbox').select('statut').count('* as n').groupBy('statut');
+  const envoyes24 = await db('email_outbox').where('statut', 'ENVOYE').where('sent_at', '>', db.raw(`now() - interval '24 hours'`)).count('* as n').first();
+  const recents = await db('email_outbox').orderBy('id', 'desc').limit(30)
+    .select('id', 'to_email', 'subject', 'type', 'statut', 'tentatives', 'derniere_erreur', 'prochain_essai', 'sent_at', 'created_at');
+  const sansAdresse = await db('users as u').leftJoin('agents as a', 'a.id', 'u.agent_id')
+    .where('u.statut', 'ACTIF').whereNotNull('u.agent_id').where((w) => w.whereNull('a.email').orWhere('a.email', '')).count('* as n').first();
+  res.json({
+    configuration: {
+      active: m.enabled, transport: m.transport, serveur: m.transport === 'smtp' ? `${m.host}:${m.port}` : null,
+      securite: m.secure ? 'TLS implicite' : 'STARTTLS si disponible', authentification: !!m.user, expediteur: m.from, adresseApplication: m.appUrl, tentativesMax: m.maxAttempts,
+    },
+    file: Object.fromEntries(stats.map((x) => [x.statut, Number(x.n)])),
+    envoyes24h: Number(envoyes24.n),
+    comptesSansAdresse: Number(sansAdresse.n),
+    recents,
+  });
+});
+
+router.post('/messagerie/verifier', requirePerm('systeme.parametres'), async (req, res) => {
+  res.json(await mailer.verifyConnection());
+});
+
+router.post('/messagerie/test', requirePerm('systeme.parametres'), validate({ body: z.object({ destinataire: z.email('adresse électronique invalide') }) }), async (req, res) => {
+  if (!config.mail.enabled) throw badRequest('La messagerie est désactivée (MAIL_ENABLED=false dans le fichier .env).');
+  try {
+    await mailer.sendTest(req.valid.body.destinataire);
+  } catch (e) {
+    await audit(req, { action: 'EMAIL_TEST', module: 'systeme', resultat: 'ECHEC', message: `${req.valid.body.destinataire} : ${e.message}` });
+    throw new AppError(502, 'SMTP_ECHEC', `Échec de l’envoi : ${e.message}`);
+  }
+  await audit(req, { action: 'EMAIL_TEST', module: 'systeme', message: req.valid.body.destinataire });
+  res.json({ message: `E-mail de test envoyé à ${req.valid.body.destinataire}.` });
+});
+
+router.post('/messagerie/relancer', requirePerm('systeme.parametres'), async (req, res) => {
+  const n = await db('email_outbox').where('statut', 'ECHEC').update({ statut: 'EN_ATTENTE', tentatives: 0, prochain_essai: db.fn.now() });
+  await audit(req, { action: 'MODIFICATION', module: 'systeme', message: `Relance de ${n} e-mail(s) en échec` });
+  res.json({ message: `${n} e-mail(s) remis en file d’envoi.`, relances: n });
+});
+
+router.post('/messagerie/traiter', requirePerm('systeme.parametres'), async (req, res) => {
+  res.json(await mailer.processOutbox(100));
 });
 
 module.exports = router;

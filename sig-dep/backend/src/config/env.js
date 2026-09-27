@@ -38,6 +38,20 @@ const config = {
   presenceAutolockHours: Number(process.env.PRESENCE_AUTOLOCK_HOURS || 24),
   seedDemo: process.env.SEED_DEMO !== 'false',
   pgDumpPath: process.env.PG_DUMP_PATH || 'pg_dump',
+  mail: {
+    enabled: process.env.MAIL_ENABLED === 'true',
+    // smtp (production) | json (tests : aucun envoi réseau) | log (affichage console)
+    transport: process.env.MAIL_TRANSPORT || 'smtp',
+    host: process.env.SMTP_HOST || 'localhost',
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: process.env.SMTP_SECURE === 'true',
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    rejectUnauthorized: process.env.SMTP_TLS_REJECT_UNAUTHORIZED !== 'false',
+    from: process.env.MAIL_FROM || 'SIG-DEP — Direction d’Études et Planification <no-reply@localhost>',
+    appUrl: (process.env.APP_URL || 'http://localhost:5173').replace(/\/+$/, ''),
+    maxAttempts: Number(process.env.MAIL_MAX_ATTEMPTS || 5),
+  },
 };
 
 if (config.isProd && /remplacer-par/.test(config.jwt.accessSecret)) {

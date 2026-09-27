@@ -256,7 +256,7 @@ Les exports disponibles : présences (PDF, Excel), registre des courriers et fic
 | Activités | `instructions`, `tasks`, `historiques` |
 | Documents | `documents`, `document_versions`, `document_comments` |
 | PIP | `pip_projects`, `pip_versions` |
-| Transverse | `attachments`, `notifications`, `audit_logs`, `sequences` |
+| Transverse | `attachments`, `notifications`, `notification_preferences`, `email_outbox`, `audit_logs`, `sequences` |
 
 Principes appliqués :
 
@@ -267,7 +267,37 @@ Principes appliqués :
 
 ---
 
-## 7. Sécurité
+## 7. Notifications par e-mail
+
+Les notifications internes (cloche de l’en-tête) peuvent aussi être envoyées par e-mail : nouvelle instruction ou tâche, compte rendu, transmission de courrier, document à examiner, retourné ou validé, échéance proche, retard, liste de présence soumise, fiche PIP à traiter, changement d’affectation, compte créé, mot de passe réinitialisé.
+
+**Activation** (dans `backend/.env`, puis redémarrer l’API) :
+
+```
+MAIL_ENABLED=true
+SMTP_HOST=smtp.exemple.cd
+SMTP_PORT=587            # 465 avec SMTP_SECURE=true
+SMTP_SECURE=false
+SMTP_USER=notifications@exemple.cd
+SMTP_PASS=********
+MAIL_FROM="SIG-DEP — Direction d’Études et Planification <no-reply@exemple.cd>"
+APP_URL=https://sig-dep.exemple.cd   # adresse de l’interface, utilisée pour les liens
+```
+
+Contrôlez ensuite depuis **Admin → Système → Messagerie** : « Tester la connexion », puis envoi d’un e-mail de test.
+
+**Fonctionnement**
+
+* **File durable** : chaque e-mail est d’abord enregistré dans la table `email_outbox`, dans la même transaction que la notification. La file est envoyée chaque minute. Si le serveur SMTP est indisponible, l’envoi est retenté après 1, 5, 15 et 60 minutes, puis marqué « Échec » au-delà de `MAIL_MAX_ATTEMPTS` (5). L’Admin peut relancer les échecs. Plusieurs instances de l’API peuvent fonctionner sans double envoi (verrouillage `SKIP LOCKED`).
+* **Confidentialité** : pour un courrier ou un document confidentiel ou secret, l’e-mail ne reprend ni l’objet ni le contenu ; il invite seulement à se connecter. Aucun mot de passe n’est jamais envoyé par e-mail.
+* **Préférences** : chaque utilisateur active ou coupe les e-mails, globalement ou par type (Notifications → « Préférences e-mail », ou page Profil).
+* **Destinataires** : l’adresse est celle de la fiche Agent. Un compte sans adresse ou inactif ne reçoit pas d’e-mail ; le panneau Messagerie indique combien de comptes actifs n’ont pas d’adresse.
+* **Conservation** : les e-mails envoyés sont purgés de la file après 90 jours.
+* Tant que `MAIL_ENABLED=false`, rien n’est mis en file et l’application fonctionne normalement.
+
+---
+
+## 8. Sécurité
 
 * Mots de passe hachés avec **bcrypt** (coût 12). Politique : 8 caractères minimum, avec lettre, chiffre et caractère spécial.
 * **Jeton d’accès** JWT de courte durée (`ACCESS_TOKEN_TTL`, 15 min), gardé en mémoire côté navigateur.
@@ -284,7 +314,7 @@ Principes appliqués :
 
 ---
 
-## 8. Tests
+## 9. Tests
 
 ```bash
 cd backend
@@ -301,13 +331,14 @@ Les tests réinitialisent la base `sig_dep_test` (migrations et seeds), puis vé
 * les comptes préparés puis autorisés, l’historique des affectations et le journal d’audit en lecture seule ;
 * les exports PDF, Excel et Word, et les tableaux de bord de chaque rôle ;
 * la gestion des structures : postes créés automatiquement, Bureau rattaché au Directeur, propagation d’un changement de rattachement, archivage protégé ;
-* la recherche globale limitée au périmètre, et la sérialisation du journal d’audit.
+* la recherche globale limitée au périmètre, et la sérialisation du journal d’audit ;
+* les notifications par e-mail : mise en file, préférences, confidentialité, mot de passe jamais envoyé, envoi SMTP réel vers un serveur de test local, réessais puis échec et relance, administration.
 
 **Intégration continue** : `.github/workflows/sig-dep.yml` exécute ces tests sur un PostgreSQL 16 éphémère et compile le frontend à chaque modification du dossier `sig-dep/`.
 
 ---
 
-## 9. Sauvegarde PostgreSQL
+## 10. Sauvegarde PostgreSQL
 
 **Depuis l’application** : Admin → Système → « Lancer une sauvegarde ». Les fichiers sont téléchargeables depuis le même écran.
 
@@ -339,7 +370,7 @@ Sauvegardez aussi le dossier `backend/storage/uploads` (pièces jointes et photo
 
 ---
 
-## 10. Mise en production
+## 11. Mise en production
 
 1. **Serveur** : Linux (Ubuntu 22.04 ou 24.04 recommandé) ou Windows Server, avec Node.js 22 LTS, PostgreSQL et Nginx (ou IIS).
 2. **Base** : créer un utilisateur PostgreSQL dédié avec un mot de passe fort. Ne pas ouvrir le port 5432 sur Internet.
@@ -360,6 +391,8 @@ Sauvegardez aussi le dossier `backend/storage/uploads` (pièces jointes et photo
    CORS_ORIGINS=https://sig-dep.exemple.cd
    COOKIE_SECURE=true
    SEED_DEMO=false
+   APP_URL=https://sig-dep.exemple.cd
+   MAIL_ENABLED=true   # avec les variables SMTP_* (voir section 7)
    ```
 
    Puis :
@@ -410,6 +443,6 @@ npm run reset-admin
 
 ---
 
-## 11. Appellation officielle
+## 12. Appellation officielle
 
 L’appellation **« Direction d’Études et Planification »** (sigle **DEP**) est utilisée partout : interface, documents générés, exports, base de données (`directions.nom`), notifications et documentation. Le paramètre `direction_nom` est verrouillé côté API.

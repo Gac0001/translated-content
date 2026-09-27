@@ -10,6 +10,7 @@ const db = require('../db/knex');
 const config = require('../config/env');
 const { notify } = require('./notifications');
 const { addHistory } = require('./history');
+const mailer = require('./mailer');
 
 const ACTIVE = ['TRANSMISE', 'RECUE', 'EN_COURS', 'A_CORRIGER'];
 
@@ -55,6 +56,8 @@ async function autolockPresences() {
 
 async function purgeTokens() {
   await db('refresh_tokens').where('expires_at', '<', db.raw(`now() - interval '30 days'`)).del();
+  // Les e-mails envoyés contiennent des données personnelles : conservation limitée à 90 jours.
+  await db('email_outbox').where('statut', 'ENVOYE').where('sent_at', '<', db.raw(`now() - interval '90 days'`)).del();
 }
 
 async function runAll() {
@@ -63,11 +66,19 @@ async function runAll() {
   }
 }
 
+async function sendMails() {
+  try { await mailer.processOutbox(); } catch (e) { console.error('[JOBS] envoi des e-mails :', e.message); }
+}
+
 let timer = null;
+let mailTimer = null;
 function start(intervalMs = 10 * 60000) {
   if (timer) return;
   setTimeout(runAll, 5000);
   timer = setInterval(runAll, intervalMs);
+  // La file des e-mails est traitée chaque minute
+  mailTimer = setInterval(sendMails, 60000);
+  setTimeout(sendMails, 8000);
 }
 
-module.exports = { start, runAll, markOverdue, remindDeadlines, autolockPresences };
+module.exports = { start, runAll, sendMails, markOverdue, remindDeadlines, autolockPresences };

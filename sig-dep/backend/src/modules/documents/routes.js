@@ -158,7 +158,7 @@ async function move(req, d, patch, action, commentaire, notifyTo, notifType, tit
   await addHistory('DOCUMENT', d.id, req.ctx.userId, { action, ancien: d.statut, nouveau: u.statut, commentaire });
   const auditAction = { VALIDATION: 'VALIDATION', VALIDATION_DIVISION: 'VALIDATION', TRANSMISSION: 'TRANSMISSION', ARCHIVAGE: 'ARCHIVAGE' }[action] || 'MODIFICATION';
   await audit(req, { action: auditAction, module: 'documents', entite: 'document', entiteId: d.id, avant: { statut: d.statut, detenteur: d.detenteur_user_id }, apres: { statut: u.statut, detenteur: u.detenteur_user_id }, message: action });
-  if (notifyTo) await notify(notifyTo, { type: notifType, titre: `${titre} : ${d.titre}`, message: commentaire || d.reference, lien: `/documents/${d.id}`, expediteur: req.ctx.userId });
+  if (notifyTo) await notify(notifyTo, { type: notifType, titre: `${titre} : ${d.titre}`, message: commentaire || d.reference, lien: `/documents/${d.id}`, expediteur: req.ctx.userId, confidentiel: d.confidentialite !== 'ORDINAIRE' });
   return u;
 }
 
@@ -222,7 +222,7 @@ router.post('/:id/commentaires', requirePerm('documents.consulter'), validate({ 
   const [c] = await db('document_comments').insert({ document_id: d.id, version_numero: d.version_courante, user_id: req.ctx.userId, texte: req.valid.body.texte }).returning('*');
   await audit(req, { action: 'CREATION', module: 'documents', entite: 'commentaire', entiteId: c.id });
   const to = [d.auteur_user_id, d.detenteur_user_id].filter((x) => x !== req.ctx.userId);
-  await notify(to, { type: 'DOCUMENT_A_EXAMINER', titre: `Nouveau commentaire : ${d.titre}`, message: req.valid.body.texte.slice(0, 200), lien: `/documents/${d.id}`, expediteur: req.ctx.userId });
+  await notify(to, { type: 'DOCUMENT_A_EXAMINER', titre: `Nouveau commentaire : ${d.titre}`, message: req.valid.body.texte.slice(0, 200), lien: `/documents/${d.id}`, expediteur: req.ctx.userId, confidentiel: d.confidentialite !== 'ORDINAIRE' });
   res.status(201).json(c);
 });
 

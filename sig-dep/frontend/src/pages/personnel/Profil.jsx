@@ -3,6 +3,7 @@ import { Upload } from 'lucide-react';
 import api, { errorMessage } from '../../lib/api';
 import { useApi, Loadable, PageHeader, toast } from '../../components/ui';
 import AgentView from './AgentView';
+import NotificationPreferences from '../../components/NotificationPreferences';
 
 export default function Profil() {
   const state = useApi('/agents/moi');
@@ -16,7 +17,7 @@ export default function Profil() {
     <>
       <PageHeader title="Mon profil" subtitle="Votre affectation ne peut être modifiée que par l’autorité compétente." breadcrumb={[{ label: 'Mon profil' }]} />
       <Loadable state={state}>
-        {(a) => <AgentView a={a} photoVersion={v} extraActions={<label className="btn-ghost mt-2 cursor-pointer text-xs"><Upload size={14} /> Changer la photo<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => upload(e.target.files[0])} /></label>} />}
+        {(a) => <><AgentView a={a} photoVersion={v} extraActions={<label className="btn-ghost mt-2 cursor-pointer text-xs"><Upload size={14} /> Changer la photo<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => upload(e.target.files[0])} /></label>} /><div className="mt-4"><NotificationPreferences /></div></>}
       </Loadable>
     </>
   );

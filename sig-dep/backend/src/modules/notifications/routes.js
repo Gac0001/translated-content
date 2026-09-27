@@ -3,6 +3,9 @@ const express = require('express');
 const { z } = require('zod');
 const db = require('../../db/knex');
 const validate = require('../../middleware/validate');
+const config = require('../../config/env');
+const { EMAIL_TYPES } = require('../../services/mailer');
+const { audit } = require('../../services/audit');
 
 const router = express.Router();
 
@@ -28,6 +31,29 @@ router.post('/:id/lue', validate({ params: z.object({ id: z.coerce.number().int(
 router.post('/tout-lire', async (req, res) => {
   await db('notifications').where({ user_id: req.ctx.userId, lu: false }).update({ lu: true, lu_at: db.fn.now() });
   res.json({ message: 'Toutes les notifications sont marquées comme lues.' });
+});
+
+// ─── Préférences de notification par e-mail ────────────────────────────────
+router.get('/preferences', async (req, res) => {
+  const p = await db('notification_preferences').where({ user_id: req.ctx.userId }).first();
+  res.json({
+    messagerieActive: config.mail.enabled,
+    email: req.ctx.agent ? req.ctx.agent.email : null,
+    emailActif: p ? p.email_actif : true,
+    typesDesactives: p ? p.types_desactives : [],
+    types: Object.entries(EMAIL_TYPES).map(([code, libelle]) => ({ code, libelle })),
+  });
+});
+
+router.put('/preferences', validate({ body: z.object({
+  emailActif: z.boolean(),
+  typesDesactives: z.array(z.enum(Object.keys(EMAIL_TYPES))).max(50),
+}) }), async (req, res) => {
+  const { emailActif, typesDesactives } = req.valid.body;
+  await db('notification_preferences').insert({ user_id: req.ctx.userId, email_actif: emailActif, types_desactives: JSON.stringify([...new Set(typesDesactives)]), updated_at: db.fn.now() })
+    .onConflict('user_id').merge();
+  await audit(req, { action: 'MODIFICATION', module: 'notifications', entite: 'preferences', entiteId: req.ctx.userId, apres: req.valid.body });
+  res.json({ message: 'Préférences de notification enregistrées.' });
 });
 
 module.exports = router;

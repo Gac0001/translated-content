@@ -172,7 +172,7 @@ router.post('/:id/transmettre', requirePerm('courriers.transmettre', 'dossiers.t
     return tr;
   });
   await audit(req, { action: 'TRANSMISSION', module: 'courriers', entite: 'courrier', entiteId: c.id, apres: t });
-  await notify(dest.userId, { type: 'COURRIER', titre: `Courrier transmis : ${c.numero_enregistrement}`, message: c.objet, lien: `/courriers/${c.id}`, expediteur: req.ctx.userId });
+  await notify(dest.userId, { type: 'COURRIER', titre: `Courrier transmis : ${c.numero_enregistrement}`, message: c.objet, lien: `/courriers/${c.id}`, expediteur: req.ctx.userId, confidentiel: c.confidentialite !== 'ORDINAIRE' });
   res.status(201).json(t);
 });
 

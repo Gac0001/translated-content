@@ -1,6 +1,7 @@
 'use strict';
 /** Notifications internes. */
 const db = require('../db/knex');
+const { enqueueForNotifications } = require('./mailer');
 
 const TYPES = {
   INSTRUCTION: 'Nouvelle instruction',
@@ -19,12 +20,23 @@ const TYPES = {
   INSTRUCTION_REPONSE: 'Compte rendu d’instruction',
 };
 
-async function notify(userIds, { type, titre, message = null, lien = null, expediteur = null }, trx = db) {
+/**
+ * Crée les notifications internes et place en file les e-mails correspondants
+ * (selon la configuration et les préférences de chaque destinataire).
+ * confidentiel : l’e-mail ne reprend ni l’objet ni le contenu de l’élément.
+ */
+async function notify(userIds, { type, titre, message = null, lien = null, expediteur = null, confidentiel = false }, trx = db) {
   const ids = [...new Set([].concat(userIds).filter(Boolean))].filter((id) => id !== expediteur);
   if (!ids.length) return;
-  await trx('notifications').insert(ids.map((user_id) => ({
+  const rows = await trx('notifications').insert(ids.map((user_id) => ({
     user_id, type, titre: titre || TYPES[type] || type, message, lien, expediteur_user_id: expediteur,
-  })));
+  }))).returning(['id', 'user_id', 'type', 'titre', 'message', 'lien']);
+  try {
+    await enqueueForNotifications(rows, { confidentiel }, trx);
+  } catch (e) {
+    // Un incident de messagerie ne doit jamais bloquer l’opération métier.
+    console.error('[MAIL] mise en file impossible :', e.message);
+  }
 }
 
 module.exports = { notify, TYPES };
