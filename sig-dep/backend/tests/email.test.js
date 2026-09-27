@@ -25,10 +25,10 @@ afterEach(reset);
 describe('Mise en file des e-mails', () => {
   test('une instruction génère un e-mail au destinataire, avec lien vers l’élément', async () => {
     const dir = api(await login('directeur'));
-    const r = await dir.post('/instructions', { destinataire_user_id: await userId('cd.etudes'), objet: 'Étude « accès & usages »', contenu: 'Préparer les TDR' });
+    const r = await dir.post('/instructions', { destinataire_user_id: await userId('cd.edi'), objet: 'Étude « accès & usages »', contenu: 'Préparer les TDR' });
     expect(r.status).toBe(201);
-    const [m] = await outboxFor('cd.etudes');
-    expect(m).toMatchObject({ type: 'INSTRUCTION', statut: 'EN_ATTENTE', to_email: 'cd.etudes@economie-numerique.gouv.cd' });
+    const [m] = await outboxFor('cd.edi');
+    expect(m).toMatchObject({ type: 'INSTRUCTION', statut: 'EN_ATTENTE', to_email: 'cd.edi@economie-numerique.gouv.cd' });
     expect(m.subject).toContain('Étude « accès & usages »');
     expect(m.html_body).toContain(`https://sig-dep.test/instructions/${r.body.id}`);
     expect(m.html_body).toContain('Étude « accès &amp; usages »'); // échappement HTML
@@ -39,7 +39,7 @@ describe('Mise en file des e-mails', () => {
   test('le traitement de la file envoie les e-mails en attente', async () => {
     const r = await mailer.processOutbox(100);
     expect(r.envoyes).toBeGreaterThan(0);
-    const [m] = await outboxFor('cd.etudes');
+    const [m] = await outboxFor('cd.edi');
     expect(m.statut).toBe('ENVOYE');
     expect(m.sent_at).toBeTruthy();
   });
@@ -59,49 +59,49 @@ describe('Mise en file des e-mails', () => {
 
   test('le mot de passe temporaire n’est jamais envoyé par e-mail', async () => {
     const admin = api(await loginAdmin());
-    const r = await admin.post(`/users/${await userId('ag.pls2')}/reinitialiser-mot-de-passe`);
-    const [m] = await outboxFor('ag.pls2');
+    const r = await admin.post(`/users/${await userId('ag.str2')}/reinitialiser-mot-de-passe`);
+    const [m] = await outboxFor('ag.str2');
     expect(m.type).toBe('MDP_REINITIALISE');
     expect(m.text_body).not.toContain(r.body.motDePasseTemporaire);
     expect(m.html_body).not.toContain(r.body.motDePasseTemporaire);
   });
 
   test('aucun e-mail pour un Agent sans adresse électronique (la notification interne est créée)', async () => {
-    const u = await db('users').where({ username: 'ag.vtp1' }).first();
+    const u = await db('users').where({ username: 'ag.doi1' }).first();
     await db('agents').where({ id: u.agent_id }).update({ email: null });
-    const t = await api(await login('cb.vtp')).post('/taches', { agent_user_id: u.id, titre: 'Tâche sans e-mail' });
+    const t = await api(await login('cb.doi')).post('/taches', { agent_user_id: u.id, titre: 'Tâche sans e-mail' });
     expect(t.status).toBe(201);
-    expect(await outboxFor('ag.vtp1')).toHaveLength(0);
+    expect(await outboxFor('ag.doi1')).toHaveLength(0);
     expect(await db('notifications').where({ user_id: u.id, type: 'TACHE' }).first()).toBeTruthy();
   });
 
   test('messagerie désactivée : rien n’est mis en file', async () => {
     config.mail.enabled = false;
-    await api(await login('cb.pls')).post('/taches', { agent_user_id: await userId('ag.pls1'), titre: 'Tâche hors messagerie' });
-    expect((await outboxFor('ag.pls1')).filter((m) => m.subject.includes('Tâche hors messagerie'))).toHaveLength(0);
+    await api(await login('cb.str')).post('/taches', { agent_user_id: await userId('ag.str1'), titre: 'Tâche hors messagerie' });
+    expect((await outboxFor('ag.str1')).filter((m) => m.subject.includes('Tâche hors messagerie'))).toHaveLength(0);
   });
 });
 
 describe('Préférences de notification', () => {
   test('un type désactivé ou la messagerie coupée par l’utilisateur supprime l’e-mail', async () => {
-    const ag = api(await login('ag.est2'));
+    const ag = api(await login('ag.eap2'));
     const p = await ag.get('/notifications/preferences');
-    expect(p.body).toMatchObject({ messagerieActive: true, emailActif: true, email: 'ag.est2@economie-numerique.gouv.cd' });
+    expect(p.body).toMatchObject({ messagerieActive: true, emailActif: true, email: 'ag.eap2@economie-numerique.gouv.cd' });
     expect(p.body.types.map((t) => t.code)).toContain('TACHE');
     expect((await ag.put('/notifications/preferences', { emailActif: true, typesDesactives: ['TACHE'] })).status).toBe(200);
-    const cb = api(await login('cb.est'));
-    await cb.post('/taches', { agent_user_id: await userId('ag.est2'), titre: 'Préférence TACHE désactivée' });
-    expect((await outboxFor('ag.est2')).some((m) => m.subject.includes('Préférence TACHE'))).toBe(false);
+    const cb = api(await login('cb.eap'));
+    await cb.post('/taches', { agent_user_id: await userId('ag.eap2'), titre: 'Préférence TACHE désactivée' });
+    expect((await outboxFor('ag.eap2')).some((m) => m.subject.includes('Préférence TACHE'))).toBe(false);
     await ag.put('/notifications/preferences', { emailActif: false, typesDesactives: [] });
-    await cb.post('/taches', { agent_user_id: await userId('ag.est2'), titre: 'Messagerie coupée' });
-    expect((await outboxFor('ag.est2')).some((m) => m.subject.includes('Messagerie coupée'))).toBe(false);
+    await cb.post('/taches', { agent_user_id: await userId('ag.eap2'), titre: 'Messagerie coupée' });
+    expect((await outboxFor('ag.eap2')).some((m) => m.subject.includes('Messagerie coupée'))).toBe(false);
     await ag.put('/notifications/preferences', { emailActif: true, typesDesactives: [] });
-    await cb.post('/taches', { agent_user_id: await userId('ag.est2'), titre: 'Messagerie rétablie' });
-    expect((await outboxFor('ag.est2')).some((m) => m.subject.includes('Messagerie rétablie'))).toBe(true);
+    await cb.post('/taches', { agent_user_id: await userId('ag.eap2'), titre: 'Messagerie rétablie' });
+    expect((await outboxFor('ag.eap2')).some((m) => m.subject.includes('Messagerie rétablie'))).toBe(true);
   });
 
   test('type inconnu refusé', async () => {
-    const r = await api(await login('ag.est2')).put('/notifications/preferences', { emailActif: true, typesDesactives: ['INEXISTANT'] });
+    const r = await api(await login('ag.eap2')).put('/notifications/preferences', { emailActif: true, typesDesactives: ['INEXISTANT'] });
     expect(r.status).toBe(400);
   });
 });
@@ -126,11 +126,11 @@ describe('Envoi SMTP et réessais', () => {
     mailer.resetTransport();
     recus = [];
     await db('email_outbox').where('statut', 'EN_ATTENTE').update({ statut: 'ANNULE' });
-    await api(await login('directeur')).post('/instructions', { destinataire_user_id: await userId('cd.suivi'), objet: 'Synthèse SMTP', contenu: 'Test d’envoi' });
+    await api(await login('directeur')).post('/instructions', { destinataire_user_id: await userId('cd.ps'), objet: 'Synthèse SMTP', contenu: 'Test d’envoi' });
     const r = await mailer.processOutbox();
     expect(r).toEqual({ envoyes: 1, echecs: 0 });
     expect(recus).toHaveLength(1);
-    expect(recus[0].to).toEqual(['cd.suivi@economie-numerique.gouv.cd']);
+    expect(recus[0].to).toEqual(['cd.ps@economie-numerique.gouv.cd']);
     expect(recus[0].raw).toMatch(/Subject: .*SIG-DEP/);
     expect(recus[0].raw).toContain('text/plain');
     expect(recus[0].raw).toContain('text/html');
@@ -141,10 +141,10 @@ describe('Envoi SMTP et réessais', () => {
     Object.assign(config.mail, { transport: 'smtp', host: '127.0.0.1', port: 2599, secure: false, maxAttempts: 2 });
     mailer.resetTransport();
     await db('email_outbox').where('statut', 'EN_ATTENTE').update({ statut: 'ANNULE' });
-    await api(await login('directeur')).post('/instructions', { destinataire_user_id: await userId('cd.planification'), objet: 'Serveur en panne', contenu: 'Test' });
+    await api(await login('directeur')).post('/instructions', { destinataire_user_id: await userId('cd.sci'), objet: 'Serveur en panne', contenu: 'Test' });
     let r = await mailer.processOutbox();
     expect(r).toEqual({ envoyes: 0, echecs: 1 });
-    let [m] = await outboxFor('cd.planification');
+    let [m] = await outboxFor('cd.sci');
     expect(m.statut).toBe('EN_ATTENTE');
     expect(m.tentatives).toBe(1);
     expect(m.derniere_erreur).toBeTruthy();
@@ -153,11 +153,11 @@ describe('Envoi SMTP et réessais', () => {
     expect((await mailer.processOutbox()).echecs).toBe(0);
     await db('email_outbox').where({ id: m.id }).update({ prochain_essai: db.raw(`now() - interval '1 second'`) });
     r = await mailer.processOutbox();
-    [m] = await outboxFor('cd.planification');
+    [m] = await outboxFor('cd.sci');
     expect(m.statut).toBe('ECHEC');
     const admin = api(await loginAdmin());
     expect((await admin.post('/systeme/messagerie/relancer')).body.relances).toBeGreaterThanOrEqual(1);
-    [m] = await outboxFor('cd.planification');
+    [m] = await outboxFor('cd.sci');
     expect(m).toMatchObject({ statut: 'EN_ATTENTE', tentatives: 0 });
     config.mail.maxAttempts = 5;
   });

@@ -36,21 +36,21 @@ describe('Authentification', () => {
   });
 
   test('verrouillage après plusieurs échecs, puis déverrouillage automatique', async () => {
-    for (let i = 0; i < 4; i++) await request(app).post('/api/auth/login').send({ username: 'ag.sta2', password: 'x' });
-    let res = await request(app).post('/api/auth/login').send({ username: 'ag.sta2', password: 'x' });
+    for (let i = 0; i < 4; i++) await request(app).post('/api/auth/login').send({ username: 'ag.prg2', password: 'x' });
+    let res = await request(app).post('/api/auth/login').send({ username: 'ag.prg2', password: 'x' });
     expect(res.status).toBe(423);
-    res = await request(app).post('/api/auth/login').send({ username: 'ag.sta2', password: DEMO });
+    res = await request(app).post('/api/auth/login').send({ username: 'ag.prg2', password: DEMO });
     expect(res.status).toBe(423);
-    expect((await db('users').where({ username: 'ag.sta2' }).first()).statut).toBe('VERROUILLE');
-    await db('users').where({ username: 'ag.sta2' }).update({ locked_until: db.raw(`now() - interval '1 minute'`) });
-    res = await request(app).post('/api/auth/login').send({ username: 'ag.sta2', password: DEMO });
+    expect((await db('users').where({ username: 'ag.prg2' }).first()).statut).toBe('VERROUILLE');
+    await db('users').where({ username: 'ag.prg2' }).update({ locked_until: db.raw(`now() - interval '1 minute'`) });
+    res = await request(app).post('/api/auth/login').send({ username: 'ag.prg2', password: DEMO });
     expect(res.status).toBe(200);
     const audit = await db('audit_logs').where({ action: 'VERROUILLAGE' }).first();
     expect(audit).toBeTruthy();
   });
 
   test('refresh token : rotation et détection de réutilisation', async () => {
-    const res = await request(app).post('/api/auth/login').send({ username: 'cb.est', password: DEMO });
+    const res = await request(app).post('/api/auth/login').send({ username: 'cb.eap', password: DEMO });
     const c1 = cookieOf(res);
     const r1 = await request(app).post('/api/auth/refresh').set('Cookie', c1);
     expect(r1.status).toBe(200);
@@ -64,7 +64,7 @@ describe('Authentification', () => {
   });
 
   test('déconnexion : le refresh token est révoqué', async () => {
-    const res = await request(app).post('/api/auth/login').send({ username: 'cb.vtp', password: DEMO });
+    const res = await request(app).post('/api/auth/login').send({ username: 'cb.doi', password: DEMO });
     const c = cookieOf(res);
     await request(app).post('/api/auth/logout').set('Cookie', c);
     expect((await request(app).post('/api/auth/refresh').set('Cookie', c)).status).toBe(401);
@@ -72,11 +72,11 @@ describe('Authentification', () => {
 
   test('compte désactivé : connexion refusée et sessions révoquées', async () => {
     const dir = api(await login('directeur'));
-    const uid = await userId('ag.vtp2');
-    const token = await login('ag.vtp2');
+    const uid = await userId('ag.doi2');
+    const token = await login('ag.doi2');
     expect((await dir.post(`/users/${uid}/desactiver`, { motif: 'Test' })).status).toBe(200);
     expect((await request(app).get('/api/auth/me').set('Authorization', `Bearer ${token}`)).status).toBe(401);
-    expect((await request(app).post('/api/auth/login').send({ username: 'ag.vtp2', password: DEMO })).status).toBe(401);
+    expect((await request(app).post('/api/auth/login').send({ username: 'ag.doi2', password: DEMO })).status).toBe(401);
     expect((await dir.post(`/users/${uid}/activer`)).status).toBe(200);
   });
 

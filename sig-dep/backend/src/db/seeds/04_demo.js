@@ -60,9 +60,9 @@ exports.seed = async function seed(knex) {
   await personne({ nom: 'MBALA', postnom: 'NZUZI', prenom: 'Patrick', sexe: 'M', grade: 'AGA2', fonction: 'F-ASS', username: 'ag.secretariat2', role: 'AGENT', niveau: 'BUREAU', bureau: 'BSD', poste: 'P-AG-BSD' });
 
   const chefsDivision = [
-    ['DIV-EP', 'cd.etudes', 'KALALA', 'MWAMBA', 'Didier', 'M'],
-    ['DIV-PP', 'cd.planification', 'MPIANA', 'KANKU', 'Sylvie', 'F'],
-    ['DIV-SES', 'cd.suivi', 'TSHISEKEDI', 'NGALULA', 'Albert', 'M'],
+    ['DIV-EDI', 'cd.edi', 'KALALA', 'MWAMBA', 'Didier', 'M'],
+    ['DIV-SCI', 'cd.sci', 'MPIANA', 'KANKU', 'Sylvie', 'F'],
+    ['DIV-PS', 'cd.ps', 'TSHISEKEDI', 'NGALULA', 'Albert', 'M'],
   ];
   for (const [div, username, nom, postnom, prenom, sexe] of chefsDivision) {
     await personne({ nom, postnom, prenom, sexe, grade: 'CD', fonction: 'F-CD', username, role: 'CHEF_DIVISION', niveau: 'DIVISION', division: div, poste: `P-CD-${div}` });
@@ -77,7 +77,7 @@ exports.seed = async function seed(knex) {
     ['KASEREKA', 'PALUKU', 'Emmanuel', 'M'], ['BASEME', 'AMISI', 'Laurette', 'F'], ['NKULU', 'NUMBI', 'Gédéon', 'M'],
   ];
   let n = 0;
-  const bureauxDiv = ['BUR-EST', 'BUR-VTP', 'BUR-PLS', 'BUR-PIP', 'BUR-SEV', 'BUR-STA'];
+  const bureauxDiv = ['BUR-EAP', 'BUR-DOI', 'BUR-STR', 'BUR-COI', 'BUR-SEV', 'BUR-PRG'];
   for (const code of bureauxDiv) {
     const slug = code.replace('BUR-', '').toLowerCase();
     const division = Object.values(divisions).find((d) => d.id === bureaux[code].division_id).code;
@@ -85,7 +85,7 @@ exports.seed = async function seed(knex) {
     await personne({ nom, postnom, prenom, sexe, grade: 'CB', fonction: 'F-CB', username: `cb.${slug}`, role: 'CHEF_BUREAU', niveau: 'BUREAU', division, bureau: code, poste: `P-CB-${code}` });
     for (let i = 1; i <= 2; i++) {
       const [anom, apostnom, aprenom, asexe] = noms[n++];
-      await personne({ nom: anom, postnom: apostnom, prenom: aprenom, sexe: asexe, grade: i === 1 ? 'ATA1' : 'ATA2', fonction: i === 1 ? 'F-CE' : (code === 'BUR-STA' ? 'F-STAT' : 'F-ANA'), username: `ag.${slug}${i}`, role: 'AGENT', niveau: 'BUREAU', division, bureau: code, poste: `P-AG-${code}` });
+      await personne({ nom: anom, postnom: apostnom, prenom: aprenom, sexe: asexe, grade: i === 1 ? 'ATA1' : 'ATA2', fonction: i === 1 ? 'F-CE' : (code === 'BUR-PRG' ? 'F-STAT' : 'F-ANA'), username: `ag.${slug}${i}`, role: 'AGENT', niveau: 'BUREAU', division, bureau: code, poste: `P-AG-${code}` });
     }
   }
 

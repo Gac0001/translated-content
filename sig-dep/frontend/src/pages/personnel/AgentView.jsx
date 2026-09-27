@@ -13,7 +13,7 @@ export default function AgentView({ a, photoVersion, extraActions }) {
           <div className="shrink-0"><AgentPhoto agentId={a.id} hasPhoto={a.has_photo} size={120} version={photoVersion} />{extraActions}</div>
           <div className="flex-1">
             <KeyValues items={[
-              ['Nom', a.nom], ['Postnom', a.postnom], ['Prénom', a.prenom], ['Sexe', a.sexe === 'F' ? 'Féminin' : 'Masculin'],
+              ['Nom', a.nom], ['Postnom', a.postnom], ['Prénom', a.prenom], ['Sexe', a.sexe === 'F' ? 'Féminin' : a.sexe === 'M' ? 'Masculin' : 'Non renseigné'],
               ['Matricule', a.matricule], ['Date de naissance', fmtDate(a.date_naissance)], ['Grade', a.grade], ['Fonction', a.fonction],
               ['Téléphone', a.telephone], ['Adresse électronique', a.email], ['Adresse', a.adresse], ['Statut', <StatusBadge key="s" value={a.statut} />],
             ]} />

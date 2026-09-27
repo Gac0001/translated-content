@@ -16,6 +16,7 @@ const Cadre = p(() => import('./pages/organisation/Cadre'));
 const AgentsList = p(() => import('./pages/personnel/AgentsList'));
 const AgentDetail = p(() => import('./pages/personnel/AgentDetail'));
 const AgentForm = p(() => import('./pages/personnel/AgentForm'));
+const AgentImport = p(() => import('./pages/personnel/AgentImport'));
 const Profil = p(() => import('./pages/personnel/Profil'));
 const UsersList = p(() => import('./pages/comptes/UsersList'));
 const UserDetail = p(() => import('./pages/comptes/UserDetail'));
@@ -83,6 +84,7 @@ export default function App() {
             <Route path="cadre-organique" element={G(['organisation.consulter'], <Cadre />)} />
             <Route path="personnel" element={G(['personnel.consulter', 'personnel.suivre'], <AgentsList />)} />
             <Route path="personnel/nouveau" element={G(['personnel.gerer', 'personnel.suivre'], <AgentForm />)} />
+            <Route path="personnel/import" element={G(['personnel.gerer', 'personnel.suivre'], <AgentImport />)} />
             <Route path="personnel/:id" element={<AgentDetail />} />
             <Route path="personnel/:id/modifier" element={G(['personnel.gerer', 'personnel.suivre'], <AgentForm />)} />
             <Route path="profil" element={<Profil />} />

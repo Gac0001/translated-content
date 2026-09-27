@@ -118,7 +118,7 @@ describe('API — rang, rattachement et permissions', () => {
   });
 
   test('aucun Chef de Division ne peut superviser le Bureau Secrétariat (instruction refusée)', async () => {
-    const res = await api(await login('cd.etudes')).post('/instructions', { destinataire_user_id: await userId('cb.secretariat'), objet: 'Test interdit', contenu: 'Contenu' });
+    const res = await api(await login('cd.edi')).post('/instructions', { destinataire_user_id: await userId('cb.secretariat'), objet: 'Test interdit', contenu: 'Contenu' });
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe('CHAINE_HIERARCHIQUE');
   });
@@ -131,7 +131,7 @@ describe('API — rang, rattachement et permissions', () => {
   });
 
   test('un Chef de Division ne voit pas les Agents du Bureau Secrétariat', async () => {
-    const res = await api(await login('cd.etudes')).get('/agents');
+    const res = await api(await login('cd.edi')).get('/agents');
     expect(res.body.data.some((a) => a.bureau_id === bsd.id)).toBe(false);
   });
 

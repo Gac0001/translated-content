@@ -4,7 +4,7 @@ const { db, login, loginAdmin, api, userId } = require('./helpers');
 
 describe('Présences hebdomadaires', () => {
   test('workflow Brouillon → Vérifiée → Soumise → Verrouillée et rectificatif', async () => {
-    const cb = api(await login('cb.pip'));
+    const cb = api(await login('cb.coi'));
     const dir = api(await login('directeur'));
     const s = await cb.post('/presences', { structure_type: 'BUREAU', semaine_debut: '2030-01-07' });
     expect(s.status).toBe(201);
@@ -31,8 +31,8 @@ describe('Présences hebdomadaires', () => {
   });
 
   test('un Chef de Bureau ne crée pas la liste d’un autre Bureau', async () => {
-    const other = await db('bureaux').where({ code: 'BUR-EST' }).first();
-    const r = await api(await login('cb.pip')).post('/presences', { structure_type: 'BUREAU', bureau_id: other.id, semaine_debut: '2026-09-07' });
+    const other = await db('bureaux').where({ code: 'BUR-EAP' }).first();
+    const r = await api(await login('cb.coi')).post('/presences', { structure_type: 'BUREAU', bureau_id: other.id, semaine_debut: '2026-09-07' });
     expect(r.status).toBe(403);
   });
 
@@ -47,25 +47,25 @@ describe('Courriers', () => {
   test('enregistrement, transmission hiérarchique, accusé de réception, classement', async () => {
     const cbs = api(await login('cb.secretariat'));
     const dir = api(await login('directeur'));
-    const cd = api(await login('cd.suivi'));
+    const cd = api(await login('cd.ps'));
     const c = await cbs.post('/courriers', { sens: 'ENTRANT', expediteur: 'Ministère du Plan', destinataire: 'Directeur de la DEP', objet: 'Cadrage PIP 2027', date_courrier: '2026-09-20', urgence: 'URGENT' });
     expect(c.status).toBe(201);
     expect(c.body.numero_enregistrement).toMatch(/^DEP\/CE\/\d{4}\/\d{4}$/);
     // Transmission non hiérarchique refusée
-    expect((await cbs.post(`/courriers/${c.body.id}/transmettre`, { to_user_id: await userId('cd.suivi') })).status).toBe(403);
+    expect((await cbs.post(`/courriers/${c.body.id}/transmettre`, { to_user_id: await userId('cd.ps') })).status).toBe(403);
     expect((await cbs.post(`/courriers/${c.body.id}/transmettre`, { to_user_id: await userId('directeur'), observations: 'Pour attribution' })).status).toBe(201);
     const d = await dir.get(`/courriers/${c.body.id}`);
     expect(d.body.actions.accuserReception).toHaveLength(1);
     await dir.post(`/courriers/transmissions/${d.body.actions.accuserReception[0]}/accuser-reception`, {});
     await dir.post(`/courriers/${c.body.id}/annoter`, { texte: 'Division Suivi-Évaluation pour traitement' });
-    expect((await dir.post(`/courriers/${c.body.id}/transmettre`, { to_user_id: await userId('cd.suivi') })).status).toBe(201);
+    expect((await dir.post(`/courriers/${c.body.id}/transmettre`, { to_user_id: await userId('cd.ps') })).status).toBe(201);
     const v = await cd.get(`/courriers/${c.body.id}`);
     expect(v.status).toBe(200);
     expect(v.body.transmissions).toHaveLength(2);
     expect(v.body.transmissions[0].etat_reception).toBe('RECU');
     expect(v.body.annotations).toHaveLength(1);
     // Un autre Chef de Division ne le voit pas
-    expect((await api(await login('cd.planification')).get(`/courriers/${c.body.id}`)).status).toBe(403);
+    expect((await api(await login('cd.sci')).get(`/courriers/${c.body.id}`)).status).toBe(403);
     await cd.post(`/courriers/${c.body.id}/traiter`);
     expect((await cbs.post(`/courriers/${c.body.id}/classer`, { classement: 'PIP/2027' })).body.statut).toBe('CLASSE');
     expect((await dir.post(`/courriers/${c.body.id}/archiver`)).body.statut).toBe('ARCHIVE');
@@ -87,7 +87,7 @@ describe('Documents de service', () => {
     expect(types.body.data.map((t) => t.code)).toEqual(expect.arrayContaining(['RAPPORT', 'COMPTE_RENDU', 'NOTE_TECHNIQUE', 'NOTE_EXPLICATIVE', 'FICHE_PROJET', 'PLAN_ACTIONS', 'FICHE_SUIVI_EVALUATION', 'PROCES_VERBAL', 'LETTRE_TRANSMISSION', 'COMMUNIQUE_SERVICE']));
     const ag = api(await login('ag.sev1'));
     const cb = api(await login('cb.sev'));
-    const cd = api(await login('cd.suivi'));
+    const cd = api(await login('cd.ps'));
     const dir = api(await login('directeur'));
     const doc = await ag.post('/documents', { type_document: 'RAPPORT', titre: 'Rapport mensuel de suivi', contenu: { periode: 'Septembre 2026' } });
     expect(doc.status).toBe(201);
@@ -136,7 +136,7 @@ describe('Documents de service', () => {
 
 describe('Projets PIP', () => {
   test('rédaction, vérification par le Chef de Division, validation par le Directeur, exports', async () => {
-    const ag = api(await login('ag.pip1'));
+    const ag = api(await login('ag.coi1'));
     const donnees = {
       identification: { intitule: 'Backbone national en fibre optique — phase 2', secteur: 'Économie numérique', ministere_tutelle: 'Ministère du Numérique', organisme_execution: 'SG Économie Numérique', nature: 'Nouveau projet', date_demarrage: '2027-01-01', duree_mois: 36 },
       contexte: { contexte: 'C', problematique: 'P', justification: 'J' },
@@ -157,8 +157,8 @@ describe('Projets PIP', () => {
     expect(Number(p.body.cout_total)).toBe(3500000);
     const s = await ag.post(`/pip/${p.body.id}/soumettre`);
     expect(s.body.statut).toBe('EN_VERIFICATION');
-    expect(s.body.detenteur_user_id).toBe(await userId('cd.planification'));
-    const v = await api(await login('cd.planification')).post(`/pip/${p.body.id}/verifier`, {});
+    expect(s.body.detenteur_user_id).toBe(await userId('cd.sci'));
+    const v = await api(await login('cd.sci')).post(`/pip/${p.body.id}/verifier`, {});
     expect(v.body.statut).toBe('VERIFIE');
     const dir = api(await login('directeur'));
     expect((await dir.post(`/pip/${p.body.id}/valider`, {})).body.statut).toBe('VALIDE');
@@ -177,10 +177,20 @@ describe('Comptes et audit', () => {
     expect(dup.status).toBe(409); // un Directeur actif existe déjà
   });
 
+  test('compte initial avec les champs facultatifs vides (tels qu’envoyés par le formulaire)', async () => {
+    const admin = api(await loginAdmin());
+    await db('users').where({ username: 'sg' }).update({ statut: 'DESACTIVE' });
+    const r = await admin.post('/users/initial', { type: 'SECRETAIRE_GENERAL', username: 'sg.nouveau', matricule: 'SG-TEST-2', nom: 'TEST', postnom: '', prenom: '', sexe: '', email: '', telephone: '', date_prise_fonction: '' });
+    expect(r.status).toBe(201);
+    expect(r.body.motDePasseTemporaire).toBeTruthy();
+    await db('users').where({ username: 'sg' }).update({ statut: 'ACTIF' });
+    await db('users').where({ username: 'sg.nouveau' }).update({ statut: 'DESACTIVE' });
+  });
+
   test('le Bureau Secrétariat prépare un compte ; le Directeur l’autorise', async () => {
     const dir = api(await login('directeur'));
-    const bur = await db('bureaux').where({ code: 'BUR-STA' }).first();
-    const poste = await db('postes_organiques').where({ code: 'P-AG-BUR-STA' }).first();
+    const bur = await db('bureaux').where({ code: 'BUR-PRG' }).first();
+    const poste = await db('postes_organiques').where({ code: 'P-AG-BUR-PRG' }).first();
     const ag = await api(await login('cb.secretariat')).post('/agents', { matricule: 'DEP-0500', nom: 'NOUVEL', prenom: 'Agent', sexe: 'F' });
     expect(ag.status).toBe(201);
     expect((await dir.post(`/agents/${ag.body.id}/affectations`, { bureau_id: bur.id, poste_id: poste.id, date_debut: '2026-09-01' })).status).toBe(201);
@@ -216,19 +226,19 @@ describe('Comptes et audit', () => {
 
   test('l’Admin réinitialise un mot de passe (changement obligatoire ensuite)', async () => {
     const admin = api(await loginAdmin());
-    const uid = await userId('ag.pip2');
+    const uid = await userId('ag.coi2');
     const r = await admin.post(`/users/${uid}/reinitialiser-mot-de-passe`);
     expect(r.body.motDePasseTemporaire).toBeTruthy();
     const { request, app } = require('./helpers');
-    const l = await request(app).post('/api/auth/login').send({ username: 'ag.pip2', password: r.body.motDePasseTemporaire });
+    const l = await request(app).post('/api/auth/login').send({ username: 'ag.coi2', password: r.body.motDePasseTemporaire });
     expect(l.body.user.mustChangePassword).toBe(true);
   });
 });
 
 describe('Tableaux de bord', () => {
   test.each([
-    ['sg', 'SECRETAIRE_GENERAL', 'vueGlobale'], ['directeur', 'DIRECTEUR', 'performance'], ['cd.etudes', 'CHEF_DIVISION', 'bureaux'],
-    ['cb.est', 'CHEF_BUREAU', 'agents'], ['ag.est1', 'AGENT', 'taches'],
+    ['sg', 'SECRETAIRE_GENERAL', 'vueGlobale'], ['directeur', 'DIRECTEUR', 'performance'], ['cd.edi', 'CHEF_DIVISION', 'bureaux'],
+    ['cb.eap', 'CHEF_BUREAU', 'agents'], ['ag.eap1', 'AGENT', 'taches'],
   ])('%s', async (u, role, key) => {
     const res = await api(await login(u)).get('/dashboard');
     expect(res.status).toBe(200);

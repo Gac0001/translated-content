@@ -12,7 +12,7 @@ const schema = z.object({
   nom: z.string().trim().min(2, 'Nom requis'),
   postnom: z.string().trim().optional(),
   prenom: z.string().trim().optional(),
-  sexe: z.enum(['M', 'F'], { message: 'Sexe requis' }),
+  sexe: z.enum(['', 'M', 'F']).optional(),
   date_naissance: z.string().optional(),
   grade_id: z.string().optional(),
   fonction_id: z.string().optional(),
@@ -27,13 +27,13 @@ export default function AgentForm() {
   const navigate = useNavigate();
   const cadre = useApi('/organisation/cadre');
   const existing = useApi(id ? `/agents/${id}` : null);
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(schema), defaultValues: { sexe: 'M', statut: 'ACTIF' } });
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(schema), defaultValues: { sexe: '', statut: 'ACTIF' } });
   useEffect(() => {
     const a = existing.data;
-    if (a) reset({ matricule: a.matricule, nom: a.nom, postnom: a.postnom || '', prenom: a.prenom || '', sexe: a.sexe, date_naissance: a.date_naissance || '', grade_id: a.grade_id ? String(a.grade_id) : '', fonction_id: a.fonction_id ? String(a.fonction_id) : '', telephone: a.telephone || '', email: a.email || '', adresse: a.adresse || '', statut: a.statut === 'ARCHIVE' ? 'ACTIF' : a.statut });
+    if (a) reset({ matricule: a.matricule, nom: a.nom, postnom: a.postnom || '', prenom: a.prenom || '', sexe: a.sexe || '', date_naissance: a.date_naissance || '', grade_id: a.grade_id ? String(a.grade_id) : '', fonction_id: a.fonction_id ? String(a.fonction_id) : '', telephone: a.telephone || '', email: a.email || '', adresse: a.adresse || '', statut: a.statut === 'ARCHIVE' ? 'ACTIF' : a.statut });
   }, [existing.data, reset]);
   const submit = async (v) => {
-    const body = { ...v, grade_id: v.grade_id ? Number(v.grade_id) : null, fonction_id: v.fonction_id ? Number(v.fonction_id) : null, date_naissance: v.date_naissance || null };
+    const body = { ...v, sexe: v.sexe || null, grade_id: v.grade_id ? Number(v.grade_id) : null, fonction_id: v.fonction_id ? Number(v.fonction_id) : null, date_naissance: v.date_naissance || null };
     const r = await runAction(() => (id ? api.put(`/agents/${id}`, body) : api.post('/agents', body)), id ? 'Fiche mise à jour.' : 'Agent créé. Procédez à son affectation.');
     navigate(`/personnel/${r.data.id}`);
   };
@@ -49,7 +49,7 @@ export default function AgentForm() {
             {text('nom', 'Nom', { required: true })}
             {text('postnom', 'Postnom')}
             {text('prenom', 'Prénom')}
-            <Field label="Sexe" required><select className="input" {...register('sexe')}><option value="M">Masculin</option><option value="F">Féminin</option></select></Field>
+            <Field label="Sexe"><select className="input" {...register('sexe')}><option value="">Non renseigné</option><option value="M">Masculin</option><option value="F">Féminin</option></select></Field>
             <Field label="Date de naissance"><input type="date" className="input" {...register('date_naissance')} /></Field>
           </div>
         </Card>

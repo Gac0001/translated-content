@@ -81,13 +81,35 @@ Mot de passe commun : **`Demo@2026`**. Désactivez-les en production avec `SEED_
 | `directeur` | Directeur | Direction |
 | `cb.secretariat` | Chef de Bureau | **Bureau Secrétariat de Direction** (rattaché au Directeur) |
 | `ag.secretariat1`, `ag.secretariat2` | Agent | Bureau Secrétariat de Direction |
-| `cd.etudes`, `cd.planification`, `cd.suivi` | Chef de Division | Les trois Divisions |
-| `cb.est`, `cb.vtp`, `cb.pls`, `cb.pip`, `cb.sev`, `cb.sta` | Chef de Bureau | Bureaux des Divisions |
-| `ag.est1`, `ag.est2`, `ag.vtp1`, … `ag.sta2` | Agent | Bureaux des Divisions |
+| `cd.edi`, `cd.sci`, `cd.ps` | Chef de Division | Études, Documentation et Information ; Stratégies et Coopération Internationale ; Programme et Suivi |
+| `cb.eap`, `cb.doi`, `cb.str`, `cb.coi`, `cb.prg`, `cb.sev` | Chef de Bureau | Bureaux des Divisions |
+| `ag.eap1`, `ag.eap2`, `ag.doi1`, … `ag.sev2` | Agent | Bureaux des Divisions |
 
 Le seed `05_demo_activites.js` ajoute aussi une activité de démonstration, avec des dates relatives au jour du seed : instructions, tâches (dont une en retard), courriers, documents avec visas, présences de la semaine précédente et fiches PIP. Les tableaux de bord et les rapports sont ainsi parlants dès l’installation.
 
-Les intitulés des Divisions et des Bureaux créés par le seed sont **indicatifs**. Le Directeur les modifie dans l’application (Organigramme → boutons « Nouvelle Division », « Nouveau Bureau », crayon et archivage sur chaque structure). On peut aussi les changer dans `backend/src/db/seed-data/organisation.js`, pour correspondre au cadre organique officiel.
+L’organigramme créé par le seed est **celui de la DEP** (liste officielle des agents, 2026) :
+
+| Structure | Rang | Bureaux |
+|---|---|---|
+| Bureau Secrétariat de Direction | Bureau (rattaché au Directeur) | — |
+| Division Études, Documentation et Information | Division | Bureau Études, Analyses et Perspective ; Bureau Documentation et Information |
+| Division Stratégies et Coopération Internationale | Division | Bureau Stratégies ; Bureau Coopération Internationale |
+| Division Programme et Suivi | Division | Bureau Programme ; Bureau Suivi-Évaluation |
+
+Les **missions et attributions** de ces structures sont déduites de leurs intitulés et restent **à valider** par le Directeur (Cadre organique). Les structures se gèrent dans l’application (Organigramme → « Nouvelle Division », « Nouveau Bureau », crayon et archivage sur chaque structure) ou dans `backend/src/db/seed-data/organisation.js`.
+
+Les **comptes de démonstration** reposent sur des personnes fictives. Le personnel réel ne figure pas dans le code : il se charge par **l’import** (section suivante).
+
+### Import du personnel réel
+
+1. Installer sans démonstration : `SEED_DEMO=false` dans `backend/.env`, puis `npm run migrate` et `npm run seed`.
+2. L’Admin crée le compte du Directeur (Comptes → Nouveau compte → « Compte institutionnel initial »).
+3. Le Directeur ouvre **Personnel → Importer une liste** et dépose la liste officielle : document **Word** (tableau « N° / NOM, POSTNOM & PRENOM / MATRICULE / FONCTION » avec lignes de section « 1. Bureau Secrétariat de Direction », « 2.1. Bureau … »), **Excel** ou **CSV**. Un modèle Excel prérempli avec les structures est téléchargeable depuis la même page.
+4. L’**analyse** n’enregistre rien. Elle rattache chaque ligne à sa structure (sans tenir compte des accents ni de la numérotation), découpe nom / postnom / prénom et normalise les matricules (`1.234.567` → `1234567`). Elle propose aussi le poste (grade CD au niveau d’une Division → Chef de Division ; grade CB dans un Bureau → Chef de Bureau) et signale les anomalies : doublons, grade inconnu, structure non reconnue, responsable déjà en poste, structures sans responsable.
+5. Chaque ligne peut être corrigée ou exclue, puis **l’import s’exécute en une seule transaction** (tout ou rien, revalidé par le serveur). Les Agents sont créés avec leurs affectations et l’opération est auditée. Les matricules déjà présents sont ignorés, ou mis à jour et réaffectés au choix, avec clôture de l’ancienne affectation.
+6. Compléter ensuite sur les fiches le **sexe** (facultatif, jamais déduit du prénom), le téléphone et l’**adresse électronique** (nécessaire aux notifications par e-mail), désigner les responsables manquants et créer les comptes.
+
+Le Bureau Secrétariat de Direction peut importer les fiches sur délégation (`personnel.suivre`) ; les affectations restent réservées au Directeur. Le fichier importé n’est jamais conservé sur le serveur.
 
 ### Commandes utiles (backend)
 

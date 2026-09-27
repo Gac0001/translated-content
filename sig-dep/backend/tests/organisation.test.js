@@ -7,7 +7,7 @@ describe('Gestion des structures', () => {
   beforeAll(async () => { dir = api(await login('directeur')); });
 
   test('seul le Directeur gère les structures', async () => {
-    const cb = api(await login('cb.est'));
+    const cb = api(await login('cb.eap'));
     expect((await cb.post('/organisation/divisions', { code: 'DIV-X', nom: 'Division interdite' })).status).toBe(403);
   });
 
@@ -47,7 +47,7 @@ describe('Gestion des structures', () => {
     expect((await cb.get('/auth/me')).body.user.perimetre).toBe('BUREAU');
     // Le Directeur l’instruit directement ; aucun Chef de Division ne le peut
     expect((await dir.post('/instructions', { destinataire_user_id: u.body.id, objet: 'Plan de communication', contenu: 'Préparer le plan' })).status).toBe(201);
-    expect((await api(await login('cd.etudes')).post('/instructions', { destinataire_user_id: u.body.id, objet: 'Interdit', contenu: 'Contenu test' })).status).toBe(403);
+    expect((await api(await login('cd.edi')).post('/instructions', { destinataire_user_id: u.body.id, objet: 'Interdit', contenu: 'Contenu test' })).status).toBe(403);
     // Statistiques : toujours 3 Divisions d’origine + celle créée plus haut, le Bureau compte parmi les Bureaux rattachés au Directeur
     const o = await dir.get('/organisation/organigramme');
     expect(o.body.bureauxRattachesDirection.map((x) => x.code)).toEqual(expect.arrayContaining(['BSD', 'BUR-CEL']));
@@ -55,25 +55,25 @@ describe('Gestion des structures', () => {
   });
 
   test('le changement de rattachement d’un Bureau est propagé aux affectations en cours', async () => {
-    const bur = await db('bureaux').where({ code: 'BUR-VTP' }).first();
-    const target = await db('divisions').where({ code: 'DIV-PP' }).first();
+    const bur = await db('bureaux').where({ code: 'BUR-DOI' }).first();
+    const target = await db('divisions').where({ code: 'DIV-SCI' }).first();
     const r = await dir.put(`/organisation/bureaux/${bur.id}`, { code: bur.code, nom: bur.nom, rattachement: 'DIVISION', division_id: target.id });
     expect(r.status).toBe(200);
     const affs = await db('affectations').where({ bureau_id: bur.id, est_active: true });
     expect(affs.length).toBeGreaterThan(0);
     expect(affs.every((a) => a.division_id === target.id)).toBe(true);
-    const contacts = await api(await login('cb.vtp')).get('/hierarchie/contacts?sens=ASCENDANT');
-    expect(contacts.body.data[0].username).toBe('cd.planification');
+    const contacts = await api(await login('cb.doi')).get('/hierarchie/contacts?sens=ASCENDANT');
+    expect(contacts.body.data[0].username).toBe('cd.sci');
     // retour à la situation initiale
-    const orig = await db('divisions').where({ code: 'DIV-EP' }).first();
+    const orig = await db('divisions').where({ code: 'DIV-EDI' }).first();
     await dir.put(`/organisation/bureaux/${bur.id}`, { code: bur.code, nom: bur.nom, rattachement: 'DIVISION', division_id: orig.id });
     expect((await db('affectations').where({ bureau_id: bur.id, est_active: true }).first()).division_id).toBe(orig.id);
   });
 
   test('archivage refusé tant que des Agents sont affectés ; poste occupé non désactivable', async () => {
-    const bur = await db('bureaux').where({ code: 'BUR-STA' }).first();
+    const bur = await db('bureaux').where({ code: 'BUR-PRG' }).first();
     expect((await dir.post(`/organisation/bureaux/${bur.id}/archiver`)).status).toBe(400);
-    const occupe = await db('postes_organiques').where({ code: 'P-CB-BUR-STA' }).first();
+    const occupe = await db('postes_organiques').where({ code: 'P-CB-BUR-PRG' }).first();
     expect((await dir.post(`/organisation/postes/${occupe.id}/desactiver`)).status).toBe(400);
     const vide = await dir.post('/organisation/bureaux', { code: 'BUR-TMP', nom: 'Bureau temporaire', rattachement: 'DIRECTION' });
     expect((await dir.post(`/organisation/bureaux/${vide.body.id}/archiver`)).body.actif).toBe(false);
@@ -81,8 +81,8 @@ describe('Gestion des structures', () => {
   });
 
   test('le Chef de Division reste supérieur de ses Bureaux (non-régression)', async () => {
-    const r = await api(await login('cb.est')).get('/hierarchie/contacts?sens=ASCENDANT');
-    expect(r.body.data[0].username).toBe('cd.etudes');
-    expect(await userId('cd.etudes')).toBeTruthy();
+    const r = await api(await login('cb.eap')).get('/hierarchie/contacts?sens=ASCENDANT');
+    expect(r.body.data[0].username).toBe('cd.edi');
+    expect(await userId('cd.edi')).toBeTruthy();
   });
 });

@@ -5,7 +5,7 @@ const { db, login, loginAdmin, api, userId } = require('./helpers');
 describe('Instructions et chaîne hiérarchique', () => {
   test('le Secrétaire Général ne peut adresser d’instruction qu’au Directeur', async () => {
     const sg = api(await login('sg'));
-    for (const u of ['cd.etudes', 'cb.est', 'ag.est1', 'cb.secretariat']) {
+    for (const u of ['cd.edi', 'cb.eap', 'ag.eap1', 'cb.secretariat']) {
       const r = await sg.post('/instructions', { destinataire_user_id: await userId(u), objet: 'Test', contenu: 'Test' });
       expect(r.status).toBe(403);
       expect(r.body.error.message).toMatch(/Directeur/);
@@ -15,18 +15,18 @@ describe('Instructions et chaîne hiérarchique', () => {
   test('cycle complet SG → Directeur → Chef de Division → Chef de Bureau, avec compte rendu', async () => {
     const sg = api(await login('sg'));
     const dir = api(await login('directeur'));
-    const cd = api(await login('cd.etudes'));
-    const cb = api(await login('cb.est'));
+    const cd = api(await login('cd.edi'));
+    const cb = api(await login('cb.eap'));
     const i1 = await sg.post('/instructions', { destinataire_user_id: await userId('directeur'), objet: 'Rapport annuel', contenu: 'Produire le rapport annuel', priorite: 'HAUTE', echeance: '2099-12-31' });
     expect(i1.status).toBe(201);
     expect(i1.body.statut).toBe('TRANSMISE');
     expect((await dir.post(`/instructions/${i1.body.id}/accuser-reception`)).body.statut).toBe('RECUE');
-    const i2 = await dir.post('/instructions', { destinataire_user_id: await userId('cd.etudes'), objet: 'Contribution', contenu: 'Contribution de la Division', parent_id: i1.body.id });
+    const i2 = await dir.post('/instructions', { destinataire_user_id: await userId('cd.edi'), objet: 'Contribution', contenu: 'Contribution de la Division', parent_id: i1.body.id });
     expect(i2.status).toBe(201);
-    const i3 = await cd.post('/instructions', { destinataire_user_id: await userId('cb.est'), objet: 'Données sectorielles', contenu: 'Collecter les données' });
+    const i3 = await cd.post('/instructions', { destinataire_user_id: await userId('cb.eap'), objet: 'Données sectorielles', contenu: 'Collecter les données' });
     expect(i3.status).toBe(201);
     // Le Chef de Bureau ne peut pas instruire son supérieur
-    const bad = await cb.post('/instructions', { destinataire_user_id: await userId('cd.etudes'), objet: 'x', contenu: 'x' });
+    const bad = await cb.post('/instructions', { destinataire_user_id: await userId('cd.edi'), objet: 'x', contenu: 'x' });
     expect(bad.status).toBe(403);
     expect((await cb.post(`/instructions/${i3.body.id}/avancement`, { avancement: 50 })).body.avancement).toBe(50);
     expect((await cb.post(`/instructions/${i3.body.id}/rendre-compte`, { reponse: 'Données collectées' })).body.statut).toBe('EXECUTEE');
@@ -46,12 +46,12 @@ describe('Instructions et chaîne hiérarchique', () => {
   });
 
   test('un Chef de Division ne peut instruire un Chef de Bureau d’une autre Division', async () => {
-    const r = await api(await login('cd.etudes')).post('/instructions', { destinataire_user_id: await userId('cb.pls'), objet: 'Hors division', contenu: 'Contenu de test' });
+    const r = await api(await login('cd.edi')).post('/instructions', { destinataire_user_id: await userId('cb.str'), objet: 'Hors division', contenu: 'Contenu de test' });
     expect(r.status).toBe(403);
   });
 
   test('un Agent ne peut pas émettre d’instruction', async () => {
-    const r = await api(await login('ag.est1')).post('/instructions', { destinataire_user_id: await userId('cb.est'), objet: 'x', contenu: 'x' });
+    const r = await api(await login('ag.eap1')).post('/instructions', { destinataire_user_id: await userId('cb.eap'), objet: 'x', contenu: 'x' });
     expect(r.status).toBe(403);
   });
 
@@ -66,25 +66,25 @@ describe('Instructions et chaîne hiérarchique', () => {
 
 describe('Tâches', () => {
   test('le Chef de Bureau attribue uniquement aux Agents de son Bureau', async () => {
-    const cb = api(await login('cb.est'));
-    expect((await cb.post('/taches', { agent_user_id: await userId('ag.vtp1'), titre: 'Hors bureau' })).status).toBe(403);
-    const t = await cb.post('/taches', { agent_user_id: await userId('ag.est1'), titre: 'Analyse des données', echeance: '2099-01-31' });
+    const cb = api(await login('cb.eap'));
+    expect((await cb.post('/taches', { agent_user_id: await userId('ag.doi1'), titre: 'Hors bureau' })).status).toBe(403);
+    const t = await cb.post('/taches', { agent_user_id: await userId('ag.eap1'), titre: 'Analyse des données', echeance: '2099-01-31' });
     expect(t.status).toBe(201);
-    const ag = api(await login('ag.est1'));
-    const other = api(await login('ag.est2'));
+    const ag = api(await login('ag.eap1'));
+    const other = api(await login('ag.eap2'));
     expect((await other.post(`/taches/${t.body.id}/avancement`, { avancement: 30 })).status).toBe(403);
     expect((await ag.post(`/taches/${t.body.id}/accuser-reception`)).body.statut).toBe('RECUE');
     expect((await ag.post(`/taches/${t.body.id}/avancement`, { avancement: 60 })).body.statut).toBe('EN_COURS');
     expect((await ag.post(`/taches/${t.body.id}/rendre-compte`, { rapport_execution: 'Analyse terminée' })).body.statut).toBe('EXECUTEE');
     expect((await ag.post(`/taches/${t.body.id}/valider`, {})).status).toBe(403);
     expect((await cb.post(`/taches/${t.body.id}/valider`, {})).body.statut).toBe('VALIDEE');
-    const notif = await db('notifications').where({ user_id: await userId('ag.est1'), type: 'TACHE' }).first();
+    const notif = await db('notifications').where({ user_id: await userId('ag.eap1'), type: 'TACHE' }).first();
     expect(notif).toBeTruthy();
   });
 
   test('passage automatique « En retard » et notification', async () => {
-    const cb = api(await login('cb.sta'));
-    const t = await cb.post('/taches', { agent_user_id: await userId('ag.sta1'), titre: 'Tâche échue' });
+    const cb = api(await login('cb.prg'));
+    const t = await cb.post('/taches', { agent_user_id: await userId('ag.prg1'), titre: 'Tâche échue' });
     await db('tasks').where({ id: t.body.id }).update({ echeance: '2020-01-01' });
     const jobs = require('../src/services/jobs');
     await jobs.markOverdue();
@@ -95,25 +95,25 @@ describe('Tâches', () => {
 
 describe('Périmètres de données', () => {
   test('un Agent ne consulte ni la liste du personnel ni la fiche d’un autre Agent', async () => {
-    const ag = api(await login('ag.pls1'));
+    const ag = api(await login('ag.str1'));
     expect((await ag.get('/agents')).status).toBe(403);
-    const other = (await db('users').where({ username: 'ag.pls2' }).first()).agent_id;
+    const other = (await db('users').where({ username: 'ag.str2' }).first()).agent_id;
     expect((await ag.get(`/agents/${other}`)).status).toBe(403);
     expect((await ag.get('/agents/moi')).status).toBe(200);
   });
 
   test('un Chef de Bureau ne voit que les Agents de son Bureau', async () => {
-    const res = await api(await login('cb.pip')).get('/agents');
-    const bureau = await db('bureaux').where({ code: 'BUR-PIP' }).first();
+    const res = await api(await login('cb.coi')).get('/agents');
+    const bureau = await db('bureaux').where({ code: 'BUR-COI' }).first();
     expect(res.body.data.length).toBeGreaterThan(0);
     expect(res.body.data.every((a) => a.bureau_id === bureau.id)).toBe(true);
   });
 
   test('un Chef de Division ne voit que les instructions de sa Division', async () => {
-    const cdp = api(await login('cd.planification'));
+    const cdp = api(await login('cd.sci'));
     const list = await cdp.get('/instructions');
-    const div = await db('divisions').where({ code: 'DIV-PP' }).first();
-    const me = await userId('cd.planification');
+    const div = await db('divisions').where({ code: 'DIV-SCI' }).first();
+    const me = await userId('cd.sci');
     expect(list.body.data.every((i) => i.division_id === div.id || i.emetteur_user_id === me || i.destinataire_user_id === me)).toBe(true);
   });
 

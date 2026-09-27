@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import { useAuth } from '../../store/auth';
 import { useApi, PageHeader, DataTable, StatusBadge, Select, ErrorAlert, Spinner, Badge } from '../../components/ui';
 import { ExportButtons } from '../../components/shared';
@@ -19,6 +19,7 @@ export default function AgentsList() {
       <PageHeader title="Personnel" subtitle="Agents de votre périmètre administratif." breadcrumb={[{ label: 'Personnel' }]}
         actions={<>
           <ExportButtons base="/agents/export" query={qs ? `?${qs}` : ''} print={false} />
+          {can('personnel.gerer', 'personnel.suivre') && <Link to="/personnel/import" className="btn-secondary"><Upload size={16} /> Importer une liste</Link>}
           {can('personnel.gerer', 'personnel.suivre') && <Link to="/personnel/nouveau" className="btn-primary"><Plus size={16} /> Nouvel Agent</Link>}
         </>} />
       <ErrorAlert message={state.error} />

@@ -183,7 +183,7 @@ const agentSchema = z.object({
   nom: z.string().trim().min(2).max(100),
   postnom: z.string().trim().max(100).optional().nullable(),
   prenom: z.string().trim().max(100).optional().nullable(),
-  sexe: z.enum(['M', 'F']),
+  sexe: z.union([z.enum(['M', 'F']), z.literal('').transform(() => null), z.null()]).optional(), // facultatif : jamais déduit du prénom
   date_naissance: z.string().date().optional().nullable().or(z.literal('').transform(() => null)),
   grade_id: z.coerce.number().int().optional().nullable(),
   fonction_id: z.coerce.number().int().optional().nullable(),

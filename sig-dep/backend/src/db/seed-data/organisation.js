@@ -28,47 +28,52 @@ const SECRETARIAT = {
   ],
 };
 
+/**
+ * Structure réelle de la DEP (liste officielle des agents, 2026) : trois Divisions de deux Bureaux.
+ * Les missions et attributions ci-dessous sont déduites des intitulés et restent À VALIDER
+ * par le Directeur au regard du cadre organique officiel (modifiables dans l’application).
+ */
 const DIVISIONS = [
   {
-    code: 'DIV-EP',
-    nom: 'Division des Études et Prospective',
-    missions: 'Réaliser les études sectorielles, économiques et prospectives relatives à l’économie numérique.',
+    code: 'DIV-EDI',
+    nom: 'Division Études, Documentation et Information',
+    missions: 'Conduire les études et analyses du secteur de l’économie numérique, gérer la documentation et diffuser l’information de la Direction.',
     attributions: [
-      'Conduire les études sectorielles et thématiques du secteur numérique',
-      'Assurer la veille technologique, économique et réglementaire',
-      'Élaborer des notes d’analyse et des scénarios prospectifs',
+      'Réaliser les études, analyses et travaux prospectifs de la Direction',
+      'Constituer et gérer le fonds documentaire de la DEP',
+      'Assurer la collecte, le traitement et la diffusion de l’information',
     ],
     bureaux: [
-      { code: 'BUR-EST', nom: 'Bureau Études Sectorielles', missions: 'Réaliser les études sectorielles et d’impact du numérique.', attributions: ['Conception et réalisation des études sectorielles', 'Analyse des données économiques du secteur', 'Rédaction des rapports d’étude'] },
-      { code: 'BUR-VTP', nom: 'Bureau Veille Technologique et Prospective', missions: 'Assurer la veille et l’analyse prospective.', attributions: ['Veille technologique et réglementaire', 'Production de notes de conjoncture', 'Analyse prospective des tendances du numérique'] },
+      { code: 'BUR-EAP', nom: 'Bureau Études, Analyses et Perspective', missions: 'Réaliser les études, analyses et travaux de perspective.', attributions: ['Conception et réalisation des études', 'Analyses sectorielles et notes de conjoncture', 'Travaux de perspective et de prospective'] },
+      { code: 'BUR-DOI', nom: 'Bureau Documentation et Information', missions: 'Gérer la documentation et l’information de la Direction.', attributions: ['Tenue du fonds documentaire', 'Collecte et diffusion de l’information', 'Archivage des publications et rapports'] },
     ],
   },
   {
-    code: 'DIV-PP',
-    nom: 'Division de la Planification et Programmation',
-    missions: 'Élaborer les plans stratégiques et opérationnels et programmer les investissements publics du secteur.',
+    code: 'DIV-SCI',
+    nom: 'Division Stratégies et Coopération Internationale',
+    missions: 'Élaborer les stratégies du secteur et suivre la coopération internationale.',
     attributions: [
-      'Élaborer et actualiser les plans stratégiques et plans d’actions',
-      'Préparer le Programme d’Investissements Publics (PIP) du secteur',
-      'Participer à la préparation budgétaire',
+      'Élaborer et actualiser les stratégies sectorielles',
+      'Suivre les accords et programmes de coopération internationale',
+      'Préparer la participation de la DEP aux rencontres avec les partenaires',
     ],
     bureaux: [
-      { code: 'BUR-PLS', nom: 'Bureau Planification Stratégique', missions: 'Élaborer les documents de planification.', attributions: ['Élaboration des plans stratégiques', 'Préparation des plans d’actions annuels', 'Cadrage des priorités sectorielles'] },
-      { code: 'BUR-PIP', nom: 'Bureau Programmation des Investissements', missions: 'Préparer et suivre les fiches de projets PIP.', attributions: ['Élaboration des fiches de projets PIP', 'Suivi de la programmation des investissements', 'Relations avec le Ministère du Plan'] },
+      { code: 'BUR-STR', nom: 'Bureau Stratégies', missions: 'Élaborer et suivre les stratégies du secteur.', attributions: ['Élaboration des documents de stratégie', 'Suivi de la mise en œuvre des stratégies', 'Préparation des plans d’actions'] },
+      { code: 'BUR-COI', nom: 'Bureau Coopération Internationale', missions: 'Suivre la coopération bilatérale et multilatérale.', attributions: ['Suivi des accords de coopération', 'Relations avec les partenaires techniques et financiers', 'Préparation des dossiers de coopération'] },
     ],
   },
   {
-    code: 'DIV-SES',
-    nom: 'Division du Suivi-Évaluation et Statistiques',
-    missions: 'Assurer le suivi-évaluation des programmes et projets et produire les statistiques du secteur.',
+    code: 'DIV-PS',
+    nom: 'Division Programme et Suivi',
+    missions: 'Programmer les activités et investissements et en assurer le suivi-évaluation.',
     attributions: [
-      'Suivre et évaluer l’exécution des plans, programmes et projets',
-      'Collecter, traiter et diffuser les statistiques sectorielles',
-      'Élaborer les rapports périodiques de performance',
+      'Préparer la programmation des activités et des investissements (PIP)',
+      'Assurer le suivi-évaluation des programmes et projets',
+      'Produire les rapports périodiques de performance',
     ],
     bureaux: [
-      { code: 'BUR-SEV', nom: 'Bureau Suivi-Évaluation', missions: 'Suivre et évaluer les projets et programmes.', attributions: ['Élaboration des fiches de suivi-évaluation', 'Missions de suivi sur le terrain', 'Rapports d’évaluation'] },
-      { code: 'BUR-STA', nom: 'Bureau Statistiques et Bases de Données', missions: 'Produire les statistiques et administrer les bases de données.', attributions: ['Collecte et traitement des données statistiques', 'Tenue des bases de données sectorielles', 'Publication de l’annuaire statistique'] },
+      { code: 'BUR-PRG', nom: 'Bureau Programme', missions: 'Préparer la programmation des activités et des investissements.', attributions: ['Élaboration des programmes d’activités', 'Préparation des fiches de projets PIP', 'Suivi de la programmation budgétaire'] },
+      { code: 'BUR-SEV', nom: 'Bureau Suivi-Évaluation', missions: 'Suivre et évaluer l’exécution des programmes et projets.', attributions: ['Élaboration des fiches de suivi-évaluation', 'Missions de suivi', 'Rapports d’évaluation'] },
     ],
   },
 ];
@@ -118,7 +123,8 @@ const GRADES = [
   { code: 'ATA2', libelle: 'Attaché d’Administration de 2e classe', categorie: 'Cadre de collaboration', niveau: 50 },
   { code: 'AGA1', libelle: 'Agent d’Administration de 1re classe', categorie: 'Agent d’exécution', niveau: 40 },
   { code: 'AGA2', libelle: 'Agent d’Administration de 2e classe', categorie: 'Agent d’exécution', niveau: 30 },
-  { code: 'AGB', libelle: 'Agent Auxiliaire de 1re classe', categorie: 'Agent d’exécution', niveau: 20 },
+  { code: 'AA1', libelle: 'Agent Auxiliaire de 1re classe', categorie: 'Agent d’exécution', niveau: 20 },
+  { code: 'AA2', libelle: 'Agent Auxiliaire de 2e classe', categorie: 'Agent d’exécution', niveau: 10 },
 ];
 
 const FONCTIONS = [
@@ -131,7 +137,7 @@ const FONCTIONS = [
   { code: 'F-STAT', libelle: 'Statisticien', grade: 'ATA2' },
   { code: 'F-SEC', libelle: 'Secrétaire de direction', grade: 'AGA1' },
   { code: 'F-ASS', libelle: 'Assistant administratif', grade: 'AGA2' },
-  { code: 'F-HUI', libelle: 'Huissier', grade: 'AGB' },
+  { code: 'F-HUI', libelle: 'Huissier', grade: 'AA1' },
 ];
 
 module.exports = { DIRECTION, SECRETARIAT, DIVISIONS, MISSIONS_DEP, RESPONSABILITES, GRADES, FONCTIONS };

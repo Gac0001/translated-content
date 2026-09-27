@@ -14,7 +14,7 @@ const username = z.string().trim().toLowerCase().min(3, 'Au moins 3 caractères'
 const depSchema = z.object({ agent_id: z.string().min(1, 'Choisissez l’Agent'), username, role: z.enum(['CHEF_DIVISION', 'CHEF_BUREAU', 'AGENT']) });
 const initSchema = z.object({
   type: z.enum(['SECRETAIRE_GENERAL', 'DIRECTEUR']), username, matricule: z.string().trim().min(2, 'Matricule requis'),
-  nom: z.string().trim().min(2, 'Nom requis'), postnom: z.string().optional(), prenom: z.string().optional(), sexe: z.enum(['M', 'F']),
+  nom: z.string().trim().min(2, 'Nom requis'), postnom: z.string().optional(), prenom: z.string().optional(), sexe: z.enum(['', 'M', 'F']).optional(),
   email: z.union([z.email('Adresse invalide'), z.literal('')]).optional(), telephone: z.string().optional(), date_prise_fonction: z.string().optional(),
 });
 
@@ -55,7 +55,7 @@ function DepAccount({ onCreated }) {
 }
 
 function InitialAccount({ onCreated }) {
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(initSchema), defaultValues: { type: 'DIRECTEUR', sexe: 'M' } });
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(initSchema), defaultValues: { type: 'DIRECTEUR', sexe: '' } });
   const submit = async (v) => { const r = await runAction(() => api.post('/users/initial', v)); onCreated(r.data); };
   const t = (n, l, req) => <Field label={l} error={errors[n]?.message} required={req}><input className="input" {...register(n)} /></Field>;
   return (
@@ -65,7 +65,7 @@ function InitialAccount({ onCreated }) {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Autorité" required><select className="input" {...register('type')}><option value="DIRECTEUR">Directeur de la DEP</option><option value="SECRETAIRE_GENERAL">Secrétaire Général</option></select></Field>
           {t('username', 'Nom d’utilisateur', true)}{t('matricule', 'Matricule', true)}{t('nom', 'Nom', true)}{t('postnom', 'Postnom')}{t('prenom', 'Prénom')}
-          <Field label="Sexe" required><select className="input" {...register('sexe')}><option value="M">Masculin</option><option value="F">Féminin</option></select></Field>
+          <Field label="Sexe"><select className="input" {...register('sexe')}><option value="">Non renseigné</option><option value="M">Masculin</option><option value="F">Féminin</option></select></Field>
           {t('email', 'Adresse électronique')}{t('telephone', 'Téléphone')}
           <Field label="Date de prise de fonction"><input type="date" className="input" {...register('date_prise_fonction')} /></Field>
         </div>

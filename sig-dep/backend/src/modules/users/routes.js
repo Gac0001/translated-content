@@ -144,10 +144,10 @@ const initialSchema = z.object({
   nom: z.string().trim().min(2).max(100),
   postnom: z.string().trim().max(100).optional().nullable(),
   prenom: z.string().trim().max(100).optional().nullable(),
-  sexe: z.enum(['M', 'F']),
+  sexe: z.union([z.enum(['M', 'F']), z.literal('').transform(() => null), z.null()]).optional(), // facultatif : jamais déduit du prénom
   email: z.union([z.email(), z.literal('')]).optional().nullable().transform((v) => v || null),
   telephone: z.string().trim().max(40).optional().nullable(),
-  date_prise_fonction: z.string().date().optional(),
+  date_prise_fonction: z.union([z.string().date(), z.literal('').transform(() => undefined)]).optional(),
 });
 
 router.post('/initial', requirePerm('comptes.creer_initial'), validate({ body: initialSchema }), async (req, res) => {

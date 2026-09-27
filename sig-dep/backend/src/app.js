@@ -49,6 +49,7 @@ const protectedModules = {
   systeme: './modules/systeme/routes',
   hierarchie: './modules/hierarchie/routes',
   recherche: './modules/recherche/routes',
+  imports: './modules/imports/routes',
 };
 for (const [path, mod] of Object.entries(protectedModules)) {
   let router;

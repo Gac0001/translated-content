@@ -10,12 +10,12 @@ describe('Recherche globale', () => {
   test('le Directeur trouve un Agent du Bureau Secrétariat ; un Chef de Division non', async () => {
     const d = await api(await login('directeur')).get(`/recherche?q=${encodeURIComponent('KAPINGA')}`);
     expect(d.body.resultats.agents.map((a) => a.titre)).toEqual(expect.arrayContaining([expect.stringContaining('KAPINGA')]));
-    const cd = await api(await login('cd.etudes')).get(`/recherche?q=${encodeURIComponent('KAPINGA')}`);
+    const cd = await api(await login('cd.edi')).get(`/recherche?q=${encodeURIComponent('KAPINGA')}`);
     expect(cd.body.resultats.agents).toHaveLength(0);
   });
 
   test('un Agent ne dispose pas de la catégorie Personnel et ne voit que ses éléments', async () => {
-    const r = await api(await login('ag.sta1')).get('/recherche?q=DEP');
+    const r = await api(await login('ag.prg1')).get('/recherche?q=DEP');
     expect(r.body.resultats.agents).toBeUndefined();
     expect(r.body.resultats.courriers || []).toHaveLength(0);
   });

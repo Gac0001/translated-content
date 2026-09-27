@@ -57,27 +57,27 @@ exports.seed = async function seed(knex) {
 
   const i1 = await instruction('sg', 'directeur', 'Rapport annuel de performance du secteur numérique', 'Produire le rapport annuel de performance consolidé du secteur, avec les indicateurs du plan stratégique.', { statut: 'EN_COURS', avancement: 45, priorite: 'HAUTE', echeance: day(20), emis: -12 });
   await instruction('sg', 'directeur', 'Note sur l’état d’avancement des projets PIP', 'Transmettre une note synthétique sur l’état d’avancement des projets inscrits au PIP.', { statut: 'EXECUTEE', avancement: 100, reponse: 'Note transmise avec le portefeuille PIP en annexe.', emis: -20, echeance: day(-5) });
-  const i2 = await instruction('directeur', 'cd.suivi', 'Collecte des indicateurs de performance', 'Collecter et consolider les indicateurs de performance de l’année pour le rapport annuel.', { statut: 'EN_COURS', avancement: 60, parent: i1.id, echeance: day(10), emis: -11 });
-  await instruction('directeur', 'cd.etudes', 'Étude sur l’inclusion numérique en milieu rural', 'Préparer les termes de référence d’une étude sur l’inclusion numérique.', { statut: 'RECUE', emis: -3, echeance: day(25) });
-  await instruction('directeur', 'cd.planification', 'Cadrage budgétaire 2027', 'Préparer la contribution de la DEP au cadrage budgétaire 2027.', { statut: 'VALIDEE', avancement: 100, reponse: 'Contribution transmise.', emis: -25, echeance: day(-8) });
+  const i2 = await instruction('directeur', 'cd.ps', 'Collecte des indicateurs de performance', 'Collecter et consolider les indicateurs de performance de l’année pour le rapport annuel.', { statut: 'EN_COURS', avancement: 60, parent: i1.id, echeance: day(10), emis: -11 });
+  await instruction('directeur', 'cd.edi', 'Étude sur l’inclusion numérique en milieu rural', 'Préparer les termes de référence d’une étude sur l’inclusion numérique.', { statut: 'RECUE', emis: -3, echeance: day(25) });
+  await instruction('directeur', 'cd.sci', 'Cadrage budgétaire 2027', 'Préparer la contribution de la DEP au cadrage budgétaire 2027.', { statut: 'VALIDEE', avancement: 100, reponse: 'Contribution transmise.', emis: -25, echeance: day(-8) });
   await instruction('directeur', 'cb.secretariat', 'Mise à jour du registre du personnel', 'Mettre à jour le registre du personnel et préparer les listes de présence du mois.', { statut: 'EN_COURS', avancement: 30, emis: -4, echeance: day(6) });
-  await instruction('cd.suivi', 'cb.sta', 'Extraction des données statistiques', 'Extraire les séries statistiques 2025-2026 pour les indicateurs de performance.', { statut: 'EN_COURS', avancement: 70, parent: i2.id, echeance: day(5), emis: -9 });
-  await instruction('cd.suivi', 'cb.sev', 'Synthèse des missions de suivi', 'Produire la synthèse des missions de suivi du semestre.', { statut: 'EN_RETARD', avancement: 50, echeance: day(-2), emis: -15, priorite: 'HAUTE' });
-  await instruction('cd.etudes', 'cb.est', 'Revue documentaire', 'Réaliser la revue documentaire préalable à l’étude sur l’inclusion numérique.', { statut: 'TRANSMISE', emis: -1, echeance: day(12) });
+  await instruction('cd.ps', 'cb.prg', 'Extraction des données statistiques', 'Extraire les séries statistiques 2025-2026 pour les indicateurs de performance.', { statut: 'EN_COURS', avancement: 70, parent: i2.id, echeance: day(5), emis: -9 });
+  await instruction('cd.ps', 'cb.sev', 'Synthèse des missions de suivi', 'Produire la synthèse des missions de suivi du semestre.', { statut: 'EN_RETARD', avancement: 50, echeance: day(-2), emis: -15, priorite: 'HAUTE' });
+  await instruction('cd.edi', 'cb.eap', 'Revue documentaire', 'Réaliser la revue documentaire préalable à l’étude sur l’inclusion numérique.', { statut: 'TRANSMISE', emis: -1, echeance: day(12) });
   await notif(U('directeur').id, 'INSTRUCTION', 'Nouvelle instruction : Rapport annuel de performance du secteur numérique', '/instructions', U('sg').id);
-  await notif(U('cd.etudes').id, 'INSTRUCTION', 'Nouvelle instruction : Étude sur l’inclusion numérique en milieu rural', '/instructions', U('directeur').id);
+  await notif(U('cd.edi').id, 'INSTRUCTION', 'Nouvelle instruction : Étude sur l’inclusion numérique en milieu rural', '/instructions', U('directeur').id);
 
   // ─── Tâches ──────────────────────────────────────────────────────────────
   const plan = [
-    ['cb.sta', 'ag.sta1', 'Nettoyage des séries statistiques', 'EN_COURS', 55, day(4)],
-    ['cb.sta', 'ag.sta2', 'Mise à jour de la base de données sectorielle', 'EXECUTEE', 100, day(2)],
+    ['cb.prg', 'ag.prg1', 'Programme d’activités du 4e trimestre', 'EN_COURS', 55, day(4)],
+    ['cb.prg', 'ag.prg2', 'Consolidation des fiches PIP 2027', 'EXECUTEE', 100, day(2)],
     ['cb.sev', 'ag.sev1', 'Fiche de suivi du projet de backbone', 'EN_RETARD', 40, day(-3)],
     ['cb.sev', 'ag.sev2', 'Compte rendu de la mission de suivi à Matadi', 'VALIDEE', 100, day(-6)],
-    ['cb.est', 'ag.est1', 'Revue de la littérature sur l’inclusion numérique', 'RECUE', 0, day(9)],
-    ['cb.est', 'ag.est2', 'Collecte des données de couverture réseau', 'EN_COURS', 25, day(7)],
-    ['cb.vtp', 'ag.vtp1', 'Note de veille : intelligence artificielle', 'CLOTUREE', 100, day(-10)],
-    ['cb.pls', 'ag.pls1', 'Projet de plan d’actions 2027', 'EN_COURS', 65, day(8)],
-    ['cb.pip', 'ag.pip1', 'Préparation des fiches PIP 2027', 'EN_COURS', 35, day(14)],
+    ['cb.eap', 'ag.eap1', 'Revue de la littérature sur l’inclusion numérique', 'RECUE', 0, day(9)],
+    ['cb.eap', 'ag.eap2', 'Collecte des données de couverture réseau', 'EN_COURS', 25, day(7)],
+    ['cb.doi', 'ag.doi1', 'Bulletin d’information du mois', 'CLOTUREE', 100, day(-10)],
+    ['cb.str', 'ag.str1', 'Projet de stratégie sectorielle 2027-2030', 'EN_COURS', 65, day(8)],
+    ['cb.coi', 'ag.coi1', 'Dossier de coopération avec la Banque mondiale', 'EN_COURS', 35, day(14)],
     ['cb.secretariat', 'ag.secretariat1', 'Classement des courriers du mois', 'EN_COURS', 80, day(3)],
     ['cb.secretariat', 'ag.secretariat2', 'Préparation de la liste de présence', 'TRANSMISE', 0, day(2)],
   ];
@@ -121,10 +121,10 @@ exports.seed = async function seed(knex) {
   const docs = [
     { auteur: 'ag.sev2', type: 'COMPTE_RENDU', titre: 'Compte rendu de la mission de suivi à Matadi', statut: 'VALIDE', niveau: 'DIRECTION', detenteur: 'directeur',
       contenu: { date: day(-9), lieu: 'Matadi, Kongo-Central', participants: ['Équipe du Bureau Suivi-Évaluation', 'Représentants provinciaux'], ordre_du_jour: ['Visite des sites', 'Réunion de restitution'], deroulement: 'La mission a visité trois sites du projet et tenu une réunion de restitution avec les autorités provinciales.', decisions: ['Accélérer les travaux du lot 2', 'Produire un rapport trimestriel'] },
-      visas: [visa('cb.sev', 'CHEF_BUREAU', 'Chef de Bureau', 'VISA', -5), visa('cd.suivi', 'CHEF_DIVISION', 'Chef de Division', 'VALIDATION_DIVISION', -4), visa('directeur', 'DIRECTEUR', 'Directeur', 'SIGNATURE', -3)] },
-    { auteur: 'ag.est2', type: 'NOTE_TECHNIQUE', titre: 'Note technique sur la couverture réseau en zones rurales', statut: 'EN_EXAMEN', niveau: 'BUREAU', detenteur: 'cb.est',
+      visas: [visa('cb.sev', 'CHEF_BUREAU', 'Chef de Bureau', 'VISA', -5), visa('cd.ps', 'CHEF_DIVISION', 'Chef de Division', 'VALIDATION_DIVISION', -4), visa('directeur', 'DIRECTEUR', 'Directeur', 'SIGNATURE', -3)] },
+    { auteur: 'ag.eap2', type: 'NOTE_TECHNIQUE', titre: 'Note technique sur la couverture réseau en zones rurales', statut: 'EN_EXAMEN', niveau: 'BUREAU', detenteur: 'cb.eap',
       contenu: { destinataire: 'Monsieur le Directeur', contexte: 'La couverture réseau demeure faible dans les zones rurales.', analyse: 'Les données des opérateurs montrent une couverture 4G inférieure à 30 % hors des chefs-lieux.', propositions: ['Mutualiser les infrastructures passives', 'Mobiliser le fonds de service universel'] }, visas: [] },
-    { auteur: 'ag.pls1', type: 'PLAN_ACTIONS', titre: 'Plan d’actions 2027 de la DEP (projet)', statut: 'BROUILLON', niveau: 'AUTEUR', detenteur: 'ag.pls1',
+    { auteur: 'ag.str1', type: 'PLAN_ACTIONS', titre: 'Plan d’actions 2027 de la DEP (projet)', statut: 'BROUILLON', niveau: 'AUTEUR', detenteur: 'ag.str1',
       contenu: { periode: 'Année 2027', objectif_general: 'Renforcer la planification et le suivi-évaluation du secteur.', actions: [{ action: 'Actualiser le plan stratégique', responsable: 'Bureau Planification Stratégique', echeance: day(90), indicateur: 'Plan adopté', budget: 25000, statut: 'À lancer' }] }, visas: [] },
   ];
   for (const d of docs) {
@@ -166,7 +166,7 @@ exports.seed = async function seed(knex) {
   }
 
   // ─── Fiches PIP ──────────────────────────────────────────────────────────
-  const pipAuteur = U('ag.pip1');
+  const pipAuteur = U('ag.coi1');
   const donnees = {
     identification: { intitule: 'Backbone national en fibre optique — phase 2', code_pip: '', secteur: 'Économie numérique', sous_secteur: 'Infrastructures numériques', ministere_tutelle: 'Ministère des Postes, Télécommunications et Numérique', organisme_execution: 'Secrétariat Général à l’Économie Numérique', nature: 'Extension', type_projet: 'Infrastructure', date_demarrage: day(120), duree_mois: 36 },
     contexte: { contexte: 'Le réseau de transport national demeure insuffisant pour soutenir la transformation numérique.', problematique: 'Coût élevé et faible disponibilité de la connectivité hors des grands centres.', justification: 'L’extension du backbone réduira les coûts de transit et favorisera l’inclusion numérique.', alignement: 'Plan national du numérique ; PNSD.' },
@@ -187,19 +187,19 @@ exports.seed = async function seed(knex) {
   };
   const [p1] = await knex('pip_projects').insert({
     code: await ref('PIP', 'DEP/PIP'), intitule: donnees.identification.intitule, secteur: 'Économie numérique', statut: 'VALIDE', donnees: JSON.stringify(donnees), cout_total: 43500000,
-    duree_mois: 36, date_debut: day(120), auteur_user_id: pipAuteur.id, detenteur_user_id: U('directeur').id, verifie_par: U('cd.planification').id, verifie_at: ts(-6),
+    duree_mois: 36, date_debut: day(120), auteur_user_id: pipAuteur.id, detenteur_user_id: U('directeur').id, verifie_par: U('cd.sci').id, verifie_at: ts(-6),
     valide_par: U('directeur').id, valide_at: ts(-4), direction_id: dep.id, division_id: pipAuteur.division_id, bureau_id: pipAuteur.bureau_id, created_at: ts(-15),
   }).returning('*');
   await knex('pip_versions').insert({ pip_id: p1.id, numero: 1, donnees: JSON.stringify(donnees), created_by: pipAuteur.id });
-  for (const [u, action, statut, j] of [['ag.pip1', 'CREATION', 'BROUILLON', -15], ['ag.pip1', 'SOUMISSION', 'EN_VERIFICATION', -8], ['cd.planification', 'VERIFICATION', 'VERIFIE', -6], ['directeur', 'VALIDATION', 'VALIDE', -4]]) {
+  for (const [u, action, statut, j] of [['ag.coi1', 'CREATION', 'BROUILLON', -15], ['ag.coi1', 'SOUMISSION', 'EN_VERIFICATION', -8], ['cd.sci', 'VERIFICATION', 'VERIFIE', -6], ['directeur', 'VALIDATION', 'VALIDE', -4]]) {
     await hist('PIP', p1.id, U(u).id, action, statut, null, ts(j));
   }
   const brouillon = { ...donnees, identification: { ...donnees.identification, intitule: 'Centres communautaires numériques', nature: 'Nouveau projet', duree_mois: 24 } };
   const [p2] = await knex('pip_projects').insert({
     code: await ref('PIP', 'DEP/PIP'), intitule: brouillon.identification.intitule, secteur: 'Économie numérique', statut: 'EN_VERIFICATION', donnees: JSON.stringify(brouillon), cout_total: 43500000,
-    duree_mois: 24, auteur_user_id: pipAuteur.id, detenteur_user_id: U('cd.planification').id, direction_id: dep.id, division_id: pipAuteur.division_id, bureau_id: pipAuteur.bureau_id, created_at: ts(-5),
+    duree_mois: 24, auteur_user_id: pipAuteur.id, detenteur_user_id: U('cd.sci').id, direction_id: dep.id, division_id: pipAuteur.division_id, bureau_id: pipAuteur.bureau_id, created_at: ts(-5),
   }).returning('*');
   await knex('pip_versions').insert({ pip_id: p2.id, numero: 1, donnees: JSON.stringify(brouillon), created_by: pipAuteur.id });
   await hist('PIP', p2.id, pipAuteur.id, 'SOUMISSION', 'EN_VERIFICATION', 'Soumise au Chef de Division pour vérification', ts(-2));
-  await notif(U('cd.planification').id, 'PIP', 'Fiche PIP à vérifier : Centres communautaires numériques', `/pip/${p2.id}`, pipAuteur.id);
+  await notif(U('cd.sci').id, 'PIP', 'Fiche PIP à vérifier : Centres communautaires numériques', `/pip/${p2.id}`, pipAuteur.id);
 };
