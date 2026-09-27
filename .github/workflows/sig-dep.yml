@@ -1,0 +1,59 @@
+name: SIG-DEP
+
+on:
+  push:
+    paths: ["sig-dep/**", ".github/workflows/sig-dep.yml"]
+  pull_request:
+    paths: ["sig-dep/**", ".github/workflows/sig-dep.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: API — tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: sigdep
+          POSTGRES_PASSWORD: sigdep
+          POSTGRES_DB: sig_dep_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U sigdep" --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: sig-dep/backend
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgres://sigdep:sigdep@localhost:5432/sig_dep_test
+      DATABASE_URL_TEST: postgres://sigdep:sigdep@localhost:5432/sig_dep_test
+      JWT_ACCESS_SECRET: secret-ci-uniquement-pour-les-tests
+      SEED_DEMO: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sig-dep/backend/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  frontend:
+    name: Interface — compilation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sig-dep/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sig-dep/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build

@@ -110,6 +110,11 @@ export default function Cadre() {
                   { key: 'structure', header: 'Structure', render: (p) => p.bureau_nom || p.division_nom || 'Direction', search: (p) => p.bureau_nom || p.division_nom },
                   { key: 'role_associe', header: 'Fonction', render: (p) => ROLES[p.role_associe] },
                   { key: 'grade_minimum', header: 'Grade minimal' },
+                  ...(can('cadre.gerer') ? [{ key: 'act', header: '', render: (p) => <button type="button" className="text-red-600" aria-label={`Désactiver ${p.libelle}`} onClick={async () => {
+                    if (!(await confirm({ title: 'Désactiver le poste', message: `Désactiver « ${p.libelle} » ? Impossible si le poste est occupé.`, danger: true }))) return;
+                    await runAction(() => api.post(`/organisation/postes/${p.id}/desactiver`), 'Poste désactivé.');
+                    state.reload();
+                  }}><Trash2 size={14} /></button> }] : []),
                 ]} />
               )}
               {tab === 'grades' && (

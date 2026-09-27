@@ -85,7 +85,9 @@ Mot de passe commun : **`Demo@2026`**. Désactivez-les en production avec `SEED_
 | `cb.est`, `cb.vtp`, `cb.pls`, `cb.pip`, `cb.sev`, `cb.sta` | Chef de Bureau | Bureaux des Divisions |
 | `ag.est1`, `ag.est2`, `ag.vtp1`, … `ag.sta2` | Agent | Bureaux des Divisions |
 
-Les intitulés des Divisions et des Bureaux créés par le seed sont **indicatifs**. Ils se modifient dans l’application (module Organisation, par le Directeur) ou dans `backend/src/db/seed-data/organisation.js`, pour correspondre au cadre organique officiel.
+Le seed `05_demo_activites.js` ajoute aussi une activité de démonstration, avec des dates relatives au jour du seed : instructions, tâches (dont une en retard), courriers, documents avec visas, présences de la semaine précédente et fiches PIP. Les tableaux de bord et les rapports sont ainsi parlants dès l’installation.
+
+Les intitulés des Divisions et des Bureaux créés par le seed sont **indicatifs**. Le Directeur les modifie dans l’application (Organigramme → boutons « Nouvelle Division », « Nouveau Bureau », crayon et archivage sur chaque structure). On peut aussi les changer dans `backend/src/db/seed-data/organisation.js`, pour correspondre au cadre organique officiel.
 
 ### Commandes utiles (backend)
 
@@ -127,7 +129,7 @@ Navigateur ──► Frontend React (Vite)  ──/api──►  API Express  �
 | `services/audit.js`, `notifications.js`, `history.js` | Journal d’audit, notifications internes, historiques horodatés |
 | `services/pdf.js`, `excel.js`, `word.js` | Exports avec en-tête officiel |
 | `services/jobs.js` | Retards, rappels d’échéance, verrouillage automatique des présences, purge des sessions |
-| `modules/*` | Une route par module : `auth`, `organisation`, `agents`, `users`, `presences`, `courriers`, `instructions`, `tasks`, `documents`, `pip`, `notifications`, `audit`, `attachments`, `dashboard`, `rapports`, `systeme`, `hierarchie` |
+| `modules/*` | Une route par module : `auth`, `organisation`, `agents`, `users`, `presences`, `courriers`, `instructions`, `tasks`, `documents`, `pip`, `notifications`, `audit`, `attachments`, `dashboard`, `rapports`, `systeme`, `hierarchie`, `recherche` |
 
 **Frontend** (`frontend/src`)
 
@@ -137,7 +139,8 @@ Navigateur ──► Frontend React (Vite)  ──/api──►  API Express  �
 | `store/auth.js` | Session (Zustand) : utilisateur, permissions, compteurs |
 | `components/ui` | Tableaux avec recherche et pagination, badges, fenêtres de confirmation, notifications éphémères, états de chargement et d’erreur |
 | `components/shared.jsx` | Historique, pièces jointes, exports, formulaires guidés dynamiques |
-| `components/layout` | Menu latéral selon les permissions, en-tête, fil d’Ariane, impression |
+| `components/layout` | Menu latéral selon les permissions, en-tête avec recherche globale (Ctrl+K), fil d’Ariane, impression |
+| `lib/inactivity.js` | Déconnexion automatique après inactivité, avec avertissement |
 | `pages/*` | Écrans de chaque module, pages « Accès refusé » et « Page introuvable » |
 
 > Le frontend ne sert qu’à l’ergonomie : **toutes** les autorisations sont vérifiées par l’API.
@@ -186,7 +189,7 @@ Garanties, par niveau :
 | Base de données | `CHECK` : un Bureau a toujours le rang BUREAU et le périmètre BUREAU. Un rattachement DIRECTION impose `division_id = NULL` et un supérieur DIRECTEUR. Un seul Secrétariat par Direction. |
 | Base de données | Déclencheurs `trg_*_secretariat` : toute attribution de `division.gerer`, `division.superviser`, `division.valider` ou `chef_division.agir` à un utilisateur affecté au Secrétariat (par rôle, par permission individuelle, par modification d’un rôle ou par changement d’affectation) est **rejetée**. |
 | API | `services/context.js` retire ces permissions et interdit le périmètre DIVISION pour tout membre du Secrétariat. `users` refuse le rôle Chef de Division. `organisation` refuse de rattacher le Secrétariat à une Division. |
-| Hiérarchie | Nœud `BUR:<id>` dont le parent est `DIR:<id>` : seul le Directeur l’instruit ; aucun Chef de Division ne le supervise. |
+| Hiérarchie | Nœud `BUR:<id>` dont le parent est `DIR:<id>` : seul le Directeur l’instruit ; aucun Chef de Division ne le supervise. Le supérieur d’un Bureau est calculé à partir de son **rattachement** (`parent_type`), jamais de son rang. |
 | Statistiques | La table `divisions` ne contient que des Divisions. Organigramme, tableaux de bord et rapports affichent à part les « Bureaux rattachés au Directeur ». |
 | Interface | Badge « Rang : Bureau », mention « Bureau directement rattaché au Directeur », icône de Bureau. Tableau de bord de Chef de Bureau pour son Chef. |
 
@@ -274,6 +277,8 @@ Principes appliqués :
 * Validation **Zod** de toutes les entrées. Requêtes paramétrées via Knex.
 * Permission vérifiée sur chaque route, puis filtrage par périmètre et contrôle hiérarchique.
 * Pièces jointes stockées hors de la racine web sous un nom aléatoire (UUID), avec liste blanche de types MIME, taille maximale (15 Mo par défaut) et empreinte SHA-256. Téléchargement authentifié et contrôlé par le périmètre de l’élément parent.
+* Déconnexion automatique après inactivité (`VITE_INACTIVITY_MINUTES`, 30 min par défaut, 0 pour désactiver), avec un avertissement avant l’échéance ; l’activité est partagée entre onglets.
+* Aucune ressource externe : la police est embarquée dans l’application, qui fonctionne sur un réseau fermé.
 * Messages d’erreur en français, sans détail technique en production.
 * Secrets dans `.env` (jamais versionné). L’API refuse de démarrer en production avec le secret JWT d’exemple.
 
@@ -294,7 +299,11 @@ Les tests réinitialisent la base `sig_dep_test` (migrations et seeds), puis vé
 * les périmètres de données, la lecture seule du SG et l’absence de droits fonctionnels de l’Admin ;
 * les workflows des présences, courriers, documents (versions conservées) et PIP ;
 * les comptes préparés puis autorisés, l’historique des affectations et le journal d’audit en lecture seule ;
-* les exports PDF, Excel et Word, et les tableaux de bord de chaque rôle.
+* les exports PDF, Excel et Word, et les tableaux de bord de chaque rôle ;
+* la gestion des structures : postes créés automatiquement, Bureau rattaché au Directeur, propagation d’un changement de rattachement, archivage protégé ;
+* la recherche globale limitée au périmètre, et la sérialisation du journal d’audit.
+
+**Intégration continue** : `.github/workflows/sig-dep.yml` exécute ces tests sur un PostgreSQL 16 éphémère et compile le frontend à chaque modification du dossier `sig-dep/`.
 
 ---
 

@@ -1,7 +1,25 @@
-import { useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Crown, Landmark, Layers, User, Users } from 'lucide-react';
-import { useApi, Loadable, PageHeader, Card, Badge, RangBadge, InfoAlert, Stat } from '../../components/ui';
+import { Archive, ChevronDown, ChevronRight, Crown, Landmark, Layers, Pencil, Plus, User, Users } from 'lucide-react';
+import api from '../../lib/api';
+import { useAuth } from '../../store/auth';
+import { useApi, Loadable, PageHeader, Card, Badge, RangBadge, InfoAlert, Stat, runAction, useConfirm } from '../../components/ui';
+import StructureModal from './StructureModal';
+
+/** Actions de gestion (Directeur) transmises aux nœuds de l’organigramme. */
+const ManageCtx = createContext(null);
+
+function ManageButtons({ type, s }) {
+  const m = useContext(ManageCtx);
+  if (!m) return null;
+  return (
+    <span className="flex items-center gap-1 no-print">
+      {type === 'division' && <button type="button" className="btn-ghost px-1.5 py-1 text-xs" onClick={() => m.open({ type: 'bureau', defaultDivisionId: s.id })} title="Ajouter un Bureau à cette Division"><Plus size={14} /> Bureau</button>}
+      <button type="button" className="btn-ghost px-1.5 py-1" onClick={() => m.open({ type, structure: s })} aria-label={`Modifier ${s.nom}`}><Pencil size={14} /></button>
+      {!s.estSecretariatDirection && <button type="button" className="btn-ghost px-1.5 py-1 text-red-700" onClick={() => m.archive(type, s)} aria-label={`Archiver ${s.nom}`}><Archive size={14} /></button>}
+    </span>
+  );
+}
 
 function Person({ p, titre }) {
   if (!p) return <div className="text-xs italic text-slate-400">{titre} : poste vacant</div>;
@@ -37,6 +55,7 @@ function BureauNode({ b, defaultOpen = false }) {
           <div className="mt-1.5"><Person p={b.responsable} titre="Chef de Bureau" /></div>
         </div>
         <Badge><Users size={12} /> {b.effectif}</Badge>
+        <ManageButtons type="bureau" s={b} />
       </div>
       {open && (
         <div className="border-t border-slate-100 px-4 py-3 text-sm">
@@ -65,6 +84,7 @@ function DivisionNode({ d }) {
           <div className="flex flex-wrap items-center gap-2">
             <Link to={`/structures/division/${d.id}`} className="font-semibold text-slate-900 hover:underline">{d.nom}</Link>
             <RangBadge rang="DIVISION" />
+            <span className="ml-auto"><ManageButtons type="division" s={d} /></span>
           </div>
           <div className="mt-1 text-xs text-slate-500">Rattachement : {d.rattachement.libelle} · Périmètre d’accès : Division</div>
           <div className="mt-1.5"><Person p={d.responsable} titre="Chef de Division" /></div>
@@ -75,6 +95,7 @@ function DivisionNode({ d }) {
         <div className="space-y-2 border-t border-indigo-100 p-3 pl-6 sm:pl-10">
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bureaux rattachés à la Division</div>
           {d.bureaux.map((b) => <BureauNode key={b.id} b={b} />)}
+          {!d.bureaux.length && <p className="text-sm text-slate-500">Aucun Bureau rattaché.</p>}
         </div>
       )}
     </div>
@@ -83,12 +104,29 @@ function DivisionNode({ d }) {
 
 export default function Organigramme() {
   const state = useApi('/organisation/organigramme');
+  const canManage = useAuth((s) => s.can('organisation.gerer'));
+  const confirm = useConfirm();
+  const [modal, setModal] = useState(null);
+  const manage = canManage ? {
+    open: setModal,
+    archive: async (type, s) => {
+      if (!(await confirm({ title: 'Archiver la structure', message: `Archiver « ${s.nom} » ? L’opération n’est possible que si aucun Agent n’y est affecté${type === 'division' ? ' et qu’aucun Bureau ne lui est rattaché' : ''}. L’historique est conservé.`, danger: true, confirmLabel: 'Archiver' }))) return;
+      await runAction(() => api.post(`/organisation/${type === 'division' ? 'divisions' : 'bureaux'}/${s.id}/archiver`), 'Structure archivée.');
+      state.reload();
+    },
+  } : null;
   return (
-    <>
-      <PageHeader title="Organigramme de la DEP" subtitle="Rang organique et rattachement hiérarchique sont présentés séparément." breadcrumb={[{ label: 'Organisation' }, { label: 'Organigramme' }]} actions={<button type="button" className="btn-secondary" onClick={() => window.print()}>Imprimer</button>} />
+    <ManageCtx.Provider value={manage}>
+      <PageHeader title="Organigramme de la DEP" subtitle="Rang organique et rattachement hiérarchique sont présentés séparément." breadcrumb={[{ label: 'Organisation' }, { label: 'Organigramme' }]}
+        actions={<>
+          {canManage && <button type="button" className="btn-secondary" onClick={() => setModal({ type: 'division' })}><Plus size={16} /> Nouvelle Division</button>}
+          {canManage && <button type="button" className="btn-secondary" onClick={() => setModal({ type: 'bureau' })}><Plus size={16} /> Nouveau Bureau</button>}
+          <button type="button" className="btn-secondary" onClick={() => window.print()}>Imprimer</button>
+        </>} />
       <Loadable state={state}>
         {(o) => (
           <div className="space-y-5">
+            {modal && <StructureModal {...modal} divisions={o.divisions} onClose={() => setModal(null)} onSaved={() => { setModal(null); state.reload(); }} />}
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <Stat label="Divisions" value={o.statistiques.divisions} icon={Landmark} />
               <Stat label="Bureaux rattachés aux Divisions" value={o.statistiques.bureauxRattachesDivisions} icon={Layers} tone="gris" />
@@ -122,6 +160,6 @@ export default function Organigramme() {
           </div>
         )}
       </Loadable>
-    </>
+    </ManageCtx.Provider>
   );
 }

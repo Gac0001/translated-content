@@ -6,9 +6,9 @@ describe('Présences hebdomadaires', () => {
   test('workflow Brouillon → Vérifiée → Soumise → Verrouillée et rectificatif', async () => {
     const cb = api(await login('cb.pip'));
     const dir = api(await login('directeur'));
-    const s = await cb.post('/presences', { structure_type: 'BUREAU', semaine_debut: '2026-09-14' });
+    const s = await cb.post('/presences', { structure_type: 'BUREAU', semaine_debut: '2030-01-07' });
     expect(s.status).toBe(201);
-    expect((await cb.post('/presences', { structure_type: 'BUREAU', semaine_debut: '2026-09-15' })).status).toBe(400);
+    expect((await cb.post('/presences', { structure_type: 'BUREAU', semaine_debut: '2030-01-08' })).status).toBe(400);
     const d = await cb.get(`/presences/${s.body.id}`);
     const e = d.body.entries[0];
     const entry = { agent_id: e.agent_id, lundi: 'PRESENT', mardi: 'RETARD', mercredi: 'CONGE', jeudi: 'MALADIE', vendredi: 'MISSION', observation: 'RAS' };
@@ -239,5 +239,20 @@ describe('Tableaux de bord', () => {
   test('Admin', async () => {
     const res = await api(await loginAdmin()).get('/dashboard');
     expect(res.body.admin.comptes.total).toBeGreaterThan(0);
+  });
+});
+
+describe('Journal d’audit — sérialisation', () => {
+  test('les expressions SQL (ex. date d’archivage) sont enregistrées sans erreur', async () => {
+    const { audit } = require('../src/services/audit');
+    await audit(null, { action: 'TEST_SERIALISATION', module: 'tests', apres: { statut: 'ARCHIVE', archived_at: db.fn.now(), password: 'secret' } });
+    const row = await db('audit_logs').where({ action: 'TEST_SERIALISATION' }).orderBy('id', 'desc').first();
+    expect(row.nouvelle_valeur).toMatchObject({ statut: 'ARCHIVE', password: '***' });
+    expect(typeof row.nouvelle_valeur.archived_at).toBe('string');
+  });
+
+  test('l’archivage d’un courrier est bien audité', async () => {
+    const rows = await db('audit_logs').where({ module: 'courriers', action: 'ARCHIVAGE' });
+    expect(rows.length).toBeGreaterThan(0);
   });
 });

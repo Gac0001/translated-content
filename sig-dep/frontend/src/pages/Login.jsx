@@ -7,7 +7,7 @@ import { LogIn, Loader2, Eye, EyeOff } from 'lucide-react';
 import api, { errorMessage } from '../lib/api';
 import { useAuth } from '../store/auth';
 import { DEP_NOM, SG_NOM } from '../lib/labels';
-import { ErrorAlert } from '../components/ui';
+import { ErrorAlert, InfoAlert } from '../components/ui';
 
 const schema = z.object({
   username: z.string().trim().min(1, 'Saisissez votre nom d’utilisateur.'),
@@ -47,6 +47,7 @@ export default function Login() {
           </div>
           <form onSubmit={handleSubmit(onSubmit)} className="card space-y-4 p-6" noValidate>
             <h2 className="text-lg font-semibold">Connexion</h2>
+            {location.state?.message && !error && <InfoAlert tone="warning">{location.state.message}</InfoAlert>}
             <ErrorAlert message={error} />
             <div>
               <label className="label" htmlFor="username">Nom d’utilisateur</label>

@@ -82,7 +82,7 @@ router.get('/', requirePerm('personnel.consulter', 'personnel.suivre'), validate
 
 async function superieurOf(agentId) {
   const aff = await db('affectations as a').leftJoin('bureaux as b', 'b.id', 'a.bureau_id').leftJoin('postes_organiques as p', 'p.id', 'a.poste_id')
-    .where({ 'a.agent_id': agentId, 'a.est_active': true }).first('a.*', 'b.est_secretariat_direction', 'b.nom as bureau_nom', 'p.role_associe');
+    .where({ 'a.agent_id': agentId, 'a.est_active': true }).first('a.*', 'b.est_secretariat_direction', 'b.parent_type', 'b.nom as bureau_nom', 'p.role_associe');
   if (!aff) return null;
   const chefQuery = (where, role) => db('affectations as a').join('agents as ag', 'ag.id', 'a.agent_id').join('postes_organiques as p', 'p.id', 'a.poste_id')
     .where({ 'a.est_active': true, 'p.role_associe': role, ...where }).whereNot('a.agent_id', agentId).first('ag.id', 'ag.nom', 'ag.postnom', 'ag.prenom');
@@ -91,7 +91,7 @@ async function superieurOf(agentId) {
     sup = await chefQuery({ 'a.bureau_id': aff.bureau_id }, 'CHEF_BUREAU');
     titre = aff.est_secretariat_direction ? 'Chef du Bureau Secrétariat de Direction' : `Chef du ${aff.bureau_nom}`;
   } else if (aff.niveau === 'BUREAU') {
-    if (aff.est_secretariat_direction) { sup = await chefQuery({ 'a.niveau': 'DIRECTION' }, 'DIRECTEUR'); titre = 'Directeur'; } else {
+    if (aff.parent_type === 'DIRECTION') { sup = await chefQuery({ 'a.niveau': 'DIRECTION' }, 'DIRECTEUR'); titre = 'Directeur'; } else {
       sup = await chefQuery({ 'a.niveau': 'DIVISION', 'a.division_id': aff.division_id }, 'CHEF_DIVISION'); titre = 'Chef de Division';
     }
   } else if (aff.niveau === 'DIVISION') {
@@ -317,3 +317,5 @@ router.post('/:id/affectations/cloturer', requirePerm('affectations.gerer'), val
 });
 
 module.exports = router;
+module.exports.scopeAgents = scopeAgents;
+module.exports.baseQuery = baseQuery;

@@ -48,6 +48,7 @@ const protectedModules = {
   rapports: './modules/rapports/routes',
   systeme: './modules/systeme/routes',
   hierarchie: './modules/hierarchie/routes',
+  recherche: './modules/recherche/routes',
 };
 for (const [path, mod] of Object.entries(protectedModules)) {
   let router;

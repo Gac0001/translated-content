@@ -11,7 +11,7 @@
 const db = require('../db/knex');
 const { FUNCTIONAL_ORDER, ROLE_LIBELLES } = require('../constants');
 
-function nodeFrom({ userId, primaryRole, directionId, divisionId, bureauId, inSecretariat, perimetre }) {
+function nodeFrom({ userId, primaryRole, directionId, divisionId, bureauId, rattacheDirection, perimetre }) {
   switch (primaryRole) {
     case 'SECRETAIRE_GENERAL': return { key: 'SG', parent: null, role: primaryRole };
     case 'DIRECTEUR': return { key: `DIR:${directionId}`, parent: 'SG', role: primaryRole };
@@ -22,8 +22,8 @@ function nodeFrom({ userId, primaryRole, directionId, divisionId, bureauId, inSe
       if (!bureauId) return null;
       return {
         key: `BUR:${bureauId}`,
-        // Rattachement : Directeur pour le Bureau Secrétariat de Direction, Chef de Division sinon.
-        parent: inSecretariat ? `DIR:${directionId}` : `DIV:${divisionId}`,
+        // Le parent dépend uniquement du RATTACHEMENT (Direction ou Division), jamais du rang.
+        parent: rattacheDirection ? `DIR:${directionId}` : `DIV:${divisionId}`,
         role: primaryRole,
       };
     case 'AGENT':
@@ -42,7 +42,7 @@ async function loadAllNodes(trx = db) {
     .leftJoin('divisions as d', 'd.id', 'a.division_id')
     .where('u.statut', '<>', 'DESACTIVE')
     .select('u.id as user_id', 'u.username', 'ag.nom', 'ag.postnom', 'ag.prenom', 'a.niveau', 'a.direction_id', 'a.division_id',
-      'a.bureau_id', 'b.nom as bureau_nom', 'b.est_secretariat_direction', 'd.nom as division_nom',
+      'a.bureau_id', 'b.nom as bureau_nom', 'b.est_secretariat_direction', 'b.parent_type', 'd.nom as division_nom',
       db.raw(`ARRAY(SELECT r.code FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id) as roles`));
   const dep = await trx('directions').where({ code: 'DEP' }).first();
   return rows.map((r) => {
@@ -50,7 +50,7 @@ async function loadAllNodes(trx = db) {
     const perimetre = primaryRole === 'CHEF_DIVISION' ? (r.niveau === 'DIVISION' ? 'DIVISION' : 'PERSONNEL') : null;
     const node = nodeFrom({
       userId: r.user_id, primaryRole, directionId: r.direction_id || (dep && dep.id), divisionId: r.division_id,
-      bureauId: r.bureau_id, inSecretariat: !!r.est_secretariat_direction, perimetre,
+      bureauId: r.bureau_id, rattacheDirection: r.parent_type === 'DIRECTION', perimetre,
     });
     return {
       userId: r.user_id, username: r.username, primaryRole, node,
@@ -63,7 +63,7 @@ async function loadAllNodes(trx = db) {
 }
 
 function ctxNode(ctx) {
-  return nodeFrom({ ...ctx, directionId: ctx.directionId });
+  return nodeFrom({ ...ctx, rattacheDirection: !!(ctx.affectation && ctx.affectation.parent_type === 'DIRECTION') });
 }
 
 /** Relation directe entre deux nœuds : DESCENDANT (from est le supérieur direct de to), ASCENDANT, ou null. */

@@ -96,8 +96,9 @@ describe('API — rang, rattachement et permissions', () => {
     expect(b.responsableTitre).toBe('Chef de Bureau');
     expect(b.badge).toBe('Bureau directement rattaché au Directeur');
     expect(b.rattachement).toMatchObject({ parentType: 'DIRECTION', divisionId: null, superieurDirect: 'DIRECTEUR' });
-    expect(o.statistiques.divisions).toBe(await db('divisions').count('* as n').first().then((r) => Number(r.n)));
-    expect(o.statistiques.divisions).toBe(3);
+    const nbDivisions = await db('divisions').where({ actif: true }).count('* as n').first().then((r) => Number(r.n));
+    expect(o.statistiques.divisions).toBe(nbDivisions);
+    expect(o.divisions).toHaveLength(nbDivisions);
   });
 
   test('la fiche d’un Agent du Bureau Secrétariat : Division = Aucune, supérieur = Chef du Bureau Secrétariat', async () => {
@@ -147,14 +148,16 @@ describe('API — rang, rattachement et permissions', () => {
 
   test('les statistiques ne comptent jamais le Bureau Secrétariat comme une Division', async () => {
     const res = await api(await login('directeur')).get('/rapports/activites?periode=ANNUEL&annee=2026');
-    expect(res.body.performance.divisions).toHaveLength(3);
+    const nbDivisions = await db('divisions').where({ actif: true }).count('* as n').first().then((r) => Number(r.n));
+    expect(res.body.performance.divisions).toHaveLength(nbDivisions);
     expect(res.body.performance.divisions.map((d) => d.code)).not.toContain('BSD');
     const l = res.body.lignes.find((x) => x.code === 'BSD');
     expect(l.rang).toBe('BUREAU');
     expect(l.niveau).toBe('Bureau rattaché au Directeur');
     const sg = await api(await login('sg')).get('/dashboard');
-    expect(sg.body.vueGlobale.divisions).toBe(3);
-    expect(sg.body.vueGlobale.bureauxRattachesDirection).toBe(1);
+    expect(sg.body.vueGlobale.divisions).toBe(nbDivisions);
+    const nbDirect = await db('bureaux').where({ actif: true, parent_type: 'DIRECTION' }).count('* as n').first().then((r) => Number(r.n));
+    expect(sg.body.vueGlobale.bureauxRattachesDirection).toBe(nbDirect);
   });
 
   test('le Bureau Secrétariat ne peut être rattaché à une Division via l’API', async () => {

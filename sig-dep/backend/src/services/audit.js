@@ -7,19 +7,23 @@ function clientIp(req) {
   return (req && (req.ip || req.socket?.remoteAddress)) || null;
 }
 
+/**
+ * Copie sérialisable d’une valeur : masque les secrets, remplace les expressions SQL
+ * (ex. knex.fn.now()) par leur texte et coupe les références circulaires.
+ */
 function sanitize(v) {
   if (v === undefined || v === null) return null;
-  const clone = JSON.parse(JSON.stringify(v));
-  const strip = (o) => {
-    if (o && typeof o === 'object') {
-      for (const k of Object.keys(o)) {
-        if (/password|token|hash|secret/i.test(k)) o[k] = '***';
-        else strip(o[k]);
-      }
+  const seen = new WeakSet();
+  const json = JSON.stringify(v, (key, val) => {
+    if (/password|token|hash|secret/i.test(key)) return '***';
+    if (val && typeof val === 'object') {
+      if (typeof val.toSQL === 'function' || (val.constructor && val.constructor.name === 'Raw')) return String(val);
+      if (seen.has(val)) return '[référence circulaire]';
+      seen.add(val);
     }
-  };
-  strip(clone);
-  return clone;
+    return val;
+  });
+  return json === undefined ? null : JSON.parse(json);
 }
 
 async function audit(req, { action, module, entite = null, entiteId = null, avant = null, apres = null, resultat = 'SUCCES', message = null, user = null }, trx = db) {

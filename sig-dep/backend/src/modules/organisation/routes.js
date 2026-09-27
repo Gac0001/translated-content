@@ -63,7 +63,7 @@ router.get('/organigramme', requirePerm('organisation.consulter'), async (req, r
       rattachement: { parentType: b.parent_type, divisionId: b.division_id, superieurDirect: b.superieur_direct, libelle: rattachementLabel(b, divisionsById) },
       perimetreAcces: b.perimetre_acces, responsableRole: b.responsable_role, responsableTitre: 'Chef de Bureau',
       estSecretariatDirection: b.est_secretariat_direction,
-      badge: b.est_secretariat_direction ? 'Bureau directement rattaché au Directeur' : null,
+      badge: b.parent_type === 'DIRECTION' ? 'Bureau directement rattaché au Directeur' : null,
       missions: b.missions,
       attributions: attrs.filter((x) => x.cible_type === 'BUREAU' && x.bureau_id === b.id).map((x) => x.libelle),
       responsable: personView(chef),
@@ -158,7 +158,7 @@ router.get('/structures/:type/:id', requirePerm('organisation.consulter'), valid
       divisionRattachement: s.division_nom || 'Aucune',
     };
     responsabilites = await attributionsFor({ cible_type: 'ROLE', role_code: 'CHEF_BUREAU' });
-    s = { ...s, responsable_titre: 'Chef de Bureau', badge: s.est_secretariat_direction ? 'Bureau directement rattaché au Directeur' : null };
+    s = { ...s, responsable_titre: 'Chef de Bureau', badge: s.parent_type === 'DIRECTION' ? 'Bureau directement rattaché au Directeur' : null };
   }
   const showAgents = req.ctx.perimetre !== 'SYSTEME';
   res.json({
@@ -176,7 +176,13 @@ const divisionSchema = z.object({
 
 router.post('/divisions', requirePerm('organisation.gerer'), validate({ body: divisionSchema }), async (req, res) => {
   const dep = await db('directions').where({ code: 'DEP' }).first();
-  const [row] = await db('divisions').insert({ ...req.valid.body, direction_id: dep.id }).returning('*');
+  const row = await db.transaction(async (trx) => {
+    const ordre = req.valid.body.ordre ?? Number((await trx('divisions').max('ordre as m').first()).m || 0) + 1;
+    const [d] = await trx('divisions').insert({ ...req.valid.body, ordre, direction_id: dep.id }).returning('*');
+    // Poste organique du responsable, créé avec la structure
+    await trx('postes_organiques').insert({ code: `P-CD-${d.code}`, libelle: `Chef de ${d.nom}`, niveau: 'DIVISION', role_associe: 'CHEF_DIVISION', direction_id: dep.id, division_id: d.id, grade_minimum_id: await gradeId(trx, 'CD') });
+    return d;
+  });
   await audit(req, { action: 'CREATION', module: 'organisation', entite: 'division', entiteId: row.id, apres: row });
   res.status(201).json(row);
 });
@@ -207,9 +213,30 @@ function bureauRow(body) {
   };
 }
 
+async function gradeId(trx, code) {
+  const g = await trx('grades').where({ code }).first();
+  return g ? g.id : null;
+}
+
+async function assertDivisionActive(divisionId) {
+  if (!divisionId) return;
+  const d = await db('divisions').where({ id: divisionId, actif: true }).first();
+  if (!d) throw badRequest('Division de rattachement inconnue ou archivée.');
+}
+
 router.post('/bureaux', requirePerm('organisation.gerer'), validate({ body: bureauSchema }), async (req, res) => {
   const dep = await db('directions').where({ code: 'DEP' }).first();
-  const [row] = await db('bureaux').insert({ ...bureauRow(req.valid.body), direction_id: dep.id, est_secretariat_direction: false }).returning('*');
+  const data = bureauRow(req.valid.body);
+  await assertDivisionActive(data.division_id);
+  const row = await db.transaction(async (trx) => {
+    const ordre = data.ordre ?? Number((await trx('bureaux').where({ parent_type: data.parent_type, division_id: data.division_id }).max('ordre as m').first()).m || 0) + 1;
+    const [b] = await trx('bureaux').insert({ ...data, ordre, direction_id: dep.id, est_secretariat_direction: false }).returning('*');
+    await trx('postes_organiques').insert([
+      { code: `P-CB-${b.code}`, libelle: `Chef du ${b.nom}`, niveau: 'BUREAU', role_associe: 'CHEF_BUREAU', direction_id: dep.id, division_id: b.division_id, bureau_id: b.id, grade_minimum_id: await gradeId(trx, 'CB') },
+      { code: `P-AG-${b.code}`, libelle: `Agent du ${b.nom}`, niveau: 'BUREAU', role_associe: 'AGENT', direction_id: dep.id, division_id: b.division_id, bureau_id: b.id },
+    ]);
+    return b;
+  });
   await audit(req, { action: 'CREATION', module: 'organisation', entite: 'bureau', entiteId: row.id, apres: row });
   res.status(201).json(row);
 });
@@ -221,8 +248,17 @@ router.put('/bureaux/:id', requirePerm('organisation.gerer'), validate({ params:
   if (before.est_secretariat_direction && data.parent_type !== 'DIRECTION') {
     throw forbidden('Le Bureau Secrétariat de Direction reste directement rattaché au Directeur : il ne peut être rattaché à une Division.', 'SECRETARIAT_RATTACHEMENT');
   }
-  const [row] = await db('bureaux').where({ id: before.id }).update({ ...data, updated_at: db.fn.now() }).returning('*');
-  await audit(req, { action: 'MODIFICATION', module: 'organisation', entite: 'bureau', entiteId: row.id, avant: before, apres: row });
+  await assertDivisionActive(data.division_id);
+  const row = await db.transaction(async (trx) => {
+    const [b] = await trx('bureaux').where({ id: before.id }).update({ ...data, updated_at: trx.fn.now() }).returning('*');
+    if (b.division_id !== before.division_id) {
+      // Changement de rattachement : propagation aux postes et aux affectations en cours (le déclencheur recalcule la Division).
+      await trx('postes_organiques').where({ bureau_id: b.id }).update({ division_id: b.division_id, updated_at: trx.fn.now() });
+      await trx('affectations').where({ bureau_id: b.id, est_active: true }).update({ updated_at: trx.fn.now() });
+    }
+    return b;
+  });
+  await audit(req, { action: 'MODIFICATION', module: 'organisation', entite: 'bureau', entiteId: row.id, avant: before, apres: row, message: row.division_id !== before.division_id ? 'Changement de rattachement' : null });
   res.json(row);
 });
 
@@ -320,6 +356,24 @@ router.post('/postes', requirePerm('cadre.gerer'), validate({ body: posteSchema 
   const [row] = await db('postes_organiques').insert({ ...b, direction_id: dep.id }).returning('*');
   await audit(req, { action: 'CREATION', module: 'cadre', entite: 'poste', entiteId: row.id, apres: row });
   res.status(201).json(row);
+});
+
+router.put('/postes/:id', requirePerm('cadre.gerer'), validate({ params: id, body: posteSchema.pick({ libelle: true, grade_minimum_id: true, description: true }).partial() }), async (req, res) => {
+  const before = await db('postes_organiques').where({ id: req.valid.params.id }).first();
+  if (!before) throw notFound('Poste introuvable.');
+  const [row] = await db('postes_organiques').where({ id: before.id }).update({ ...req.valid.body, updated_at: db.fn.now() }).returning('*');
+  await audit(req, { action: 'MODIFICATION', module: 'cadre', entite: 'poste', entiteId: row.id, avant: before, apres: row });
+  res.json(row);
+});
+
+router.post('/postes/:id/desactiver', requirePerm('cadre.gerer'), validate({ params: id }), async (req, res) => {
+  const before = await db('postes_organiques').where({ id: req.valid.params.id }).first();
+  if (!before) throw notFound('Poste introuvable.');
+  const occ = await db('affectations').where({ poste_id: before.id, est_active: true }).count('* as n').first();
+  if (Number(occ.n) > 0) throw badRequest('Ce poste est occupé : clôturez d’abord les affectations correspondantes.');
+  await db('postes_organiques').where({ id: before.id }).update({ actif: false, updated_at: db.fn.now() });
+  await audit(req, { action: 'DESACTIVATION', module: 'cadre', entite: 'poste', entiteId: before.id, avant: before });
+  res.json({ message: 'Poste désactivé (conservé dans l’historique).' });
 });
 
 const gradeSchema = z.object({ code: z.string().trim().min(1).max(20), libelle: z.string().trim().min(2).max(150), categorie: z.string().max(80).optional().nullable(), niveau: z.coerce.number().int().default(0) });

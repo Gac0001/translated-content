@@ -7,6 +7,9 @@ import {
 import api from '../../lib/api';
 import { useAuth, useCompteurs } from '../../store/auth';
 import { DEP_NOM, SG_NOM, ROLES, PERIMETRES } from '../../lib/labels';
+import { useInactivity } from '../../lib/inactivity';
+import { Modal } from '../ui';
+import GlobalSearch from './GlobalSearch';
 
 const MENU = [
   { section: 'Pilotage' },
@@ -75,11 +78,12 @@ export default function AppLayout() {
 
   useEffect(() => { setMenuUser(false); }, [location.pathname]);
 
-  const logout = async () => {
+  const logout = async (raison) => {
     try { await api.post('/auth/logout'); } catch { /* ignore */ }
     clear();
-    navigate('/connexion');
+    navigate('/connexion', { state: raison === 'inactivite' ? { message: 'Vous avez été déconnecté après une période d’inactivité.' } : undefined });
   };
+  const { remaining, prolonger } = useInactivity(() => logout('inactivite'));
 
   const nom = user.agent ? [user.agent.prenom, user.agent.nom].filter(Boolean).join(' ') : user.username;
   const structure = user.affectation?.bureauNom || user.affectation?.divisionNom || (user.primaryRole === 'DIRECTEUR' ? DEP_NOM : user.primaryRole === 'SECRETAIRE_GENERAL' ? SG_NOM : 'Administration technique');
@@ -120,7 +124,8 @@ export default function AppLayout() {
               <div className="truncate text-xs uppercase tracking-wide text-slate-500">République Démocratique du Congo — {SG_NOM}</div>
               <div className="truncate text-sm font-semibold text-dep-800">{DEP_NOM} (DEP)</div>
             </div>
-            <div className="ml-auto flex items-center gap-1">
+            <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1">
+              <div className="mr-2 hidden min-w-0 flex-1 justify-end md:flex"><GlobalSearch /></div>
               <Link to="/notifications" className="relative rounded-md p-2 text-slate-600 hover:bg-slate-100" aria-label={`Notifications (${nonLues} non lues)`}>
                 <Bell size={20} />
                 {nonLues > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-rdc-rouge px-1 text-center text-[11px] font-semibold text-white">{nonLues > 99 ? '99+' : nonLues}</span>}
@@ -141,7 +146,7 @@ export default function AppLayout() {
                     </div>
                     {user.agent && <Link to="/profil" className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50" role="menuitem"><UserCircle size={16} /> Mon profil</Link>}
                     <Link to="/mot-de-passe" className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50" role="menuitem"><KeyRound size={16} /> Changer le mot de passe</Link>
-                    <button type="button" onClick={logout} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50" role="menuitem"><LogOut size={16} /> Se déconnecter</button>
+                    <button type="button" onClick={() => logout()} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50" role="menuitem"><LogOut size={16} /> Se déconnecter</button>
                   </div>
                 )}
               </div>
@@ -156,6 +161,10 @@ export default function AppLayout() {
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 sm:px-6">
           <Outlet />
         </main>
+        <Modal open={remaining !== null} title="Session inactive" onClose={prolonger}
+          footer={<><button type="button" className="btn-secondary" onClick={() => logout()}>Se déconnecter</button><button type="button" className="btn-primary" onClick={prolonger}>Rester connecté</button></>}>
+          <p className="text-sm">Aucune activité n’a été détectée. Par sécurité, vous serez déconnecté dans <b className="tabular-nums">{remaining}</b> seconde(s).</p>
+        </Modal>
         <footer className="border-t border-slate-200 bg-white px-6 py-3 text-center text-xs text-slate-500 no-print">
           SIG-DEP — Système Intégré de Gestion de la {DEP_NOM} · {SG_NOM}
         </footer>
