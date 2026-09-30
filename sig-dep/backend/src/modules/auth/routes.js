@@ -38,6 +38,7 @@ async function logLogin(req, user, username, succes, motif) {
 
 router.post('/login', loginLimiter, validate({ body: z.object({ username: z.string().trim().min(1).max(60), password: z.string().min(1).max(200) }) }), async (req, res) => {
   const { username, password } = req.valid.body;
+  // Le même message pour un utilisateur inconnu et un mauvais mot de passe évite de révéler les comptes existants.
   const generic = 'Nom d’utilisateur ou mot de passe incorrect.';
   const user = await db('users').whereRaw('lower(username) = lower(?)', [username]).first();
   if (!user) {
@@ -65,6 +66,7 @@ router.post('/login', loginLimiter, validate({ body: z.object({ username: z.stri
   }
   const ok = await bcrypt.compare(password, user.password_hash);
   if (!ok) {
+    // Les échecs sont cumulés en base afin que le verrouillage reste effectif entre plusieurs requêtes.
     const attempts = user.failed_attempts + 1;
     const lock = attempts >= config.security.maxFailedLogins;
     await db('users').where({ id: user.id }).update({
@@ -106,6 +108,7 @@ router.post('/refresh', async (req, res) => {
   if (!user || user.statut !== 'ACTIF') { tokens.clearRefreshCookie(res); throw unauthorized('Compte indisponible.', 'COMPTE_INDISPONIBLE'); }
 
   const result = await db.transaction(async (trx) => {
+    // Un jeton renouvelé n’est utilisable qu’une fois ; la transaction empêche deux renouvellements concurrents.
     const n = await tokens.issueRefresh(user.id, req, row.family_id, trx);
     await trx('refresh_tokens').where({ id: row.id }).update({ revoked_at: trx.fn.now(), revoked_reason: 'ROTATION', replaced_by: n.row.id, last_used_at: trx.fn.now() });
     return n;
@@ -144,6 +147,7 @@ router.post('/change-password', authenticate, validate({
   if (await bcrypt.compare(newPassword, user.password_hash)) throw badRequest('Le nouveau mot de passe doit être différent de l’ancien.');
   const hash = await bcrypt.hash(newPassword, 12);
   await db.transaction(async (trx) => {
+    // Le changement de mot de passe invalide toutes les anciennes sessions avant d’en ouvrir une nouvelle.
     await trx('users').where({ id: user.id }).update({ password_hash: hash, must_change_password: false, password_changed_at: trx.fn.now() });
     await tokens.revokeAllForUser(user.id, 'CHANGEMENT_MDP', trx);
   });

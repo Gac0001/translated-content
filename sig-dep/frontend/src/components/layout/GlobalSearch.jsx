@@ -27,6 +27,7 @@ export default function GlobalSearch() {
 
   useEffect(() => {
     if (q.trim().length < 2) { setData(null); return undefined; }
+    // Le délai limite les appels pendant la saisie et le drapeau ignore une réponse devenue obsolète.
     let alive = true;
     setLoading(true);
     const t = setTimeout(async () => {

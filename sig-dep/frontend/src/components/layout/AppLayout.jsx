@@ -93,10 +93,7 @@ export default function AppLayout() {
   const aside = (
     <div className="flex h-full flex-col bg-dep-800 text-white">
       <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4">
-        <div className="flex h-10 w-10 shrink-0 flex-col overflow-hidden rounded-md bg-white">
-          <div className="flex flex-1 items-center justify-center text-[11px] font-bold text-dep-800">DEP</div>
-          <div className="h-1.5 tricolore" />
-        </div>
+        <img src="/favicon.jpg" alt="Ministère de l’Économie Numérique" className="h-10 w-[5.75rem] shrink-0 rounded-md bg-white object-contain" />
         <div className="min-w-0">
           <div className="text-sm font-semibold leading-tight">SIG-DEP</div>
           <div className="text-[11px] leading-tight text-dep-200">{DEP_NOM}</div>

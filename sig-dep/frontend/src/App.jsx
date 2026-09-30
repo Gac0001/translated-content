@@ -69,6 +69,7 @@ const G = (perms, el) => <Guard perms={perms}>{el}</Guard>;
 export default function App() {
   const { setReady, user } = useAuth();
   useEffect(() => {
+    // Attend la restauration de session avant d’afficher une redirection vers la connexion.
     refreshSession().catch(() => {}).finally(() => setReady());
   }, [setReady]);
 
