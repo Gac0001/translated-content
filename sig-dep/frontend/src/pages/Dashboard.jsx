@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import {
   Users, UserCheck, Lock, ShieldAlert, Activity, Database, Send, ListTodo, FileText, CalendarCheck, Mail, FolderKanban,
-  AlertTriangle, Clock, Building2, Bell,
+  AlertTriangle, Clock, Building2, Bell, DatabaseZap,
 } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import { useApi, Loadable, PageHeader, Card, Stat, StatusBadge, Progress, Empty, Badge, RangBadge, InfoAlert } from '../components/ui';
@@ -73,9 +73,22 @@ function MiseEnService({ p }) {
   </>;
   return (
     <Card title="Mise en service des comptes" actions={actions}>
-      {can('liste.valider') && p.statutListe !== 'VALIDEE' && <div className="mb-3"><InfoAlert tone="warning">La liste déclarative des agents {p.statutListe === 'A_REVALIDER' ? 'a changé et doit être revalidée' : 'attend votre validation'}. <Link to="/liste-declarative" className="font-medium underline">Ouvrir la liste</Link></InfoAlert></div>}
+      {can('liste.valider') && p.statutListe !== 'VALIDEE' && p.secretariat.total + p.autres.total > 0 && <div className="mb-3"><InfoAlert tone="warning">La liste déclarative des agents {p.statutListe === 'A_REVALIDER' ? 'a changé et doit être revalidée' : 'attend votre validation'}. <Link to="/liste-declarative" className="font-medium underline">Ouvrir la liste</Link></InfoAlert></div>}
       <Progression p={p} />
     </Card>
+  );
+}
+
+function BanniereDemo() {
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+      <DatabaseZap size={22} className="shrink-0" />
+      <div className="min-w-0 flex-1">
+        <div className="font-semibold">La base contient des données fictives de démonstration.</div>
+        <div>Avant la mise en service, réinitialisez-la : le Directeur pourra alors importer et valider la liste officielle des agents de la Direction.</div>
+      </div>
+      <Link to="/systeme/reinitialisation" className="btn-primary">Réinitialiser la base</Link>
+    </div>
   );
 }
 
@@ -312,6 +325,7 @@ export default function Dashboard() {
       <Loadable state={state}>
         {(d) => (
           <div className="space-y-6">
+            {d.admin?.donneesDemo && <BanniereDemo />}
             {d.miseEnService && <MiseEnService p={d.miseEnService} />}
             {user.roles.includes('ADMIN') && d.admin && <AdminPanel a={d.admin} />}
             {d.role === 'SECRETAIRE_GENERAL' && <SGPanel d={d} />}

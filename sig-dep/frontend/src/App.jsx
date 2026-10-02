@@ -46,6 +46,7 @@ const PipDetail = p(() => import('./pages/pip/PipDetail'));
 const Notifications = p(() => import('./pages/Notifications'));
 const Audit = p(() => import('./pages/systeme/Audit'));
 const Systeme = p(() => import('./pages/systeme/Systeme'));
+const Reinitialisation = p(() => import('./pages/systeme/Reinitialisation'));
 const Rapports = p(() => import('./pages/Rapports'));
 
 function RequireAuth({ children }) {
@@ -122,6 +123,7 @@ export default function App() {
             <Route path="audit" element={G(['audit.consulter'], <Audit />)} />
             <Route path="rapports" element={G(['rapports.consulter'], <Rapports />)} />
             <Route path="systeme" element={G(['systeme.etat', 'systeme.parametres'], <Systeme />)} />
+            <Route path="systeme/reinitialisation" element={G(['systeme.reinitialiser'], <Reinitialisation />)} />
             <Route path="acces-refuse" element={<Forbidden />} />
             <Route path="*" element={<NotFound />} />
           </Route>

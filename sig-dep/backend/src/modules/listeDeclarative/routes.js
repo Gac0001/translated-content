@@ -72,10 +72,12 @@ router.get('/export/:format', requirePerm('liste.consulter'), validate({ params:
     { header: 'Structure', value: structure, width: 46 }, { header: 'Poste', key: 'poste', width: 30 },
   ];
   const statut = { NON_VALIDEE: 'Non validée', VALIDEE: 'Validée', A_REVALIDER: 'À revalider' }[e.statut];
+  // Liste officielle seulement si elle est validée et inchangée ; sinon, projet.
+  const titre = e.statut === 'VALIDEE' ? 'LISTE DÉCLARATIVE OFFICIELLE DES AGENTS' : 'PROJET DE LISTE DÉCLARATIVE DES AGENTS (NON VALIDÉ)';
   const sous = `${DEP_NOM} — ${e.agents.length} agent(s) — Statut : ${statut}${e.validation ? ` (dernière validation le ${pdf.fmtDateTime(e.validation.valide_at)})` : ''}`;
   await audit(req, { action: 'EXPORT', module: 'liste_declarative', message: req.valid.params.format.toUpperCase() });
-  if (req.valid.params.format === 'xlsx') return sendWorkbook(res, 'liste-declarative-DEP.xlsx', [{ name: 'Liste déclarative', titre: 'LISTE DÉCLARATIVE DES AGENTS', sousTitre: sous, columns, rows: e.agents }]);
-  const { doc, finish } = pdf.createPdf(res, { filename: 'liste-declarative-DEP.pdf', titre: 'LISTE DÉCLARATIVE DES AGENTS', sousTitre: sous, landscape: true });
+  if (req.valid.params.format === 'xlsx') return sendWorkbook(res, e.statut === 'VALIDEE' ? 'liste-officielle-agents-DEP.xlsx' : 'projet-liste-declarative-DEP.xlsx', [{ name: 'Liste déclarative', titre, sousTitre: sous, columns, rows: e.agents }]);
+  const { doc, finish } = pdf.createPdf(res, { filename: e.statut === 'VALIDEE' ? 'liste-officielle-agents-DEP.pdf' : 'projet-liste-declarative-DEP.pdf', titre, sousTitre: sous, landscape: true });
   pdf.table(doc, columns, e.agents, { fontSize: 8 });
   pdf.signatureBlock(doc, [{ libelle: 'Le Directeur', nom: e.validation && e.validation.valide_par_role === 'DIRECTEUR' ? e.validation.valide_par_nom : '' }]);
   return finish();

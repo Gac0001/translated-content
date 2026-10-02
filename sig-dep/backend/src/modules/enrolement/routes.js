@@ -87,6 +87,48 @@ router.get('/candidats', async (req, res) => {
   });
 });
 
+const ACCENTS = 'ÀÂÄÉÈÊËÎÏÔÖÙÛÜÇàâäéèêëîïôöùûüç';
+const SANS_ACCENTS = 'AAAEEEEIIOOUUUCaaaeeeeiioouuuc';
+
+// ─── Identification d’un agent (matricule ou nom) ───────────────────────────
+// Recherche dans toute la base pour expliquer pourquoi un agent n’est pas enrôlable
+// (absent de la liste, liste à revalider, compte existant, hors portée).
+router.get('/identifier', async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (q.length < 2) throw badRequest('Saisissez au moins 2 caractères (matricule ou nom).');
+  const chiffres = q.replace(/\D/g, '');
+  const mots = q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/\s+/).filter(Boolean);
+  const rows = await db('agents as ag').whereNull('ag.archived_at').where('ag.est_autorite', false)
+    .where((w) => {
+      w.whereRaw('upper(ag.matricule) = upper(?)', [q]);
+      if (chiffres.length >= 3) w.orWhereRaw(`regexp_replace(ag.matricule, '\\D', '', 'g') = ?`, [chiffres]);
+      w.orWhere((x) => mots.forEach((m) => x.whereRaw(`lower(translate(concat_ws(' ', ag.nom, ag.postnom, ag.prenom), ?, ?)) like ?`, [ACCENTS, SANS_ACCENTS, `%${m}%`])));
+    })
+    .orderBy('ag.nom').limit(20).pluck('ag.id');
+  const e = await liste.etat();
+  const parId = new Map(e.agents.map((a) => [a.agent_id, a]));
+  const autres = rows.filter((id) => !parId.has(id));
+  const horsListe = autres.length ? await db('agents as ag').leftJoin('users as u', 'u.agent_id', 'ag.id').leftJoin('grades as g', 'g.id', 'ag.grade_id')
+    .whereIn('ag.id', autres).select('ag.id as agent_id', 'ag.matricule', 'ag.nom', 'ag.postnom', 'ag.prenom', 'g.code as grade_code', 'u.username') : [];
+  const resultats = [
+    ...rows.filter((id) => parId.has(id)).map((id) => {
+      const a = parId.get(id);
+      let statut = 'ENROLABLE'; let motif = null;
+      if (a.user_id) { statut = 'COMPTE_EXISTANT'; motif = `Cet agent possède déjà un compte (${a.username}).`; }
+      else if (!e.validation) { statut = 'LISTE_NON_VALIDEE'; motif = 'La liste déclarative n’a pas encore été validée par le Directeur.'; }
+      else if (a.ecart) { statut = 'A_REVALIDER'; motif = a.ecart === 'AJOUTE' ? 'Ajouté à la liste après sa validation : le Directeur doit la revalider.' : 'Matricule, grade ou affectation modifiés depuis la validation : le Directeur doit revalider la liste.'; }
+      else { const p = horsPortee(req.ctx, !!a.est_secretariat_direction); if (p) { statut = 'HORS_PORTEE'; motif = p; } }
+      return { agent_id: a.agent_id, matricule: a.matricule, nom: a.nom, postnom: a.postnom, prenom: a.prenom, grade: a.grade_code, structure: a.bureau_nom || a.division_nom || null, surListe: true, statut, motif };
+    }),
+    ...horsListe.map((a) => ({
+      agent_id: a.agent_id, matricule: a.matricule, nom: a.nom, postnom: a.postnom, prenom: a.prenom, grade: a.grade_code, structure: null, surListe: false,
+      statut: a.username ? 'COMPTE_EXISTANT' : 'NON_INSCRIT',
+      motif: a.username ? `Cet agent possède déjà un compte (${a.username}).` : 'Cet agent ne figure pas sur la liste déclarative de la Direction : le Directeur doit l’y inscrire puis la valider.',
+    })),
+  ];
+  res.json({ q, resultats, statutListe: e.statut });
+});
+
 // ─── Préremplissage ─────────────────────────────────────────────────────────
 async function chargerAgent(id) {
   const a = await db('agents as ag')
@@ -149,6 +191,8 @@ const bodySchema = z.object({
   bureau_id: z.coerce.number().int().positive().optional(),
   role: z.enum(['AGENT', 'CHEF_BUREAU', 'CHEF_DIVISION']).optional(),
   date_affectation: dateSchema.optional(),
+  identite_confirmee: z.literal('true', { message: 'confirmez l’identité de l’agent' }),
+  affectation_confirmee: z.literal('true', { message: 'confirmez l’affectation de l’agent' }),
 });
 
 router.post('/agents/:id', (req, res, next) => upload(req, res, async (err) => {
@@ -246,7 +290,7 @@ router.post('/agents/:id', (req, res, next) => upload(req, res, async (err) => {
     if (a.photo_path) removeQuiet(a.photo_path);
     await audit(req, {
       action: 'CREATION', module: 'comptes', entite: 'user', entiteId: user.id,
-      apres: { username: user.username, role, agent: a.matricule, igap: b.numero_carte_igap, affectation: structure ? 'choisie à l’enrôlement' : 'liste validée' },
+      apres: { username: user.username, role, agent: a.matricule, igap: b.numero_carte_igap, affectation: structure ? 'choisie à l’enrôlement' : 'liste validée', identite_confirmee: true, affectation_confirmee: true },
       message: `Enrôlement de l’agent ${a.matricule} (${ROLE_LIBELLES[role]})`,
     });
     await notify(user.id, { type: 'COMPTE_CREE', titre: 'Votre compte SIG-DEP a été créé', message: 'Changez votre mot de passe temporaire à la première connexion.', lien: '/profil', expediteur: req.ctx.userId });

@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
-import { BadgeCheck, CheckCircle2, Clock, ListChecks, MinusCircle, UserCheck, UserPlus } from 'lucide-react';
-import api from '../../lib/api';
+import { BadgeCheck, CheckCircle2, FileDown, Clock, ListChecks, MinusCircle, UserCheck, UserPlus } from 'lucide-react';
+import api, { download } from '../../lib/api';
 import { fmtDateTime, nomComplet } from '../../lib/format';
 import { useAuth } from '../../store/auth';
-import { useApi, useConfirm, runAction, PageHeader, Card, Stat, Loadable, InfoAlert, DataTable, Badge, Progress } from '../../components/ui';
+import { useApi, useConfirm, runAction, toast, PageHeader, Card, Stat, Loadable, InfoAlert, DataTable, Badge, Progress } from '../../components/ui';
 import { ExportButtons } from '../../components/shared';
 
 const STATUT = {
@@ -19,10 +19,17 @@ const structure = (a) => (a.bureau_nom
 
 /** Mise en service des comptes : étapes Directeur → validation → Secrétariat → autres structures. */
 export function Progression({ p }) {
+  const can = useAuth((s) => s.can);
   const pct = (x) => (x.total ? Math.round((100 * x.avecCompte) / x.total) : 0);
   const etapes = [
-    { ok: p.directeur, titre: 'Compte du Directeur', detail: p.directeur ? 'Créé' : 'À créer par l’Admin' },
-    { ok: p.statutListe === 'VALIDEE', titre: 'Liste déclarative validée', detail: p.validation ? `${p.statutListe === 'VALIDEE' ? 'Validée' : 'À revalider'} — ${fmtDateTime(p.validation.valide_at)}` : 'En attente du Directeur' },
+    { ok: p.directeur, titre: 'Compte du Directeur', detail: p.directeur ? 'Créé' : 'À créer par l’Admin', action: !p.directeur && can('comptes.creer_initial') && { to: '/comptes/nouveau', label: 'Créer le compte' } },
+    {
+      ok: p.statutListe === 'VALIDEE', titre: 'Liste déclarative validée',
+      detail: p.validation ? `${p.statutListe === 'VALIDEE' ? 'Validée' : 'À revalider'} — ${fmtDateTime(p.validation.valide_at)}` : (p.secretariat.total + p.autres.total ? 'En attente du Directeur' : 'Liste vide : le Directeur importe la liste officielle'),
+      action: p.statutListe !== 'VALIDEE' && (p.secretariat.total + p.autres.total === 0
+        ? can('personnel.gerer', 'personnel.suivre') && { to: '/personnel/import', label: 'Importer la liste' }
+        : can('liste.valider') && { to: '/liste-declarative', label: 'Vérifier et valider' }),
+    },
     { ok: p.secretariat.total > 0 && p.secretariat.avecCompte === p.secretariat.total, titre: 'Bureau Secrétariat de Direction', detail: `${p.secretariat.avecCompte} / ${p.secretariat.total} compte(s) — enrôlés par l’Admin`, pct: pct(p.secretariat) },
     { ok: p.autres.total > 0 && p.autres.avecCompte === p.autres.total, titre: 'Divisions et autres Bureaux', detail: `${p.autres.avecCompte} / ${p.autres.total} compte(s) — enrôlés par le Secrétariat`, pct: pct(p.autres) },
   ];
@@ -36,6 +43,7 @@ export function Progression({ p }) {
           </div>
           <p className="mt-1 text-xs text-slate-600">{e.detail}</p>
           {e.pct !== undefined && <div className="mt-2"><Progress value={e.pct} /></div>}
+          {e.action && <Link to={e.action.to} className="mt-2 inline-block text-xs font-medium text-dep-700 hover:underline">{e.action.label} →</Link>}
         </li>
       ))}
     </ol>
@@ -95,8 +103,9 @@ export default function ListeDeclarative() {
         breadcrumb={[{ label: 'Liste déclarative' }]}
         actions={d && <>
           {d.actions.valider && d.statut !== 'VALIDEE' && <button type="button" className="btn-success" onClick={valider} disabled={!d.agents.length}><BadgeCheck size={16} /> Valider la liste</button>}
-          {can('personnel.gerer', 'liste.gerer') && <Link to="/personnel/import" className="btn-secondary"><ListChecks size={16} /> Importer</Link>}
+          {can('personnel.gerer', 'personnel.suivre') && <Link to="/personnel/import" className="btn-secondary"><ListChecks size={16} /> Importer</Link>}
           {can('comptes.enroler') && <Link to="/comptes/enrolement" className="btn-secondary"><UserPlus size={16} /> Enrôlement</Link>}
+          {d.statut === 'VALIDEE' && <button type="button" className="btn-primary" onClick={() => download('/liste-declarative/export/pdf', 'liste-officielle.pdf').catch(() => toast.error('Génération impossible.'))}><FileDown size={16} /> Liste officielle (PDF)</button>}
           <ExportButtons base="/liste-declarative/export" print={false} />
         </>} />
       <Loadable state={state}>

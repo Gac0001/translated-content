@@ -12,6 +12,11 @@ const ts = (n, h = 9) => { const d = new Date(); d.setDate(d.getDate() + n); d.s
 
 exports.seed = async function seed(knex) {
   if (!config.seedDemo) return;
+  await exports.chargerActivites(knex);
+};
+
+/** Activité fictive (aussi utilisée par la réinitialisation de l’Admin). */
+exports.chargerActivites = async function chargerActivites(knex) {
   if (!(await knex('agents').first())) return;
   if (await knex('instructions').first()) return;
 

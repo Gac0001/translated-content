@@ -14,6 +14,11 @@ exports.DEMO_PASSWORD = DEMO_PASSWORD;
 exports.seed = async function seed(knex) {
   if (!config.seedDemo) return;
   if (await knex('agents').first()) return; // déjà initialisé
+  await exports.chargerDemo(knex);
+};
+
+/** Charge le personnel et les comptes fictifs (aussi utilisé par la réinitialisation de l’Admin). */
+exports.chargerDemo = async function chargerDemo(knex) {
 
   const dep = await knex('directions').where({ code: 'DEP' }).first();
   const grades = Object.fromEntries((await knex('grades')).map((g) => [g.code, g.id]));
@@ -112,4 +117,6 @@ exports.seed = async function seed(knex) {
       motif: 'Délégation du Directeur : opérations administratives du Bureau Secrétariat de Direction',
     });
   }
+  await knex('parametres').insert({ cle: 'donnees_demo', valeur: 'true', libelle: 'La base contient des données fictives de démonstration' })
+    .onConflict('cle').merge(['valeur', 'updated_at']);
 };

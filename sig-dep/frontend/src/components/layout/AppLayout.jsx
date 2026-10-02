@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import {
   LayoutDashboard, Network, BookOpen, Users, UserCog, CalendarCheck, Mail, Send, ListTodo, FileText, FolderKanban,
-  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus,
+  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth, useCompteurs } from '../../store/auth';
@@ -32,7 +32,8 @@ const MENU = [
   { to: '/comptes', label: 'Comptes utilisateurs', icon: UserCog, perms: ['comptes.consulter'], end: true },
   { to: '/roles', label: 'Rôles et permissions', icon: ShieldCheck, perms: ['roles.gerer'] },
   { to: '/audit', label: 'Journal d’audit', icon: ScrollText, perms: ['audit.consulter'] },
-  { to: '/systeme', label: 'Système', icon: Settings, perms: ['systeme.etat', 'systeme.parametres'] },
+  { to: '/systeme', label: 'Système', icon: Settings, perms: ['systeme.etat', 'systeme.parametres'], end: true },
+  { to: '/systeme/reinitialisation', label: 'Réinitialisation', icon: DatabaseZap, perms: ['systeme.reinitialiser'] },
 ];
 
 function Sidebar({ onNavigate }) {

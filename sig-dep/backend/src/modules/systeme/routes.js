@@ -3,7 +3,6 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
 const { z } = require('zod');
 const db = require('../../db/knex');
 const config = require('../../config/env');
@@ -11,6 +10,9 @@ const validate = require('../../middleware/validate');
 const { requirePerm } = require('../../middleware/auth');
 const { audit } = require('../../services/audit');
 const mailer = require('../../services/mailer');
+const bcrypt = require('bcrypt');
+const { creerSauvegarde } = require('../../services/sauvegarde');
+const reinit = require('../../services/reinitialisation');
 const { notFound, badRequest, AppError } = require('../../utils/errors');
 
 const router = express.Router();
@@ -66,28 +68,15 @@ router.get('/sauvegardes', requirePerm('systeme.sauvegardes'), async (req, res) 
 });
 
 router.post('/sauvegardes', requirePerm('systeme.sauvegardes'), async (req, res) => {
-  fs.mkdirSync(config.backupDir, { recursive: true });
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const file = path.join(config.backupDir, `sig-dep-${stamp}.dump`);
-  const url = new URL(config.databaseUrl);
-  const env = { ...process.env, PGPASSWORD: decodeURIComponent(url.password) };
-  const args = ['-h', url.hostname, '-p', url.port || '5432', '-U', decodeURIComponent(url.username), '-F', 'c', '-f', file, url.pathname.slice(1)];
-  await new Promise((resolve, reject) => {
-    const p = spawn(config.pgDumpPath, args, { env });
-    let err = '';
-    p.stderr.on('data', (d) => { err += d; });
-    p.on('error', () => reject(new AppError(500, 'PG_DUMP_INDISPONIBLE', 'pg_dump est introuvable. Installez les outils clients PostgreSQL ou renseignez PG_DUMP_PATH dans le fichier .env.')));
-    p.on('close', (code) => (code === 0 ? resolve() : reject(new AppError(500, 'SAUVEGARDE_ECHEC', `Échec de la sauvegarde : ${err.trim().slice(0, 300)}`))));
-  }).catch(async (e) => {
+  const r = await creerSauvegarde().catch(async (e) => {
     await audit(req, { action: 'SAUVEGARDE', module: 'systeme', resultat: 'ECHEC', message: e.message });
     throw e;
   });
-  const size = fs.statSync(file).size;
-  await audit(req, { action: 'SAUVEGARDE', module: 'systeme', message: `${path.basename(file)} (${size} octets)` });
-  res.status(201).json({ fichier: path.basename(file), tailleOctets: size, message: 'Sauvegarde réalisée.' });
+  await audit(req, { action: 'SAUVEGARDE', module: 'systeme', message: `${r.fichier} (${r.tailleOctets} octets)` });
+  res.status(201).json({ ...r, message: 'Sauvegarde réalisée.' });
 });
 
-router.get('/sauvegardes/:fichier', requirePerm('systeme.sauvegardes'), validate({ params: z.object({ fichier: z.string().regex(/^sig-dep-[0-9T-]+\.(dump|sql)$/) }) }), async (req, res) => {
+router.get('/sauvegardes/:fichier', requirePerm('systeme.sauvegardes'), validate({ params: z.object({ fichier: z.string().regex(/^sig-dep-[0-9T-]+(-[a-z]+)?\.(dump|sql)$/) }) }), async (req, res) => {
   const p = path.join(config.backupDir, req.valid.params.fichier);
   if (!fs.existsSync(p)) throw notFound('Sauvegarde introuvable.');
   await audit(req, { action: 'EXPORT', module: 'systeme', message: `Téléchargement de la sauvegarde ${req.valid.params.fichier}` });
@@ -139,6 +128,48 @@ router.post('/messagerie/relancer', requirePerm('systeme.parametres'), async (re
 
 router.post('/messagerie/traiter', requirePerm('systeme.parametres'), async (req, res) => {
   res.json(await mailer.processOutbox(100));
+});
+
+// ─── Réinitialisation de la base (mise en service) ──────────────────────────
+router.get('/reinitialisation', requirePerm('systeme.reinitialiser'), async (req, res) => {
+  const [volumes, demo] = await Promise.all([reinit.volumes(), reinit.donneesDemo()]);
+  res.json({ donneesDemo: demo, volumes, conservees: ['organigramme (Divisions, Bureaux, postes, attributions)', 'grades et fonctions', 'rôles et permissions', 'paramètres', 'compte Admin'] });
+});
+
+const PHRASE = 'REINITIALISER';
+router.post('/reinitialisation', requirePerm('systeme.reinitialiser'), validate({
+  body: z.object({
+    mode: z.enum(['VIERGE', 'DEMO'], { message: 'mode invalide' }),
+    confirmation: z.string().trim(),
+    motDePasse: z.string().min(1, 'mot de passe requis'),
+    sauvegarde: z.boolean().default(true),
+  }),
+}), async (req, res) => {
+  const { mode, confirmation, motDePasse, sauvegarde } = req.valid.body;
+  if (confirmation.toUpperCase() !== PHRASE) throw badRequest(`Saisissez « ${PHRASE} » pour confirmer.`);
+  const me = await db('users').where({ id: req.ctx.userId }).first();
+  if (!(await bcrypt.compare(motDePasse, me.password_hash))) {
+    await audit(req, { action: 'REINITIALISATION', module: 'systeme', resultat: 'ECHEC', message: 'Mot de passe incorrect' });
+    throw badRequest('Mot de passe incorrect.');
+  }
+  let copie = null;
+  if (sauvegarde) {
+    copie = await creerSauvegarde('-avant-reinitialisation').catch(async (e) => {
+      await audit(req, { action: 'REINITIALISATION', module: 'systeme', resultat: 'ECHEC', message: `Sauvegarde préalable impossible : ${e.message}` });
+      throw new AppError(e.status || 500, e.code || 'SAUVEGARDE_ECHEC', `${e.message} Réinitialisation annulée : décochez la sauvegarde préalable seulement si une sauvegarde a été faite par ailleurs.`);
+    });
+  }
+  const r = await reinit.reinitialiser({ mode, adminId: req.ctx.userId });
+  await audit(req, {
+    action: 'REINITIALISATION', module: 'systeme', avant: r.avant, apres: { ...r.apres, mode, sauvegarde: copie && copie.fichier },
+    message: mode === 'DEMO' ? 'Réinitialisation de la base avec données fictives de démonstration' : 'Réinitialisation de la base (base vierge pour la mise en service)',
+  });
+  res.json({
+    mode, sauvegarde: copie, volumes: r.apres,
+    message: mode === 'DEMO'
+      ? 'Base réinitialisée avec les données fictives de démonstration.'
+      : 'Base vierge : créez le compte du Directeur, qui importera et validera la liste officielle des agents.',
+  });
 });
 
 module.exports = router;

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { DatabaseBackup, Download, Mail, PlugZap, RotateCcw, Save, Send } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { DatabaseBackup, DatabaseZap, Download, Mail, PlugZap, RotateCcw, Save, Send } from 'lucide-react';
 import api, { download, errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { useApi, Loadable, PageHeader, Card, KeyValues, runAction, toast, DataTable, InfoAlert, Badge, Field } from '../../components/ui';
@@ -115,7 +116,8 @@ export default function Systeme() {
   const etat = useApi(can('systeme.etat') ? '/systeme/etat' : null);
   return (
     <>
-      <PageHeader title="Système" subtitle="État technique, paramètres, messagerie et sauvegardes." breadcrumb={[{ label: 'Administration' }, { label: 'Système' }]} />
+      <PageHeader title="Système" subtitle="État technique, paramètres, messagerie et sauvegardes." breadcrumb={[{ label: 'Administration' }, { label: 'Système' }]}
+        actions={can('systeme.reinitialiser') && <Link to="/systeme/reinitialisation" className="btn-secondary"><DatabaseZap size={16} /> Réinitialisation de la base</Link>} />
       <div className="space-y-4">
         {can('systeme.etat') && (
           <Loadable state={etat}>

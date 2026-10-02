@@ -1,5 +1,25 @@
 # Journal des versions — SIG-DEP
 
+## 1.5.0
+
+### Mise en service : réinitialisation de la base par l’Admin
+- Dès sa connexion, l’Admin est averti si la base contient des **données fictives** et peut la **réinitialiser** (Administration → Réinitialisation) :
+  - **base vierge** pour la mise en service : suppression du personnel, des comptes, des activités, des pièces jointes et des journaux ; l’organigramme, les référentiels, les paramètres et le compte Admin sont conservés ;
+  - ou **rechargement des données fictives** pour une formation.
+- Garde-fous : phrase `REINITIALISER`, mot de passe Admin, sauvegarde automatique préalable (annulation si elle échoue), transaction unique, audit.
+- Le tableau de bord guide ensuite la mise en service : compte du Directeur, import de la liste officielle, validation, enrôlement.
+- **Liste officielle** : bouton « Liste officielle (PDF) » une fois la liste validée. Une liste non validée s’exporte comme « Projet de liste déclarative ».
+
+### Enrôlement en cinq étapes
+- **Identification** par matricule (avec ou sans points) ou par nom, dans toute la base, avec la raison pour laquelle un agent n’est pas enrôlable (absent de la liste, liste à revalider, compte existant, hors portée).
+- **Fiche générée** depuis la liste validée et **attestation d’identité**.
+- **Confirmation de l’affectation** au vu de la commission d’affectation jointe.
+- Informations complémentaires et photo, puis **récapitulatif** avant création du compte.
+- Les confirmations d’identité et d’affectation sont exigées par l’API et tracées dans l’audit.
+
+### Divers
+- Les permissions obsolètes de l’ancien circuit de création des comptes (`comptes.creer`, `comptes.preparer`) sont retirées des bases existantes.
+
 ## 1.4.0
 
 ### Liste déclarative et enrôlement des agents

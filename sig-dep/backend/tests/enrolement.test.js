@@ -7,6 +7,19 @@
  */
 const { db, login, loginAdmin, api, enroler } = require('./helpers');
 
+/** Crée un agent inscrit (grade ATA1, Bureau Programme) et revalide la liste. */
+async function admin_agent() {
+  const admin = api(await loginAdmin());
+  const grade = await db('grades').where({ code: 'ATA1' }).first();
+  const n = await admin.post('/agents', { matricule: `DEP-09${Math.floor(Math.random() * 90) + 10}`, nom: 'CONFIRMATION', prenom: 'Test', grade_id: grade.id });
+  const bur = await db('bureaux').where({ code: 'BUR-PRG' }).first();
+  const poste = await db('postes_organiques').where({ code: 'P-AG-BUR-PRG' }).first();
+  const dir = api(await login('directeur'));
+  await dir.post(`/agents/${n.body.id}/affectations`, { bureau_id: bur.id, poste_id: poste.id, date_debut: '2026-09-01' });
+  await dir.post('/liste-declarative/valider', {});
+  return n.body.id;
+}
+
 const agentId = async (nom) => (await db('agents').where({ nom }).first()).id;
 
 async function listeValidee() {
@@ -161,11 +174,39 @@ describe('Liste déclarative et enrôlement', () => {
     expect(h.body.progression.secretariat.total).toBeGreaterThanOrEqual(4);
   });
 
+  test('identification : l’agent est recherché sur la liste avant toute saisie', async () => {
+    const token = await login('cb.secretariat');
+    const c = api(token);
+    expect((await c.get('/enrolement/identifier?q=a')).status).toBe(400);
+    // Par matricule, avec ou sans ponctuation
+    const m = await db('agents').where({ nom: 'MASIKA' }).first();
+    const r1 = await c.get(`/enrolement/identifier?q=${encodeURIComponent(m.matricule.toLowerCase())}`);
+    expect(r1.body.resultats).toHaveLength(1);
+    expect(r1.body.resultats[0]).toMatchObject({ nom: 'MASIKA', surListe: true, statut: 'COMPTE_EXISTANT' });
+    // Par nom sans accents ; un agent hors liste est signalé comme tel
+    const n = await api(await loginAdmin()).post('/agents', { matricule: 'DEP-0950', nom: 'ÉKOMBÉ', prenom: 'Hors liste' });
+    await db('agents').where({ id: n.body.id }).update({ liste_declarative: false });
+    const r2 = await c.get('/enrolement/identifier?q=ekombe');
+    expect(r2.body.resultats[0]).toMatchObject({ surListe: false, statut: 'NON_INSCRIT' });
+    expect(r2.body.resultats[0].motif).toMatch(/ne figure pas sur la liste/);
+    // Le Secrétariat voit un agent du Secrétariat comme hors de sa portée
+    const bsd = await c.get('/enrolement/identifier?q=kapinga');
+    expect(bsd.body.resultats[0].statut).toBe('COMPTE_EXISTANT');
+    // Confirmations obligatoires
+    const autre = await admin_agent();
+    const sans = await enroler(token, autre, { username: 'sans.confirmation', affectation_confirmee: undefined });
+    expect(sans.status).toBe(400);
+    expect(JSON.stringify(sans.body)).toMatch(/affectation/);
+  });
+
   test('exports de la liste déclarative', async () => {
     const dir = api(await login('directeur'));
     const p = await dir.get('/liste-declarative/export/pdf');
     expect(p.status).toBe(200);
     expect(p.headers['content-type']).toMatch(/pdf/);
+    // Liste officielle uniquement si validée et inchangée ; sinon, projet
+    const statut = (await dir.get('/liste-declarative')).body.statut;
+    expect(p.headers['content-disposition']).toMatch(statut === 'VALIDEE' ? /liste-officielle/ : /projet-liste/);
     const x = await dir.get('/liste-declarative/export/xlsx');
     expect(x.status).toBe(200);
   });
