@@ -4,7 +4,7 @@ export const DEP_SIGLE = 'DEP';
 export const SG_NOM = 'Secrétariat Général à l’Économie Numérique';
 
 export const ROLES = {
-  ADMIN: 'Admin', SECRETAIRE_GENERAL: 'Secrétaire Général', DIRECTEUR: 'Directeur',
+  ADMIN_SYSTEME: 'Admin Système', SECRETAIRE_GENERAL: 'Secrétaire Général', DIRECTEUR: 'Directeur',
   CHEF_DIVISION: 'Chef de Division', CHEF_BUREAU: 'Chef de Bureau', AGENT: 'Agent',
 };
 
@@ -63,7 +63,7 @@ export const ACTIONS_HISTO = {
 export const NOTIF_TYPES = {
   INSTRUCTION: 'Instruction', TACHE: 'Tâche', COURRIER: 'Courrier', DOCUMENT_RETOURNE: 'Document retourné', DOCUMENT_VALIDE: 'Document validé',
   DOCUMENT_A_EXAMINER: 'Document à examiner', ECHEANCE: 'Échéance proche', RETARD: 'Retard', COMPTE_CREE: 'Compte', MDP_REINITIALISE: 'Mot de passe',
-  AFFECTATION: 'Affectation', PRESENCE: 'Présences', PIP: 'PIP', INSTRUCTION_REPONSE: 'Compte rendu',
+  AFFECTATION: 'Affectation', PRESENCE: 'Présences', PIP: 'PIP', INSTRUCTION_REPONSE: 'Compte rendu', SECURITE: 'Sécurité',
 };
 
 export const DELEGATIONS = {

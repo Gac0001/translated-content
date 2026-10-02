@@ -23,7 +23,7 @@ async function agentsInscrits(trx = db) {
     .where('ag.liste_declarative', true).whereNull('ag.archived_at').where('ag.est_autorite', false)
     .select('ag.id as agent_id', 'ag.matricule', 'ag.nom', 'ag.postnom', 'ag.prenom', 'ag.grade_id', 'g.code as grade_code', 'g.libelle as grade',
       'a.niveau', 'a.division_id', 'a.bureau_id', 'b.nom as bureau_nom', 'b.est_secretariat_direction', 'b.parent_type', 'd.nom as division_nom',
-      'p.libelle as poste', 'p.role_associe', 'u.id as user_id', 'u.username', 'ag.enrole_at')
+      'p.libelle as poste', 'p.role_associe', 'u.id as user_id', 'u.username', 'ag.enrole_at', 'ag.enrolement_autorise_at')
     .orderByRaw('b.est_secretariat_direction DESC NULLS LAST, d.ordre NULLS FIRST, b.ordre, ag.nom');
 }
 
@@ -59,7 +59,7 @@ async function valider(ctx, commentaire, trx = db) {
   const dep = await trx('directions').where({ code: 'DEP' }).first();
   const agents = await agentsInscrits(trx);
   const [v] = await trx('listes_declaratives_validations').insert({
-    direction_id: dep.id, valide_par: ctx.userId, valide_par_role: ctx.primaryRole === 'ADMIN' || (ctx.roles.includes('ADMIN') && !ctx.roles.includes('DIRECTEUR')) ? 'ADMIN' : 'DIRECTEUR',
+    direction_id: dep.id, valide_par: ctx.userId, valide_par_role: ctx.primaryRole === 'ADMIN_SYSTEME' || (ctx.roles.includes('ADMIN_SYSTEME') && !ctx.roles.includes('DIRECTEUR')) ? 'ADMIN_SYSTEME' : 'DIRECTEUR',
     nb_agents: agents.length, agents: JSON.stringify(agents.map(snapshotEntry)), commentaire: commentaire || null,
   }).returning('*');
   return v;
@@ -88,7 +88,7 @@ async function progression(trx = db) {
     directeur: !!directeur,
     statutListe: e.statut,
     validation: e.validation ? { valide_at: e.validation.valide_at, par: e.validation.valide_par_nom || e.validation.username, role: e.validation.valide_par_role, nb_agents: e.validation.nb_agents } : null,
-    secretariat: { total: sec.length, avecCompte: sec.filter((a) => a.user_id).length },
+    secretariat: { total: sec.length, avecCompte: sec.filter((a) => a.user_id).length, autorises: sec.filter((a) => !a.user_id && a.enrolement_autorise_at).length },
     autres: { total: autres.length, avecCompte: autres.filter((a) => a.user_id).length },
   };
 }

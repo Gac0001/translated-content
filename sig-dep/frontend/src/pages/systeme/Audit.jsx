@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { useApi, Loadable, PageHeader, Card, Select, Badge, Modal } from '../../components/ui';
-import { ExportButtons } from '../../components/shared';
+import { FileDown, FileSpreadsheet, FileText, Link2 } from 'lucide-react';
+import api, { download, errorMessage } from '../../lib/api';
+import { useAuth } from '../../store/auth';
+import { useApi, Loadable, PageHeader, Card, Select, Badge, Modal, toast } from '../../components/ui';
 import { fmtDateTime } from '../../lib/format';
 
 export default function Audit() {
@@ -9,9 +11,29 @@ export default function Audit() {
   const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v)).toString();
   const state = useApi(`/audit?${qs}`);
   const up = (k) => (v) => setF((x) => ({ ...x, [k]: v, page: 1 }));
+  const can = useAuth((s) => s.can);
+  const [integrite, setIntegrite] = useState(null);
+  const exporter = (format) => download(`/audit/export/${format}?${qs}`, `journal-audit.${format}`).catch((e) => toast.error(errorMessage(e, 'Export impossible.')));
+  const verifier = async () => {
+    try { setIntegrite((await api.get('/audit/integrite')).data); } catch (e) { toast.error(errorMessage(e)); }
+  };
   return (
     <>
-      <PageHeader title="Journal d’audit" subtitle="Lecture seule — aucune entrée ne peut être modifiée ni supprimée." breadcrumb={[{ label: 'Administration' }, { label: 'Journal d’audit' }]} actions={<ExportButtons base="/audit/export" formats={['xlsx']} query={`?${qs}`} print={false} />} />
+      <PageHeader title="Journal d’audit" subtitle="Lecture seule — aucune entrée ne peut être modifiée ni supprimée." breadcrumb={[{ label: 'Administration' }, { label: 'Journal d’audit' }]} actions={<>
+          <button type="button" className="btn-secondary" onClick={verifier}><Link2 size={16} /> Vérifier l’intégrité</button>
+          {can('audit.exporter') && <>
+            <button type="button" className="btn-secondary" onClick={() => exporter('xlsx')}><FileSpreadsheet size={16} /> Excel</button>
+            <button type="button" className="btn-secondary" onClick={() => exporter('csv')}><FileText size={16} /> CSV</button>
+            <button type="button" className="btn-secondary" onClick={() => exporter('pdf')}><FileDown size={16} /> PDF</button>
+          </>}
+        </>} />
+      {integrite && (
+        <div className={`mb-4 rounded-md border p-3 text-sm ${integrite.integre ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-red-200 bg-red-50 text-red-900'}`} role="status">
+          {integrite.integre
+            ? <>Journal intègre : {integrite.entrees} entrée(s) chaînée(s), aucune modification, suppression ni insertion frauduleuse détectée ({fmtDateTime(integrite.verifieAt)}).</>
+            : <><b>Intégrité rompue.</b><ul className="mt-1 list-disc pl-5">{integrite.problemes.map((p, i) => <li key={i}>{p.maillon ? `Maillon ${p.maillon} : ` : ''}{p.raison}</li>)}</ul></>}
+        </div>
+      )}
       <Loadable state={state}>
         {(d) => (
           <Card bodyClass="p-0">
@@ -52,6 +74,7 @@ export default function Audit() {
         <Modal open size="lg" title={`Entrée d’audit n° ${detail.id}`} onClose={() => setDetail(null)}>
           <div className="space-y-3 text-sm">
             <p><b>{detail.action}</b> · {detail.module} · {fmtDateTime(detail.created_at)} · {detail.username} ({detail.role}) · {detail.ip}</p>
+            <p className="text-xs text-slate-500">Maillon n° {detail.maillon} · empreinte <code className="break-all">{detail.empreinte}</code></p>
             {detail.message && <p>{detail.message}</p>}
             <div className="grid gap-3 md:grid-cols-2">
               <div><div className="mb-1 text-xs font-semibold uppercase text-slate-500">Ancienne valeur</div><pre className="max-h-80 overflow-auto rounded bg-slate-50 p-2 text-xs">{detail.ancienne_valeur ? JSON.stringify(detail.ancienne_valeur, null, 2) : '—'}</pre></div>

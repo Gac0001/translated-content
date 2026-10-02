@@ -9,9 +9,9 @@ const { db, login, loginAdmin, api, enroler } = require('./helpers');
 
 /** Crée un agent inscrit (grade ATA1, Bureau Programme) et revalide la liste. */
 async function admin_agent() {
-  const admin = api(await loginAdmin());
+  const dir0 = api(await login('directeur'));
   const grade = await db('grades').where({ code: 'ATA1' }).first();
-  const n = await admin.post('/agents', { matricule: `DEP-09${Math.floor(Math.random() * 90) + 10}`, nom: 'CONFIRMATION', prenom: 'Test', grade_id: grade.id });
+  const n = await dir0.post('/agents', { matricule: `DEP-09${Math.floor(Math.random() * 90) + 10}`, nom: 'CONFIRMATION', prenom: 'Test', grade_id: grade.id });
   const bur = await db('bureaux').where({ code: 'BUR-PRG' }).first();
   const poste = await db('postes_organiques').where({ code: 'P-AG-BUR-PRG' }).first();
   const dir = api(await login('directeur'));
@@ -37,7 +37,9 @@ describe('Liste déclarative et enrôlement', () => {
     expect(e.status).toBe(200);
     expect(e.body.actions.valider).toBe(true);
     expect(e.body.agents.some((a) => a.nom === 'LUFUNDA')).toBe(true);
-    expect((await api(await loginAdmin()).get('/liste-declarative')).body.actions.valider).toBe(true);
+    // L’Admin Système n’a aucun accès à la liste (décision administrative du Directeur)
+    expect((await api(await loginAdmin()).get('/liste-declarative')).status).toBe(403);
+    expect((await api(await loginAdmin()).post('/liste-declarative/valider', {})).status).toBe(403);
     for (const u of ['cb.secretariat', 'ag.secretariat1', 'cd.edi', 'ag.eap1']) {
       const c = api(await login(u));
       expect((await c.post('/liste-declarative/valider', {})).status).toBe(403);
@@ -49,12 +51,12 @@ describe('Liste déclarative et enrôlement', () => {
 
   test('l’option d’enrôlement est réservée à l’Admin et au Bureau Secrétariat de Direction', async () => {
     for (const u of ['cb.secretariat', 'ag.secretariat1', 'ag.secretariat2']) {
-      expect((await api(await login(u)).get('/auth/me')).body.user.permissions).toContain('comptes.enroler');
+      expect((await api(await login(u)).get('/auth/me')).body.user.permissions).toContain('compte.enroler');
     }
-    expect((await api(await loginAdmin()).get('/auth/me')).body.user.permissions).toContain('comptes.enroler');
+    expect((await api(await loginAdmin()).get('/auth/me')).body.user.permissions).toContain('compte.enroler');
     for (const u of ['directeur', 'sg', 'cd.sci', 'cb.str', 'ag.eap1']) {
       const c = api(await login(u));
-      expect((await c.get('/auth/me')).body.user.permissions).not.toContain('comptes.enroler');
+      expect((await c.get('/auth/me')).body.user.permissions).not.toContain('compte.enroler');
       expect((await c.get('/enrolement/candidats')).status).toBe(403);
     }
     expect((await enroler(await login('cd.sci'), await agentId('MASIKA'), { username: 'interdit.cd' })).status).toBe(403);
@@ -108,15 +110,29 @@ describe('Liste déclarative et enrôlement', () => {
     expect((await db('users').where({ id: r.body.id }).first()).must_change_password).toBe(true);
     // Pas de second compte
     expect((await enroler(token, id, { username: 'rodrigue.bis' })).status).toBe(403);
-    // Commission téléchargeable par l’Admin
-    const dl = await api(await loginAdmin()).get(`/agents/${id}/commission`);
+    // Commission téléchargeable par le Directeur, jamais par l’Admin Système
+    expect((await api(await loginAdmin()).get(`/agents/${id}/commission`)).status).toBe(403);
+    const dl = await api(await login('directeur')).get(`/agents/${id}/commission`);
     expect(dl.status).toBe(200);
     expect(dl.headers['content-type']).toMatch(/pdf/);
   });
 
-  test('l’Admin enrôle les agents du Secrétariat ; le numéro IGAP est unique', async () => {
+  test('l’Admin enrôle seulement les agents du Secrétariat autorisés par le Directeur ; le numéro IGAP est unique', async () => {
     const token = await loginAdmin();
     const id = await agentId('LUFUNDA');
+    const dir = api(await login('directeur'));
+    // Sans autorisation nominative du Directeur : refusé
+    const sans = await enroler(token, id, { username: 'odette.lufunda', numero_carte_igap: 'IGAP-BSD-001' });
+    expect(sans.status).toBe(403);
+    expect(sans.body.error.message).toMatch(/n’a pas autorisé/);
+    // Agent d’une Division : jamais par l’Admin, même si le Directeur tentait de l’autoriser
+    expect((await dir.post(`/liste-declarative/agents/${await agentId('BOLAMBA')}/autoriser-enrolement`)).status).toBe(400);
+    expect((await api(token).get('/enrolement/candidats')).body.candidats.find((c) => c.nom === 'BOLAMBA').enrolable).toBe(false);
+    // Seul le Directeur autorise
+    expect((await api(await login('cb.secretariat')).post(`/liste-declarative/agents/${id}/autoriser-enrolement`)).status).toBe(403);
+    expect((await api(token).post(`/liste-declarative/agents/${id}/autoriser-enrolement`)).status).toBe(403);
+    expect((await dir.post(`/liste-declarative/agents/${id}/autoriser-enrolement`)).status).toBe(200);
+    expect(await db('notifications').where({ user_id: (await db('users').where({ username: 'admin' }).first()).id, lien: '/comptes/enrolement' }).first()).toBeTruthy();
     expect((await enroler(token, id, { username: 'odette.lufunda', numero_carte_igap: 'IGAP-STR-001' })).status).toBe(409);
     const r = await enroler(token, id, { username: 'odette.lufunda', numero_carte_igap: 'IGAP-BSD-001' });
     expect(r.status).toBe(201);
@@ -143,7 +159,7 @@ describe('Liste déclarative et enrôlement', () => {
   });
 
   test('toute modification de la liste après validation exige une revalidation', async () => {
-    const admin = api(await loginAdmin());
+    const admin = api(await login('directeur'));
     const grade = await db('grades').where({ code: 'ATA1' }).first();
     const n = await admin.post('/agents', { matricule: 'DEP-0901', nom: 'TESTLISTE', prenom: 'Agent', grade_id: grade.id });
     expect(n.status).toBe(201);
@@ -184,7 +200,7 @@ describe('Liste déclarative et enrôlement', () => {
     expect(r1.body.resultats).toHaveLength(1);
     expect(r1.body.resultats[0]).toMatchObject({ nom: 'MASIKA', surListe: true, statut: 'COMPTE_EXISTANT' });
     // Par nom sans accents ; un agent hors liste est signalé comme tel
-    const n = await api(await loginAdmin()).post('/agents', { matricule: 'DEP-0950', nom: 'ÉKOMBÉ', prenom: 'Hors liste' });
+    const n = await api(await login('directeur')).post('/agents', { matricule: 'DEP-0950', nom: 'ÉKOMBÉ', prenom: 'Hors liste' });
     await db('agents').where({ id: n.body.id }).update({ liste_declarative: false });
     const r2 = await c.get('/enrolement/identifier?q=ekombe');
     expect(r2.body.resultats[0]).toMatchObject({ surListe: false, statut: 'NON_INSCRIT' });

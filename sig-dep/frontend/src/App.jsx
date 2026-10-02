@@ -6,6 +6,7 @@ import AppLayout from './components/layout/AppLayout';
 import { ConfirmProvider, Spinner, Toaster } from './components/ui';
 import Login from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
+import PremiereConnexion from './pages/PremiereConnexion';
 import { Forbidden, NotFound } from './pages/Errors';
 
 const p = (loader) => lazy(loader);
@@ -46,6 +47,7 @@ const PipDetail = p(() => import('./pages/pip/PipDetail'));
 const Notifications = p(() => import('./pages/Notifications'));
 const Audit = p(() => import('./pages/systeme/Audit'));
 const Systeme = p(() => import('./pages/systeme/Systeme'));
+const Securite = p(() => import('./pages/systeme/Securite'));
 const Reinitialisation = p(() => import('./pages/systeme/Reinitialisation'));
 const Rapports = p(() => import('./pages/Rapports'));
 
@@ -54,7 +56,7 @@ function RequireAuth({ children }) {
   const location = useLocation();
   if (!ready) return <div className="flex min-h-screen items-center justify-center"><Spinner label="Ouverture de la session…" /></div>;
   if (!user) return <Navigate to="/connexion" replace state={{ from: location.pathname }} />;
-  if (user.mustChangePassword && location.pathname !== '/changer-mot-de-passe') return <Navigate to="/changer-mot-de-passe" replace />;
+  if (user.exigences?.length && location.pathname !== '/premiere-connexion') return <Navigate to="/premiere-connexion" replace />;
   return children;
 }
 
@@ -77,8 +79,9 @@ export default function App() {
     <ConfirmProvider>
       <Suspense fallback={<Spinner />}>
         <Routes>
-          <Route path="/connexion" element={user && !user.mustChangePassword ? <Navigate to="/" replace /> : <Login />} />
-          <Route path="/changer-mot-de-passe" element={<RequireAuth>{user?.mustChangePassword ? <ChangePassword /> : <Navigate to="/" replace />}</RequireAuth>} />
+          <Route path="/connexion" element={user && !user.exigences?.length ? <Navigate to="/" replace /> : <Login />} />
+          <Route path="/premiere-connexion" element={<RequireAuth><PremiereConnexion /></RequireAuth>} />
+          <Route path="/changer-mot-de-passe" element={<Navigate to="/premiere-connexion" replace />} />
           <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
             <Route index element={<Dashboard />} />
             <Route path="mot-de-passe" element={<ChangePassword />} />
@@ -92,11 +95,11 @@ export default function App() {
             <Route path="personnel/:id/modifier" element={G(['personnel.gerer', 'personnel.suivre'], <AgentForm />)} />
             <Route path="profil" element={<Profil />} />
             <Route path="liste-declarative" element={G(['liste.consulter'], <ListeDeclarative />)} />
-            <Route path="comptes/enrolement" element={G(['comptes.enroler'], <Enrolement />)} />
-            <Route path="comptes" element={G(['comptes.consulter'], <UsersList />)} />
-            <Route path="comptes/nouveau" element={G(['comptes.creer_initial'], <UserCreate />)} />
-            <Route path="comptes/:id" element={G(['comptes.consulter'], <UserDetail />)} />
-            <Route path="roles" element={G(['roles.gerer'], <Roles />)} />
+            <Route path="comptes/enrolement" element={G(['compte.enroler'], <Enrolement />)} />
+            <Route path="comptes" element={G(['compte.consulter'], <UsersList />)} />
+            <Route path="comptes/nouveau" element={G(['compte.creer_initial'], <UserCreate />)} />
+            <Route path="comptes/:id" element={G(['compte.consulter'], <UserDetail />)} />
+            <Route path="roles" element={G(['role.attribuer'], <Roles />)} />
             <Route path="delegations" element={G(['delegations.gerer'], <Delegations />)} />
             <Route path="presences" element={G(['presences.consulter', 'presences.preparer_direction'], <PresencesList />)} />
             <Route path="presences/nouvelle" element={G(['presences.saisir', 'presences.preparer_direction'], <PresenceCreate />)} />
@@ -122,8 +125,9 @@ export default function App() {
             <Route path="notifications" element={<Notifications />} />
             <Route path="audit" element={G(['audit.consulter'], <Audit />)} />
             <Route path="rapports" element={G(['rapports.consulter'], <Rapports />)} />
-            <Route path="systeme" element={G(['systeme.etat', 'systeme.parametres'], <Systeme />)} />
-            <Route path="systeme/reinitialisation" element={G(['systeme.reinitialiser'], <Reinitialisation />)} />
+            <Route path="systeme" element={G(['systeme.consulter', 'systeme.configurer'], <Systeme />)} />
+            <Route path="securite" element={G(['securite.superviser', 'session.consulter'], <Securite />)} />
+            <Route path="systeme/reinitialisation" element={G(['systeme.maintenir'], <Reinitialisation />)} />
             <Route path="acces-refuse" element={<Forbidden />} />
             <Route path="*" element={<NotFound />} />
           </Route>

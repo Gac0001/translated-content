@@ -228,7 +228,7 @@ router.put('/:id', validate({ params: idParam, body: agentSchema.partial() }), a
   assertCanManage(req.ctx);
   const before = await db('agents').where({ id: req.valid.params.id }).first();
   if (!before) throw notFound('Agent introuvable.');
-  if (before.est_autorite && !req.ctx.can('comptes.creer_initial')) throw forbidden('La fiche d’une autorité hors DEP n’est pas modifiable depuis la DEP.');
+  if (before.est_autorite && !req.ctx.can('compte.creer_initial')) throw forbidden('La fiche d’une autorité hors DEP n’est pas modifiable depuis la DEP.');
   const [row] = await db('agents').where({ id: before.id }).update({ ...req.valid.body, updated_at: db.fn.now() }).returning('*');
   await audit(req, { action: 'MODIFICATION', module: 'personnel', entite: 'agent', entiteId: row.id, avant: before, apres: row });
   res.json(row);

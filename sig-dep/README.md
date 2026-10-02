@@ -69,7 +69,16 @@ Ouvrez **http://localhost:5173**. Le serveur Vite relaie `/api` vers `http://loc
 |---|---|
 | `admin` | `dep@2026` |
 
-Le changement du mot de passe est **obligatoire** à la première connexion. L’API refuse toute autre opération tant qu’il n’a pas été changé.
+Le compte `admin` porte le rôle **Admin Système** (`ADMIN_SYSTEME`, périmètre `SYSTEME`) : il assure le fonctionnement technique, la sécurité et la disponibilité du SIG-DEP, sans aucune autorité administrative. Il ne remplace jamais le Directeur, un Chef de Division ou un Chef de Bureau.
+
+À la **première connexion**, un assistant impose, dans l’ordre, avant tout accès (l’API renvoie `CONFIGURATION_SECURITE_REQUISE` à toute autre requête) :
+
+1. le **changement du mot de passe**, selon la politique en vigueur ;
+2. la **double authentification** : scanner le QR code avec une application d’authentification (Google Authenticator, Microsoft Authenticator, FreeOTP…), confirmer un code, puis conserver les **10 codes de secours** à usage unique ;
+3. l’**adresse électronique de récupération** (vérifiée par un code lorsque la messagerie est active) ;
+4. l’**acceptation des règles de sécurité**.
+
+Ensuite, chaque connexion demande le mot de passe **puis** le code de l’application (ou un code de secours). « Mot de passe oublié ? » envoie un code à l’adresse de récupération vérifiée ; le second facteur est aussi exigé. En dernier recours : `npm run reset-admin` sur le serveur.
 
 ### Comptes de démonstration (`SEED_DEMO=true`)
 
@@ -111,7 +120,7 @@ Tant que la base contient les données fictives, l’Admin voit dès sa connexio
 | **Base vierge — mise en service** | Supprime agents, comptes, instructions, tâches, courriers, documents, PIP, présences, pièces jointes (fichiers compris), notifications et journaux. Conserve l’organigramme, les grades, les fonctions, les rôles et permissions, les paramètres et le compte Admin (même mot de passe, session conservée). |
 | **Données fictives — formation** | Même nettoyage, puis rechargement des données de démonstration (comptes `Demo@2026`). |
 
-Garde-fous : réservé à l’Admin (`systeme.reinitialiser`), saisie de `REINITIALISER` et du mot de passe Admin, **sauvegarde automatique préalable** (`storage/backups/sig-dep-…-avant-reinitialisation.dump`) ; si la sauvegarde échoue, rien n’est supprimé. Tout se fait en une seule transaction et l’opération est inscrite au journal d’audit. Les autres utilisateurs sont déconnectés.
+Garde-fous : réservé à l’Admin (`systeme.maintenir`), saisie de `REINITIALISER` et du mot de passe Admin, **sauvegarde automatique préalable** (`storage/backups/sig-dep-…-avant-reinitialisation.dump`) ; si la sauvegarde échoue, rien n’est supprimé. Tout se fait en une seule transaction et l’opération est inscrite au journal d’audit. Les autres utilisateurs sont déconnectés.
 
 Après une réinitialisation « base vierge », le tableau de bord guide la mise en service : 1) l’Admin crée le compte du Directeur ; 2) le Directeur importe la liste officielle (section suivante), la vérifie et la valide, puis la **génère en PDF** (« Liste officielle (PDF) », avec bloc de signature ; tant qu’elle n’est pas validée, le document est intitulé « Projet de liste déclarative ») ; 3) l’Admin enrôle le Bureau Secrétariat de Direction ; 4) le Secrétariat enrôle les agents des Divisions.
 
@@ -278,7 +287,7 @@ Une autorisation dépend à la fois du **rôle**, des **permissions**, de l’**
 | Chef de Bureau | `BUREAU` | son Bureau : tâches aux Agents, présences (saisie, vérification, soumission), examen et transmission des documents, rapports du Bureau |
 | Agent | `PERSONNEL` | ses tâches, ses documents, son profil, ses notifications, informations collectives validées du Bureau |
 
-**Délégations du Directeur** (table `user_permissions`, écran « Délégations ») au seul Chef du Bureau Secrétariat de Direction : `personnel.suivre`, `presences.preparer_direction`, `courriers.enregistrer`, `dossiers.transmettre`. Ces délégations ne changent ni son rang ni son périmètre. L’enrôlement (`comptes.enroler`) n’est pas une délégation : il est accordé à tous les membres actifs du Bureau Secrétariat de Direction du fait de leur affectation, pour les agents des autres structures uniquement.
+**Délégations du Directeur** (table `user_permissions`, écran « Délégations ») au seul Chef du Bureau Secrétariat de Direction : `personnel.suivre`, `presences.preparer_direction`, `courriers.enregistrer`, `dossiers.transmettre`. Ces délégations ne changent ni son rang ni son périmètre. L’enrôlement (`compte.enroler`) n’est pas une délégation : il est accordé à tous les membres actifs du Bureau Secrétariat de Direction du fait de leur affectation, pour les agents des autres structures uniquement.
 
 La matrice complète figure dans `backend/src/db/seed-data/permissions.js`. L’Admin peut la modifier dans l’écran « Rôles et permissions », dans la limite des garde-fous ci-dessus.
 
@@ -367,15 +376,21 @@ Contrôlez ensuite depuis **Admin → Système → Messagerie** : « Tester la c
 
 ## 8. Sécurité
 
-* Mots de passe hachés avec **bcrypt** (coût 12). Politique : 8 caractères minimum, avec lettre, chiffre et caractère spécial.
+* Mots de passe hachés avec **bcrypt** (coût 12). **Politique configurable** par l’Admin (Sécurité → Politique), dans des bornes qui empêchent de l’affaiblir : par défaut 10 caractères, majuscule, minuscule, chiffre et caractère spécial, refus des mots de passe courants ou dérivés du nom d’utilisateur, interdiction des 5 derniers, expiration facultative.
+* **Double authentification** (TOTP) obligatoire pour l’Admin Système ; secret chiffré en base (AES-256-GCM, clé `TOTP_ENC_KEY` ou dérivée du secret JWT), codes de secours hachés et à usage unique.
+* **Journal d’audit infalsifiable** : chaque entrée porte l’empreinte SHA-256 de la précédente (chaînage calculé par un déclencheur PostgreSQL). Modification, suppression ou troncature sont refusées en base ; une altération faite malgré tout (accès direct à PostgreSQL) est détectée par « Vérifier l’intégrité ». L’historique des connexions est lui aussi en ajout seul. La réinitialisation de la base ne les efface jamais.
+* **Alertes de sécurité** (Sécurité → Alertes, notification et e-mail à l’Admin) : vague d’échecs de connexion, tentative sur un compte Admin, verrouillage, réutilisation d’un jeton de session, code de secours utilisé, changement de politique, désactivation d’un compte sensible, réinitialisation, intégrité de l’audit rompue.
+* **Sessions** : durée maximale et délai d’inactivité configurables ; l’Admin voit les sessions actives (utilisateur, adresse IP, navigateur) et peut en fermer une ; il peut bloquer temporairement un compte compromis, imposer un changement de mot de passe, détecter (et facultativement désactiver) les comptes inactifs.
+* **Vérification de sécurité** à la demande : intégrité de l’audit, 2FA des Admins, comptes, politique, configuration (secret JWT, cookies HTTPS, messagerie), sauvegarde, fichiers téléversés.
+* **Rôles institutionnels protégés** en base (ni suppression, ni renommage). L’Admin ne peut attribuer ni retirer les rôles Directeur, Chef de Division, Secrétaire Général ou Admin Système sans décision administrative enregistrée, ni donner une permission technique à un rôle institutionnel ; le rôle Admin Système n’est pas modifiable depuis l’application.
 * **Jeton d’accès** JWT de courte durée (`ACCESS_TOKEN_TTL`, 15 min), gardé en mémoire côté navigateur.
 * **Refresh token** aléatoire dans un cookie `httpOnly`, `SameSite=Strict`, limité au chemin `/api/auth`. Seule son empreinte SHA-256 est stockée. Rotation à chaque renouvellement ; la réutilisation d’un ancien jeton révoque toute la famille.
 * `token_version` : un changement de mot de passe, une désactivation ou un changement de rôle invalide immédiatement les jetons existants.
-* **Helmet**, CORS configuré par `CORS_ORIGINS`, limitation anti-brute-force **uniquement** sur `/api/auth/login`, verrouillage du compte après `MAX_FAILED_LOGINS` échecs.
+* **Helmet**, CORS configuré par `CORS_ORIGINS`, limitation anti-brute-force **uniquement** sur `/api/auth/login`, verrouillage du compte après le nombre d’échecs fixé par la politique.
 * Validation **Zod** de toutes les entrées. Requêtes paramétrées via Knex.
 * Permission vérifiée sur chaque route, puis filtrage par périmètre et contrôle hiérarchique.
 * Pièces jointes stockées hors de la racine web sous un nom aléatoire (UUID), avec liste blanche de types MIME, taille maximale (15 Mo par défaut) et empreinte SHA-256. Téléchargement authentifié et contrôlé par le périmètre de l’élément parent.
-* Déconnexion automatique après inactivité (`VITE_INACTIVITY_MINUTES`, 30 min par défaut, 0 pour désactiver), avec un avertissement avant l’échéance ; l’activité est partagée entre onglets.
+* Déconnexion automatique après inactivité (délai fixé par la politique, 30 min par défaut), avec un avertissement avant l’échéance ; l’activité est partagée entre onglets.
 * Aucune ressource externe : la police est embarquée dans l’application, qui fonctionne sur un réseau fermé.
 * Messages d’erreur en français, sans détail technique en production.
 * Secrets dans `.env` (jamais versionné). L’API refuse de démarrer en production avec le secret JWT d’exemple.

@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-const MINUTES = Number(import.meta.env.VITE_INACTIVITY_MINUTES || 30);
-// Avertissement 60 s avant la déconnexion (au plus le quart du délai pour les délais très courts)
-const WARNING_SECONDS = Math.min(60, Math.floor((MINUTES * 60) / 4));
+const MINUTES_DEFAUT = Number(import.meta.env.VITE_INACTIVITY_MINUTES || 30);
 const EVENTS = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'];
 
 /**
@@ -10,7 +8,10 @@ const EVENTS = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'];
  * pendant la phase d’avertissement (null sinon) et une fonction pour prolonger la session.
  * L’activité est partagée entre onglets via localStorage.
  */
-export function useInactivity(onTimeout) {
+export function useInactivity(onTimeout, minutes = MINUTES_DEFAUT) {
+  const MINUTES = Number(minutes) || MINUTES_DEFAUT;
+  // Avertissement 60 s avant la déconnexion (au plus le quart du délai pour les délais très courts)
+  const WARNING_SECONDS = Math.min(60, Math.floor((MINUTES * 60) / 4));
   const [remaining, setRemaining] = useState(null);
   const last = useRef(Date.now());
   const cb = useRef(onTimeout);
@@ -33,7 +34,7 @@ export function useInactivity(onTimeout) {
       if (left <= 0) { clearInterval(t); cb.current(); } else setRemaining(left <= WARNING_SECONDS ? left : null);
     }, 1000);
     return () => { clearInterval(t); EVENTS.forEach((ev) => window.removeEventListener(ev, onActivity)); window.removeEventListener('storage', onStorage); };
-  }, []);
+  }, [MINUTES, WARNING_SECONDS]);
 
   const remainingRef = useRef(remaining);
   remainingRef.current = remaining;

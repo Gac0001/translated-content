@@ -13,6 +13,7 @@ const mailer = require('../../services/mailer');
 const bcrypt = require('bcrypt');
 const { creerSauvegarde } = require('../../services/sauvegarde');
 const reinit = require('../../services/reinitialisation');
+const { alerter } = require('../../services/alertes');
 const { notFound, badRequest, AppError } = require('../../utils/errors');
 
 const router = express.Router();
@@ -23,7 +24,7 @@ router.get('/parametres/publics', async (req, res) => {
   res.json(Object.fromEntries(rows.map((r) => [r.cle, r.valeur])));
 });
 
-router.get('/etat', requirePerm('systeme.etat'), async (req, res) => {
+router.get('/etat', requirePerm('systeme.consulter'), async (req, res) => {
   const t0 = Date.now();
   await db.raw('select 1');
   const latence = Date.now() - t0;
@@ -43,13 +44,17 @@ router.get('/etat', requirePerm('systeme.etat'), async (req, res) => {
   });
 });
 
-router.get('/parametres', requirePerm('systeme.parametres'), async (req, res) => {
-  res.json({ data: await db('parametres').orderBy('cle') });
+// Paramètres gérés par des écrans dédiés (politique de sécurité) ou internes : non modifiables ici.
+const CLES_RESERVEES = (cle) => /^(mdp_|verrouillage_|session_|inactivite_|alerte_|regles_|audit_|securite_)/.test(cle) || cle === 'donnees_demo';
+
+router.get('/parametres', requirePerm('systeme.configurer'), async (req, res) => {
+  res.json({ data: (await db('parametres').orderBy('cle')).filter((p) => !CLES_RESERVEES(p.cle)) });
 });
 
-router.put('/parametres/:cle', requirePerm('systeme.parametres'), validate({ params: z.object({ cle: z.string().max(80) }), body: z.object({ valeur: z.string().max(2000) }) }), async (req, res) => {
+router.put('/parametres/:cle', requirePerm('systeme.configurer'), validate({ params: z.object({ cle: z.string().max(80) }), body: z.object({ valeur: z.string().max(2000) }) }), async (req, res) => {
   const before = await db('parametres').where({ cle: req.valid.params.cle }).first();
   if (!before) throw notFound('Paramètre inconnu.');
+  if (CLES_RESERVEES(before.cle)) throw badRequest('Ce paramètre se règle depuis l’écran Sécurité (politique) ou est interne au système.');
   if (req.valid.params.cle === 'direction_nom' && req.valid.body.valeur !== 'Direction d’Études et Planification') {
     throw badRequest('L’appellation officielle « Direction d’Études et Planification » ne peut pas être modifiée.');
   }
@@ -58,7 +63,7 @@ router.put('/parametres/:cle', requirePerm('systeme.parametres'), validate({ par
   res.json({ message: 'Paramètre enregistré.' });
 });
 
-router.get('/sauvegardes', requirePerm('systeme.sauvegardes'), async (req, res) => {
+router.get('/sauvegardes', requirePerm('sauvegarde.creer'), async (req, res) => {
   fs.mkdirSync(config.backupDir, { recursive: true });
   const files = fs.readdirSync(config.backupDir).filter((f) => /\.(sql|dump)$/.test(f)).map((f) => {
     const st = fs.statSync(path.join(config.backupDir, f));
@@ -67,7 +72,7 @@ router.get('/sauvegardes', requirePerm('systeme.sauvegardes'), async (req, res) 
   res.json({ data: files, repertoire: config.backupDir });
 });
 
-router.post('/sauvegardes', requirePerm('systeme.sauvegardes'), async (req, res) => {
+router.post('/sauvegardes', requirePerm('sauvegarde.creer'), async (req, res) => {
   const r = await creerSauvegarde().catch(async (e) => {
     await audit(req, { action: 'SAUVEGARDE', module: 'systeme', resultat: 'ECHEC', message: e.message });
     throw e;
@@ -76,7 +81,7 @@ router.post('/sauvegardes', requirePerm('systeme.sauvegardes'), async (req, res)
   res.status(201).json({ ...r, message: 'Sauvegarde réalisée.' });
 });
 
-router.get('/sauvegardes/:fichier', requirePerm('systeme.sauvegardes'), validate({ params: z.object({ fichier: z.string().regex(/^sig-dep-[0-9T-]+(-[a-z]+)?\.(dump|sql)$/) }) }), async (req, res) => {
+router.get('/sauvegardes/:fichier', requirePerm('sauvegarde.creer'), validate({ params: z.object({ fichier: z.string().regex(/^sig-dep-[0-9T-]+(-[a-z]+)?\.(dump|sql)$/) }) }), async (req, res) => {
   const p = path.join(config.backupDir, req.valid.params.fichier);
   if (!fs.existsSync(p)) throw notFound('Sauvegarde introuvable.');
   await audit(req, { action: 'EXPORT', module: 'systeme', message: `Téléchargement de la sauvegarde ${req.valid.params.fichier}` });
@@ -84,7 +89,7 @@ router.get('/sauvegardes/:fichier', requirePerm('systeme.sauvegardes'), validate
 });
 
 // ─── Messagerie (notifications par e-mail) ──────────────────────────────────
-router.get('/messagerie', requirePerm('systeme.parametres'), async (req, res) => {
+router.get('/messagerie', requirePerm('systeme.configurer'), async (req, res) => {
   const m = config.mail;
   const stats = await db('email_outbox').select('statut').count('* as n').groupBy('statut');
   const envoyes24 = await db('email_outbox').where('statut', 'ENVOYE').where('sent_at', '>', db.raw(`now() - interval '24 hours'`)).count('* as n').first();
@@ -104,11 +109,11 @@ router.get('/messagerie', requirePerm('systeme.parametres'), async (req, res) =>
   });
 });
 
-router.post('/messagerie/verifier', requirePerm('systeme.parametres'), async (req, res) => {
+router.post('/messagerie/verifier', requirePerm('systeme.configurer'), async (req, res) => {
   res.json(await mailer.verifyConnection());
 });
 
-router.post('/messagerie/test', requirePerm('systeme.parametres'), validate({ body: z.object({ destinataire: z.email('adresse électronique invalide') }) }), async (req, res) => {
+router.post('/messagerie/test', requirePerm('systeme.configurer'), validate({ body: z.object({ destinataire: z.email('adresse électronique invalide') }) }), async (req, res) => {
   if (!config.mail.enabled) throw badRequest('La messagerie est désactivée (MAIL_ENABLED=false dans le fichier .env).');
   try {
     await mailer.sendTest(req.valid.body.destinataire);
@@ -120,24 +125,24 @@ router.post('/messagerie/test', requirePerm('systeme.parametres'), validate({ bo
   res.json({ message: `E-mail de test envoyé à ${req.valid.body.destinataire}.` });
 });
 
-router.post('/messagerie/relancer', requirePerm('systeme.parametres'), async (req, res) => {
+router.post('/messagerie/relancer', requirePerm('systeme.configurer'), async (req, res) => {
   const n = await db('email_outbox').where('statut', 'ECHEC').update({ statut: 'EN_ATTENTE', tentatives: 0, prochain_essai: db.fn.now() });
   await audit(req, { action: 'MODIFICATION', module: 'systeme', message: `Relance de ${n} e-mail(s) en échec` });
   res.json({ message: `${n} e-mail(s) remis en file d’envoi.`, relances: n });
 });
 
-router.post('/messagerie/traiter', requirePerm('systeme.parametres'), async (req, res) => {
+router.post('/messagerie/traiter', requirePerm('systeme.configurer'), async (req, res) => {
   res.json(await mailer.processOutbox(100));
 });
 
 // ─── Réinitialisation de la base (mise en service) ──────────────────────────
-router.get('/reinitialisation', requirePerm('systeme.reinitialiser'), async (req, res) => {
+router.get('/reinitialisation', requirePerm('systeme.maintenir'), async (req, res) => {
   const [volumes, demo] = await Promise.all([reinit.volumes(), reinit.donneesDemo()]);
   res.json({ donneesDemo: demo, volumes, conservees: ['organigramme (Divisions, Bureaux, postes, attributions)', 'grades et fonctions', 'rôles et permissions', 'paramètres', 'compte Admin'] });
 });
 
 const PHRASE = 'REINITIALISER';
-router.post('/reinitialisation', requirePerm('systeme.reinitialiser'), validate({
+router.post('/reinitialisation', requirePerm('systeme.maintenir'), validate({
   body: z.object({
     mode: z.enum(['VIERGE', 'DEMO'], { message: 'mode invalide' }),
     confirmation: z.string().trim(),
@@ -160,6 +165,7 @@ router.post('/reinitialisation', requirePerm('systeme.reinitialiser'), validate(
     });
   }
   const r = await reinit.reinitialiser({ mode, adminId: req.ctx.userId });
+  await alerter({ type: 'REINITIALISATION', gravite: 'CRITIQUE', titre: mode === 'DEMO' ? 'Base réinitialisée avec les données fictives' : 'Base réinitialisée (base vierge)', message: `Par ${req.ctx.username}. Sauvegarde préalable : ${copie ? copie.fichier : 'aucune'}.`, user: { id: req.ctx.userId, username: req.ctx.username }, ip: req.ip });
   await audit(req, {
     action: 'REINITIALISATION', module: 'systeme', avant: r.avant, apres: { ...r.apres, mode, sauvegarde: copie && copie.fichier },
     message: mode === 'DEMO' ? 'Réinitialisation de la base avec données fictives de démonstration' : 'Réinitialisation de la base (base vierge pour la mise en service)',

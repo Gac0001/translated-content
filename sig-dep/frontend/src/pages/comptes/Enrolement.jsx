@@ -388,7 +388,7 @@ export default function Enrolement() {
           <div className="space-y-4">
             {d.statutListe === 'NON_VALIDEE' && <InfoAlert tone="warning">La liste déclarative n’a pas encore été validée par le Directeur : aucun compte ne peut être créé.</InfoAlert>}
             {d.statutListe === 'A_REVALIDER' && <InfoAlert tone="warning">La liste déclarative a changé depuis sa dernière validation : les agents ajoutés ou modifiés seront enrôlables après sa revalidation par le Directeur.</InfoAlert>}
-            {d.portee === 'TOUS' && d.resume.secretariatSansCompte > 0 && <InfoAlert>Commencez par les agents du Bureau Secrétariat de Direction ({d.resume.secretariatSansCompte} sans compte) : une fois enrôlés, ils créeront les comptes des agents des Divisions.</InfoAlert>}
+            {d.portee === 'SECRETARIAT_AUTORISE' && <InfoAlert>En tant qu’Admin Système, vous enrôlez uniquement les agents du Bureau Secrétariat de Direction que le Directeur a autorisés nominativement ({d.resume.enrolables} en attente). Une fois enrôlés, ce sont eux qui créent les comptes des agents des Divisions.</InfoAlert>}
             {d.portee === 'HORS_SECRETARIAT' && <InfoAlert>En tant que membre du Bureau Secrétariat de Direction, vous enrôlez les agents des Divisions et des autres Bureaux. Les comptes du Secrétariat sont créés par l’Admin.</InfoAlert>}
             <p className="text-xs text-slate-500">{d.resume.enrolables} agent(s) enrôlable(s) · {d.resume.avecCompte} compte(s) déjà créé(s){d.validation ? ` · liste validée le ${fmtDateTime(d.validation.valide_at)}` : ''}</p>
             <Stepper etape={agentId ? etape : 0} />

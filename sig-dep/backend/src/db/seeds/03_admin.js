@@ -13,7 +13,7 @@ exports.seed = async function seed(knex) {
   const [u] = await knex('users').insert({
     username: 'admin', password_hash: hash, statut: 'ACTIF', must_change_password: true,
   }).returning('*');
-  const role = await knex('roles').where({ code: 'ADMIN' }).first();
+  const role = await knex('roles').where({ code: 'ADMIN_SYSTEME' }).first();
   await knex('user_roles').insert({ user_id: u.id, role_id: role.id });
   await knex('audit_logs').insert({
     username: 'système', role: 'SYSTEME', action: 'CREATION', module: 'comptes', entite: 'user',

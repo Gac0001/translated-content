@@ -31,6 +31,7 @@ const EMAIL_TYPES = {
   AFFECTATION: 'Changement d’affectation',
   COMPTE_CREE: 'Compte créé ou activé',
   MDP_REINITIALISE: 'Mot de passe réinitialisé',
+  SECURITE: 'Alerte de sécurité',
 };
 
 const RETRY_MINUTES = [1, 5, 15, 60, 240];
@@ -110,10 +111,12 @@ async function enqueueForNotifications(rows, { confidentiel = false } = {}, trx 
   if (!candidats.length) return 0;
   const ids = [...new Set(candidats.map((r) => r.user_id))];
   const dest = await trx('users as u')
-    .join('agents as a', 'a.id', 'u.agent_id')
+    .leftJoin('agents as a', 'a.id', 'u.agent_id')
     .leftJoin('notification_preferences as p', 'p.user_id', 'u.id')
-    .whereIn('u.id', ids).where('u.statut', 'ACTIF').whereNotNull('a.email').whereNot('a.email', '')
-    .select('u.id', 'a.email', 'a.prenom', 'a.nom', 'p.email_actif', 'p.types_desactives');
+    .whereIn('u.id', ids).where('u.statut', 'ACTIF')
+    // Adresse de l’agent, à défaut l’adresse de récupération du compte (Admin Système)
+    .whereRaw(`coalesce(nullif(a.email, ''), u.email_recuperation) is not null`)
+    .select('u.id', db.raw(`coalesce(nullif(a.email, ''), u.email_recuperation) as email`), 'a.prenom', 'a.nom', 'p.email_actif', 'p.types_desactives');
   const byId = Object.fromEntries(dest.map((d) => [d.id, d]));
   const out = [];
   for (const n of candidats) {
@@ -169,6 +172,23 @@ async function processOutbox(limit = 25) {
   return { envoyes, echecs };
 }
 
+/**
+ * E-mail de sécurité adressé directement (code de vérification, alerte) : envoi immédiat,
+ * mis en file en cas d’échec. Retourne false si la messagerie est désactivée.
+ */
+async function envoyerDirect({ to, userId = null, type = 'SECURITE', titre, message, lien = '/' }) {
+  if (!config.mail.enabled || !to) return false;
+  const m = render({ titre, message, lien });
+  const row = { user_id: userId, type, to_email: to, subject: m.subject, text_body: m.text, html_body: m.html };
+  try {
+    await sendOne(row);
+    await db('email_outbox').insert({ ...row, statut: 'ENVOYE', sent_at: db.fn.now(), tentatives: 1 });
+  } catch (e) {
+    await db('email_outbox').insert({ ...row, derniere_erreur: String(e.message || e).slice(0, 1000) });
+  }
+  return true;
+}
+
 /** Envoi immédiat d’un e-mail de test (hors file), utilisé par l’administration. */
 async function sendTest(to) {
   const m = render({ titre: 'E-mail de test du SIG-DEP', message: 'Ce message confirme que la configuration de la messagerie du SIG-DEP fonctionne.', lien: '/' });
@@ -185,4 +205,4 @@ async function verifyConnection() {
   }
 }
 
-module.exports = { EMAIL_TYPES, render, enqueueForNotifications, processOutbox, sendTest, verifyConnection, resetTransport, esc };
+module.exports = { EMAIL_TYPES, envoyerDirect, render, enqueueForNotifications, processOutbox, sendTest, verifyConnection, resetTransport, esc };

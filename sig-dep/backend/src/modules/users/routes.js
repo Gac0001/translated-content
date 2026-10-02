@@ -16,6 +16,8 @@ const validate = require('../../middleware/validate');
 const { requirePerm } = require('../../middleware/auth');
 const { audit } = require('../../services/audit');
 const { notify } = require('../../services/notifications');
+const { alerter } = require('../../services/alertes');
+const { politique } = require('../../services/politique');
 const { revokeAllForUser } = require('../../services/tokens');
 const { temporaryPassword } = require('../../utils/password');
 const { notFound, badRequest, forbidden, conflict } = require('../../utils/errors');
@@ -26,7 +28,12 @@ const idParam = z.object({ id: z.coerce.number().int().positive() });
 const usernameSchema = z.string().trim().toLowerCase().min(3).max(60).regex(/^[a-z0-9._-]+$/, 'lettres minuscules, chiffres, point, tiret uniquement');
 
 const DEP_ROLES = ['CHEF_DIVISION', 'CHEF_BUREAU', 'AGENT'];
-const ADMIN_ALLOWED_MODULES = ['systeme', 'audit', 'comptes'];
+// Permissions techniques : réservées au rôle Admin Système, jamais attribuables aux rôles institutionnels.
+const MODULES_TECHNIQUES = ['systeme', 'securite', 'sauvegarde', 'audit', 'role', 'session', 'carte'];
+const PERMS_TECHNIQUES = ['compte.creer_initial', 'compte.deverrouiller', 'compte.reinitialiser_mot_de_passe', 'organisation.configurer', 'referentiel.gerer'];
+const estTechnique = (p) => MODULES_TECHNIQUES.includes(p.module) || PERMS_TECHNIQUES.includes(p.code);
+// Rôles d’autorité : leur attribution ou leur retrait exige une décision administrative enregistrée.
+const ROLES_DECISION = ['ADMIN_SYSTEME', 'SECRETAIRE_GENERAL', 'DIRECTEUR', 'CHEF_DIVISION'];
 
 async function rolesOf(userId, trx = db) {
   return (await trx('user_roles as ur').join('roles as r', 'r.id', 'ur.role_id').where('ur.user_id', userId).select('r.code')).map((r) => r.code);
@@ -39,7 +46,9 @@ async function userView(id) {
     .leftJoin('bureaux as b', 'b.id', 'a.bureau_id').leftJoin('divisions as d', 'd.id', 'a.division_id')
     .leftJoin('users as au', 'au.id', 'u.autorise_par')
     .where('u.id', id)
-    .first('u.id', 'u.username', 'u.statut', 'u.must_change_password', 'u.failed_attempts', 'u.locked_until', 'u.last_login_at',
+    .first('u.id', 'u.username', 'u.statut', 'u.must_change_password', 'u.failed_attempts', 'u.locked_until', 'u.last_login_at', 'u.motif_blocage',
+      'u.totp_actif', 'u.totp_active_at', 'u.email_recuperation_verifie_at', 'u.regles_acceptees_version', 'u.regles_acceptees_at', 'u.password_changed_at',
+      db.raw(`case when u.email_recuperation is null then null else regexp_replace(u.email_recuperation, '^(.).*(@.*)$', '\\1•••\\2') end as email_recuperation`),
       'u.created_at', 'u.autorise_at', 'au.username as autorise_par_username', 'u.agent_id', 'ag.matricule', 'ag.nom', 'ag.postnom', 'ag.prenom',
       'ag.est_autorite', 'a.niveau', 'b.nom as bureau_nom', 'b.est_secretariat_direction', 'd.nom as division_nom');
   if (!u) return null;
@@ -54,8 +63,8 @@ async function assertManageable(ctx, targetId) {
   const target = await db('users').where({ id: targetId }).first();
   if (!target) throw notFound('Compte introuvable.');
   const roles = await rolesOf(targetId);
-  if (ctx.primaryRole === 'ADMIN' || ctx.roles.includes('ADMIN')) return { target, roles };
-  if (roles.includes('ADMIN') || roles.includes('SECRETAIRE_GENERAL') || roles.includes('DIRECTEUR')) {
+  if (ctx.primaryRole === 'ADMIN_SYSTEME' || ctx.roles.includes('ADMIN_SYSTEME')) return { target, roles };
+  if (roles.includes('ADMIN_SYSTEME') || roles.includes('SECRETAIRE_GENERAL') || roles.includes('DIRECTEUR')) {
     throw forbidden('Ce compte institutionnel relève de l’administration technique du système.');
   }
   if (target.id === ctx.userId) throw forbidden('Vous ne pouvez pas modifier votre propre compte par cette opération.');
@@ -86,27 +95,30 @@ async function setRoles(trx, userId, roles, grantedBy) {
 }
 
 // ─── Consultation ───────────────────────────────────────────────────────────
-router.get('/', requirePerm('comptes.consulter'), validate({ query: z.object({ q: z.string().max(80).optional(), statut: z.enum(['ACTIF', 'DESACTIVE', 'VERROUILLE']).optional(), role: z.string().max(40).optional() }) }), async (req, res) => {
-  const { q, statut, role } = req.valid.query;
+router.get('/', requirePerm('compte.consulter'), validate({ query: z.object({ q: z.string().max(80).optional(), statut: z.enum(['ACTIF', 'DESACTIVE', 'VERROUILLE']).optional(), role: z.string().max(40).optional(), inactifs: z.enum(['1', 'true']).optional() }) }), async (req, res) => {
+  const { q, statut, role, inactifs } = req.valid.query;
+  const seuil = (await politique()).inactivite_compte_jours;
   const query = db('users as u')
     .leftJoin('agents as ag', 'ag.id', 'u.agent_id')
     .leftJoin('affectations as a', function j() { this.on('a.agent_id', 'u.agent_id').andOn('a.est_active', db.raw('true')); })
     .leftJoin('bureaux as b', 'b.id', 'a.bureau_id').leftJoin('divisions as d', 'd.id', 'a.division_id')
-    .select('u.id', 'u.username', 'u.statut', 'u.must_change_password', 'u.last_login_at', 'u.locked_until', 'u.created_at', 'u.autorise_par',
+    .select('u.id', 'u.username', 'u.statut', 'u.must_change_password', 'u.last_login_at', 'u.locked_until', 'u.created_at', 'u.autorise_par', 'u.totp_actif', 'u.motif_blocage',
+      db.raw(`(u.statut <> 'DESACTIVE' and coalesce(u.last_login_at, u.created_at) < now() - make_interval(days => ?)) as inactif`, [seuil]),
       'ag.matricule', 'ag.nom', 'ag.postnom', 'ag.prenom', 'b.nom as bureau_nom', 'd.nom as division_nom',
       db.raw(`ARRAY(SELECT r.code FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id) as roles`))
     .orderBy('u.username');
-  if (!req.ctx.roles.includes('ADMIN')) {
+  if (!req.ctx.roles.includes('ADMIN_SYSTEME')) {
     // Directeur / Bureau Secrétariat : uniquement les comptes des Agents de la DEP
-    query.whereNotExists(db('user_roles as ur').join('roles as r', 'r.id', 'ur.role_id').whereRaw('ur.user_id = u.id').whereIn('r.code', ['ADMIN', 'SECRETAIRE_GENERAL']));
+    query.whereNotExists(db('user_roles as ur').join('roles as r', 'r.id', 'ur.role_id').whereRaw('ur.user_id = u.id').whereIn('r.code', ['ADMIN_SYSTEME', 'SECRETAIRE_GENERAL']));
   }
   if (q) query.where((w) => w.whereILike('u.username', `%${q}%`).orWhereILike('ag.nom', `%${q}%`).orWhereILike('ag.prenom', `%${q}%`));
   if (statut) query.where('u.statut', statut);
+  if (inactifs) query.whereNot('u.statut', 'DESACTIVE').whereRaw('coalesce(u.last_login_at, u.created_at) < now() - make_interval(days => ?)', [seuil]);
   if (role) query.whereExists(db('user_roles as ur').join('roles as r', 'r.id', 'ur.role_id').whereRaw('ur.user_id = u.id').where('r.code', role));
-  res.json({ data: await query });
+  res.json({ data: await query, seuilInactiviteJours: seuil });
 });
 
-router.get('/roles', requirePerm('comptes.consulter', 'roles.gerer'), async (req, res) => {
+router.get('/roles', requirePerm('compte.consulter', 'role.attribuer'), async (req, res) => {
   const roles = await db('roles').orderBy('id');
   const perms = await db('permissions').orderBy(['module', 'code']);
   const rp = await db('role_permissions as rp').join('roles as r', 'r.id', 'rp.role_id').join('permissions as p', 'p.id', 'rp.permission_id').select('r.code as role', 'p.code as permission');
@@ -126,13 +138,13 @@ router.get('/delegations', requirePerm('delegations.gerer'), async (req, res) =>
   res.json({ data: rows, chefSecretariat: chef || null, delegables: await db('permissions').where({ delegable: true }) });
 });
 
-router.get('/:id', requirePerm('comptes.consulter'), validate({ params: idParam }), async (req, res) => {
+router.get('/:id', requirePerm('compte.consulter'), validate({ params: idParam }), async (req, res) => {
   const u = await userView(req.valid.params.id);
   if (!u) throw notFound('Compte introuvable.');
-  if (!req.ctx.roles.includes('ADMIN') && u.roles.some((r) => ['ADMIN', 'SECRETAIRE_GENERAL'].includes(r))) throw forbidden();
+  if (!req.ctx.roles.includes('ADMIN_SYSTEME') && u.roles.some((r) => ['ADMIN_SYSTEME', 'SECRETAIRE_GENERAL'].includes(r))) throw forbidden();
   const connexions = await db('login_history').where({ user_id: u.id }).orderBy('created_at', 'desc').limit(30);
   const sessions = await db('refresh_tokens').where({ user_id: u.id }).whereNull('revoked_at').where('expires_at', '>', db.fn.now())
-    .select('id', 'ip', 'user_agent', 'created_at', 'expires_at').orderBy('created_at', 'desc');
+    .select('id', 'family_id', 'ip', 'user_agent', 'created_at', 'expires_at').orderBy('created_at', 'desc');
   res.json({ ...u, connexions, sessions });
 });
 
@@ -150,7 +162,7 @@ const initialSchema = z.object({
   date_prise_fonction: z.union([z.string().date(), z.literal('').transform(() => undefined)]).optional(),
 });
 
-router.post('/initial', requirePerm('comptes.creer_initial'), validate({ body: initialSchema }), async (req, res) => {
+router.post('/initial', requirePerm('compte.creer_initial'), validate({ body: initialSchema }), async (req, res) => {
   const b = req.valid.body;
   const existing = await db('users as u').join('user_roles as ur', 'ur.user_id', 'u.id').join('roles as r', 'r.id', 'ur.role_id')
     .where('r.code', b.type).whereNot('u.statut', 'DESACTIVE').first('u.id');
@@ -192,14 +204,20 @@ router.post('/initial', requirePerm('comptes.creer_initial'), validate({ body: i
 // uniquement pour les agents inscrits sur la liste déclarative validée.
 
 // ─── Rôles d’un compte ──────────────────────────────────────────────────────
-router.put('/:id/roles', requirePerm('roles.gerer'), validate({ params: idParam, body: z.object({ roles: z.array(z.enum(['ADMIN', 'SECRETAIRE_GENERAL', 'DIRECTEUR', 'CHEF_DIVISION', 'CHEF_BUREAU', 'AGENT'])).min(1).max(3) }) }), async (req, res) => {
+router.put('/:id/roles', requirePerm('role.attribuer'), validate({ params: idParam, body: z.object({ roles: z.array(z.enum(['ADMIN_SYSTEME', 'SECRETAIRE_GENERAL', 'DIRECTEUR', 'CHEF_DIVISION', 'CHEF_BUREAU', 'AGENT'])).min(1).max(3) }) }), async (req, res) => {
   const { target, roles: before } = await assertManageable(req.ctx, req.valid.params.id);
   const roles = [...new Set(req.valid.body.roles)];
-  const isAdmin = req.ctx.roles.includes('ADMIN');
+  const isAdmin = req.ctx.roles.includes('ADMIN_SYSTEME');
   if (!isAdmin && roles.some((r) => !DEP_ROLES.includes(r))) throw forbidden('Vous ne pouvez attribuer que les rôles Chef de Division, Chef de Bureau ou Agent.');
-  if (target.id === req.ctx.userId && before.includes('ADMIN') && !roles.includes('ADMIN')) throw badRequest('Vous ne pouvez pas retirer votre propre rôle Admin.');
-  if (target.agent_id) await checkRoleCoherence(target.agent_id, roles.filter((r) => r !== 'ADMIN' && r !== 'SECRETAIRE_GENERAL'));
-  else if (roles.some((r) => r !== 'ADMIN')) throw badRequest('Un compte non lié à un Agent ne peut recevoir qu’un rôle technique.');
+  // L’Admin ne fait jamais d’une personne un Directeur, un Chef de Division, un Secrétaire Général ou un Admin
+  // (ni ne retire ces rôles) sans décision administrative enregistrée.
+  const sensibles = ROLES_DECISION.filter((r) => roles.includes(r) !== before.includes(r));
+  if (sensibles.length) {
+    throw forbidden(`L’attribution ou le retrait du rôle ${sensibles.map((r) => ROLE_LIBELLES[r]).join(', ')} exige une décision administrative enregistrée : opération refusée.`, 'DECISION_ADMINISTRATIVE_REQUISE');
+  }
+  if (target.id === req.ctx.userId && before.includes('ADMIN_SYSTEME') && !roles.includes('ADMIN_SYSTEME')) throw badRequest('Vous ne pouvez pas retirer votre propre rôle Admin.');
+  if (target.agent_id) await checkRoleCoherence(target.agent_id, roles.filter((r) => r !== 'ADMIN_SYSTEME' && r !== 'SECRETAIRE_GENERAL'));
+  else if (roles.some((r) => r !== 'ADMIN_SYSTEME')) throw badRequest('Un compte non lié à un Agent ne peut recevoir qu’un rôle technique.');
   await db.transaction(async (trx) => {
     await setRoles(trx, target.id, roles, req.ctx.userId);
     await trx('users').where({ id: target.id }).increment('token_version', 1);
@@ -209,16 +227,19 @@ router.put('/:id/roles', requirePerm('roles.gerer'), validate({ params: idParam,
 });
 
 // ─── Statut, mot de passe, sessions ─────────────────────────────────────────
-router.post('/:id/activer', requirePerm('comptes.activer'), validate({ params: idParam }), async (req, res) => {
+router.post('/:id/activer', requirePerm('compte.activer'), validate({ params: idParam }), async (req, res) => {
   const { target } = await assertManageable(req.ctx, req.valid.params.id);
   await db('users').where({ id: target.id }).update({ statut: 'ACTIF', failed_attempts: 0, locked_until: null, updated_at: db.fn.now() });
   await audit(req, { action: 'ACTIVATION', module: 'comptes', entite: 'user', entiteId: target.id, avant: { statut: target.statut }, apres: { statut: 'ACTIF' } });
   res.json({ message: 'Compte activé.' });
 });
 
-router.post('/:id/desactiver', requirePerm('comptes.activer'), validate({ params: idParam, body: z.object({ motif: z.string().trim().max(300).optional() }) }), async (req, res) => {
-  const { target } = await assertManageable(req.ctx, req.valid.params.id);
+router.post('/:id/desactiver', requirePerm('compte.desactiver'), validate({ params: idParam, body: z.object({ motif: z.string().trim().max(300).optional() }) }), async (req, res) => {
+  const { target, roles } = await assertManageable(req.ctx, req.valid.params.id);
   if (target.id === req.ctx.userId) throw badRequest('Vous ne pouvez pas désactiver votre propre compte.');
+  if (roles.includes('DIRECTEUR') || roles.includes('ADMIN_SYSTEME')) {
+    await alerter({ type: 'DESACTIVATION_SENSIBLE', gravite: 'CRITIQUE', titre: `Désactivation du compte « ${target.username} » (${roles.map((r) => ROLE_LIBELLES[r]).join(', ')})`, message: `Par ${req.ctx.username}. Motif : ${req.valid.body.motif || 'non précisé'}.`, user: target, ip: req.ip });
+  }
   await db.transaction(async (trx) => {
     await trx('users').where({ id: target.id }).update({ statut: 'DESACTIVE', updated_at: trx.fn.now() });
     await revokeAllForUser(target.id, 'DESACTIVATION', trx);
@@ -227,7 +248,7 @@ router.post('/:id/desactiver', requirePerm('comptes.activer'), validate({ params
   res.json({ message: 'Compte désactivé et sessions révoquées.' });
 });
 
-router.post('/:id/reinitialiser-mot-de-passe', requirePerm('comptes.reinitialiser'), validate({ params: idParam }), async (req, res) => {
+router.post('/:id/reinitialiser-mot-de-passe', requirePerm('compte.reinitialiser_mot_de_passe'), validate({ params: idParam }), async (req, res) => {
   const { target } = await assertManageable(req.ctx, req.valid.params.id);
   const temp = temporaryPassword();
   const hash = await bcrypt.hash(temp, 12);
@@ -240,15 +261,40 @@ router.post('/:id/reinitialiser-mot-de-passe', requirePerm('comptes.reinitialise
   res.json({ motDePasseTemporaire: temp, message: 'Mot de passe réinitialisé. Il devra être changé à la prochaine connexion.' });
 });
 
-router.post('/:id/deverrouiller', requirePerm('comptes.deverrouiller'), validate({ params: idParam }), async (req, res) => {
+// Blocage temporaire d’un compte compromis (déblocage automatique à l’échéance)
+router.post('/:id/bloquer', requirePerm('compte.desactiver'), validate({ params: idParam, body: z.object({ minutes: z.coerce.number().int().min(5).max(10080), motif: z.string().trim().min(3, 'motif requis').max(300) }) }), async (req, res) => {
+  const { target } = await assertManageable(req.ctx, req.valid.params.id);
+  if (target.id === req.ctx.userId) throw badRequest('Vous ne pouvez pas bloquer votre propre compte.');
+  if (target.statut === 'DESACTIVE') throw badRequest('Ce compte est désactivé.');
+  const jusqua = new Date(Date.now() + req.valid.body.minutes * 60000);
+  await db.transaction(async (trx) => {
+    await trx('users').where({ id: target.id }).update({ statut: 'VERROUILLE', locked_until: jusqua, motif_blocage: `Blocage par l’Admin : ${req.valid.body.motif}`, updated_at: trx.fn.now() });
+    await revokeAllForUser(target.id, 'BLOCAGE', trx);
+  });
+  await audit(req, { action: 'BLOCAGE', module: 'comptes', entite: 'user', entiteId: target.id, avant: { statut: target.statut }, apres: { statut: 'VERROUILLE', jusqua }, message: req.valid.body.motif });
+  await alerter({ type: 'BLOCAGE', gravite: 'ATTENTION', titre: `Compte « ${target.username} » bloqué temporairement`, message: `${req.valid.body.minutes} min — ${req.valid.body.motif}`, user: target, ip: req.ip });
+  res.json({ message: `Compte bloqué jusqu’au ${jusqua.toLocaleString('fr-FR', { timeZone: 'Africa/Kinshasa' })} ; sessions révoquées.` });
+});
+
+// Changement de mot de passe imposé à la prochaine requête (sans révéler ni générer de mot de passe)
+router.post('/:id/imposer-changement', requirePerm('compte.reinitialiser_mot_de_passe'), validate({ params: idParam }), async (req, res) => {
+  const { target } = await assertManageable(req.ctx, req.valid.params.id);
+  if (target.id === req.ctx.userId) throw badRequest('Changez votre propre mot de passe depuis votre profil.');
+  await db('users').where({ id: target.id }).update({ must_change_password: true, updated_at: db.fn.now() });
+  await audit(req, { action: 'CHANGEMENT_MDP_IMPOSE', module: 'comptes', entite: 'user', entiteId: target.id, message: 'Changement de mot de passe imposé' });
+  await notify(target.id, { type: 'MDP_REINITIALISE', titre: 'Changement de mot de passe exigé', message: 'L’Admin Système vous demande de changer votre mot de passe : il vous sera demandé immédiatement.', lien: '/profil', expediteur: req.ctx.userId });
+  res.json({ message: 'Le titulaire devra changer son mot de passe avant toute autre opération.' });
+});
+
+router.post('/:id/deverrouiller', requirePerm('compte.deverrouiller'), validate({ params: idParam }), async (req, res) => {
   const { target } = await assertManageable(req.ctx, req.valid.params.id);
   if (target.statut !== 'VERROUILLE') throw badRequest('Ce compte n’est pas verrouillé.');
-  await db('users').where({ id: target.id }).update({ statut: 'ACTIF', failed_attempts: 0, locked_until: null, updated_at: db.fn.now() });
+  await db('users').where({ id: target.id }).update({ statut: 'ACTIF', failed_attempts: 0, locked_until: null, motif_blocage: null, updated_at: db.fn.now() });
   await audit(req, { action: 'DEVERROUILLAGE', module: 'comptes', entite: 'user', entiteId: target.id, avant: { statut: 'VERROUILLE' }, apres: { statut: 'ACTIF' } });
   res.json({ message: 'Compte déverrouillé.' });
 });
 
-router.post('/:id/revoquer-sessions', requirePerm('sessions.revoquer'), validate({ params: idParam }), async (req, res) => {
+router.post('/:id/revoquer-sessions', requirePerm('session.revoquer'), validate({ params: idParam }), async (req, res) => {
   const { target } = await assertManageable(req.ctx, req.valid.params.id);
   await revokeAllForUser(target.id, 'REVOCATION_ADMIN');
   await audit(req, { action: 'REVOCATION_SESSION', module: 'comptes', entite: 'user', entiteId: target.id });
@@ -256,16 +302,18 @@ router.post('/:id/revoquer-sessions', requirePerm('sessions.revoquer'), validate
 });
 
 // ─── Permissions des rôles (Admin) ──────────────────────────────────────────
-router.put('/roles/:code/permissions', requirePerm('roles.gerer'), validate({ params: z.object({ code: z.string().max(40) }), body: z.object({ permissions: z.array(z.string().max(60)).max(200) }) }), async (req, res) => {
+router.put('/roles/:code/permissions', requirePerm('role.attribuer'), validate({ params: z.object({ code: z.string().max(40) }), body: z.object({ permissions: z.array(z.string().max(60)).max(200) }) }), async (req, res) => {
   const role = await db('roles').where({ code: req.valid.params.code }).first();
   if (!role) throw notFound('Rôle introuvable.');
   const perms = await db('permissions').whereIn('code', req.valid.body.permissions);
   if (perms.length !== new Set(req.valid.body.permissions).size) throw badRequest('Permission inconnue.');
-  if (role.code === 'ADMIN') {
-    const bad = perms.filter((p) => !ADMIN_ALLOWED_MODULES.includes(p.module) && p.code !== 'organisation.consulter');
-    if (bad.length) throw forbidden(`L’Admin est un administrateur technique : il ne peut recevoir de permission fonctionnelle (${bad.map((p) => p.code).join(', ')}).`, 'ADMIN_TECHNIQUE');
+  if (role.code === 'ADMIN_SYSTEME') {
+    // Rôle protégé : sa modification exige une double validation (Directeur), non disponible ici.
+    throw forbidden('Le rôle Admin Système est protégé : sa modification exige la validation du Directeur.', 'ROLE_PROTEGE');
   }
-  if (['CHEF_BUREAU', 'AGENT', 'SECRETAIRE_GENERAL', 'ADMIN'].includes(role.code)) {
+  const techniques = perms.filter(estTechnique);
+  if (techniques.length) throw forbidden(`Permissions techniques incompatibles avec le rôle ${role.libelle} : ${techniques.map((p) => p.code).join(', ')}.`, 'PERMISSION_INCOMPATIBLE');
+  if (['CHEF_BUREAU', 'AGENT', 'SECRETAIRE_GENERAL', 'ADMIN_SYSTEME'].includes(role.code)) {
     const bad = perms.filter((p) => p.reservee_division);
     if (bad.length) throw forbidden(`Les permissions réservées aux Divisions ne peuvent être attribuées au rôle ${role.libelle}.`, 'PERMISSION_DIVISION');
   }
