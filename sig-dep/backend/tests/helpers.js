@@ -41,7 +41,7 @@ async function enroler(token, agentId, fields = {}) {
   const { photo = true, commission = true, ...rest } = fields;
   const data = {
     sexe: 'F', date_naissance: '1985-03-10', date_mise_en_service: '2010-01-04',
-    numero_carte_igap: `IGAP-T${process.pid}-${++igapSeq}`, ...rest,
+    numero_carte_igap: `IGAP-T${process.pid}-${++igapSeq}`, identite_confirmee: 'true', affectation_confirmee: 'true', ...rest,
   };
   if (data.fonction_id === undefined) {
     const ag = await db('agents').where({ id: agentId }).first();

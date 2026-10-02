@@ -10,6 +10,7 @@ const { performanceParStructure, statutsCount } = require('../../services/stats'
 const { scopeDocuments, scopeInstructions, scopeTasks, scopeCourriers, scopePip, scopePresences } = require('../../services/access');
 const { DEP_NOM } = require('../../constants');
 const liste = require('../../services/listeDeclarative');
+const { donneesDemo } = require('../../services/reinitialisation');
 
 const router = express.Router();
 
@@ -188,7 +189,7 @@ router.get('/', async (req, res) => {
     case 'AGENT': data = await agentDashboard(ctx); break;
     default: data = {};
   }
-  if (ctx.roles.includes('ADMIN')) data.admin = await adminDashboard();
+  if (ctx.roles.includes('ADMIN')) data.admin = { ...(await adminDashboard()), donneesDemo: await donneesDemo() };
   // Mise en service des comptes (Admin, Directeur, Bureau Secrétariat de Direction)
   if (ctx.can('liste.consulter') || ctx.can('comptes.enroler')) data.miseEnService = await liste.progression();
   res.json({ ...base, ...data });

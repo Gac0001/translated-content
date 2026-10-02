@@ -1,0 +1,64 @@
+'use strict';
+/**
+ * Réinitialisation de la base par l’Admin (mise en service).
+ * Le test se termine par un rechargement des données fictives pour laisser la base
+ * de test dans son état de démonstration.
+ */
+const { db, login, loginAdmin, api, ADMIN_NEW } = require('./helpers');
+
+describe('Réinitialisation de la base', () => {
+  let admin;
+  beforeAll(async () => { admin = api(await loginAdmin()); });
+
+  test('réservée à l’Admin, avec phrase de confirmation et mot de passe', async () => {
+    for (const u of ['directeur', 'cb.secretariat', 'sg']) {
+      const c = api(await login(u));
+      expect((await c.get('/systeme/reinitialisation')).status).toBe(403);
+      expect((await c.post('/systeme/reinitialisation', { mode: 'VIERGE', confirmation: 'REINITIALISER', motDePasse: 'Demo@2026', sauvegarde: false })).status).toBe(403);
+    }
+    const e = await admin.get('/systeme/reinitialisation');
+    expect(e.status).toBe(200);
+    expect(e.body.donneesDemo).toBe(true);
+    expect(e.body.volumes.agents).toBeGreaterThan(20);
+    expect((await admin.get('/dashboard')).body.admin.donneesDemo).toBe(true);
+    expect((await admin.post('/systeme/reinitialisation', { mode: 'VIERGE', confirmation: 'oui', motDePasse: ADMIN_NEW, sauvegarde: false })).status).toBe(400);
+    expect((await admin.post('/systeme/reinitialisation', { mode: 'VIERGE', confirmation: 'REINITIALISER', motDePasse: 'mauvais', sauvegarde: false })).status).toBe(400);
+    expect(Number((await db('agents').count('* as n').first()).n)).toBeGreaterThan(20);
+  });
+
+  test('base vierge : seuls l’organigramme, les référentiels et le compte Admin subsistent', async () => {
+    const divisions = Number((await db('divisions').count('* as n').first()).n);
+    const r = await admin.post('/systeme/reinitialisation', { mode: 'VIERGE', confirmation: 'reinitialiser', motDePasse: ADMIN_NEW, sauvegarde: false });
+    expect(r.status).toBe(200);
+    expect(r.body.volumes).toMatchObject({ agents: 0, comptes: 1, instructions: 0, courriers: 0, documents: 0, pip: 0 });
+    expect(Number((await db('divisions').count('* as n').first()).n)).toBe(divisions);
+    expect(await db('bureaux').where({ code: 'BSD', est_secretariat_direction: true }).first()).toBeTruthy();
+    // L’Admin reste connecté et la réinitialisation est tracée
+    const e = await admin.get('/systeme/reinitialisation');
+    expect(e.status).toBe(200);
+    expect(e.body.donneesDemo).toBe(false);
+    const log = await db('audit_logs').where({ action: 'REINITIALISATION', resultat: 'SUCCES' }).first();
+    expect(log.message).toMatch(/base vierge/);
+    // Mise en service : l’Admin crée le Directeur, qui trouve une liste vide à constituer
+    const d = await admin.post('/users/initial', { type: 'DIRECTEUR', username: 'directeur.dep', matricule: 'DIR-0001', nom: 'DIRECTEUR', prenom: 'Test' });
+    expect(d.status).toBe(201);
+    const { request, app } = require('./helpers');
+    await db('users').where({ id: d.body.id }).update({ must_change_password: false });
+    const l = await request(app).post('/api/auth/login').send({ username: 'directeur.dep', password: d.body.motDePasseTemporaire });
+    const dir = api(l.body.accessToken);
+    const liste = await dir.get('/liste-declarative');
+    expect(liste.body).toMatchObject({ statut: 'NON_VALIDEE', actions: { valider: true } });
+    expect((await dir.post('/liste-declarative/valider', {})).status).toBe(400); // liste vide
+  });
+
+  test('rechargement des données fictives de démonstration', async () => {
+    const r = await admin.post('/systeme/reinitialisation', { mode: 'DEMO', confirmation: 'REINITIALISER', motDePasse: ADMIN_NEW, sauvegarde: false });
+    expect(r.status).toBe(200);
+    expect(r.body.volumes.agents).toBeGreaterThan(20);
+    expect(r.body.volumes.instructions).toBeGreaterThan(0);
+    expect((await admin.get('/systeme/reinitialisation')).body.donneesDemo).toBe(true);
+    expect(await db('users').where({ username: 'directeur.dep' }).first()).toBeUndefined();
+    // Les comptes fictifs fonctionnent à nouveau
+    expect((await api(await login('directeur')).get('/liste-declarative')).body.statut).toBe('VALIDEE');
+  });
+});

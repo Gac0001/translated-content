@@ -102,9 +102,22 @@ Les **missions et attributions** de ces structures sont déduites de leurs intit
 
 Les **comptes de démonstration** reposent sur des personnes fictives. Le personnel réel ne figure pas dans le code : il se charge par **l’import** (section suivante).
 
+### Mise en service : retirer les données fictives
+
+Tant que la base contient les données fictives, l’Admin voit dès sa connexion un bandeau « La base contient des données fictives de démonstration » avec le bouton **Réinitialiser la base** (aussi accessible par le menu Administration → Réinitialisation, et depuis la page Système).
+
+| Type | Effet |
+|---|---|
+| **Base vierge — mise en service** | Supprime agents, comptes, instructions, tâches, courriers, documents, PIP, présences, pièces jointes (fichiers compris), notifications et journaux. Conserve l’organigramme, les grades, les fonctions, les rôles et permissions, les paramètres et le compte Admin (même mot de passe, session conservée). |
+| **Données fictives — formation** | Même nettoyage, puis rechargement des données de démonstration (comptes `Demo@2026`). |
+
+Garde-fous : réservé à l’Admin (`systeme.reinitialiser`), saisie de `REINITIALISER` et du mot de passe Admin, **sauvegarde automatique préalable** (`storage/backups/sig-dep-…-avant-reinitialisation.dump`) ; si la sauvegarde échoue, rien n’est supprimé. Tout se fait en une seule transaction et l’opération est inscrite au journal d’audit. Les autres utilisateurs sont déconnectés.
+
+Après une réinitialisation « base vierge », le tableau de bord guide la mise en service : 1) l’Admin crée le compte du Directeur ; 2) le Directeur importe la liste officielle (section suivante), la vérifie et la valide, puis la **génère en PDF** (« Liste officielle (PDF) », avec bloc de signature ; tant qu’elle n’est pas validée, le document est intitulé « Projet de liste déclarative ») ; 3) l’Admin enrôle le Bureau Secrétariat de Direction ; 4) le Secrétariat enrôle les agents des Divisions.
+
 ### Import du personnel réel
 
-1. Installer sans démonstration : `SEED_DEMO=false` dans `backend/.env`, puis `npm run migrate` et `npm run seed`.
+1. Partir d’une base sans données fictives : réinitialisation « base vierge » (ci-dessus) ou, pour une nouvelle installation, `SEED_DEMO=false` dans `backend/.env`, puis `npm run migrate` et `npm run seed`.
 2. L’Admin crée le compte du Directeur (Comptes → « Compte institutionnel »).
 3. Le Directeur ouvre **Personnel → Importer une liste** et dépose la liste officielle : document **Word** (tableau « N° / NOM, POSTNOM & PRENOM / MATRICULE / FONCTION » avec lignes de section « 1. Bureau Secrétariat de Direction », « 2.1. Bureau … »), **Excel** ou **CSV**. Un modèle Excel prérempli avec les structures est téléchargeable depuis la même page.
 4. L’**analyse** n’enregistre rien. Elle rattache chaque ligne à sa structure (sans tenir compte des accents ni de la numérotation), découpe nom / postnom / prénom et normalise les matricules (`1.234.567` → `1234567`). Elle propose aussi le poste (grade CD au niveau d’une Division → Chef de Division ; grade CB dans un Bureau → Chef de Bureau) et signale les anomalies : doublons, grade inconnu, structure non reconnue, responsable déjà en poste, structures sans responsable.
@@ -123,7 +136,15 @@ Les comptes des agents ne se créent plus librement : ils sont **enrôlés** à 
 3. **L’Admin enrôle les agents du Bureau Secrétariat de Direction** (menu « Enrôlement des agents »). Il peut techniquement enrôler tous les agents, mais l’écran lui propose de commencer par le Secrétariat.
 4. **Les membres du Bureau Secrétariat de Direction** (quel que soit leur rôle) reçoivent alors l’option d’enrôlement et créent les comptes des agents **des Divisions et des autres Bureaux**. Les comptes du Secrétariat restent réservés à l’Admin. Les agents des autres structures n’ont ni l’option ni l’accès, qui est refusé par l’API (403).
 
-**Enrôlement.** L’agent doit figurer sur la liste validée. On le recherche par nom ou matricule. Le formulaire reprend les informations connues : nom, postnom, prénom, matricule, grade, ainsi que la Division, le Bureau et le poste, verrouillés si l’agent est déjà affecté. Les champs suivants sont **obligatoires** :
+**Enrôlement, en cinq étapes :**
+
+1. **Identification** : on saisit le matricule (avec ou sans points) ou le nom. Le système cherche dans toute la base et indique pour chaque agent s’il est enrôlable, absent de la liste, en attente de revalidation, déjà doté d’un compte ou hors de la portée de l’utilisateur.
+2. **Fiche de la liste** : la fiche est générée à partir de la liste validée (nom, postnom, prénom, matricule, grade). L’enrôleur atteste avoir vérifié l’identité de l’agent ; en cas d’erreur, il ne poursuit pas et la signale au Directeur.
+3. **Affectation** : la Division, le Bureau et le poste sont repris de la liste (non modifiables) ou, si l’agent n’est pas affecté, choisis. L’enrôleur joint la **commission d’affectation** et confirme que l’affectation lui correspond.
+4. **Informations complémentaires** (voir ci-dessous) et **photo**.
+5. **Récapitulatif** puis création du compte.
+
+Les deux confirmations (identité, affectation) sont exigées par l’API et tracées dans le journal d’audit. Les champs suivants sont **obligatoires** :
 
 * sexe, date de naissance, date de mise en service (postérieure aux 18 ans de l’agent) ;
 * numéro de la carte **IGAP** (unique) ;
@@ -378,6 +399,7 @@ Les tests réinitialisent la base `sig_dep_test` (migrations et seeds), puis vé
 * la liste déclarative (validation réservée au Directeur et à l’Admin, revalidation après modification) et l’enrôlement (portée Admin / Secrétariat, pièces et champs obligatoires, fonction conforme au grade, carte IGAP unique), l’historique des affectations et le journal d’audit en lecture seule ;
 * les exports PDF, Excel et Word, et les tableaux de bord de chaque rôle ;
 * la gestion des structures : postes créés automatiquement, Bureau rattaché au Directeur, propagation d’un changement de rattachement, archivage protégé ;
+* la réinitialisation de la base (réservée à l’Admin, confirmations, base vierge conservant l’organigramme et le compte Admin, rechargement des données fictives) et l’identification des agents à l’enrôlement ;
 * la recherche globale limitée au périmètre, et la sérialisation du journal d’audit ;
 * les notifications par e-mail : mise en file, préférences, confidentialité, mot de passe jamais envoyé, envoi SMTP réel vers un serveur de test local, réessais puis échec et relance, administration.
 

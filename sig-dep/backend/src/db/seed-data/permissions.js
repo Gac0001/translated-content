@@ -10,6 +10,7 @@ const PERMISSIONS = [
   ['systeme.parametres', 'systeme', 'Gérer les paramètres du système'],
   ['systeme.etat', 'systeme', 'Consulter l’état technique du système'],
   ['systeme.sauvegardes', 'systeme', 'Organiser les sauvegardes'],
+  ['systeme.reinitialiser', 'systeme', 'Réinitialiser la base de données (mise en service)'],
   ['audit.consulter', 'audit', 'Consulter le journal d’audit'],
   ['roles.gerer', 'comptes', 'Gérer les rôles et permissions'],
   // Comptes
@@ -89,7 +90,7 @@ const ROLES = [
 
 const MATRICE = {
   ADMIN: [
-    'systeme.parametres', 'systeme.etat', 'systeme.sauvegardes', 'audit.consulter', 'roles.gerer',
+    'systeme.parametres', 'systeme.etat', 'systeme.sauvegardes', 'systeme.reinitialiser', 'audit.consulter', 'roles.gerer',
     'comptes.consulter', 'comptes.creer_initial', 'comptes.activer', 'comptes.reinitialiser',
     'comptes.deverrouiller', 'sessions.revoquer', 'organisation.consulter',
     'comptes.enroler', 'liste.consulter', 'liste.gerer', 'liste.valider',
