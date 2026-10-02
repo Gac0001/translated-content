@@ -28,10 +28,18 @@ describe('Réinitialisation de la base', () => {
 
   test('base vierge : seuls l’organigramme, les référentiels et le compte Admin subsistent', async () => {
     const divisions = Number((await db('divisions').count('* as n').first()).n);
+    const compte = async (t) => Number((await db(t).count('* as n').first()).n);
+    const [auditAvant, connexionsAvant] = [await compte('audit_logs'), await compte('login_history')];
     const r = await admin.post('/systeme/reinitialisation', { mode: 'VIERGE', confirmation: 'reinitialiser', motDePasse: ADMIN_NEW, sauvegarde: false });
     expect(r.status).toBe(200);
     expect(r.body.volumes).toMatchObject({ agents: 0, comptes: 1, instructions: 0, courriers: 0, documents: 0, pip: 0 });
     expect(Number((await db('divisions').count('* as n').first()).n)).toBe(divisions);
+    // Traçabilité conservée : ni le journal d’audit ni l’historique des connexions ne sont effacés
+    expect(await compte('audit_logs')).toBeGreaterThan(auditAvant);
+    expect(await compte('login_history')).toBeGreaterThanOrEqual(connexionsAvant);
+    expect((await admin.get('/audit/integrite')).body.integre).toBe(true);
+    // L’Admin conserve sa double authentification
+    expect((await db('users').where({ username: 'admin' }).first()).totp_actif).toBe(true);
     expect(await db('bureaux').where({ code: 'BSD', est_secretariat_direction: true }).first()).toBeTruthy();
     // L’Admin reste connecté et la réinitialisation est tracée
     const e = await admin.get('/systeme/reinitialisation');

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import {
   LayoutDashboard, Network, BookOpen, Users, UserCog, CalendarCheck, Mail, Send, ListTodo, FileText, FolderKanban,
-  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap,
+  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap, ShieldAlert,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth, useCompteurs } from '../../store/auth';
@@ -28,12 +28,13 @@ const MENU = [
   { to: '/pip', label: 'Projets PIP', icon: FolderKanban, perms: ['pip.consulter'], counter: 'pip' },
   { section: 'Administration' },
   { to: '/liste-declarative', label: 'Liste déclarative', icon: ListChecks, perms: ['liste.consulter'] },
-  { to: '/comptes/enrolement', label: 'Enrôlement des agents', icon: UserPlus, perms: ['comptes.enroler'] },
-  { to: '/comptes', label: 'Comptes utilisateurs', icon: UserCog, perms: ['comptes.consulter'], end: true },
-  { to: '/roles', label: 'Rôles et permissions', icon: ShieldCheck, perms: ['roles.gerer'] },
+  { to: '/comptes/enrolement', label: 'Enrôlement des agents', icon: UserPlus, perms: ['compte.enroler'] },
+  { to: '/comptes', label: 'Comptes utilisateurs', icon: UserCog, perms: ['compte.consulter'], end: true },
+  { to: '/roles', label: 'Rôles et permissions', icon: ShieldCheck, perms: ['role.attribuer'] },
+  { to: '/securite', label: 'Sécurité', icon: ShieldAlert, perms: ['securite.superviser'], counter: 'alertes' },
   { to: '/audit', label: 'Journal d’audit', icon: ScrollText, perms: ['audit.consulter'] },
-  { to: '/systeme', label: 'Système', icon: Settings, perms: ['systeme.etat', 'systeme.parametres'], end: true },
-  { to: '/systeme/reinitialisation', label: 'Réinitialisation', icon: DatabaseZap, perms: ['systeme.reinitialiser'] },
+  { to: '/systeme', label: 'Système', icon: Settings, perms: ['systeme.consulter', 'systeme.configurer'], end: true },
+  { to: '/systeme/reinitialisation', label: 'Réinitialisation', icon: DatabaseZap, perms: ['systeme.maintenir'] },
 ];
 
 function Sidebar({ onNavigate }) {
@@ -86,7 +87,7 @@ export default function AppLayout() {
     clear();
     navigate('/connexion', { state: raison === 'inactivite' ? { message: 'Vous avez été déconnecté après une période d’inactivité.' } : undefined });
   };
-  const { remaining, prolonger } = useInactivity(() => logout('inactivite'));
+  const { remaining, prolonger } = useInactivity(() => logout('inactivite'), user.sessionInactiviteMinutes);
 
   const nom = user.agent ? [user.agent.prenom, user.agent.nom].filter(Boolean).join(' ') : user.username;
   const structure = user.affectation?.bureauNom || user.affectation?.divisionNom || (user.primaryRole === 'DIRECTEUR' ? DEP_NOM : user.primaryRole === 'SECRETAIRE_GENERAL' ? SG_NOM : 'Administration technique');

@@ -4,9 +4,12 @@ import api, { errorMessage } from '../../lib/api';
 import { useApi, Loadable, PageHeader, toast } from '../../components/ui';
 import AgentView from './AgentView';
 import NotificationPreferences from '../../components/NotificationPreferences';
+import SecuriteCompte from '../../components/SecuriteCompte';
+import { useAuth } from '../../store/auth';
 
 export default function Profil() {
-  const state = useApi('/agents/moi');
+  const user = useAuth((s) => s.user);
+  const state = useApi(user.agent ? '/agents/moi' : null);
   const [v, setV] = useState(0);
   const upload = async (file) => {
     if (!file) return;
@@ -16,9 +19,12 @@ export default function Profil() {
   return (
     <>
       <PageHeader title="Mon profil" subtitle="Votre affectation ne peut être modifiée que par l’autorité compétente." breadcrumb={[{ label: 'Mon profil' }]} />
-      <Loadable state={state}>
-        {(a) => <><AgentView a={a} photoVersion={v} extraActions={<label className="btn-ghost mt-2 cursor-pointer text-xs"><Upload size={14} /> Changer la photo<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => upload(e.target.files[0])} /></label>} /><div className="mt-4"><NotificationPreferences /></div></>}
-      </Loadable>
+      {user.agent && (
+        <Loadable state={state}>
+          {(a) => <AgentView a={a} photoVersion={v} extraActions={<label className="btn-ghost mt-2 cursor-pointer text-xs"><Upload size={14} /> Changer la photo<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => upload(e.target.files[0])} /></label>} />}
+        </Loadable>
+      )}
+      <div className="mt-4 space-y-4"><SecuriteCompte /><NotificationPreferences /></div>
     </>
   );
 }

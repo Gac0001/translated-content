@@ -44,7 +44,7 @@ router.post('/valider', requirePerm('liste.valider'), validate({ body: z.object(
     .leftJoin('user_roles as ur', 'ur.user_id', 'u.id').leftJoin('roles as r', 'r.id', 'ur.role_id')
     .leftJoin('affectations as a', function j() { this.on('a.agent_id', 'u.agent_id').andOn('a.est_active', db.raw('true')); })
     .leftJoin('bureaux as b', 'b.id', 'a.bureau_id')
-    .where('u.statut', 'ACTIF').where((w) => w.where('r.code', 'ADMIN').orWhere('b.est_secretariat_direction', true)).distinct().pluck('u.id');
+    .where('u.statut', 'ACTIF').where('b.est_secretariat_direction', true).distinct().pluck('u.id');
   await notify(destinataires, { type: 'COMPTE_CREE', titre: 'Liste déclarative validée : enrôlement des agents ouvert', message: `${v.nb_agents} agent(s) sur la liste validée.`, lien: '/comptes/enrolement', expediteur: req.ctx.userId });
   res.status(201).json({ message: 'Liste déclarative validée.', validation: { id: v.id, valide_at: v.valide_at, nb_agents: v.nb_agents } });
 });
@@ -61,6 +61,25 @@ async function setInscription(req, res, inscrit) {
 
 router.post('/agents/:id/inscrire', requirePerm('liste.gerer'), validate({ params: idParam }), (req, res) => setInscription(req, res, true));
 router.post('/agents/:id/retirer', requirePerm('liste.gerer'), validate({ params: idParam }), (req, res) => setInscription(req, res, false));
+
+// Autorisation nominative, par le Directeur, de l’enrôlement d’un agent du Secrétariat par l’Admin
+async function setAutorisation(req, res, autorise) {
+  const e = await liste.etat();
+  const a = e.agents.find((x) => x.agent_id === req.valid.params.id);
+  if (!a) throw notFound('Agent absent de la liste déclarative.');
+  if (!a.est_secretariat_direction) throw badRequest('Seuls les agents du Bureau Secrétariat de Direction sont enrôlés par l’Admin ; les autres le sont par le Secrétariat.');
+  if (a.user_id) throw badRequest('Cet agent possède déjà un compte.');
+  if (autorise && !a.valide) throw badRequest('L’agent doit figurer sur la liste validée et inchangée : revalidez d’abord la liste.');
+  await db('agents').where({ id: a.agent_id }).update(autorise ? { enrolement_autorise_at: db.fn.now(), enrolement_autorise_par: req.ctx.userId } : { enrolement_autorise_at: null, enrolement_autorise_par: null });
+  await audit(req, { action: autorise ? 'AUTORISATION' : 'RETRAIT_AUTORISATION', module: 'liste_declarative', entite: 'agent', entiteId: a.agent_id, message: `${autorise ? 'Autorisation' : 'Retrait de l’autorisation'} de l’enrôlement par l’Admin : ${a.matricule}` });
+  if (autorise) {
+    const admins = await db('users as u').join('user_roles as ur', 'ur.user_id', 'u.id').join('roles as r', 'r.id', 'ur.role_id').where({ 'r.code': 'ADMIN_SYSTEME', 'u.statut': 'ACTIF' }).pluck('u.id');
+    await notify(admins, { type: 'COMPTE_CREE', titre: 'Enrôlement autorisé par le Directeur', message: `Agent du Bureau Secrétariat de Direction : ${[a.prenom, a.nom].filter(Boolean).join(' ')} (${a.matricule}).`, lien: '/comptes/enrolement', expediteur: req.ctx.userId });
+  }
+  res.json({ message: autorise ? 'Enrôlement autorisé : l’Admin peut créer le compte de cet agent.' : 'Autorisation retirée.' });
+}
+router.post('/agents/:id/autoriser-enrolement', requirePerm('liste.valider'), validate({ params: idParam }), (req, res) => setAutorisation(req, res, true));
+router.post('/agents/:id/retirer-autorisation', requirePerm('liste.valider'), validate({ params: idParam }), (req, res) => setAutorisation(req, res, false));
 
 router.get('/export/:format', requirePerm('liste.consulter'), validate({ params: z.object({ format: z.enum(['pdf', 'xlsx']) }) }), async (req, res) => {
   const e = await liste.etat();

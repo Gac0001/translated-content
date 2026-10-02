@@ -25,7 +25,7 @@ const { notFound, badRequest, forbidden, conflict } = require('../../utils/error
 const { ROLE_LIBELLES } = require('../../constants');
 
 const router = express.Router();
-router.use(requirePerm('comptes.enroler'));
+router.use(requirePerm('compte.enroler'));
 
 const DOCS = ['application/pdf', ...IMAGES];
 const EXT = { 'application/pdf': '.pdf', 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' };
@@ -44,8 +44,11 @@ const upload = multer({
 }).fields([{ name: 'photo', maxCount: 1 }, { name: 'commission', maxCount: 1 }]);
 
 /** L’agent (ou la structure choisie) relève-t-il de la portée de l’utilisateur ? */
-function horsPortee(ctx, estSecretariat) {
-  if (ctx.enrolement === 'TOUS') return null;
+function horsPortee(ctx, estSecretariat, autorise = false) {
+  if (ctx.enrolement === 'SECRETARIAT_AUTORISE') {
+    if (!estSecretariat) return 'L’Admin n’enrôle que les agents du Bureau Secrétariat de Direction : les autres comptes sont créés par le Secrétariat.';
+    return autorise ? null : 'Le Directeur n’a pas autorisé l’enrôlement de cet agent par l’Admin.';
+  }
   if (ctx.enrolement === 'HORS_SECRETARIAT') {
     return estSecretariat ? 'Les comptes des agents du Bureau Secrétariat de Direction sont créés par l’Admin.' : null;
   }
@@ -66,7 +69,7 @@ router.get('/candidats', async (req, res) => {
     .filter((a) => !a.user_id)
     .filter((a) => !q || `${a.matricule} ${a.nom} ${a.postnom || ''} ${a.prenom || ''}`.toLowerCase().includes(q))
     .map((a) => {
-      const portee = horsPortee(req.ctx, !!a.est_secretariat_direction);
+      const portee = horsPortee(req.ctx, !!a.est_secretariat_direction, !!a.enrolement_autorise_at);
       const motif = !e.validation ? 'Liste déclarative non validée.' : a.ecart === 'AJOUTE' ? 'Ajouté après la validation : revalidation requise.' : a.ecart === 'MODIFIE' ? 'Modifié depuis la validation : revalidation requise.' : portee;
       return {
         agent_id: a.agent_id, matricule: a.matricule, nom: a.nom, postnom: a.postnom, prenom: a.prenom, grade: a.grade_code,
@@ -117,7 +120,7 @@ router.get('/identifier', async (req, res) => {
       if (a.user_id) { statut = 'COMPTE_EXISTANT'; motif = `Cet agent possède déjà un compte (${a.username}).`; }
       else if (!e.validation) { statut = 'LISTE_NON_VALIDEE'; motif = 'La liste déclarative n’a pas encore été validée par le Directeur.'; }
       else if (a.ecart) { statut = 'A_REVALIDER'; motif = a.ecart === 'AJOUTE' ? 'Ajouté à la liste après sa validation : le Directeur doit la revalider.' : 'Matricule, grade ou affectation modifiés depuis la validation : le Directeur doit revalider la liste.'; }
-      else { const p = horsPortee(req.ctx, !!a.est_secretariat_direction); if (p) { statut = 'HORS_PORTEE'; motif = p; } }
+      else { const p = horsPortee(req.ctx, !!a.est_secretariat_direction, !!a.enrolement_autorise_at); if (p) { statut = 'HORS_PORTEE'; motif = p; } }
       return { agent_id: a.agent_id, matricule: a.matricule, nom: a.nom, postnom: a.postnom, prenom: a.prenom, grade: a.grade_code, structure: a.bureau_nom || a.division_nom || null, surListe: true, statut, motif };
     }),
     ...horsListe.map((a) => ({
@@ -146,7 +149,7 @@ router.get('/agents/:id', async (req, res) => {
   const id = Number(req.params.id);
   const a = await chargerAgent(id);
   const motif = await liste.motifNonEnrolable(id);
-  const portee = horsPortee(req.ctx, !!a.est_secretariat_direction);
+  const portee = horsPortee(req.ctx, !!a.est_secretariat_direction, !!a.enrolement_autorise_at);
   if (portee && a.affectation_id) throw forbidden(portee, 'HORS_PORTEE_ENROLEMENT');
   const [fonctions, divisions, bureaux] = await Promise.all([
     db('fonctions').where({ actif: true }).where('grade_id', a.grade_id || -1).orderBy('libelle'),
@@ -223,7 +226,7 @@ router.post('/agents/:id', (req, res, next) => upload(req, res, async (err) => {
       } else throw badRequest('Choisissez la Division et le Bureau d’affectation.');
     }
     const estSecretariat = a.affectation_id ? !!a.est_secretariat_direction : !!(structure.bureau && structure.bureau.est_secretariat_direction);
-    const portee = horsPortee(req.ctx, estSecretariat);
+    const portee = horsPortee(req.ctx, estSecretariat, !!a.enrolement_autorise_at);
     if (portee) throw forbidden(portee, 'HORS_PORTEE_ENROLEMENT');
 
     // Contrôles de cohérence

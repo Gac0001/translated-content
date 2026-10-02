@@ -1,8 +1,9 @@
 'use strict';
 /**
  * Réinitialisation de la base par l’Admin, pour la mise en service :
- *  - VIERGE : supprime toutes les données (personnel, comptes, activités, journaux, pièces jointes)
+ *  - VIERGE : supprime toutes les données (personnel, comptes, activités, pièces jointes)
  *    en conservant l’organigramme, les référentiels, les paramètres et le compte Admin.
+ *    Le journal d’audit, l’historique de connexion et les alertes de sécurité ne sont JAMAIS effacés.
  *    Le Directeur peut alors constituer la liste officielle des agents (import puis validation).
  *  - DEMO : même nettoyage, puis rechargement des données fictives de démonstration.
  *
@@ -15,6 +16,8 @@ const { removeQuiet } = require('./files');
 const CONSERVEES = [
   'knex_migrations', 'knex_migrations_lock', 'directions', 'divisions', 'bureaux', 'grades', 'fonctions',
   'postes_organiques', 'attributions', 'roles', 'permissions', 'role_permissions', 'parametres',
+  // Traçabilité : jamais effacée (tables protégées en base contre la troncature)
+  'audit_logs', 'login_history', 'alertes_securite',
 ];
 
 async function volumes(trx = db) {
@@ -41,6 +44,8 @@ async function reinitialiser({ mode, adminId }) {
     const adminRoles = await trx('user_roles').where({ user_id: adminId });
     const adminTokens = await trx('refresh_tokens').where({ user_id: adminId }).whereNull('revoked_at').where('expires_at', '>', trx.fn.now());
     const adminPrefs = await trx('notification_preferences').where({ user_id: adminId }).first();
+    const adminCodes = await trx('codes_secours').where({ user_id: adminId });
+    const adminHisto = await trx('historique_mots_de_passe').where({ user_id: adminId });
 
     // 2. Fichiers déposés à supprimer après validation de la transaction
     fichiers.push(...await trx('attachments').pluck('stored_name'), ...(await trx('agents').whereNotNull('photo_path').pluck('photo_path')));
@@ -49,14 +54,16 @@ async function reinitialiser({ mode, adminId }) {
     //    PostgreSQL refuse si une table conservée dépendait d’une table vidée).
     const tables = (await trx.raw(`select tablename from pg_tables where schemaname = current_schema() order by tablename`)).rows
       .map((r) => r.tablename).filter((t) => !CONSERVEES.includes(t));
-    await trx.raw(`TRUNCATE TABLE ${tables.map((t) => `"${t}"`).join(', ')} RESTART IDENTITY`);
+    // Les identifiants ne sont pas réinitialisés : un ancien identifiant cité dans l’audit ne désigne jamais un nouveau compte.
+    await trx.raw(`TRUNCATE TABLE ${tables.map((t) => `"${t}"`).join(', ')}`);
 
     // 4. Restauration du compte Admin (même identifiant : sa session reste valide)
     await trx('users').insert({ ...admin, agent_id: null, created_by: null, autorise_par: null });
-    await trx.raw(`select setval(pg_get_serial_sequence('users', 'id'), (select max(id) from users))`);
     if (adminRoles.length) await trx('user_roles').insert(adminRoles.map(({ id, ...r }) => ({ ...r, granted_by: null })));
     if (adminTokens.length) await trx('refresh_tokens').insert(adminTokens.map(({ id, ...t }) => ({ ...t, replaced_by: null })));
     if (adminPrefs) await trx('notification_preferences').insert(adminPrefs);
+    if (adminCodes.length) await trx('codes_secours').insert(adminCodes.map(({ id, ...c }) => c));
+    if (adminHisto.length) await trx('historique_mots_de_passe').insert(adminHisto.map(({ id, ...h }) => h));
 
     // 5. Données fictives éventuelles
     if (mode === 'DEMO') {

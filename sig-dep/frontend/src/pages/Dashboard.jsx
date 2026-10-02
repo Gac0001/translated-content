@@ -69,7 +69,7 @@ function MiseEnService({ p }) {
   if (p.statutListe === 'VALIDEE' && restant === 0 && p.directeur) return null;
   const actions = <>
     {can('liste.consulter') && <Link to="/liste-declarative" className="text-sm text-dep-700 hover:underline">Liste déclarative</Link>}
-    {can('comptes.enroler') && <Link to="/comptes/enrolement" className="text-sm text-dep-700 hover:underline">Enrôlement</Link>}
+    {can('compte.enroler') && <Link to="/comptes/enrolement" className="text-sm text-dep-700 hover:underline">Enrôlement</Link>}
   </>;
   return (
     <Card title="Mise en service des comptes" actions={actions}>
@@ -316,7 +316,7 @@ export default function Dashboard() {
   const user = useAuth((s) => s.user);
   const state = useApi('/dashboard');
   const titre = {
-    ADMIN: 'Administration technique', SECRETAIRE_GENERAL: 'Supervision de la DEP', DIRECTEUR: 'Pilotage de la Direction',
+    ADMIN_SYSTEME: 'Administration technique', SECRETAIRE_GENERAL: 'Supervision de la DEP', DIRECTEUR: 'Pilotage de la Direction',
     CHEF_DIVISION: 'Tableau de bord de la Division', CHEF_BUREAU: 'Tableau de bord du Bureau', AGENT: 'Mon espace de travail',
   }[user.primaryRole] || 'Tableau de bord';
   return (
@@ -327,13 +327,13 @@ export default function Dashboard() {
           <div className="space-y-6">
             {d.admin?.donneesDemo && <BanniereDemo />}
             {d.miseEnService && <MiseEnService p={d.miseEnService} />}
-            {user.roles.includes('ADMIN') && d.admin && <AdminPanel a={d.admin} />}
+            {user.roles.includes('ADMIN_SYSTEME') && d.admin && <AdminPanel a={d.admin} />}
             {d.role === 'SECRETAIRE_GENERAL' && <SGPanel d={d} />}
             {d.role === 'DIRECTEUR' && <DirecteurPanel d={d} />}
             {d.role === 'CHEF_DIVISION' && d.bureaux && <ChefDivisionPanel d={d} />}
             {d.role === 'CHEF_BUREAU' && d.agents && <ChefBureauPanel d={d} />}
             {(d.role === 'AGENT' || (d.profil && d.role !== 'AGENT')) && d.profil && <AgentPanel d={d} />}
-            {d.role && d.role !== 'ADMIN' && (
+            {d.role && d.role !== 'ADMIN_SYSTEME' && (
               <Card title="Mes échéances"><Echeances rows={d.echeances} /></Card>
             )}
           </div>

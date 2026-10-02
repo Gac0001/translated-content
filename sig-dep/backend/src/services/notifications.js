@@ -18,6 +18,7 @@ const TYPES = {
   PRESENCE: 'Liste de présence',
   PIP: 'Fiche PIP',
   INSTRUCTION_REPONSE: 'Compte rendu d’instruction',
+  SECURITE: 'Alerte de sécurité',
 };
 
 /**

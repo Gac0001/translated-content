@@ -1,5 +1,23 @@
 # Journal des versions — SIG-DEP
 
+## 1.6.0
+
+### Compte Admin Système (lot 1 : sécurité du compte)
+- Rôle **Admin Système** (`ADMIN_SYSTEME`, périmètre `SYSTEME`, aucune autorité administrative) et nouveau référentiel de permissions techniques : `systeme.consulter|configurer|maintenir`, `securite.superviser`, `compte.*`, `session.consulter|revoquer`, `role.consulter|attribuer`, `permission.consulter`, `audit.consulter|exporter`, `sauvegarde.creer|restaurer`, `organisation.configurer`, `referentiel.gerer`, `modele_carte.configurer`, `notification_systeme.envoyer`. Les attributions existantes sont conservées par la migration.
+- **Première connexion** imposée : changement du mot de passe, **double authentification** (application TOTP, QR code, 10 codes de secours), adresse électronique de récupération (vérifiée par code si la messagerie est active), acceptation des règles de sécurité.
+- **Connexion en deux temps** (mot de passe puis code), codes de secours à usage unique, **récupération du mot de passe** par code e-mail + second facteur, changement d’appareil et régénération des codes depuis le profil.
+- **Politique des mots de passe et des sessions** configurable dans des bornes sûres : longueur, complexité, mots de passe courants refusés, historique (5 derniers interdits), expiration, verrouillage, durée maximale de session, délai d’inactivité, comptes inactifs.
+- **Gestion des comptes** : désactivation (`compte.desactiver`), **blocage temporaire** d’un compte compromis, **changement de mot de passe imposé**, comptes inactifs (filtre, désactivation automatique facultative hors comptes institutionnels), sessions actives avec adresse IP et fermeture individuelle, historique de connexion.
+- **Rôles protégés** : aucun rôle institutionnel ne peut être supprimé ni renommé (protection en base) ; l’Admin ne peut ni attribuer ni retirer les rôles Directeur, Chef de Division, Secrétaire Général et Admin Système sans décision administrative enregistrée ; aucune permission technique pour les rôles institutionnels ; rôle Admin Système non modifiable depuis l’application.
+- **Page Sécurité** : alertes (avec traitement), connexions et adresses IP suspectes, sessions actives, politique, **vérification de sécurité**.
+- **Journal d’audit infalsifiable** : chaînage SHA-256, vérification d’intégrité, export Excel / CSV / PDF (`audit.exporter`), troncature interdite ; historique des connexions en ajout seul.
+- **Alertes de sécurité** notifiées à l’Admin (et par e-mail sur son adresse de récupération).
+
+### Changements
+- **Liste déclarative** : réservée au Directeur ; l’Admin n’y a plus accès. Il n’enrôle que les agents du Bureau Secrétariat de Direction **autorisés nominativement par le Directeur** (bouton « Autoriser l’enrôlement par l’Admin ») ; le Secrétariat enrôle ensuite les autres agents.
+- La **réinitialisation de la base** conserve désormais le journal d’audit, l’historique des connexions et les alertes, ainsi que la double authentification de l’Admin.
+- Les paramètres de sécurité ne sont plus modifiables par l’écran des paramètres généraux.
+
 ## 1.5.0
 
 ### Mise en service : réinitialisation de la base par l’Admin

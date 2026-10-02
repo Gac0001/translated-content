@@ -189,9 +189,9 @@ router.get('/', async (req, res) => {
     case 'AGENT': data = await agentDashboard(ctx); break;
     default: data = {};
   }
-  if (ctx.roles.includes('ADMIN')) data.admin = { ...(await adminDashboard()), donneesDemo: await donneesDemo() };
+  if (ctx.roles.includes('ADMIN_SYSTEME')) data.admin = { ...(await adminDashboard()), donneesDemo: await donneesDemo() };
   // Mise en service des comptes (Admin, Directeur, Bureau Secrétariat de Direction)
-  if (ctx.can('liste.consulter') || ctx.can('comptes.enroler')) data.miseEnService = await liste.progression();
+  if (ctx.can('liste.consulter') || ctx.can('compte.enroler')) data.miseEnService = await liste.progression();
   res.json({ ...base, ...data });
 });
 
@@ -206,7 +206,8 @@ router.get('/compteurs', async (req, res) => {
     ctx.can('pip.consulter') ? scopePip(db('pip_projects as p'), ctx).where('p.detenteur_user_id', ctx.userId).whereIn('p.statut', ['EN_VERIFICATION', 'VERIFIE', 'A_CORRIGER']).count('* as n').first() : { n: 0 },
     ctx.can('presences.verrouiller') ? db('presence_sheets').where('statut', 'SOUMISE').count('* as n').first() : { n: 0 },
   ]);
-  res.json({ documents: Number(docs.n), instructions: Number(instr.n), taches: Number(taches.n), courriers: Number(courriers.n), pip: Number(pip.n), presences: Number(pres.n) });
+  const alertes = ctx.can('securite.superviser') ? await db('alertes_securite').whereNull('acquittee_at').whereIn('gravite', ['ATTENTION', 'CRITIQUE']).count('* as n').first() : { n: 0 };
+  res.json({ documents: Number(docs.n), instructions: Number(instr.n), taches: Number(taches.n), courriers: Number(courriers.n), pip: Number(pip.n), presences: Number(pres.n), alertes: Number(alertes.n) });
 });
 
 module.exports = router;

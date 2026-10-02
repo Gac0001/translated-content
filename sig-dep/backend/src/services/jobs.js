@@ -4,13 +4,18 @@
  *  - passage « En retard » des instructions et tâches échues + notification ;
  *  - rappels d’échéance proche ;
  *  - verrouillage automatique des listes de présence soumises ;
- *  - purge des refresh tokens expirés.
+ *  - purge des refresh tokens expirés et des défis d’authentification ;
+ *  - comptes inactifs (désactivation automatique si la politique le prévoit).
  */
 const db = require('../db/knex');
 const config = require('../config/env');
 const { notify } = require('./notifications');
 const { addHistory } = require('./history');
 const mailer = require('./mailer');
+const { audit } = require('./audit');
+const { alerter } = require('./alertes');
+const { politique } = require('./politique');
+const { revokeAllForUser } = require('./tokens');
 
 const ACTIVE = ['TRANSMISE', 'RECUE', 'EN_COURS', 'A_CORRIGER'];
 
@@ -60,8 +65,37 @@ async function purgeTokens() {
   await db('email_outbox').where('statut', 'ENVOYE').where('sent_at', '<', db.raw(`now() - interval '90 days'`)).del();
 }
 
+/**
+ * Comptes inactifs : désactivation automatique si la politique le prévoit. Les comptes
+ * institutionnels (Admin Système, Directeur, Secrétaire Général) ne sont jamais désactivés
+ * automatiquement : une alerte est émise à la place.
+ */
+async function desactiverInactifs() {
+  const p = await politique();
+  const inactifs = await db('users as u').whereNot('u.statut', 'DESACTIVE')
+    .whereRaw('coalesce(u.last_login_at, u.created_at) < now() - make_interval(days => ?)', [p.inactivite_compte_jours])
+    .select('u.id', 'u.username', db.raw(`exists (select 1 from user_roles ur join roles r on r.id = ur.role_id where ur.user_id = u.id and r.code in ('ADMIN_SYSTEME','DIRECTEUR','SECRETAIRE_GENERAL')) as institutionnel`));
+  if (!inactifs.length) return;
+  if (!p.inactivite_desactivation_auto) return;
+  for (const u of inactifs) {
+    if (u.institutionnel) {
+      await alerter({ type: 'INACTIVITE', gravite: 'ATTENTION', titre: `Compte institutionnel « ${u.username} » inactif`, message: `Aucune connexion depuis plus de ${p.inactivite_compte_jours} jours (non désactivé automatiquement).`, user: u, unique: 60 * 24 * 7 });
+      continue;
+    }
+    await db.transaction(async (trx) => {
+      await trx('users').where({ id: u.id }).update({ statut: 'DESACTIVE', updated_at: trx.fn.now() });
+      await revokeAllForUser(u.id, 'INACTIVITE', trx);
+    });
+    await audit(null, { action: 'DESACTIVATION', module: 'comptes', entite: 'user', entiteId: u.id, message: `Désactivation automatique : aucune connexion depuis plus de ${p.inactivite_compte_jours} jours`, user: { id: null, username: 'système' } });
+  }
+}
+
+async function purgeDefis() {
+  await db('defis_auth').where('expires_at', '<', db.raw(`now() - interval '1 day'`)).del();
+}
+
 async function runAll() {
-  for (const fn of [markOverdue, remindDeadlines, autolockPresences, purgeTokens]) {
+  for (const fn of [markOverdue, remindDeadlines, autolockPresences, purgeTokens, purgeDefis, desactiverInactifs]) {
     try { await fn(); } catch (e) { console.error(`[JOBS] ${fn.name} :`, e.message); }
   }
 }
@@ -81,4 +115,4 @@ function start(intervalMs = 10 * 60000) {
   setTimeout(sendMails, 8000);
 }
 
-module.exports = { start, runAll, sendMails, markOverdue, remindDeadlines, autolockPresences };
+module.exports = { start, runAll, sendMails, markOverdue, remindDeadlines, autolockPresences, desactiverInactifs };

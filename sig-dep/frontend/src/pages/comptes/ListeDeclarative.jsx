@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { BadgeCheck, CheckCircle2, FileDown, Clock, ListChecks, MinusCircle, UserCheck, UserPlus } from 'lucide-react';
+import { BadgeCheck, CheckCircle2, FileDown, ShieldCheck, Clock, ListChecks, MinusCircle, UserCheck, UserPlus } from 'lucide-react';
 import api, { download } from '../../lib/api';
 import { fmtDateTime, nomComplet } from '../../lib/format';
 import { useAuth } from '../../store/auth';
@@ -22,7 +22,7 @@ export function Progression({ p }) {
   const can = useAuth((s) => s.can);
   const pct = (x) => (x.total ? Math.round((100 * x.avecCompte) / x.total) : 0);
   const etapes = [
-    { ok: p.directeur, titre: 'Compte du Directeur', detail: p.directeur ? 'Créé' : 'À créer par l’Admin', action: !p.directeur && can('comptes.creer_initial') && { to: '/comptes/nouveau', label: 'Créer le compte' } },
+    { ok: p.directeur, titre: 'Compte du Directeur', detail: p.directeur ? 'Créé' : 'À créer par l’Admin', action: !p.directeur && can('compte.creer_initial') && { to: '/comptes/nouveau', label: 'Créer le compte' } },
     {
       ok: p.statutListe === 'VALIDEE', titre: 'Liste déclarative validée',
       detail: p.validation ? `${p.statutListe === 'VALIDEE' ? 'Validée' : 'À revalider'} — ${fmtDateTime(p.validation.valide_at)}` : (p.secretariat.total + p.autres.total ? 'En attente du Directeur' : 'Liste vide : le Directeur importe la liste officielle'),
@@ -30,7 +30,7 @@ export function Progression({ p }) {
         ? can('personnel.gerer', 'personnel.suivre') && { to: '/personnel/import', label: 'Importer la liste' }
         : can('liste.valider') && { to: '/liste-declarative', label: 'Vérifier et valider' }),
     },
-    { ok: p.secretariat.total > 0 && p.secretariat.avecCompte === p.secretariat.total, titre: 'Bureau Secrétariat de Direction', detail: `${p.secretariat.avecCompte} / ${p.secretariat.total} compte(s) — enrôlés par l’Admin`, pct: pct(p.secretariat) },
+    { ok: p.secretariat.total > 0 && p.secretariat.avecCompte === p.secretariat.total, titre: 'Bureau Secrétariat de Direction', detail: `${p.secretariat.avecCompte} / ${p.secretariat.total} compte(s) — enrôlés par l’Admin sur autorisation du Directeur${p.secretariat.autorises ? ` (${p.secretariat.autorises} autorisé(s) en attente)` : ''}`, pct: pct(p.secretariat) },
     { ok: p.autres.total > 0 && p.autres.avecCompte === p.autres.total, titre: 'Divisions et autres Bureaux', detail: `${p.autres.avecCompte} / ${p.autres.total} compte(s) — enrôlés par le Secrétariat`, pct: pct(p.autres) },
   ];
   return (
@@ -66,6 +66,11 @@ export default function ListeDeclarative() {
     await runAction(() => api.post('/liste-declarative/valider', { commentaire: r || undefined }), 'Liste déclarative validée.');
     state.reload();
   };
+  const autorisation = async (a, autorise) => {
+    if (autorise && !(await confirm({ title: 'Autoriser l’enrôlement', message: `Autoriser l’Admin Système à créer le compte de ${nomComplet(a)} (Bureau Secrétariat de Direction) ?`, confirmLabel: 'Autoriser' }))) return;
+    await runAction(() => api.post(`/liste-declarative/agents/${a.agent_id}/${autorise ? 'autoriser-enrolement' : 'retirer-autorisation'}`), autorise ? 'Enrôlement autorisé.' : 'Autorisation retirée.');
+    state.reload();
+  };
   const inscription = async (a, action) => {
     if (action === 'retirer' && !(await confirm({ title: 'Retirer de la liste', message: `Retirer ${nomComplet(a)} de la liste déclarative ? La liste devra être revalidée.`, danger: true, confirmLabel: 'Retirer' }))) return;
     await runAction(() => api.post(`/liste-declarative/agents/${a.agent_id}/${action}`), action === 'retirer' ? 'Agent retiré de la liste.' : 'Agent inscrit.');
@@ -88,7 +93,12 @@ export default function ListeDeclarative() {
     {
       key: 'compte', header: 'Compte', render: (a) => (a.user_id
         ? <span className="inline-flex items-center gap-1 text-emerald-800"><UserCheck size={15} /> {a.username}</span>
-        : <span className="text-slate-500">Non enrôlé</span>),
+        : a.est_secretariat_direction && a.enrolement_autorise_at
+          ? <span className="inline-flex flex-wrap items-center gap-1"><Badge className="bg-sky-50 text-sky-800 ring-sky-200">Autorisé pour l’Admin</Badge>
+            {d?.actions.valider && <button type="button" className="text-xs text-slate-500 underline" onClick={(e) => { e.stopPropagation(); autorisation(a, false); }}>Retirer</button>}</span>
+          : a.est_secretariat_direction && d?.actions.valider && a.valide
+            ? <button type="button" className="btn-secondary px-2 py-1 text-xs" onClick={(e) => { e.stopPropagation(); autorisation(a, true); }}><ShieldCheck size={14} /> Autoriser l’enrôlement par l’Admin</button>
+            : <span className="text-slate-500">Non enrôlé</span>),
     },
     ...(d?.actions.gerer ? [{
       key: 'act', header: '', className: 'text-right', render: (a) => !a.user_id && (
@@ -104,7 +114,7 @@ export default function ListeDeclarative() {
         actions={d && <>
           {d.actions.valider && d.statut !== 'VALIDEE' && <button type="button" className="btn-success" onClick={valider} disabled={!d.agents.length}><BadgeCheck size={16} /> Valider la liste</button>}
           {can('personnel.gerer', 'personnel.suivre') && <Link to="/personnel/import" className="btn-secondary"><ListChecks size={16} /> Importer</Link>}
-          {can('comptes.enroler') && <Link to="/comptes/enrolement" className="btn-secondary"><UserPlus size={16} /> Enrôlement</Link>}
+          {can('compte.enroler') && <Link to="/comptes/enrolement" className="btn-secondary"><UserPlus size={16} /> Enrôlement</Link>}
           {d.statut === 'VALIDEE' && <button type="button" className="btn-primary" onClick={() => download('/liste-declarative/export/pdf', 'liste-officielle.pdf').catch(() => toast.error('Génération impossible.'))}><FileDown size={16} /> Liste officielle (PDF)</button>}
           <ExportButtons base="/liste-declarative/export" print={false} />
         </>} />
@@ -138,7 +148,7 @@ export default function ListeDeclarative() {
                   {d.historique.map((h) => (
                     <li key={h.id} className="flex flex-wrap items-baseline gap-x-3 py-2">
                       <span className="font-medium">{fmtDateTime(h.valide_at)}</span>
-                      <span>{h.valide_par_nom || h.username} ({h.valide_par_role === 'ADMIN' ? 'Admin' : 'Directeur'})</span>
+                      <span>{h.valide_par_nom || h.username} ({h.valide_par_role === 'DIRECTEUR' ? 'Directeur' : 'Admin'})</span>
                       <span className="text-slate-600">{h.nb_agents} agent(s)</span>
                       {h.commentaire && <span className="w-full text-slate-500">« {h.commentaire} »</span>}
                     </li>

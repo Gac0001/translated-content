@@ -9,6 +9,29 @@
  */
 const db = require('../db/knex');
 const { FUNCTIONAL_ORDER, DIVISION_ONLY_PERMISSIONS, PERIMETRES } = require('../constants');
+const { politique } = require('./politique');
+
+/** Rôles soumis aux exigences renforcées (double authentification, récupération, règles). */
+const ROLES_RENFORCES = ['ADMIN_SYSTEME'];
+
+/**
+ * Étapes de sécurité à accomplir avant d’accéder à l’application, dans l’ordre :
+ * mot de passe (temporaire ou expiré), double authentification, e-mail de récupération, règles.
+ */
+function calculerExigences(user, roles, pol) {
+  const ex = [];
+  const expire = pol.mdp_expiration_jours > 0 && user.password_changed_at
+    && (Date.now() - new Date(user.password_changed_at).getTime()) > pol.mdp_expiration_jours * 86400000;
+  if (user.must_change_password || expire) ex.push('MOT_DE_PASSE');
+  if (roles.some((r) => ROLES_RENFORCES.includes(r))) {
+    if (!user.totp_actif) ex.push('DEUX_FACTEURS');
+    // Adresse de récupération obligatoire ; sa vérification (code par e-mail) est demandée lorsque la
+    // messagerie est active, sans bloquer le compte (elle conditionne la récupération par e-mail).
+    if (!user.email_recuperation) ex.push('EMAIL_RECUPERATION');
+    if ((user.regles_acceptees_version || 0) < pol.regles_securite_version) ex.push('REGLES');
+  }
+  return { exigences: ex, mdpExpire: !!expire && !user.must_change_password };
+}
 
 async function loadAffectation(agentId, trx = db) {
   if (!agentId) return null;
@@ -25,7 +48,7 @@ async function loadAffectation(agentId, trx = db) {
 
 function computePerimetre(primaryRole, aff) {
   switch (primaryRole) {
-    case 'ADMIN': return PERIMETRES.SYSTEME;
+    case 'ADMIN_SYSTEME': return PERIMETRES.SYSTEME;
     case 'SECRETAIRE_GENERAL': return PERIMETRES.SUPERVISION_GLOBALE;
     case 'DIRECTEUR': return PERIMETRES.DIRECTION;
     case 'CHEF_DIVISION':
@@ -55,16 +78,18 @@ async function loadContext(userId, trx = db) {
 
   const agent = user.agent_id ? await trx('agents').where({ id: user.agent_id }).first() : null;
   const aff = await loadAffectation(user.agent_id, trx);
-  const primaryRole = FUNCTIONAL_ORDER.find((r) => roles.includes(r)) || (roles.includes('ADMIN') ? 'ADMIN' : null);
+  const primaryRole = FUNCTIONAL_ORDER.find((r) => roles.includes(r)) || (roles.includes('ADMIN_SYSTEME') ? 'ADMIN_SYSTEME' : null);
   let perimetre = computePerimetre(primaryRole, aff);
   const inSecretariat = !!(aff && aff.est_secretariat_direction);
+  const pol = await politique();
+  const { exigences, mdpExpire } = calculerExigences(user, roles, pol);
 
   if (inSecretariat) {
     for (const p of DIVISION_ONLY_PERMISSIONS) permissions.delete(p);
     if (perimetre === PERIMETRES.DIVISION) perimetre = PERIMETRES.BUREAU;
     // Les membres du Bureau Secrétariat de Direction enrôlent les agents des autres structures
     // (accordé par la structure d’affectation, quel que soit le rôle).
-    if (user.statut === 'ACTIF') permissions.add('comptes.enroler');
+    if (user.statut === 'ACTIF') permissions.add('compte.enroler');
   }
   // Un rôle Chef de Division sans affectation de Division ne confère pas les permissions de Division.
   if (primaryRole === 'CHEF_DIVISION' && perimetre !== PERIMETRES.DIVISION) {
@@ -75,7 +100,13 @@ async function loadContext(userId, trx = db) {
     userId: user.id,
     username: user.username,
     statut: user.statut,
-    mustChangePassword: user.must_change_password,
+    mustChangePassword: user.must_change_password || exigences.includes('MOT_DE_PASSE'),
+    exigences,
+    mdpExpire,
+    deuxFacteursActif: user.totp_actif,
+    emailRecuperation: user.email_recuperation,
+    emailRecuperationVerifie: !!user.email_recuperation_verifie_at,
+    sessionInactiviteMinutes: pol.session_inactivite_minutes,
     tokenVersion: user.token_version,
     agentId: user.agent_id,
     agent,
@@ -89,9 +120,10 @@ async function loadContext(userId, trx = db) {
     divisionId: aff ? aff.division_id : null,
     bureauId: aff ? aff.bureau_id : null,
     inSecretariat,
-    isAdminOnly: roles.length > 0 && roles.every((r) => r === 'ADMIN'),
-    // Portée de l’enrôlement : l’Admin enrôle tous les agents, le Secrétariat ceux des autres structures.
-    enrolement: roles.includes('ADMIN') ? 'TOUS' : inSecretariat ? 'HORS_SECRETARIAT' : null,
+    isAdminOnly: roles.length > 0 && roles.every((r) => r === 'ADMIN_SYSTEME'),
+    // Portée de l’enrôlement : l’Admin enrôle uniquement les agents du Secrétariat autorisés
+    // nominativement par le Directeur ; le Secrétariat enrôle les agents des autres structures.
+    enrolement: roles.includes('ADMIN_SYSTEME') ? 'SECRETARIAT_AUTORISE' : inSecretariat ? 'HORS_SECRETARIAT' : null,
   };
   ctx.can = (perm) => ctx.permissions.has(perm);
   return ctx;
@@ -104,6 +136,12 @@ function publicContext(ctx) {
     id: ctx.userId,
     username: ctx.username,
     mustChangePassword: ctx.mustChangePassword,
+    exigences: ctx.exigences,
+    mdpExpire: ctx.mdpExpire,
+    deuxFacteursActif: ctx.deuxFacteursActif,
+    emailRecuperation: ctx.emailRecuperation,
+    emailRecuperationVerifie: ctx.emailRecuperationVerifie,
+    sessionInactiviteMinutes: ctx.sessionInactiviteMinutes,
     roles: ctx.roles,
     primaryRole: ctx.primaryRole,
     perimetre: ctx.perimetre,
@@ -118,4 +156,4 @@ function publicContext(ctx) {
   };
 }
 
-module.exports = { loadContext, loadAffectation, publicContext, computePerimetre };
+module.exports = { loadContext, loadAffectation, publicContext, computePerimetre, calculerExigences, ROLES_RENFORCES };

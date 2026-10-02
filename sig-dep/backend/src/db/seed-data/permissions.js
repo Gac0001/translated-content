@@ -6,21 +6,32 @@
  * `delegable` : peut être déléguée par le Directeur au Chef du Bureau Secrétariat de Direction.
  */
 const PERMISSIONS = [
-  // Système (Admin technique)
-  ['systeme.parametres', 'systeme', 'Gérer les paramètres du système'],
-  ['systeme.etat', 'systeme', 'Consulter l’état technique du système'],
-  ['systeme.sauvegardes', 'systeme', 'Organiser les sauvegardes'],
-  ['systeme.reinitialiser', 'systeme', 'Réinitialiser la base de données (mise en service)'],
+  // Système et sécurité (Admin Système — aucune autorité administrative)
+  ['systeme.consulter', 'systeme', 'Consulter l’état technique du système'],
+  ['systeme.configurer', 'systeme', 'Configurer les paramètres techniques du système'],
+  ['systeme.maintenir', 'systeme', 'Opérations de maintenance (réinitialisation, maintenance)'],
+  ['securite.superviser', 'securite', 'Superviser la sécurité (alertes, échecs de connexion, adresses IP, vérification)'],
+  ['notification_systeme.envoyer', 'systeme', 'Envoyer une notification système'],
+  ['sauvegarde.creer', 'sauvegarde', 'Lancer et consulter les sauvegardes'],
+  ['sauvegarde.restaurer', 'sauvegarde', 'Restaurer une sauvegarde autorisée'],
   ['audit.consulter', 'audit', 'Consulter le journal d’audit'],
-  ['roles.gerer', 'comptes', 'Gérer les rôles et permissions'],
-  // Comptes
-  ['comptes.consulter', 'comptes', 'Consulter les comptes utilisateurs'],
-  ['comptes.creer_initial', 'comptes', 'Créer les comptes institutionnels initiaux (Secrétaire Général, Directeur)'],
-  ['comptes.enroler', 'comptes', 'Enrôler les agents de la liste déclarative validée (création des comptes)'],
-  ['comptes.activer', 'comptes', 'Activer ou désactiver un compte'],
-  ['comptes.reinitialiser', 'comptes', 'Réinitialiser un mot de passe'],
-  ['comptes.deverrouiller', 'comptes', 'Déverrouiller un compte'],
-  ['sessions.revoquer', 'comptes', 'Révoquer les sessions d’un utilisateur'],
+  ['audit.exporter', 'audit', 'Exporter le journal d’audit'],
+  ['role.consulter', 'role', 'Consulter les rôles'],
+  ['role.attribuer', 'role', 'Associer un rôle autorisé et paramétrer les rôles'],
+  ['permission.consulter', 'role', 'Consulter les permissions'],
+  ['organisation.configurer', 'organisation', 'Configurer techniquement l’organisation (sur décision du Directeur)'],
+  ['referentiel.gerer', 'organisation', 'Gérer les référentiels techniques'],
+  ['modele_carte.configurer', 'carte', 'Configurer le modèle graphique des cartes de service'],
+  // Comptes et sessions
+  ['compte.consulter', 'compte', 'Consulter les comptes utilisateurs'],
+  ['compte.creer_initial', 'compte', 'Créer les comptes initiaux (Secrétaire Général, Directeur)'],
+  ['compte.enroler', 'compte', 'Enrôler les agents de la liste déclarative validée'],
+  ['compte.activer', 'compte', 'Activer un compte'],
+  ['compte.desactiver', 'compte', 'Désactiver ou bloquer temporairement un compte'],
+  ['compte.deverrouiller', 'compte', 'Débloquer un compte'],
+  ['compte.reinitialiser_mot_de_passe', 'compte', 'Réinitialiser un mot de passe ou imposer son changement'],
+  ['session.consulter', 'session', 'Consulter les sessions actives'],
+  ['session.revoquer', 'session', 'Révoquer les sessions et refresh tokens'],
   // Liste déclarative des agents
   ['liste.consulter', 'personnel', 'Consulter la liste déclarative des agents de la Direction'],
   ['liste.gerer', 'personnel', 'Constituer la liste déclarative (import, inscription, retrait)'],
@@ -80,7 +91,7 @@ const PERMISSIONS = [
 ];
 
 const ROLES = [
-  { code: 'ADMIN', libelle: 'Admin', perimetre_defaut: 'SYSTEME', description: 'Administrateur technique du système. Ne constitue pas une autorité administrative de la DEP.' },
+  { code: 'ADMIN_SYSTEME', libelle: 'Admin Système', perimetre_defaut: 'SYSTEME', description: 'Fonctionnement technique, sécurité et disponibilité de SIG-DEP. Aucune autorité administrative : ne remplace jamais le Directeur, un Chef de Division ou un Chef de Bureau.' },
   { code: 'SECRETAIRE_GENERAL', libelle: 'Secrétaire Général', perimetre_defaut: 'SUPERVISION_GLOBALE', description: 'Supervision globale et consultation. Adresse ses instructions exclusivement au Directeur.' },
   { code: 'DIRECTEUR', libelle: 'Directeur', perimetre_defaut: 'DIRECTION', description: 'Responsable administratif et opérationnel de la Direction d’Études et Planification.' },
   { code: 'CHEF_DIVISION', libelle: 'Chef de Division', perimetre_defaut: 'DIVISION', description: 'Autorité limitée à sa Division et aux Bureaux qui lui sont rattachés.' },
@@ -89,11 +100,13 @@ const ROLES = [
 ];
 
 const MATRICE = {
-  ADMIN: [
-    'systeme.parametres', 'systeme.etat', 'systeme.sauvegardes', 'systeme.reinitialiser', 'audit.consulter', 'roles.gerer',
-    'comptes.consulter', 'comptes.creer_initial', 'comptes.activer', 'comptes.reinitialiser',
-    'comptes.deverrouiller', 'sessions.revoquer', 'organisation.consulter',
-    'comptes.enroler', 'liste.consulter', 'liste.gerer', 'liste.valider',
+  ADMIN_SYSTEME: [
+    'systeme.consulter', 'systeme.configurer', 'systeme.maintenir', 'securite.superviser', 'notification_systeme.envoyer',
+    'sauvegarde.creer', 'sauvegarde.restaurer', 'audit.consulter', 'audit.exporter',
+    'role.consulter', 'role.attribuer', 'permission.consulter', 'organisation.consulter', 'organisation.configurer', 'referentiel.gerer',
+    'modele_carte.configurer',
+    'compte.consulter', 'compte.creer_initial', 'compte.enroler', 'compte.activer', 'compte.desactiver', 'compte.deverrouiller',
+    'compte.reinitialiser_mot_de_passe', 'session.consulter', 'session.revoquer',
   ],
   SECRETAIRE_GENERAL: [
     'supervision.globale', 'organisation.consulter', 'personnel.consulter', 'presences.consulter',
@@ -103,7 +116,7 @@ const MATRICE = {
   DIRECTEUR: [
     'organisation.consulter', 'organisation.gerer', 'cadre.gerer',
     'personnel.consulter', 'personnel.gerer', 'personnel.suivre', 'affectations.gerer', 'delegations.gerer',
-    'comptes.consulter', 'comptes.activer', 'liste.consulter', 'liste.gerer', 'liste.valider',
+    'compte.consulter', 'compte.activer', 'compte.desactiver', 'liste.consulter', 'liste.gerer', 'liste.valider',
     'presences.consulter', 'presences.verrouiller',
     'courriers.consulter', 'courriers.enregistrer', 'courriers.transmettre', 'courriers.annoter', 'courriers.classer',
     'dossiers.transmettre',

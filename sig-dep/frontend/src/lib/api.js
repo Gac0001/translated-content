@@ -41,8 +41,8 @@ api.interceptors.response.use(
         window.location.assign('/connexion');
       }
     }
-    if (response.status === 403 && code === 'CHANGEMENT_MDP_REQUIS' && window.location.pathname !== '/changer-mot-de-passe') {
-      window.location.assign('/changer-mot-de-passe');
+    if (response.status === 403 && ['CHANGEMENT_MDP_REQUIS', 'CONFIGURATION_SECURITE_REQUISE'].includes(code) && window.location.pathname !== '/premiere-connexion') {
+      window.location.assign('/premiere-connexion');
     }
     return Promise.reject(error);
   },

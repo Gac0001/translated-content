@@ -2,9 +2,11 @@
 const request = require('supertest');
 const app = require('../src/app');
 const db = require('../src/db/knex');
+const { authenticator } = require('otplib');
+const { dechiffrer } = require('../src/services/deuxFacteurs');
 
 const DEMO = 'Demo@2026';
-const ADMIN_NEW = 'Admin@Sig2026!';
+const ADMIN_NEW = 'Kivu#Systeme2026';
 
 async function login(username, password = DEMO) {
   const res = await request(app).post('/api/auth/login').send({ username, password });
@@ -12,14 +14,52 @@ async function login(username, password = DEMO) {
   return res.body.accessToken;
 }
 
-/** Connexion Admin quel que soit l’ordre d’exécution des tests (mot de passe initial ou modifié). */
+/** Code TOTP courant d’un compte (secret déchiffré depuis la base). */
+async function codeTotp(username) {
+  const u = await db('users').where({ username }).first();
+  return authenticator.generate(dechiffrer(u.totp_secret));
+}
+
+/** Connexion complète (mot de passe puis second facteur si actif). Renvoie la réponse finale. */
+async function connexion(username, password) {
+  let res = await request(app).post('/api/auth/login').send({ username, password });
+  if (res.status === 200 && res.body.deuxFacteurs) {
+    res = await request(app).post('/api/auth/login/deux-facteurs').send({ defi: res.body.defi, code: await codeTotp(username) });
+  }
+  return res;
+}
+
+/** Termine les étapes de première connexion de l’Admin Système (2FA, récupération, règles). */
+async function configurerSecurite(token) {
+  const a = api(token);
+  let me = (await a.get('/auth/me')).body.user;
+  if (me.exigences.includes('DEUX_FACTEURS')) {
+    const p = await a.post('/auth/2fa/preparer');
+    await a.post('/auth/2fa/activer', { code: authenticator.generate(p.body.secret.replace(/\s/g, '')) });
+  }
+  if (me.exigences.includes('EMAIL_RECUPERATION')) {
+    const r = await a.post('/auth/email-recuperation', { email: 'admin.systeme@example.cd', motDePasse: ADMIN_NEW });
+    if (r.body.verificationEnvoyee) {
+      // Messagerie active (tests e-mail) : le code est lu dans la file d’envoi.
+      const m = await db('email_outbox').where({ to_email: 'admin.systeme@example.cd' }).orderBy('id', 'desc').first();
+      await a.post('/auth/email-recuperation/verifier', { code: m.text_body.match(/Code de vérification : (\d{6})/)[1] });
+    }
+  }
+  me = (await a.get('/auth/me')).body.user;
+  if (me.exigences.includes('REGLES')) await a.post('/auth/regles/accepter', { version: (await a.get('/auth/regles')).body.version });
+}
+
+/** Connexion Admin quel que soit l’ordre d’exécution des tests (première connexion ou non). */
 async function loginAdmin() {
-  let res = await request(app).post('/api/auth/login').send({ username: 'admin', password: 'dep@2026' });
+  let res = await connexion('admin', 'dep@2026');
   if (res.status === 200 && res.body.user.mustChangePassword) {
     const r2 = await request(app).post('/api/auth/change-password').set('Authorization', `Bearer ${res.body.accessToken}`).send({ currentPassword: 'dep@2026', newPassword: ADMIN_NEW });
-    return r2.body.accessToken;
+    await configurerSecurite(r2.body.accessToken);
+  } else if (res.status === 200) {
+    await configurerSecurite(res.body.accessToken);
   }
-  if (res.status !== 200) res = await request(app).post('/api/auth/login').send({ username: 'admin', password: ADMIN_NEW });
+  res = await connexion('admin', ADMIN_NEW);
+  if (res.status !== 200) throw new Error(`Connexion Admin impossible : ${res.status} ${JSON.stringify(res.body)}`);
   return res.body.accessToken;
 }
 
@@ -57,4 +97,4 @@ async function enroler(token, agentId, fields = {}) {
 
 async function userId(username) { return (await db('users').where({ username }).first()).id; }
 
-module.exports = { app, db, request, login, loginAdmin, api, userId, enroler, PNG, PDF, DEMO, ADMIN_NEW };
+module.exports = { app, db, request, login, loginAdmin, connexion, codeTotp, configurerSecurite, api, userId, enroler, PNG, PDF, DEMO, ADMIN_NEW };

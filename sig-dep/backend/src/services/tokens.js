@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const db = require('../db/knex');
 const config = require('../config/env');
+const { politique } = require('./politique');
 
 const COOKIE_NAME = 'sigdep_rt';
 
@@ -15,10 +16,13 @@ function signAccess(user) {
   });
 }
 
-async function issueRefresh(userId, req, familyId = crypto.randomUUID(), trx = db) {
+/**
+ * Émet un refresh token. La durée maximale de la session (politique) court depuis la connexion :
+ * lors d’une rotation, l’échéance de la session d’origine est conservée (`expiresAt`).
+ */
+async function issueRefresh(userId, req, familyId = crypto.randomUUID(), trx = db, expiresAt = null) {
   const raw = crypto.randomBytes(48).toString('base64url');
-  const expires = new Date(Date.now() + config.jwt.refreshTtlDays * 86400000);
-  // Seule l’empreinte est stockée en base ; le jeton brut n’est remis qu’au navigateur via un cookie protégé.
+  const expires = expiresAt ? new Date(expiresAt) : new Date(Date.now() + (await politique()).session_duree_jours * 86400000);
   const [row] = await trx('refresh_tokens').insert({
     user_id: userId, token_hash: sha256(raw), family_id: familyId, expires_at: expires,
     ip: req.ip, user_agent: String(req.headers['user-agent'] || '').slice(0, 300),
@@ -26,19 +30,20 @@ async function issueRefresh(userId, req, familyId = crypto.randomUUID(), trx = d
   return { raw, row };
 }
 
-function cookieOptions() {
+function cookieOptions(expires = null) {
   return {
     // Le JavaScript ne peut pas lire le jeton ; son chemin et SameSite limitent aussi son exposition.
     httpOnly: true,
     secure: config.cookieSecure,
     sameSite: 'strict',
     path: '/api/auth',
-    maxAge: config.jwt.refreshTtlDays * 86400000,
+    ...(expires ? { expires: new Date(expires) } : {}),
   };
 }
 
-function setRefreshCookie(res, raw) { res.cookie(COOKIE_NAME, raw, cookieOptions()); }
-function clearRefreshCookie(res) { const o = cookieOptions(); delete o.maxAge; res.clearCookie(COOKIE_NAME, o); }
+/** Pose le cookie du refresh token (même échéance que le jeton). */
+function setRefreshCookie(res, raw, expires = null) { res.cookie(COOKIE_NAME, raw, cookieOptions(expires)); }
+function clearRefreshCookie(res) { res.clearCookie(COOKIE_NAME, cookieOptions()); }
 
 async function revokeAllForUser(userId, reason, trx = db) {
   // La révocation des refresh tokens ferme les sessions longues ; l’incrément invalide les JWT déjà émis.

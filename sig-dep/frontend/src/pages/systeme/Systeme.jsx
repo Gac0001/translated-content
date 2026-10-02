@@ -113,13 +113,13 @@ function Messagerie() {
 
 export default function Systeme() {
   const can = useAuth((s) => s.can);
-  const etat = useApi(can('systeme.etat') ? '/systeme/etat' : null);
+  const etat = useApi(can('systeme.consulter') ? '/systeme/etat' : null);
   return (
     <>
       <PageHeader title="Système" subtitle="État technique, paramètres, messagerie et sauvegardes." breadcrumb={[{ label: 'Administration' }, { label: 'Système' }]}
-        actions={can('systeme.reinitialiser') && <Link to="/systeme/reinitialisation" className="btn-secondary"><DatabaseZap size={16} /> Réinitialisation de la base</Link>} />
+        actions={can('systeme.maintenir') && <Link to="/systeme/reinitialisation" className="btn-secondary"><DatabaseZap size={16} /> Réinitialisation de la base</Link>} />
       <div className="space-y-4">
-        {can('systeme.etat') && (
+        {can('systeme.consulter') && (
           <Loadable state={etat}>
             {(e) => (
               <div className="grid gap-4 md:grid-cols-3">
@@ -130,9 +130,9 @@ export default function Systeme() {
             )}
           </Loadable>
         )}
-        {can('systeme.parametres') && <Parametres />}
-        {can('systeme.parametres') && <Messagerie />}
-        {can('systeme.sauvegardes') && <Sauvegardes />}
+        {can('systeme.configurer') && <Parametres />}
+        {can('systeme.configurer') && <Messagerie />}
+        {can('sauvegarde.creer') && <Sauvegardes />}
       </div>
     </>
   );
