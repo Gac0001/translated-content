@@ -11,6 +11,9 @@ const { scopeDocuments, scopeInstructions, scopeTasks, scopeCourriers, scopePip,
 const { DEP_NOM } = require('../../constants');
 const liste = require('../../services/listeDeclarative');
 const { donneesDemo } = require('../../services/reinitialisation');
+const { politique } = require('../../services/politique');
+const { dernierControle, versionApplication, espaceDisque } = require('../../services/sante');
+const { etatSauvegardes } = require('../../services/sauvegarde');
 
 const router = express.Router();
 
@@ -32,24 +35,53 @@ async function commun(ctx) {
   return { notificationsNonLues: Number(nonLues.n), echeances };
 }
 
+/** Opérations sensibles affichées au tableau de bord de l’Admin Système. */
+const OPERATIONS_SENSIBLES = ['CHANGEMENT_ROLE', 'BLOCAGE', 'DESACTIVATION', 'REINITIALISATION_MDP', 'CHANGEMENT_MDP_IMPOSE', 'POLITIQUE_SECURITE',
+  'REINITIALISATION', 'REVOCATION_SESSION', 'EXPORT', 'CHANGEMENT_APPAREIL_2FA', 'CODES_SECOURS', 'AUTORISATION', 'SAUVEGARDE', 'RESOLUTION_ERREUR'];
+
 async function adminDashboard() {
+  const p = await politique();
   const comptes = await db('users').select('statut').count('* as n').groupBy('statut');
   const by = Object.fromEntries(comptes.map((c) => [c.statut, Number(c.n)]));
-  const [mustChange, sessions, connexions24, echecs24, audit, dbSize, migrations] = await Promise.all([
-    db('users').where({ must_change_password: true }).count('* as n').first(),
+  const [mustChange, inactifs, sessions, utilisateurs, connexions24, echecs24, echecs7j, alertes, sensibles, dbSize, migrations, erreursOuvertes, erreursRecentes, derniereVerif] = await Promise.all([
+    db('users').where({ must_change_password: true }).whereNot('statut', 'DESACTIVE').count('* as n').first(),
+    db('users').whereNot('statut', 'DESACTIVE').whereRaw('coalesce(last_login_at, created_at) < now() - make_interval(days => ?)', [p.inactivite_compte_jours]).count('* as n').first(),
+    db('refresh_tokens').whereNull('revoked_at').where('expires_at', '>', db.fn.now()).countDistinct('family_id as n').first(),
     db('refresh_tokens').whereNull('revoked_at').where('expires_at', '>', db.fn.now()).countDistinct('user_id as n').first(),
     db('login_history').where('succes', true).where('created_at', '>', db.raw(`now() - interval '24 hours'`)).count('* as n').first(),
     db('login_history').where('succes', false).where('created_at', '>', db.raw(`now() - interval '24 hours'`)).count('* as n').first(),
-    db('audit_logs').orderBy('id', 'desc').limit(12),
+    db('login_history').where('succes', false).where('created_at', '>', db.raw(`now() - interval '7 days'`)).count('* as n').first(),
+    db('alertes_securite').whereNull('acquittee_at').select('gravite').count('* as n').groupBy('gravite'),
+    db('audit_logs').whereIn('action', OPERATIONS_SENSIBLES).orderBy('id', 'desc').limit(10).select('id', 'created_at', 'username', 'action', 'module', 'message', 'resultat'),
     db.raw('select pg_size_pretty(pg_database_size(current_database())) as taille'),
     db('knex_migrations').orderBy('id', 'desc').first(),
+    db('erreurs_techniques').whereNull('resolue_at').count('* as n').first(),
+    db('erreurs_techniques').whereNull('resolue_at').orderBy('derniere_at', 'desc').limit(5).select('id', 'methode', 'route', 'message', 'occurrences', 'derniere_at'),
+    db('parametres').where({ cle: 'securite_derniere_verification' }).first(),
   ]);
-  const verrouilles = await db('users').where({ statut: 'VERROUILLE' }).select('id', 'username', 'locked_until');
+  const verrouilles = await db('users').where({ statut: 'VERROUILLE' }).select('id', 'username', 'locked_until', 'motif_blocage');
+  let disque = null;
+  try { disque = await espaceDisque(); } catch (e) { disque = null; }
+  const parGravite = Object.fromEntries(alertes.map((a) => [a.gravite, Number(a.n)]));
   return {
-    comptes: { total: Object.values(by).reduce((a, b) => a + b, 0), actifs: by.ACTIF || 0, desactives: by.DESACTIVE || 0, verrouilles: by.VERROUILLE || 0, changementMdpRequis: Number(mustChange.n) },
-    securite: { utilisateursConnectes: Number(sessions.n), connexions24h: Number(connexions24.n), echecsConnexion24h: Number(echecs24.n), comptesVerrouilles: verrouilles },
-    audit,
-    systeme: { baseDeDonnees: 'Opérationnelle', tailleBase: dbSize.rows[0].taille, derniereMigration: migrations ? migrations.name : null, uptimeSecondes: Math.round(process.uptime()), node: process.version },
+    comptes: {
+      total: Object.values(by).reduce((a, b) => a + b, 0), actifs: by.ACTIF || 0, desactives: by.DESACTIVE || 0, verrouilles: by.VERROUILLE || 0,
+      inactifs: Number(inactifs.n), changementMdpRequis: Number(mustChange.n), seuilInactiviteJours: p.inactivite_compte_jours,
+    },
+    securite: {
+      sessionsActives: Number(sessions.n), utilisateursConnectes: Number(utilisateurs.n), connexions24h: Number(connexions24.n),
+      echecsConnexion24h: Number(echecs24.n), echecsConnexion7j: Number(echecs7j.n), comptesVerrouilles: verrouilles,
+      alertes: { CRITIQUE: parGravite.CRITIQUE || 0, ATTENTION: parGravite.ATTENTION || 0, INFO: parGravite.INFO || 0 },
+      derniereVerification: derniereVerif && derniereVerif.valeur ? JSON.parse(derniereVerif.valeur) : null,
+    },
+    systeme: {
+      sante: await dernierControle(), version: versionApplication(), tailleBase: dbSize.rows[0].taille,
+      derniereMigration: migrations ? migrations.name : null, uptimeSecondes: Math.round(process.uptime()),
+      disque: disque && { ...disque, seuilAttention: p.disque_seuil_attention, seuilCritique: p.disque_seuil_critique },
+    },
+    sauvegardes: await etatSauvegardes(),
+    erreurs: { ouvertes: Number(erreursOuvertes.n), recentes: erreursRecentes },
+    operationsSensibles: sensibles,
   };
 }
 

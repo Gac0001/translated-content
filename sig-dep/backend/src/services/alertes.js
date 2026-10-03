@@ -30,6 +30,10 @@ async function alerter({ type, gravite = 'ATTENTION', titre, message = null, det
     if (gravite !== 'INFO') {
       await notify(await adminsActifs(), { type: 'SECURITE', titre: `${gravite === 'CRITIQUE' ? 'Alerte critique' : 'Alerte'} : ${titre}`, message, lien: '/securite' });
     }
+    // Incident critique : le Directeur, autorité de la Direction, est informé immédiatement.
+    if (gravite === 'CRITIQUE') {
+      await notify(await directeursActifs(), { type: 'SECURITE', titre: `Incident de sécurité critique : ${titre}`, message: `${message ? `${message}\n` : ''}L’Admin Système a été alerté.`, lien: '/notifications' });
+    }
     return a;
   } catch (e) {
     console.error('[ALERTE] enregistrement impossible :', e.message);
@@ -37,4 +41,9 @@ async function alerter({ type, gravite = 'ATTENTION', titre, message = null, det
   }
 }
 
-module.exports = { alerter, adminsActifs, GRAVITES };
+async function directeursActifs() {
+  return db('users as u').join('user_roles as ur', 'ur.user_id', 'u.id').join('roles as r', 'r.id', 'ur.role_id')
+    .where({ 'r.code': 'DIRECTEUR', 'u.statut': 'ACTIF' }).pluck('u.id');
+}
+
+module.exports = { alerter, adminsActifs, directeursActifs, GRAVITES };

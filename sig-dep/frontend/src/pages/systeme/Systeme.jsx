@@ -45,6 +45,14 @@ function Sauvegardes() {
               { key: 'dl', header: '', render: (b) => <button type="button" className="btn-ghost px-2" onClick={() => download(`/systeme/sauvegardes/${b.fichier}`, b.fichier).catch((e) => toast.error(errorMessage(e)))} aria-label="Télécharger"><Download size={16} /></button> },
             ]} />
             <p className="mt-2 text-xs text-slate-500">Répertoire : {d.repertoire}</p>
+            <h3 className="mb-2 mt-5 text-sm font-semibold text-dep-800">Registre des tentatives</h3>
+            <DataTable searchable={false} rows={d.historique} pageSize={10} empty="Aucune tentative enregistrée." columns={[
+              { key: 'created_at', header: 'Date', render: (h) => fmtDateTime(h.created_at) },
+              { key: 'statut', header: 'Résultat', render: (h) => (h.statut === 'REUSSIE' ? <Badge className="bg-emerald-50 text-emerald-800 ring-emerald-200">Réussie</Badge> : <Badge className="bg-red-50 text-red-800 ring-red-200">Échec</Badge>) },
+              { key: 'origine', header: 'Origine', render: (h) => ({ MANUELLE: 'Manuelle', AVANT_REINITIALISATION: 'Avant réinitialisation', PROGRAMMEE: 'Programmée' }[h.origine] || h.origine) },
+              { key: 'username', header: 'Par' },
+              { key: 'detail', header: 'Détail', render: (h) => <span className="text-xs">{h.statut === 'REUSSIE' ? `${h.fichier} — ${fmtTaille(Number(h.taille_octets))} en ${Math.round(h.duree_ms / 100) / 10} s` : h.erreur}</span> },
+            ]} />
           </div>
         )}
       </Loadable>

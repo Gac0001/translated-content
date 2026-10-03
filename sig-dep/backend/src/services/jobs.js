@@ -94,9 +94,28 @@ async function purgeDefis() {
   await db('defis_auth').where('expires_at', '<', db.raw(`now() - interval '1 day'`)).del();
 }
 
+/** Journal technique (durée de la politique) et historique de santé (30 jours) : purge. */
+async function purgeSupervision() {
+  const p = await politique();
+  await db('erreurs_techniques').where('derniere_at', '<', db.raw(`now() - make_interval(days => ?)`, [p.erreurs_conservation_jours])).del();
+  await db('sante_controles').where('created_at', '<', db.raw(`now() - interval '30 days'`)).del();
+}
+
+/** Rapport de sécurité du mois écoulé, généré dès les premiers jours du mois. */
+async function rapportMensuel() {
+  await require('./rapportSecurite').genererMoisEcoule();
+}
+
+async function controleSante() {
+  try { await require('./sante').controler('AUTO'); } catch (e) { console.error('[JOBS] contrôle de santé :', e.message); }
+}
+
 async function runAll() {
-  for (const fn of [markOverdue, remindDeadlines, autolockPresences, purgeTokens, purgeDefis, desactiverInactifs]) {
-    try { await fn(); } catch (e) { console.error(`[JOBS] ${fn.name} :`, e.message); }
+  for (const fn of [markOverdue, remindDeadlines, autolockPresences, purgeTokens, purgeDefis, desactiverInactifs, purgeSupervision, rapportMensuel]) {
+    try { await fn(); } catch (e) {
+      console.error(`[JOBS] ${fn.name} :`, e.message);
+      require('./erreurs').enregistrer(Object.assign(e, { contexte: `tâche ${fn.name}` }));
+    }
   }
 }
 
@@ -105,7 +124,8 @@ async function sendMails() {
 }
 
 let timer = null;
-let mailTimer = null;
+let mailTimer = null; // eslint-disable-line no-unused-vars
+let santeTimer = null; // eslint-disable-line no-unused-vars
 function start(intervalMs = 10 * 60000) {
   if (timer) return;
   setTimeout(runAll, 5000);
@@ -113,6 +133,9 @@ function start(intervalMs = 10 * 60000) {
   // La file des e-mails est traitée chaque minute
   mailTimer = setInterval(sendMails, 60000);
   setTimeout(sendMails, 8000);
+  // Centre de santé : contrôle toutes les 15 minutes
+  setTimeout(controleSante, 15000);
+  santeTimer = setInterval(controleSante, 15 * 60000);
 }
 
-module.exports = { start, runAll, sendMails, markOverdue, remindDeadlines, autolockPresences, desactiverInactifs };
+module.exports = { start, runAll, sendMails, markOverdue, remindDeadlines, autolockPresences, desactiverInactifs, purgeSupervision, rapportMensuel, controleSante };

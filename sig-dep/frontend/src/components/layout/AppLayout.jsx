@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import {
   LayoutDashboard, Network, BookOpen, Users, UserCog, CalendarCheck, Mail, Send, ListTodo, FileText, FolderKanban,
-  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap, ShieldAlert,
+  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap, ShieldAlert, FileBarChart, HeartPulse, Bug,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth, useCompteurs } from '../../store/auth';
@@ -32,7 +32,10 @@ const MENU = [
   { to: '/comptes', label: 'Comptes utilisateurs', icon: UserCog, perms: ['compte.consulter'], end: true },
   { to: '/roles', label: 'Rôles et permissions', icon: ShieldCheck, perms: ['role.attribuer'] },
   { to: '/securite', label: 'Sécurité', icon: ShieldAlert, perms: ['securite.superviser'], counter: 'alertes' },
+  { to: '/rapports-securite', label: 'Rapports de sécurité', icon: FileBarChart, perms: ['rapport_securite.consulter'] },
   { to: '/audit', label: 'Journal d’audit', icon: ScrollText, perms: ['audit.consulter'] },
+  { to: '/systeme/sante', label: 'Santé du système', icon: HeartPulse, perms: ['systeme.consulter'] },
+  { to: '/systeme/erreurs', label: 'Journal technique', icon: Bug, perms: ['systeme.consulter'] },
   { to: '/systeme', label: 'Système', icon: Settings, perms: ['systeme.consulter', 'systeme.configurer'], end: true },
   { to: '/systeme/reinitialisation', label: 'Réinitialisation', icon: DatabaseZap, perms: ['systeme.maintenir'] },
 ];

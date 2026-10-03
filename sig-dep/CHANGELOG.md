@@ -1,5 +1,16 @@
 # Journal des versions — SIG-DEP
 
+## 1.7.0
+
+### Compte Admin Système (lot 2 : supervision)
+- **Tableau de bord Admin** complet : comptes (total, actifs, désactivés, verrouillés, inactifs), sessions actives, échecs de connexion (24 h / 7 j), alertes ouvertes, état des services, espace disque, dernière sauvegarde réussie, sauvegardes échouées, erreurs techniques récentes, version de l’application (numéro et révision), dernières opérations sensibles.
+- **Centre de santé du système** : API, PostgreSQL, stockage, sauvegarde, courriels, génération PDF/Excel ; contrôle automatique toutes les 15 minutes et à la demande, historique sur 48 heures, alertes de panne et de rétablissement.
+- **Journal technique** : erreurs internes regroupées par cause (occurrences, dernière requête, pile d’appels), résolution, purge après 90 jours.
+- **Registre des sauvegardes** (réussies et échouées), affiché dans Système → Sauvegardes ; alerte en cas d’échec.
+- **Rapport mensuel de sécurité** : génération automatique au début du mois, à la demande pour un mois donné, PDF avec visa du Directeur ; consultable par l’Admin Système et le Directeur (`rapport_securite.consulter`).
+- **Incidents critiques** notifiés immédiatement au Directeur.
+- Politique : seuils d’espace disque et durée de conservation du journal technique.
+
 ## 1.6.0
 
 ### Compte Admin Système (lot 1 : sécurité du compte)

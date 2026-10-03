@@ -53,6 +53,7 @@ const protectedModules = {
   'liste-declarative': './modules/listeDeclarative/routes',
   enrolement: './modules/enrolement/routes',
   securite: './modules/securite/routes',
+  supervision: './modules/supervision/routes',
 };
 for (const [path, mod] of Object.entries(protectedModules)) {
   // Un module manquant doit empêcher le démarrage, jamais être ignoré.

@@ -27,6 +27,8 @@ const LIBELLES = {
   session_duree_jours: 'Durée maximale d’une session (jours)', session_inactivite_minutes: 'Déconnexion après inactivité (minutes)',
   inactivite_compte_jours: 'Compte inactif après (jours sans connexion)', inactivite_desactivation_auto: 'Désactiver automatiquement les comptes inactifs',
   alerte_echecs_seuil: 'Alerte : échecs de connexion en 15 minutes',
+  disque_seuil_attention: 'Espace disque : alerte sous (% libre)', disque_seuil_critique: 'Espace disque : critique sous (% libre)',
+  erreurs_conservation_jours: 'Journal technique : conservation (jours)',
 };
 
 router.get('/politique', requirePerm('systeme.consulter', 'securite.superviser'), async (req, res) => {
@@ -47,6 +49,8 @@ router.put('/politique', requirePerm('systeme.configurer'), validate({ body: z.r
     }
     if (avant[cle] !== v) changes[cle] = v;
   }
+  const futur = { ...avant, ...changes };
+  if (futur.disque_seuil_attention <= futur.disque_seuil_critique) throw badRequest('Le seuil d’alerte d’espace disque doit être supérieur au seuil critique.');
   if (!Object.keys(changes).length) return res.json({ message: 'Aucun changement.' });
   await db.transaction(async (trx) => {
     for (const [cle, v] of Object.entries(changes)) {

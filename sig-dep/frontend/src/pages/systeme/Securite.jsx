@@ -147,6 +147,7 @@ function Politique() {
     ['Verrouillage et alertes', ['verrouillage_tentatives', 'verrouillage_minutes', 'alerte_echecs_seuil']],
     ['Sessions', ['session_duree_jours', 'session_inactivite_minutes']],
     ['Comptes inactifs', ['inactivite_compte_jours', 'inactivite_desactivation_auto']],
+    ['Supervision', ['disque_seuil_attention', 'disque_seuil_critique', 'erreurs_conservation_jours']],
   ];
   const lecture = !can('systeme.configurer');
   return (

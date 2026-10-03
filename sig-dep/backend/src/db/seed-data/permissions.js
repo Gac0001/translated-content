@@ -81,6 +81,7 @@ const PERMISSIONS = [
   ['pip.archiver', 'pip', 'Archiver une fiche PIP'],
   // Rapports
   ['rapports.consulter', 'rapports', 'Consulter les rapports et statistiques du périmètre'],
+  ['rapport_securite.consulter', 'rapports', 'Consulter les rapports mensuels de sécurité'],
   ['exports.generer', 'rapports', 'Générer des exports PDF / Excel / Word'],
   ['supervision.globale', 'supervision', 'Supervision globale en lecture de la DEP'],
   // Réservées aux Divisions
@@ -106,7 +107,7 @@ const MATRICE = {
     'role.consulter', 'role.attribuer', 'permission.consulter', 'organisation.consulter', 'organisation.configurer', 'referentiel.gerer',
     'modele_carte.configurer',
     'compte.consulter', 'compte.creer_initial', 'compte.enroler', 'compte.activer', 'compte.desactiver', 'compte.deverrouiller',
-    'compte.reinitialiser_mot_de_passe', 'session.consulter', 'session.revoquer',
+    'compte.reinitialiser_mot_de_passe', 'session.consulter', 'session.revoquer', 'rapport_securite.consulter',
   ],
   SECRETAIRE_GENERAL: [
     'supervision.globale', 'organisation.consulter', 'personnel.consulter', 'presences.consulter',
@@ -116,7 +117,7 @@ const MATRICE = {
   DIRECTEUR: [
     'organisation.consulter', 'organisation.gerer', 'cadre.gerer',
     'personnel.consulter', 'personnel.gerer', 'personnel.suivre', 'affectations.gerer', 'delegations.gerer',
-    'compte.consulter', 'compte.activer', 'compte.desactiver', 'liste.consulter', 'liste.gerer', 'liste.valider',
+    'compte.consulter', 'compte.activer', 'compte.desactiver', 'rapport_securite.consulter', 'liste.consulter', 'liste.gerer', 'liste.valider',
     'presences.consulter', 'presences.verrouiller',
     'courriers.consulter', 'courriers.enregistrer', 'courriers.transmettre', 'courriers.annoter', 'courriers.classer',
     'dossiers.transmettre',

@@ -11,7 +11,7 @@ const { requirePerm } = require('../../middleware/auth');
 const { audit } = require('../../services/audit');
 const mailer = require('../../services/mailer');
 const bcrypt = require('bcrypt');
-const { creerSauvegarde } = require('../../services/sauvegarde');
+const { creerSauvegarde, etatSauvegardes } = require('../../services/sauvegarde');
 const reinit = require('../../services/reinitialisation');
 const { alerter } = require('../../services/alertes');
 const { notFound, badRequest, AppError } = require('../../utils/errors');
@@ -45,7 +45,7 @@ router.get('/etat', requirePerm('systeme.consulter'), async (req, res) => {
 });
 
 // Paramètres gérés par des écrans dédiés (politique de sécurité) ou internes : non modifiables ici.
-const CLES_RESERVEES = (cle) => /^(mdp_|verrouillage_|session_|inactivite_|alerte_|regles_|audit_|securite_)/.test(cle) || cle === 'donnees_demo';
+const CLES_RESERVEES = (cle) => /^(mdp_|verrouillage_|session_|inactivite_|alerte_|regles_|audit_|securite_|disque_|erreurs_|sante_)/.test(cle) || cle === 'donnees_demo';
 
 router.get('/parametres', requirePerm('systeme.configurer'), async (req, res) => {
   res.json({ data: (await db('parametres').orderBy('cle')).filter((p) => !CLES_RESERVEES(p.cle)) });
@@ -69,11 +69,12 @@ router.get('/sauvegardes', requirePerm('sauvegarde.creer'), async (req, res) => 
     const st = fs.statSync(path.join(config.backupDir, f));
     return { fichier: f, tailleOctets: st.size, date: st.mtime };
   }).sort((a, b) => b.date - a.date);
-  res.json({ data: files, repertoire: config.backupDir });
+  const historique = await db('sauvegardes').orderBy('created_at', 'desc').limit(50);
+  res.json({ data: files, repertoire: config.backupDir, historique, etat: await etatSauvegardes() });
 });
 
 router.post('/sauvegardes', requirePerm('sauvegarde.creer'), async (req, res) => {
-  const r = await creerSauvegarde().catch(async (e) => {
+  const r = await creerSauvegarde('', { origine: 'MANUELLE', user: { id: req.ctx.userId, username: req.ctx.username } }).catch(async (e) => {
     await audit(req, { action: 'SAUVEGARDE', module: 'systeme', resultat: 'ECHEC', message: e.message });
     throw e;
   });
@@ -159,7 +160,7 @@ router.post('/reinitialisation', requirePerm('systeme.maintenir'), validate({
   }
   let copie = null;
   if (sauvegarde) {
-    copie = await creerSauvegarde('-avant-reinitialisation').catch(async (e) => {
+    copie = await creerSauvegarde('-avant-reinitialisation', { origine: 'AVANT_REINITIALISATION', user: { id: req.ctx.userId, username: req.ctx.username } }).catch(async (e) => {
       await audit(req, { action: 'REINITIALISATION', module: 'systeme', resultat: 'ECHEC', message: `Sauvegarde préalable impossible : ${e.message}` });
       throw new AppError(e.status || 500, e.code || 'SAUVEGARDE_ECHEC', `${e.message} Réinitialisation annulée : décochez la sauvegarde préalable seulement si une sauvegarde a été faite par ailleurs.`);
     });

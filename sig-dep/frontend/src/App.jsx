@@ -48,6 +48,9 @@ const Notifications = p(() => import('./pages/Notifications'));
 const Audit = p(() => import('./pages/systeme/Audit'));
 const Systeme = p(() => import('./pages/systeme/Systeme'));
 const Securite = p(() => import('./pages/systeme/Securite'));
+const Sante = p(() => import('./pages/systeme/Sante'));
+const JournalTechnique = p(() => import('./pages/systeme/JournalTechnique'));
+const RapportsSecurite = p(() => import('./pages/RapportsSecurite'));
 const Reinitialisation = p(() => import('./pages/systeme/Reinitialisation'));
 const Rapports = p(() => import('./pages/Rapports'));
 
@@ -126,6 +129,9 @@ export default function App() {
             <Route path="audit" element={G(['audit.consulter'], <Audit />)} />
             <Route path="rapports" element={G(['rapports.consulter'], <Rapports />)} />
             <Route path="systeme" element={G(['systeme.consulter', 'systeme.configurer'], <Systeme />)} />
+            <Route path="systeme/sante" element={G(['systeme.consulter'], <Sante />)} />
+            <Route path="systeme/erreurs" element={G(['systeme.consulter'], <JournalTechnique />)} />
+            <Route path="rapports-securite" element={G(['rapport_securite.consulter'], <RapportsSecurite />)} />
             <Route path="securite" element={G(['securite.superviser', 'session.consulter'], <Securite />)} />
             <Route path="systeme/reinitialisation" element={G(['systeme.maintenir'], <Reinitialisation />)} />
             <Route path="acces-refuse" element={<Forbidden />} />

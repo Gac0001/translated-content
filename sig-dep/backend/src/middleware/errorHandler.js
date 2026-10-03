@@ -3,6 +3,7 @@ const { ZodError } = require('zod');
 const multer = require('multer');
 const { AppError } = require('../utils/errors');
 const config = require('../config/env');
+const erreurs = require('../services/erreurs');
 
 function zodMessage(err) {
   return err.issues.map((i) => {
@@ -48,5 +49,6 @@ module.exports = function errorHandler(err, req, res, next) {
     if (m) return res.status(m[0]).json({ error: { code: m[1], message: m[2], details: config.isProd ? undefined : err.detail || err.constraint } });
   }
   if (!config.isTest) console.error('[ERREUR]', err);
+  erreurs.enregistrer(err, req); // journal technique (sans attendre)
   return res.status(500).json({ error: { code: 'ERREUR_INTERNE', message: 'Une erreur interne est survenue. Veuillez réessayer ou contacter l’administrateur.' } });
 };
