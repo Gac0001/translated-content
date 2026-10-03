@@ -45,7 +45,7 @@ router.get('/etat', requirePerm('systeme.consulter'), async (req, res) => {
 });
 
 // Paramètres gérés par des écrans dédiés (politique de sécurité) ou internes : non modifiables ici.
-const CLES_RESERVEES = (cle) => /^(mdp_|verrouillage_|session_|inactivite_|alerte_|regles_|audit_|securite_|disque_|erreurs_|sante_)/.test(cle) || cle === 'donnees_demo';
+const CLES_RESERVEES = (cle) => /^(mdp_|verrouillage_|session_|inactivite_|alerte_|regles_|audit_|securite_|disque_|erreurs_|sante_|sauvegarde_|retention_|test_restauration_|maintenance_)/.test(cle) || cle === 'donnees_demo';
 
 router.get('/parametres', requirePerm('systeme.configurer'), async (req, res) => {
   res.json({ data: (await db('parametres').orderBy('cle')).filter((p) => !CLES_RESERVEES(p.cle)) });
@@ -65,7 +65,7 @@ router.put('/parametres/:cle', requirePerm('systeme.configurer'), validate({ par
 
 router.get('/sauvegardes', requirePerm('sauvegarde.creer'), async (req, res) => {
   fs.mkdirSync(config.backupDir, { recursive: true });
-  const files = fs.readdirSync(config.backupDir).filter((f) => /\.(sql|dump)$/.test(f)).map((f) => {
+  const files = fs.readdirSync(config.backupDir).filter((f) => /\.(sql|dump|enc)$/.test(f)).map((f) => {
     const st = fs.statSync(path.join(config.backupDir, f));
     return { fichier: f, tailleOctets: st.size, date: st.mtime };
   }).sort((a, b) => b.date - a.date);
@@ -82,7 +82,7 @@ router.post('/sauvegardes', requirePerm('sauvegarde.creer'), async (req, res) =>
   res.status(201).json({ ...r, message: 'Sauvegarde réalisée.' });
 });
 
-router.get('/sauvegardes/:fichier', requirePerm('sauvegarde.creer'), validate({ params: z.object({ fichier: z.string().regex(/^sig-dep-[0-9T-]+(-[a-z]+)?\.(dump|sql)$/) }) }), async (req, res) => {
+router.get('/sauvegardes/:fichier', requirePerm('sauvegarde.creer'), validate({ params: z.object({ fichier: z.string().regex(/^sig-dep-[0-9T-]+(-[a-z-]+)?\.(dump|sql|dump\.enc)$/) }) }), async (req, res) => {
   const p = path.join(config.backupDir, req.valid.params.fichier);
   if (!fs.existsSync(p)) throw notFound('Sauvegarde introuvable.');
   await audit(req, { action: 'EXPORT', module: 'systeme', message: `Téléchargement de la sauvegarde ${req.valid.params.fichier}` });

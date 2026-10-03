@@ -423,41 +423,56 @@ Les tests réinitialisent la base `sig_dep_test` (migrations et seeds), puis vé
 * la gestion des structures : postes créés automatiquement, Bureau rattaché au Directeur, propagation d’un changement de rattachement, archivage protégé ;
 * la réinitialisation de la base (réservée à l’Admin, confirmations, base vierge conservant l’organigramme et le compte Admin, rechargement des données fictives) et l’identification des agents à l’enrôlement ;
 * la recherche globale limitée au périmètre, et la sérialisation du journal d’audit ;
-* les notifications par e-mail : mise en file, préférences, confidentialité, mot de passe jamais envoyé, envoi SMTP réel vers un serveur de test local, réessais puis échec et relance, administration.
+* les notifications par e-mail : mise en file, préférences, confidentialité, mot de passe jamais envoyé, envoi SMTP réel vers un serveur de test local, réessais puis échec et relance, administration ;
+* les sauvegardes et la maintenance : planification et conservation, chiffrement, intégrité, test de restauration, circuit complet de restauration avec réintégration des traces, mode maintenance, annonces, migrations, masquage des secrets.
 
 **Intégration continue** : `.github/workflows/sig-dep.yml` exécute ces tests sur un PostgreSQL 16 éphémère et compile le frontend à chaque modification du dossier `sig-dep/`.
 
 ---
 
-## 10. Sauvegarde PostgreSQL
+## 10. Sauvegardes, restauration et maintenance
 
-**Depuis l’application** : Admin → Système → « Lancer une sauvegarde ». Les fichiers sont téléchargeables depuis le même écran.
+Écrans de l’Admin Système : **Sauvegardes**, **Restaurations** et **Maintenance** (menu Administration).
 
-**En ligne de commande** (Linux ou Git Bash) :
+### Sauvegardes automatiques
+
+* Sauvegarde **chaque nuit à 01:00 (heure de Kinshasa)**, au format `pg_dump` personnalisé ; heure modifiable dans Sauvegardes → Planification.
+* **Conservation** : 7 quotidiennes, 4 hebdomadaires (dimanche), 12 mensuelles (1er du mois) ; sauvegardes ponctuelles conservées 90 jours. Les sauvegardes préalables à une restauration ou à une migration suivent la même règle.
+* **Chiffrement** AES-256-GCM lorsque `BACKUP_ENC_KEY` est défini (fichiers `.dump.enc`). **Conservez cette clé hors du serveur** (coffre, support scellé) : sans elle, aucune sauvegarde chiffrée n’est restaurable.
+* **Copie hors serveur** : si `BACKUP_COPY_DIR` désigne un disque externe ou un partage réseau, chaque sauvegarde y est copiée et sa copie contrôlée (empreinte SHA-256). Tant que ce dossier n’est pas défini, la vérification de sécurité le signale.
+* **Vérification d’intégrité** (empreinte + lecture de l’archive) et **test de restauration réel** dans une base temporaire, à la demande ou chaque semaine (dimanche) automatiquement.
+
+```
+BACKUP_ENC_KEY=<32 caractères aléatoires ou plus>
+BACKUP_COPY_DIR=/mnt/sauvegardes-dep        # Windows : E:/sauvegardes-dep
+PG_DUMP_PATH="C:/Program Files/PostgreSQL/16/bin/pg_dump.exe"        # si absent du PATH
+PG_RESTORE_PATH="C:/Program Files/PostgreSQL/16/bin/pg_restore.exe"  # si absent du PATH
+```
+
+### Restauration (double validation)
+
+1. L’Admin Système **demande** la restauration d’une sauvegarde vérifiée, avec un motif.
+2. Le **Directeur valide ou refuse** (mot de passe) ; la validation expire après 24 heures.
+3. L’Admin **exécute** : phrase `RESTAURER`, mot de passe et code de double authentification.
+
+Pendant l’exécution : mode maintenance, sauvegarde préalable automatique (`AVANT_RESTAURATION`), remplacement de la base en une transaction (retour automatique à l’état précédent en cas d’échec), application des migrations, **réintégration des traces d’audit et de connexion postérieures à la sauvegarde** (rien n’est effacé du journal), fermeture de toutes les sessions. Le Directeur est notifié.
+
+### Maintenance
+
+* **Mode maintenance** avec message et heure de fin prévue : seuls les Admins Système peuvent se connecter ; les autres utilisateurs voient une page d’information.
+* **Annonces système** envoyées à tous les utilisateurs (notification).
+* **Migrations** : état et application (sauvegarde `AVANT_MIGRATION` préalable, mot de passe requis).
+* **Environnement** : version, configuration et outils détectés, secrets masqués.
+
+### En ligne de commande
 
 ```bash
 cd backend
-npm run backup                       # → storage/backups/sig-dep-AAAA-MM-JJ_HHMMSS.dump (30 derniers conservés)
-```
-
-Sous Windows, si `pg_dump` n’est pas dans le `PATH`, renseignez dans `.env` :
-
-```
-PG_DUMP_PATH="C:/Program Files/PostgreSQL/16/bin/pg_dump.exe"
-```
-
-**Restauration** :
-
-```bash
+npm run backup      # sauvegarde manuelle non chiffrée (dépannage)
 pg_restore --clean --if-exists --no-owner -d "postgres://sigdep:MOTDEPASSE@localhost:5432/sig_dep" storage/backups/sig-dep-….dump
 ```
 
-**Planification** :
-
-* Linux : `crontab -e`, puis `0 2 * * * cd /opt/sig-dep/backend && npm run backup >> /var/log/sig-dep-backup.log 2>&1`
-* Windows : Planificateur de tâches → programme `C:\Program Files\Git\bin\bash.exe` → arguments `-lc "cd /c/sig-dep/backend && npm run backup"`
-
-Sauvegardez aussi le dossier `backend/storage/uploads` (pièces jointes et photos), et conservez une copie hors du serveur.
+Sauvegardez aussi le dossier `backend/storage/uploads` (pièces jointes et photos).
 
 ---
 

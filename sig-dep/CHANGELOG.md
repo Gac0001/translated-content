@@ -1,5 +1,15 @@
 # Journal des versions — SIG-DEP
 
+## 1.8.0
+
+### Compte Admin Système (lot 3 : sauvegardes et maintenance)
+- **Sauvegardes automatiques** chaque nuit à 01:00 (heure de Kinshasa), conservation 7 quotidiennes / 4 hebdomadaires / 12 mensuelles, ponctuelles 90 jours.
+- **Chiffrement** AES-256-GCM des sauvegardes (`BACKUP_ENC_KEY`) et **copie hors serveur** contrôlée (`BACKUP_COPY_DIR`).
+- **Vérification d’intégrité** et **test de restauration réel** dans une base temporaire, à la demande et chaque semaine.
+- **Restauration en double validation** : demande motivée de l’Admin, validation du Directeur (24 h), exécution par l’Admin (phrase, mot de passe, second facteur) ; sauvegarde préalable, retour arrière automatique en cas d’échec, réintégration des traces d’audit et de connexion postérieures, fermeture de toutes les sessions (`sauvegarde.valider_restauration`).
+- **Mode maintenance** (page d’information, accès réservé aux Admins Système), **annonces système**, **migrations** depuis l’application avec sauvegarde préalable, **environnement** (secrets masqués).
+- Vérification de sécurité et centre de santé : chiffrement, copie hors serveur et dernier test de restauration contrôlés.
+
 ## 1.7.0
 
 ### Compte Admin Système (lot 2 : supervision)

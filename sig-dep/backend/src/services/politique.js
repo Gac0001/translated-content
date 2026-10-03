@@ -11,6 +11,8 @@ const DEFAUTS = {
   session_duree_jours: 7, session_inactivite_minutes: 30, inactivite_compte_jours: 90, inactivite_desactivation_auto: false,
   alerte_echecs_seuil: 10, regles_securite_version: 1,
   disque_seuil_attention: 15, disque_seuil_critique: 5, erreurs_conservation_jours: 90,
+  sauvegarde_auto: true, sauvegarde_heure: '01:00', retention_quotidienne: 7, retention_hebdomadaire: 4, retention_mensuelle: 12,
+  retention_ponctuelle_jours: 90, test_restauration_auto: true, test_restauration_jour: 0,
 };
 
 /** Bornes acceptées pour chaque paramètre numérique (garde-fous contre une politique affaiblie). */
@@ -19,6 +21,8 @@ const BORNES = {
   verrouillage_minutes: [5, 1440], session_duree_jours: [1, 30], session_inactivite_minutes: [5, 240],
   inactivite_compte_jours: [30, 730], alerte_echecs_seuil: [3, 100], regles_securite_version: [1, 1000],
   disque_seuil_attention: [5, 50], disque_seuil_critique: [1, 30], erreurs_conservation_jours: [30, 365],
+  retention_quotidienne: [3, 60], retention_hebdomadaire: [0, 52], retention_mensuelle: [0, 120], retention_ponctuelle_jours: [7, 3650],
+  test_restauration_jour: [0, 6],
 };
 
 let cache = null; let cacheAt = 0;

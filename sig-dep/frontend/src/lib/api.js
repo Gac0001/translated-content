@@ -39,6 +39,9 @@ api.interceptors.response.use(
         window.location.assign('/connexion');
       }
     }
+    if (response.status === 503 && code === 'MAINTENANCE' && window.location.pathname !== '/maintenance') {
+      window.location.assign('/maintenance');
+    }
     if (response.status === 403 && ['CHANGEMENT_MDP_REQUIS', 'CONFIGURATION_SECURITE_REQUISE'].includes(code) && window.location.pathname !== '/premiere-connexion') {
       window.location.assign('/premiere-connexion');
     }

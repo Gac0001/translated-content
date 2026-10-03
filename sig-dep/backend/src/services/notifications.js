@@ -19,6 +19,7 @@ const TYPES = {
   PIP: 'Fiche PIP',
   INSTRUCTION_REPONSE: 'Compte rendu d’instruction',
   SECURITE: 'Alerte de sécurité',
+  SYSTEME: 'Annonce système',
 };
 
 /**

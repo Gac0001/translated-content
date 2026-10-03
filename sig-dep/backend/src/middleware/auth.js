@@ -2,7 +2,8 @@
 const jwt = require('jsonwebtoken');
 const config = require('../config/env');
 const { loadContext } = require('../services/context');
-const { unauthorized, forbidden } = require('../utils/errors');
+const { unauthorized, forbidden, AppError } = require('../utils/errors');
+const maintenance = require('../services/maintenance');
 
 /** Routes accessibles tant que les étapes de sécurité de la première connexion ne sont pas terminées. */
 const PASSWORD_FREE_PATHS = ['/api/auth/me', '/api/auth/change-password', '/api/auth/logout', '/api/auth/regles'];
@@ -25,6 +26,10 @@ async function authenticate(req, res, next) {
   if (ctx.statut === 'DESACTIVE') return next(unauthorized('Ce compte est désactivé.', 'COMPTE_DESACTIVE'));
   if (ctx.tokenVersion !== payload.tv) return next(unauthorized('Session révoquée. Veuillez vous reconnecter.', 'SESSION_REVOQUEE'));
   const chemin = req.originalUrl.split('?')[0];
+  const m = await maintenance.etat();
+  if (m.active && !ctx.roles.includes('ADMIN_SYSTEME') && chemin !== '/api/auth/logout') {
+    return next(new AppError(503, 'MAINTENANCE', m.message || 'Le SIG-DEP est en maintenance.', { fin: m.fin }));
+  }
   if (ctx.exigences.includes('MOT_DE_PASSE') && !PASSWORD_FREE_PATHS.includes(chemin)) {
     return next(forbidden(ctx.mdpExpire ? 'Votre mot de passe a expiré : changez-le avant de continuer.' : 'Vous devez changer votre mot de passe temporaire avant de continuer.', 'CHANGEMENT_MDP_REQUIS'));
   }

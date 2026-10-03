@@ -20,6 +20,7 @@ const { politique } = require('../../services/politique');
 const deuxFacteurs = require('../../services/deuxFacteurs');
 const { envoyerDirect } = require('../../services/mailer');
 const tokens = require('../../services/tokens');
+const maintenance = require('../../services/maintenance');
 const { passwordSchema, verifierPolitique, historiser, reglesLisibles } = require('../../utils/password');
 const { unauthorized, badRequest, AppError } = require('../../utils/errors');
 const { REGLES_SECURITE } = require('../../constants');
@@ -103,7 +104,14 @@ async function controlerStatut(req, user, username) {
   }
 }
 
+/** En maintenance, seuls les Admins Système peuvent ouvrir une session. */
+async function controlerMaintenance(user) {
+  const m = await maintenance.etat();
+  if (m.active && !(await estAdmin(user.id))) throw new AppError(503, 'MAINTENANCE', m.message || 'Le SIG-DEP est en maintenance.', { fin: m.fin });
+}
+
 async function ouvrirSession(req, res, user, motif = 'Connexion réussie') {
+  await controlerMaintenance(user);
   await db('users').where({ id: user.id }).update({ failed_attempts: 0, locked_until: null, last_login_at: db.fn.now() });
   const { raw, row } = await tokens.issueRefresh(user.id, req);
   tokens.setRefreshCookie(res, raw, row.expires_at);
@@ -187,6 +195,7 @@ router.post('/refresh', async (req, res) => {
   if (new Date(row.expires_at) <= new Date()) { tokens.clearRefreshCookie(res); throw unauthorized('Session expirée.', 'SESSION_EXPIREE'); }
   const user = await db('users').where({ id: row.user_id }).first();
   if (!user || user.statut !== 'ACTIF') { tokens.clearRefreshCookie(res); throw unauthorized('Compte indisponible.', 'COMPTE_INDISPONIBLE'); }
+  await controlerMaintenance(user);
 
   const result = await db.transaction(async (trx) => {
     const n = await tokens.issueRefresh(user.id, req, row.family_id, trx, row.expires_at);

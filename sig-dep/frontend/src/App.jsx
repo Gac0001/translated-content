@@ -7,6 +7,7 @@ import { ConfirmProvider, Spinner, Toaster } from './components/ui';
 import Login from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
 import PremiereConnexion from './pages/PremiereConnexion';
+import MaintenancePublique from './pages/MaintenancePublique';
 import { Forbidden, NotFound } from './pages/Errors';
 
 const p = (loader) => lazy(loader);
@@ -49,6 +50,9 @@ const Audit = p(() => import('./pages/systeme/Audit'));
 const Systeme = p(() => import('./pages/systeme/Systeme'));
 const Securite = p(() => import('./pages/systeme/Securite'));
 const Sante = p(() => import('./pages/systeme/Sante'));
+const Sauvegardes = p(() => import('./pages/systeme/Sauvegardes'));
+const Restaurations = p(() => import('./pages/systeme/Restaurations'));
+const Maintenance = p(() => import('./pages/systeme/Maintenance'));
 const JournalTechnique = p(() => import('./pages/systeme/JournalTechnique'));
 const RapportsSecurite = p(() => import('./pages/RapportsSecurite'));
 const Reinitialisation = p(() => import('./pages/systeme/Reinitialisation'));
@@ -83,6 +87,7 @@ export default function App() {
       <Suspense fallback={<Spinner />}>
         <Routes>
           <Route path="/connexion" element={user && !user.exigences?.length ? <Navigate to="/" replace /> : <Login />} />
+          <Route path="/maintenance" element={<MaintenancePublique />} />
           <Route path="/premiere-connexion" element={<RequireAuth><PremiereConnexion /></RequireAuth>} />
           <Route path="/changer-mot-de-passe" element={<Navigate to="/premiere-connexion" replace />} />
           <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
@@ -129,6 +134,9 @@ export default function App() {
             <Route path="audit" element={G(['audit.consulter'], <Audit />)} />
             <Route path="rapports" element={G(['rapports.consulter'], <Rapports />)} />
             <Route path="systeme" element={G(['systeme.consulter', 'systeme.configurer'], <Systeme />)} />
+            <Route path="systeme/sauvegardes" element={G(['sauvegarde.creer'], <Sauvegardes />)} />
+            <Route path="restaurations" element={G(['sauvegarde.restaurer', 'sauvegarde.valider_restauration'], <Restaurations />)} />
+            <Route path="systeme/maintenance" element={G(['systeme.consulter', 'systeme.maintenir'], <Maintenance />)} />
             <Route path="systeme/sante" element={G(['systeme.consulter'], <Sante />)} />
             <Route path="systeme/erreurs" element={G(['systeme.consulter'], <JournalTechnique />)} />
             <Route path="rapports-securite" element={G(['rapport_securite.consulter'], <RapportsSecurite />)} />

@@ -32,6 +32,7 @@ const EMAIL_TYPES = {
   COMPTE_CREE: 'Compte créé ou activé',
   MDP_REINITIALISE: 'Mot de passe réinitialisé',
   SECURITE: 'Alerte de sécurité',
+  SYSTEME: 'Annonce de l’administration du système',
 };
 
 const RETRY_MINUTES = [1, 5, 15, 60, 240];

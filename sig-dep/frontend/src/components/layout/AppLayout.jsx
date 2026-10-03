@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import {
   LayoutDashboard, Network, BookOpen, Users, UserCog, CalendarCheck, Mail, Send, ListTodo, FileText, FolderKanban,
-  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap, ShieldAlert, FileBarChart, HeartPulse, Bug,
+  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth, useCompteurs } from '../../store/auth';
@@ -34,6 +34,9 @@ const MENU = [
   { to: '/securite', label: 'Sécurité', icon: ShieldAlert, perms: ['securite.superviser'], counter: 'alertes' },
   { to: '/rapports-securite', label: 'Rapports de sécurité', icon: FileBarChart, perms: ['rapport_securite.consulter'] },
   { to: '/audit', label: 'Journal d’audit', icon: ScrollText, perms: ['audit.consulter'] },
+  { to: '/systeme/sauvegardes', label: 'Sauvegardes', icon: DatabaseBackup, perms: ['sauvegarde.creer'] },
+  { to: '/restaurations', label: 'Restaurations', icon: History, perms: ['sauvegarde.restaurer', 'sauvegarde.valider_restauration'] },
+  { to: '/systeme/maintenance', label: 'Maintenance', icon: Wrench, perms: ['systeme.maintenir'] },
   { to: '/systeme/sante', label: 'Santé du système', icon: HeartPulse, perms: ['systeme.consulter'] },
   { to: '/systeme/erreurs', label: 'Journal technique', icon: Bug, perms: ['systeme.consulter'] },
   { to: '/systeme', label: 'Système', icon: Settings, perms: ['systeme.consulter', 'systeme.configurer'], end: true },
@@ -91,6 +94,15 @@ export default function AppLayout() {
     navigate('/connexion', { state: raison === 'inactivite' ? { message: 'Vous avez été déconnecté après une période d’inactivité.' } : undefined });
   };
   const { remaining, prolonger } = useInactivity(() => logout('inactivite'), user.sessionInactiviteMinutes);
+  // Bandeau « maintenance active » (visible des Admins Système, seuls à garder l’accès)
+  const [maintenanceActive, setMaintenanceActive] = useState(null);
+  useEffect(() => {
+    let vivant = true;
+    const lire = () => api.get('/statut-public').then((r) => vivant && setMaintenanceActive(r.data.maintenance.active ? r.data.maintenance : null)).catch(() => {});
+    lire();
+    const t = setInterval(lire, 60000);
+    return () => { vivant = false; clearInterval(t); };
+  }, [location.pathname]);
 
   const nom = user.agent ? [user.agent.prenom, user.agent.nom].filter(Boolean).join(' ') : user.username;
   const structure = user.affectation?.bureauNom || user.affectation?.divisionNom || (user.primaryRole === 'DIRECTEUR' ? DEP_NOM : user.primaryRole === 'SECRETAIRE_GENERAL' ? SG_NOM : 'Administration technique');
@@ -165,6 +177,12 @@ export default function AppLayout() {
           <div className="text-xs uppercase">{SG_NOM}</div>
           <div className="text-sm font-bold uppercase text-dep-800">{DEP_NOM} (DEP)</div>
         </div>
+        {maintenanceActive && (
+          <div className="flex flex-wrap items-center gap-2 bg-amber-100 px-4 py-2 text-sm text-amber-900 no-print" role="status">
+            <Wrench size={16} /> <b>Mode maintenance actif</b> — seuls les Admins Système accèdent à l’application. {maintenanceActive.message}
+            {user.permissions.includes('systeme.maintenir') && <Link to="/systeme/maintenance" className="ml-auto underline">Gérer</Link>}
+          </div>
+        )}
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 sm:px-6">
           <Outlet />
         </main>

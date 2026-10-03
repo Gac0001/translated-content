@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -103,6 +103,8 @@ export default function Login() {
   const [defi, setDefi] = useState(null);
   const [recup, setRecup] = useState(false);
   const setSession = useAuth((s) => s.setSession);
+  const [maintenance, setMaintenance] = useState(null);
+  useEffect(() => { api.get('/statut-public').then((r) => setMaintenance(r.data.maintenance.active ? r.data.maintenance : null)).catch(() => {}); }, []);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -130,6 +132,7 @@ export default function Login() {
         <h2 className="text-lg font-semibold">Connexion</h2>
         {location.state?.message && !error && <InfoAlert tone="warning">{location.state.message}</InfoAlert>}
         {info && <InfoAlert>{info}</InfoAlert>}
+        {maintenance && <InfoAlert tone="warning"><b>Maintenance en cours</b> : {maintenance.message}{maintenance.fin ? ` (fin prévue : ${maintenance.fin})` : ''}. Seuls les Admins Système peuvent se connecter.</InfoAlert>}
         <ErrorAlert message={error} />
         <div>
           <label className="label" htmlFor="username">Nom d’utilisateur</label>

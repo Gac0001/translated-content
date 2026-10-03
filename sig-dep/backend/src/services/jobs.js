@@ -12,6 +12,7 @@ const config = require('../config/env');
 const { notify } = require('./notifications');
 const { addHistory } = require('./history');
 const mailer = require('./mailer');
+const maintenance = require('./maintenance');
 const { audit } = require('./audit');
 const { alerter } = require('./alertes');
 const { politique } = require('./politique');
@@ -107,10 +108,12 @@ async function rapportMensuel() {
 }
 
 async function controleSante() {
+  if (maintenance.operationEnCours()) return;
   try { await require('./sante').controler('AUTO'); } catch (e) { console.error('[JOBS] contrôle de santé :', e.message); }
 }
 
 async function runAll() {
+  if (maintenance.operationEnCours()) return; // restauration en cours
   for (const fn of [markOverdue, remindDeadlines, autolockPresences, purgeTokens, purgeDefis, desactiverInactifs, purgeSupervision, rapportMensuel]) {
     try { await fn(); } catch (e) {
       console.error(`[JOBS] ${fn.name} :`, e.message);
@@ -126,6 +129,17 @@ async function sendMails() {
 let timer = null;
 let mailTimer = null; // eslint-disable-line no-unused-vars
 let santeTimer = null; // eslint-disable-line no-unused-vars
+let sauvegardeTimer = null; // eslint-disable-line no-unused-vars
+let sauvegardeEnCours = false;
+
+async function tacheSauvegardes() {
+  if (sauvegardeEnCours || maintenance.operationEnCours()) return;
+  sauvegardeEnCours = true;
+  try { await require('./sauvegarde').tachePlanifiee(); } catch (e) {
+    console.error('[JOBS] sauvegardes :', e.message);
+    require('./erreurs').enregistrer(Object.assign(e, { contexte: 'tâche sauvegardes' }));
+  } finally { sauvegardeEnCours = false; }
+}
 function start(intervalMs = 10 * 60000) {
   if (timer) return;
   setTimeout(runAll, 5000);
@@ -136,6 +150,9 @@ function start(intervalMs = 10 * 60000) {
   // Centre de santé : contrôle toutes les 15 minutes
   setTimeout(controleSante, 15000);
   santeTimer = setInterval(controleSante, 15 * 60000);
+  // Sauvegardes programmées, conservation et test de restauration : vérification chaque minute
+  sauvegardeTimer = setInterval(tacheSauvegardes, 60000);
+  setTimeout(tacheSauvegardes, 20000);
 }
 
 module.exports = { start, runAll, sendMails, markOverdue, remindDeadlines, autolockPresences, desactiverInactifs, purgeSupervision, rapportMensuel, controleSante };

@@ -85,8 +85,9 @@ async function controlerSauvegarde() {
     if (!s.derniereReussie) return { statut: 'ATTENTION', detail: 'Aucune sauvegarde réussie enregistrée.' };
     const heures = Math.round((Date.now() - new Date(s.derniereReussie.date).getTime()) / 3600000);
     const echecRecent = s.derniereTentative && s.derniereTentative.statut === 'ECHEC';
-    const statut = heures > 24 * 7 ? 'PANNE' : (heures > 48 || echecRecent) ? 'ATTENTION' : 'OK';
-    return { statut, detail: `Dernière sauvegarde réussie il y a ${heures} h${echecRecent ? ' ; la dernière tentative a échoué' : ''}${s.echecs30j ? ` ; ${s.echecs30j} échec(s) en 30 jours` : ''}.`, mesure: heures };
+    const testEchoue = s.dernierTest && s.dernierTest.statut !== 'OK';
+    const statut = heures > 24 * 7 ? 'PANNE' : (heures > 48 || echecRecent || testEchoue) ? 'ATTENTION' : 'OK';
+    return { statut, detail: `Dernière sauvegarde réussie il y a ${heures} h${echecRecent ? ' ; la dernière tentative a échoué' : ''}${s.echecs30j ? ` ; ${s.echecs30j} échec(s) en 30 jours` : ''}${s.dernierTest ? ` ; dernier test de restauration ${s.dernierTest.statut === 'OK' ? 'réussi' : 'ÉCHOUÉ'}` : ''}.`, mesure: heures };
   } catch (e) {
     return { statut: 'ATTENTION', detail: `État des sauvegardes indisponible : ${e.message}` };
   }

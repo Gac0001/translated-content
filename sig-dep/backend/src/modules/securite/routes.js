@@ -185,6 +185,11 @@ router.post('/verification', requirePerm('securite.superviser'), async (req, res
   const age = derniere ? (Date.now() - derniere.getTime()) / 3600000 : null;
   add('Dernière sauvegarde', !derniere ? 'CRITIQUE' : age > 48 ? 'ATTENTION' : 'OK', derniere ? `Il y a ${Math.round(age)} h.` : 'Aucune sauvegarde trouvée.');
 
+  add('Chiffrement des sauvegardes', config.backupEncKey ? 'OK' : (config.isProd ? 'CRITIQUE' : 'ATTENTION'), config.backupEncKey ? 'Sauvegardes chiffrées (AES-256-GCM). Clé à conserver hors ligne.' : 'BACKUP_ENC_KEY non définie : sauvegardes non chiffrées.');
+  add('Copie des sauvegardes hors du serveur', config.backupCopyDir ? 'OK' : 'ATTENTION', config.backupCopyDir ? `Copie vers ${config.backupCopyDir}.` : 'BACKUP_COPY_DIR non défini : une panne du serveur emporterait les sauvegardes.');
+  const test = await db('verifications_sauvegarde').where({ type: 'RESTAURATION' }).orderBy('created_at', 'desc').first();
+  add('Test de restauration', !test ? 'ATTENTION' : test.statut !== 'OK' ? 'CRITIQUE' : (Date.now() - new Date(test.created_at).getTime()) > 14 * 86400000 ? 'ATTENTION' : 'OK', test ? `Dernier test le ${new Date(test.created_at).toLocaleDateString('fr-FR')} : ${test.statut === 'OK' ? 'réussi' : 'échoué'}.` : 'Aucun test de restauration réalisé.');
+
   const f = await controlerFichiers();
   add('Fichiers téléversés', f.statut, f.detail);
 

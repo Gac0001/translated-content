@@ -82,6 +82,7 @@ const PERMISSIONS = [
   // Rapports
   ['rapports.consulter', 'rapports', 'Consulter les rapports et statistiques du périmètre'],
   ['rapport_securite.consulter', 'rapports', 'Consulter les rapports mensuels de sécurité'],
+  ['sauvegarde.valider_restauration', 'gouvernance', 'Valider ou refuser une demande de restauration de la base'],
   ['exports.generer', 'rapports', 'Générer des exports PDF / Excel / Word'],
   ['supervision.globale', 'supervision', 'Supervision globale en lecture de la DEP'],
   // Réservées aux Divisions
@@ -117,7 +118,7 @@ const MATRICE = {
   DIRECTEUR: [
     'organisation.consulter', 'organisation.gerer', 'cadre.gerer',
     'personnel.consulter', 'personnel.gerer', 'personnel.suivre', 'affectations.gerer', 'delegations.gerer',
-    'compte.consulter', 'compte.activer', 'compte.desactiver', 'rapport_securite.consulter', 'liste.consulter', 'liste.gerer', 'liste.valider',
+    'compte.consulter', 'compte.activer', 'compte.desactiver', 'rapport_securite.consulter', 'sauvegarde.valider_restauration', 'liste.consulter', 'liste.gerer', 'liste.valider',
     'presences.consulter', 'presences.verrouiller',
     'courriers.consulter', 'courriers.enregistrer', 'courriers.transmettre', 'courriers.annoter', 'courriers.classer',
     'dossiers.transmettre',
