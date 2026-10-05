@@ -1,5 +1,11 @@
 # Journal des versions — SIG-DEP
 
+## 1.12.3
+
+### Carte de service
+- Site web du ministère **www.numerique.cd** au pied du verso (nouvelle version du modèle de carte ; les cartes déjà validées conservent la leur).
+- Le Bloc-armoirie officiel (PNG à fond transparent) se dépose par l’Admin Système dans Administration → Modèle de carte ; il n’est pas versé au dépôt de code.
+
 ## 1.12.2
 
 ### Carte de service
