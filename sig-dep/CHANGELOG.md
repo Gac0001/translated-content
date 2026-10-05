@@ -1,5 +1,13 @@
 # Journal des versions — SIG-DEP
 
+## 1.12.2
+
+### Carte de service
+- Intitulé sur 3 lignes, taille de police réduite et ajustée pour garder au moins 4 mm d’espace avec l’adresse ; taille limitée aussi par la hauteur du bandeau.
+- **Code à barres = code du QR code** : à la validation, la carte reçoit un code de vérification de 20 chiffres, porté par le QR code (dans le lien de vérification) et par le code à barres (Code 128 C, barres plus larges, lisibles à l’impression). La page /verification accepte ce code (lecteur de code à barres ou saisie) ou le lien du QR code collé, en plus du matricule. Les cartes validées auparavant gardent leur code.
+- **Filigrane** : Bloc-armoirie en gris, plus visible, placé comme sur le modèle de la charte (p. 43) à droite des renseignements, la signature passant sur sa partie basse.
+- Le **Directeur valide lui-même sa propre carte** ; un Directeur intérimaire ne peut pas valider la sienne.
+
 ## 1.12.1
 
 ### Carte de service

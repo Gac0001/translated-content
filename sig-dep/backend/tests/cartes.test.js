@@ -6,6 +6,8 @@
 const { db, request, app, login, loginAdmin, api, userId, PNG, DEMO, ADMIN_NEW } = require('./helpers');
 const { aujourdhui } = require('../src/services/interims');
 const { ajouterAnnees } = require('../src/services/cartes');
+const { codeBarresCarte } = require('../src/services/cartePdf');
+const { encoder } = require('../src/utils/code128');
 
 const agentDe = async (username) => (await db('users').where({ username }).first('agent_id')).agent_id;
 const binaire = (r) => r.buffer(true).parse((res, cb) => { const d = []; res.on('data', (c) => d.push(c)); res.on('end', () => cb(null, Buffer.concat(d))); });
@@ -76,7 +78,12 @@ describe('Cartes de service', () => {
     expect(v.body).toMatchObject({ statut: 'VALIDEE', numero: expect.stringMatching(/^DEP\/CS\/\d{4}\/\d{4}$/), date_delivrance: aujourdhui() });
     expect(v.body.date_expiration).toBe(ajouterAnnees(aujourdhui(), 5));
     const c = await db('cartes_service').where({ id: carte1 }).first();
-    expect(c.jeton).toMatch(/^[A-Za-z0-9_-]{24}$/);
+    expect(c.jeton).toMatch(/^\d{20}$/);
+    // Le code à barres porte le même code de vérification que le QR code (Code 128 C : 10 caractères)
+    expect(codeBarresCarte(c)).toBe(c.jeton);
+    const modules = encoder(c.jeton);
+    expect(modules.reduce((x, m) => x + m, 0)).toBe(12 * 11 + 13); // départ, 10 paires de chiffres, contrôle, arrêt
+    expect((await verifier({ jeton: c.jeton })).body.verdict).toBe('VALIDE');
     expect(c.photo).toMatch(/^carte-/); // photo figée, distincte de celle du dossier
     expect(c.donnees).toMatchObject({ matricule: expect.any(String), nomComplet: expect.any(String) });
     // Intangible en base
@@ -84,7 +91,7 @@ describe('Cartes de service', () => {
     // Le jeton n’est jamais renvoyé par l’API ; l’adresse de vérification l’est au registre.
     const d = (await dir.get(`/cartes/${carte1}`)).body;
     expect(d.jeton).toBeUndefined();
-    expect(d.urlVerification).toMatch(/\/verification\/c\/[A-Za-z0-9_-]{24}$/);
+    expect(d.urlVerification).toMatch(/\/verification\/c\/\d{20}$/);
   });
 
   test('spécimen de signature, impression, planche, remise et accusé de réception', async () => {
@@ -197,6 +204,18 @@ describe('Cartes de service', () => {
     expect((await verifier({ jeton: c.jeton })).body.verdict).toBe('EXPIREE');
     await require('../src/services/jobs').expirerCartes();
     expect((await db('cartes_service').where({ id: c.id }).first()).statut).toBe('EXPIREE');
+  });
+
+  test('le Directeur valide lui-même sa propre carte de service', async () => {
+    const agentDir = await agentDe('directeur');
+    await db('cartes_service').where({ agent_id: agentDir }).del();
+    expect((await deposerPhoto(secTok, agentDir)).status).toBe(200);
+    const r = await sec.post('/cartes', { agent_id: agentDir });
+    expect(r.status).toBe(201);
+    expect((await sec.post(`/cartes/${r.body.id}/verifier`)).body.statut).toBe('VERIFIEE');
+    const v = await dir.post(`/cartes/${r.body.id}/valider`);
+    expect(v.status).toBe(200);
+    expect(v.body).toMatchObject({ statut: 'VALIDEE', valide_par: await userId('directeur') });
   });
 
   test('accès : l’Admin configure le modèle mais ne prépare ni ne valide de carte', async () => {

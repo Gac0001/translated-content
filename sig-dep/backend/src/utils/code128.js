@@ -1,7 +1,8 @@
 'use strict';
 /**
- * Encodeur Code 128 (jeu B) : renvoie la suite des largeurs de barres et d’espaces (modules),
- * en commençant par une barre. Utilisé pour le code à barres imprimé sur les cartes de service.
+ * Encodeur Code 128 : renvoie la suite des largeurs de barres et d’espaces (modules), en commençant
+ * par une barre. Jeu C (deux chiffres par caractère, code deux fois plus court) pour un texte
+ * entièrement numérique de longueur paire, jeu B sinon. Utilisé pour les cartes de service.
  */
 const MOTIFS = [
   '212222', '222122', '222221', '121223', '121322', '131222', '122213', '122312', '132212', '221213',
@@ -17,10 +18,17 @@ const MOTIFS = [
   '114131', '311141', '411131', '211412', '211214', '211232', '2331112',
 ];
 const START_B = 104;
+const START_C = 105;
 const STOP = 106;
 
 function encoder(texte) {
-  const valeurs = [...String(texte)].map((c) => {
+  const t = String(texte);
+  if (/^(\d\d)+$/.test(t)) {
+    const valeurs = t.match(/\d\d/g).map(Number);
+    const somme = valeurs.reduce((s, v, i) => s + v * (i + 1), START_C);
+    return [START_C, ...valeurs, somme % 103, STOP].flatMap((c) => [...MOTIFS[c]].map(Number));
+  }
+  const valeurs = [...t].map((c) => {
     const v = c.charCodeAt(0) - 32;
     if (v < 0 || v > 94) throw new Error(`Caractère non encodable en Code 128 B : ${c}`);
     return v;

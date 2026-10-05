@@ -43,7 +43,19 @@ function Resultat({ r }) {
   );
 }
 
-/** Vérification publique d’une carte de service : QR code (lien de la carte) ou matricule. */
+/**
+ * Saisie libre : code de vérification (20 chiffres, lu par un lecteur de code à barres ou recopié),
+ * lien du QR code collé, ou matricule du titulaire.
+ */
+function interpreter(saisie) {
+  const t = saisie.trim();
+  const lien = t.match(/\/verification\/c\/([A-Za-z0-9_-]{16,40})/);
+  if (lien) return { jeton: lien[1] };
+  if (/^\d{20}$/.test(t.replace(/\s/g, ''))) return { jeton: t.replace(/\s/g, '') };
+  return { matricule: t };
+}
+
+/** Vérification publique d’une carte de service : QR code, code à barres ou matricule. */
 export default function VerificationCarte() {
   const { jeton } = useParams();
   const navigate = useNavigate();
@@ -67,10 +79,10 @@ export default function VerificationCarte() {
       <main className="mx-auto w-full max-w-2xl flex-1 p-4">
         <div className="card p-5">
           <h1 className="text-xl font-semibold">Vérification d’une carte de service</h1>
-          <p className="mt-1 text-sm text-slate-600">Scannez le QR code au verso de la carte, ou saisissez le matricule de son titulaire.</p>
-          <form className="mt-4 flex flex-col gap-2 sm:flex-row" onSubmit={(e) => { e.preventDefault(); if (jeton) navigate('/verification'); verifier({ matricule }); }}>
-            <label htmlFor="matricule" className="sr-only">Matricule</label>
-            <input id="matricule" className="input flex-1" placeholder="Matricule du titulaire" autoComplete="off" value={matricule} onChange={(e) => setMatricule(e.target.value)} />
+          <p className="mt-1 text-sm text-slate-600">Scannez le QR code au verso de la carte ou son code à barres au recto, ou saisissez le matricule de son titulaire.</p>
+          <form className="mt-4 flex flex-col gap-2 sm:flex-row" onSubmit={(e) => { e.preventDefault(); if (jeton) navigate('/verification'); verifier(interpreter(matricule)); }}>
+            <label htmlFor="matricule" className="sr-only">Matricule ou code de la carte</label>
+            <input id="matricule" className="input flex-1" placeholder="Matricule du titulaire ou code à barres de la carte" autoComplete="off" value={matricule} onChange={(e) => setMatricule(e.target.value)} />
             <button type="submit" className="btn-primary" disabled={busy || matricule.trim().length < 3}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />} Vérifier</button>
           </form>
           {busy && jeton && <p className="mt-4 text-sm text-slate-600"><Loader2 size={14} className="inline animate-spin" /> Vérification de la carte…</p>}

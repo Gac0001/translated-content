@@ -9,6 +9,7 @@
 const fs = require('fs');
 const PDFDocument = require('pdfkit');
 const QRCode = require('qrcode');
+const { PNG } = require('pngjs');
 const config = require('../config/env');
 const { safePath } = require('./files');
 const { encoder } = require('../utils/code128');
@@ -18,18 +19,43 @@ const W = 85.6 * MM;
 const H = 54 * MM;
 const LIGNE_ETAT = ['#0095c9', '#fff24b', '#db3832']; // charte : bleu, jaune, rouge (haut vers bas)
 const ENCRE = '#1f2937';
+const LARGEUR_ADRESSE = 25 * MM;
 
 const fichier = (nom) => { try { const p = safePath(nom); return fs.existsSync(p) ? p : null; } catch (e) { return null; } };
+
+/** Contenu du code à barres : le jeton du QR code lorsqu’il est numérique (cartes à partir de 1.12.2). */
+function codeBarresCarte(carte) {
+  return /^\d{20}$/.test(carte.jeton || '') ? carte.jeton : carte.numero;
+}
 
 function urlVerification(jeton) {
   return `${config.publicUrl}/verification/c/${jeton}`;
 }
 
+/** Version en niveaux de gris du Bloc-armoirie (PNG), pour le filigrane du recto ; null si impossible. */
+const grises = new Map();
+function armoirieGrise(chemin) {
+  if (!grises.has(chemin)) {
+    let tampon = null;
+    try {
+      const png = PNG.sync.read(fs.readFileSync(chemin));
+      for (let i = 0; i < png.data.length; i += 4) {
+        const l = Math.round(0.299 * png.data[i] + 0.587 * png.data[i + 1] + 0.114 * png.data[i + 2]);
+        png.data[i] = l; png.data[i + 1] = l; png.data[i + 2] = l;
+      }
+      tampon = PNG.sync.write(png);
+    } catch (e) { tampon = null; } // JPEG ou PNG illisible : l’armoirie en couleur est utilisée
+    grises.set(chemin, tampon);
+  }
+  return grises.get(chemin);
+}
+
 /** Bloc-armoirie : image officielle déposée par l’Admin, sinon sceau provisoire (cercle et étoiles). */
-function armoirie(doc, modele, cx, cy, r, { fond = '#ffffff' } = {}) {
+function armoirie(doc, modele, cx, cy, r, { fond = '#ffffff', gris = false } = {}) {
   doc.save();
-  doc.circle(cx, cy, r).fill(fond);
-  const img = modele.armoirie_path && fichier(modele.armoirie_path);
+  if (fond) doc.circle(cx, cy, r).fill(fond);
+  const chemin = modele.armoirie_path && fichier(modele.armoirie_path);
+  const img = chemin && ((gris && armoirieGrise(chemin)) || chemin);
   if (img) {
     doc.image(img, cx - r * 0.92, cy - r * 0.92, { fit: [r * 1.84, r * 1.84], align: 'center', valign: 'center' });
   } else {
@@ -75,24 +101,26 @@ function bandeau(doc, modele, ox, oy, hauteur) {
   ligneEtat(doc, lx, oy + hauteur / 2 - r, 2 * r);
   // Intitulé officiel : capitales grasses, taille homogène (charte, p. 8), ajusté à la largeur disponible.
   const lignes = (Array.isArray(modele.intitule) ? modele.intitule : JSON.parse(modele.intitule || '[]')).map((t) => t.toUpperCase());
-  const largeur = W * 0.5;
+  // Largeur disponible : jusqu’au bloc d’adresse, avec un espacement d’au moins 4 mm.
+  const xTexte = lx + 5;
+  const xAdresse = ox + W - 3 * MM - LARGEUR_ADRESSE;
+  const largeur = (modele.adresse ? xAdresse - 4 * MM : ox + W - 4 * MM) - xTexte;
   doc.font('Helvetica-Bold');
   // Taille limitée par la largeur et par la hauteur du bandeau (marges haute et basse préservées).
-  const INTERLIGNE = 1.1;
+  const INTERLIGNE = 1.15;
   const CAPITALE = 0.718; // hauteur des capitales d'Helvetica-Bold
   const blocHauteur = (t) => (lignes.length - 1) * t * INTERLIGNE + t * CAPITALE;
-  let taille = 6;
+  let taille = 5.6;
   while (taille > 4 && (lignes.some((t) => doc.fontSize(taille).widthOfString(t) > largeur) || blocHauteur(taille) > hauteur * 0.74)) taille -= 0.1;
   const pas = taille * INTERLIGNE;
   let ty = oy + hauteur / 2 - blocHauteur(taille) / 2;
   doc.fillColor('#ffffff');
-  lignes.forEach((t) => { doc.fontSize(taille).text(t, lx + 5, ty, { width: largeur, lineBreak: false }); ty += pas; });
+  lignes.forEach((t) => { doc.fontSize(taille).text(t, xTexte, ty, { width: largeur, lineBreak: false }); ty += pas; });
   // Adresse en haut à droite (modèle de la charte, p. 43)
   if (modele.adresse) {
     doc.font('Helvetica').fontSize(4.4).fillColor('#e5e7eb');
-    const lx2 = ox + W - 3 * MM - 25 * MM;
-    const h = doc.heightOfString(modele.adresse, { width: 25 * MM, align: 'right' });
-    doc.text(modele.adresse, lx2, oy + Math.max(2, hauteur / 2 - h / 2), { width: 25 * MM, align: 'right' });
+    const h = doc.heightOfString(modele.adresse, { width: LARGEUR_ADRESSE, align: 'right' });
+    doc.text(modele.adresse, xAdresse, oy + Math.max(2, hauteur / 2 - h / 2), { width: LARGEUR_ADRESSE, align: 'right' });
   }
 }
 
@@ -102,9 +130,9 @@ function recto(doc, carte, modele, specimen, ox, oy) {
   doc.rect(ox, oy, W, H).fill('#ffffff');
   const hb = 13 * MM;
   bandeau(doc, modele, ox, oy, hb);
-  // Sceau en filigrane
-  doc.save(); doc.opacity(0.08);
-  armoirie(doc, modele, ox + W - 15 * MM, oy + hb + 17 * MM, 12 * MM, { fond: '#ffffff' });
+  // Sceau en filigrane (charte, p. 43) : armoirie en gris à droite des renseignements, sous la signature.
+  doc.save(); doc.opacity(0.24);
+  armoirie(doc, modele, ox + W - 21 * MM, oy + H * 0.64, 13 * MM, { fond: null, gris: true });
   doc.restore(); doc.opacity(1);
 
   // Photo
@@ -129,8 +157,9 @@ function recto(doc, carte, modele, specimen, ox, oy) {
     fy += Math.min(Math.max(h, 6.6), label === 'Affectation' ? 13 : 7) + 0.6;
   }
 
-  // Code à barres de sécurité (charte : sous la photo) ; le numéro n’est pas imprimé en clair.
-  if (carte.numero) codeBarres(doc, carte.numero, px - 1, py + ph + 1.8 * MM, pw + 2, 4.6 * MM, { lisible: false });
+  // Code à barres de sécurité (charte : sous la photo) : même code de vérification que le QR code
+  // (jeton numérique). Les premières cartes, à jeton alphanumérique, gardent leur numéro.
+  if (carte.numero) codeBarres(doc, codeBarresCarte(carte), px - 1, py + ph + 1.8 * MM, pw + 2, 4.6 * MM, { lisible: false });
 
   // Signature (charte : « Signature : » sous les renseignements, sur le sceau)
   const sy = oy + H - 10.5 * MM;
@@ -218,4 +247,4 @@ async function pdfPlanche(res, cartes, { modeles, specimens, filename }) {
   doc.end();
 }
 
-module.exports = { pdfCartes, pdfPlanche, urlVerification, W, H };
+module.exports = { pdfCartes, pdfPlanche, urlVerification, codeBarresCarte, W, H };

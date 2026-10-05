@@ -153,10 +153,20 @@ function ajouterAnnees(iso, n) {
   return dt.toISOString().slice(0, 10);
 }
 
+/**
+ * Code de vérification de la carte : 20 chiffres aléatoires (environ 66 bits), porté à la fois par
+ * le QR code (dans le lien de vérification) et par le code à barres (Code 128 C, lisible à l’impression).
+ */
+function nouveauJeton() {
+  return Array.from({ length: 20 }, () => crypto.randomInt(10)).join('');
+}
+
 async function valider(ctx, id) {
   const c = await charger(ctx, id);
   if (c.statut !== 'VERIFIEE') throw badRequest('Seule une carte vérifiée peut être validée.');
-  if (ctx.agentId && c.agent_id === ctx.agentId) throw forbidden('Vous ne pouvez pas valider votre propre carte de service.', 'CONFLIT_INTERET');
+  // Le Directeur titulaire valide lui-même sa carte ; tout autre validateur (intérimaire) ne le peut pas.
+  const directeurTitulaire = ctx.rolesPermanents?.includes('DIRECTEUR') && !ctx.interim;
+  if (ctx.agentId && c.agent_id === ctx.agentId && !directeurTitulaire) throw forbidden('Vous ne pouvez pas valider votre propre carte de service.', 'CONFLIT_INTERET');
   const dossier = await dossierAgent(c.agent_id);
   const anom = anomalies(dossier);
   if (anom.length) throw badRequest(`Dossier incomplet : ${anom.join(' ')}`);
@@ -172,7 +182,7 @@ async function valider(ctx, id) {
           .update({ statut: 'REMPLACEE', motif: `Remplacée par une nouvelle carte (${MOTIFS[c.motif_emission].toLowerCase()})`, updated_at: trx.fn.now() });
       }
       await trx('cartes_service').where({ id }).update({
-        statut: 'VALIDEE', numero: await nextReference('CARTE', 'DEP/CS', trx), jeton: crypto.randomBytes(18).toString('base64url'),
+        statut: 'VALIDEE', numero: await nextReference('CARTE', 'DEP/CS', trx), jeton: nouveauJeton(),
         donnees: JSON.stringify(dossier.donnees), photo, date_delivrance: delivrance, date_expiration: ajouterAnnees(delivrance, modele.validite_annees),
         valide_par: ctx.userId, valide_at: trx.fn.now(), specimen_id: specimen ? specimen.id : null, updated_at: trx.fn.now(),
       });
