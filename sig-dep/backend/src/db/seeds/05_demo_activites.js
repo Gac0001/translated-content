@@ -173,7 +173,7 @@ exports.chargerActivites = async function chargerActivites(knex) {
   // ─── Fiches PIP ──────────────────────────────────────────────────────────
   const pipAuteur = U('ag.coi1');
   const donnees = {
-    identification: { intitule: 'Backbone national en fibre optique — phase 2', code_pip: '', secteur: 'Économie numérique', sous_secteur: 'Infrastructures numériques', ministere_tutelle: 'Ministère des Postes, Télécommunications et Numérique', organisme_execution: 'Secrétariat Général à l’Économie Numérique', nature: 'Extension', type_projet: 'Infrastructure', date_demarrage: day(120), duree_mois: 36 },
+    identification: { intitule: 'Backbone national en fibre optique — phase 2', code_pip: '', secteur: 'Économie numérique', sous_secteur: 'Infrastructures numériques', ministere_tutelle: 'Ministère des Postes, Télécommunications et Numérique', organisme_execution: 'Secrétariat Général au Numérique', nature: 'Extension', type_projet: 'Infrastructure', date_demarrage: day(120), duree_mois: 36 },
     contexte: { contexte: 'Le réseau de transport national demeure insuffisant pour soutenir la transformation numérique.', problematique: 'Coût élevé et faible disponibilité de la connectivité hors des grands centres.', justification: 'L’extension du backbone réduira les coûts de transit et favorisera l’inclusion numérique.', alignement: 'Plan national du numérique ; PNSD.' },
     objectifs: { objectif_general: 'Étendre le réseau national de fibre optique vers les provinces non desservies.', objectifs_specifiques: ['Déployer 2 000 km de fibre', 'Raccorder 10 chefs-lieux de province'] },
     resultats: { resultats_attendus: ['2 000 km de fibre déployés', 'Coût de la bande passante réduit de 30 %'] },

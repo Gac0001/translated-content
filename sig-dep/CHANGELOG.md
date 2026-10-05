@@ -1,5 +1,14 @@
 # Journal des versions — SIG-DEP
 
+## 1.9.0
+
+### Conformité au cadre organique (cahier des charges, partie 2)
+- **Codes organiques officiels** (section 5.3.3) : 5.3.3 pour la Direction, 5.3.3.0 pour le Bureau Secrétariat de Direction, 5.3.3.1 à 5.3.3.3 pour les Divisions, 5.3.3.N.M pour leurs Bureaux. Affichés dans l’organigramme, les fiches de structure et le cadre organique ; saisis à la création ou à la modification d’une structure, avec contrôle de cohérence (prolongement du code parent, unicité, `.0` réservé au Secrétariat).
+- Nouvel onglet **Structure officielle** (code, structure, rang, supérieur direct).
+- **Effectif organique de référence** (20 postes) comparé à l’effectif réel : écarts, vacances, sureffectifs, Agents hors cadre de référence, postes de commandement sans titulaire. Référence modifiable par le Directeur sur la base d’un acte, avec audit ; synthèse sur le tableau de bord du Directeur. La référence est conservée lors d’une réinitialisation de la base.
+- Autorité de tutelle : **Secrétariat Général au Numérique**.
+- **Bureau Études, Analyses et Prospective** (au lieu de « Perspective »). L’import de la liste reconnaît l’ancienne graphie ainsi que les sections précédées d’un code organique ; le modèle d’import affiche les codes.
+
 ## 1.8.0
 
 ### Compte Admin Système (lot 3 : sauvegardes et maintenance)

@@ -34,6 +34,7 @@ describe('Réinitialisation de la base', () => {
     expect(r.status).toBe(200);
     expect(r.body.volumes).toMatchObject({ agents: 0, comptes: 1, instructions: 0, courriers: 0, documents: 0, pip: 0 });
     expect(Number((await db('divisions').count('* as n').first()).n)).toBe(divisions);
+    expect(await compte('effectif_reference')).toBe(6); // référentiel du cadre organique conservé
     // Traçabilité conservée : ni le journal d’audit ni l’historique des connexions ne sont effacés
     expect(await compte('audit_logs')).toBeGreaterThan(auditAvant);
     expect(await compte('login_history')).toBeGreaterThanOrEqual(connexionsAvant);

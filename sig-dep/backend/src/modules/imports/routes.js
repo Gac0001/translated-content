@@ -45,10 +45,11 @@ router.get('/personnel/modele.xlsx', async (req, res) => {
   assertCanImport(req.ctx);
   const ref = await referentiel();
   const rows = [];
-  for (const b of ref.bureaux.filter((x) => x.parent_type === 'DIRECTION')) rows.push({ section: b.nom });
+  const intitule = (x) => (x.code_organique ? `${x.code_organique} ${x.nom}` : x.nom);
+  for (const b of ref.bureaux.filter((x) => x.parent_type === 'DIRECTION')) rows.push({ section: intitule(b) });
   ref.divisions.forEach((d) => {
-    rows.push({ section: d.nom });
-    ref.bureaux.filter((b) => b.division_id === d.id).forEach((b) => rows.push({ section: b.nom }));
+    rows.push({ section: intitule(d) });
+    ref.bureaux.filter((b) => b.division_id === d.id).forEach((b) => rows.push({ section: intitule(b) }));
   });
   await audit(req, { action: 'EXPORT', module: 'personnel', message: 'Modèle d’import du personnel' });
   return sendWorkbook(res, 'modele-import-personnel-DEP.xlsx', [

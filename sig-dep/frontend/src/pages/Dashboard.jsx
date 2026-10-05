@@ -268,8 +268,32 @@ function DirecteurPanel({ d }) {
           <div className="mt-2 flex flex-wrap gap-2 border-t pt-2 text-xs">{Object.entries(d.pip).map(([k, v]) => <Badge key={k}>{STATUTS[k]?.[0] || k} : {v}</Badge>)}</div>
         </Card>
       </div>
+      {d.effectif && <EffectifCard e={d.effectif} />}
       <Card title="Performance des structures" className="mt-4"><PerformanceBars perf={d.performance} /></Card>
     </>
+  );
+}
+
+/** Effectif organique de référence comparé à l’effectif réel, et postes de commandement vacants. */
+function EffectifCard({ e }) {
+  const t = e.totaux;
+  return (
+    <Card title="Effectif organique et effectif réel" className="mt-4" actions={<Link to="/cadre-organique#effectif" className="text-sm text-dep-700 hover:underline">Détail</Link>}>
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="text-sm">
+          <div className="text-2xl font-semibold">{t.reel} <span className="text-base font-normal text-slate-500">/ {t.prevu} prévus</span></div>
+          <div className="text-xs text-slate-500">dont {t.horsReference} hors cadre de référence · {t.vacances} vacance(s) · {t.sureffectifs} sureffectif(s)</div>
+        </div>
+        <div className="text-sm">
+          <div className="mb-1 font-medium">Écarts</div>
+          {e.ecarts.length ? e.ecarts.map((l) => <div key={l.id} className="flex justify-between gap-2"><span className="truncate">{l.libelle}</span><span className={l.ecart < 0 ? 'text-amber-700' : 'text-red-700'}>{l.reel}/{l.prevu} ({l.ecart > 0 ? '+' : ''}{l.ecart})</span></div>) : <div className="text-slate-500">Effectif conforme à la référence.</div>}
+        </div>
+        <div className="text-sm">
+          <div className="mb-1 font-medium">Postes de commandement vacants</div>
+          {e.postesVacants.length ? e.postesVacants.map((p) => <div key={p.posteId} className="truncate">{p.codeOrganique && <span className="mr-1 font-mono text-xs text-slate-500">{p.codeOrganique}</span>}{p.poste}</div>) : <div className="text-slate-500">Aucun poste vacant.</div>}
+        </div>
+      </div>
+    </Card>
   );
 }
 

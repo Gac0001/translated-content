@@ -1,7 +1,7 @@
 'use strict';
 /**
  * Génération PDF (pdfkit) avec en-tête administratif officiel :
- * République Démocratique du Congo — Secrétariat Général à l’Économie Numérique —
+ * République Démocratique du Congo — Secrétariat Général au Numérique —
  * Direction d’Études et Planification.
  */
 const PDFDocument = require('pdfkit');

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -7,6 +8,33 @@ import api from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { useApi, Loadable, PageHeader, Card, Tabs, Modal, Field, DataTable, RangBadge, Badge, runAction, useConfirm } from '../../components/ui';
 import { ROLES } from '../../lib/labels';
+import Effectif from './Effectif';
+
+/** Code organique officiel (section 5.3.3 du cadre organique). */
+export function CodeOrg({ code }) {
+  return code ? <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">{code}</span> : null;
+}
+
+/** Structure officielle : code, structure et supérieur direct (cahier des charges, § 6). */
+function StructureOfficielle({ c }) {
+  const rows = [
+    { code: c.direction.code_organique, nom: c.direction.nom, rang: 'DIRECTION', sup: 'Secrétariat Général' },
+    ...c.bureaux.filter((b) => b.parent_type === 'DIRECTION').map((b) => ({ code: b.code_organique, nom: b.nom, rang: 'BUREAU', sup: 'Directeur' })),
+    ...c.divisions.flatMap((d) => [
+      { code: d.code_organique, nom: d.nom, rang: 'DIVISION', sup: 'Directeur' },
+      ...c.bureaux.filter((b) => b.division_id === d.id).map((b) => ({ code: b.code_organique, nom: b.nom, rang: 'BUREAU', sup: d.code_organique ? `Division ${d.code_organique}` : d.nom })),
+    ]),
+  ];
+  return (
+    <Card title="Structure officielle">
+      <div className="overflow-x-auto"><table className="min-w-full">
+        <thead><tr><th className="th">Code</th><th className="th">Structure</th><th className="th">Rang</th><th className="th">Supérieur direct</th></tr></thead>
+        <tbody>{rows.map((r) => <tr key={`${r.rang}-${r.nom}`}><td className="td font-mono text-sm">{r.code || '—'}</td><td className="td">{r.nom}</td><td className="td"><RangBadge rang={r.rang} /></td><td className="td">{r.sup}</td></tr>)}</tbody>
+      </table></div>
+      <p className="mt-2 text-xs text-slate-500">Le Bureau Secrétariat de Direction (5.3.3.0) relève directement du Directeur et n’est pas compté parmi les Divisions.</p>
+    </Card>
+  );
+}
 
 const attrSchema = z.object({
   cible: z.string().min(1, 'Choisissez la cible'),
@@ -46,7 +74,8 @@ function AttributionForm({ data, onClose, onSaved }) {
 
 export default function Cadre() {
   const state = useApi('/organisation/cadre');
-  const [tab, setTab] = useState('missions');
+  const location = useLocation();
+  const [tab, setTab] = useState(location.hash === '#effectif' ? 'effectif' : 'missions');
   const [form, setForm] = useState(false);
   const can = useAuth((s) => s.can);
   const confirm = useConfirm();
@@ -59,7 +88,7 @@ export default function Cadre() {
     <>
       <PageHeader title="Cadre organique" subtitle="Missions, attributions, responsabilités, postes organiques, grades et fonctions." breadcrumb={[{ label: 'Organisation' }, { label: 'Cadre organique' }]}
         actions={can('cadre.gerer') && <button type="button" className="btn-primary" onClick={() => setForm(true)}><Plus size={16} /> Ajouter</button>} />
-      <Tabs value={tab} onChange={setTab} tabs={[{ value: 'missions', label: 'Missions et attributions' }, { value: 'responsabilites', label: 'Responsabilités' }, { value: 'postes', label: 'Postes organiques' }, { value: 'grades', label: 'Grades et fonctions' }]} />
+      <Tabs value={tab} onChange={setTab} tabs={[{ value: 'missions', label: 'Missions et attributions' }, { value: 'structure', label: 'Structure officielle' }, { value: 'effectif', label: 'Effectif' }, { value: 'responsabilites', label: 'Responsabilités' }, { value: 'postes', label: 'Postes organiques' }, { value: 'grades', label: 'Grades et fonctions' }]} />
       <Loadable state={state}>
         {(c) => {
           const Del = ({ a }) => (can('cadre.gerer') ? <button type="button" className="ml-2 text-red-600 no-print" onClick={() => remove(a)} aria-label="Désactiver"><Trash2 size={14} /></button> : null);
@@ -67,25 +96,27 @@ export default function Cadre() {
           return (
             <>
               {form && <AttributionForm data={c} onClose={() => setForm(false)} onSaved={() => { setForm(false); state.reload(); }} />}
+              {tab === 'structure' && <StructureOfficielle c={c} />}
+              {tab === 'effectif' && <Effectif />}
               {tab === 'missions' && (
                 <div className="space-y-4">
-                  <Card title={<span className="flex items-center gap-2">{c.direction.nom} <RangBadge rang="DIRECTION" /></span>}>
+                  <Card title={<span className="flex items-center gap-2"><CodeOrg code={c.direction.code_organique} />{c.direction.nom} <RangBadge rang="DIRECTION" /></span>}>
                     <ul className="list-disc space-y-1 pl-5 text-sm">{list((a) => a.cible_type === 'DIRECTION').map((a) => <li key={a.id}>{a.libelle}<Del a={a} /></li>)}</ul>
                   </Card>
                   {c.bureaux.filter((b) => b.parent_type === 'DIRECTION').map((b) => (
-                    <Card key={b.id} title={<span className="flex flex-wrap items-center gap-2">{b.nom} <RangBadge rang="BUREAU" /><Badge className="bg-amber-100 text-amber-900 ring-amber-300">Bureau directement rattaché au Directeur</Badge></span>}>
+                    <Card key={b.id} title={<span className="flex flex-wrap items-center gap-2"><CodeOrg code={b.code_organique} />{b.nom} <RangBadge rang="BUREAU" /><Badge className="bg-amber-100 text-amber-900 ring-amber-300">Bureau directement rattaché au Directeur</Badge></span>}>
                       <p className="mb-2 text-sm text-slate-600">{b.missions}</p>
                       <ul className="list-disc space-y-1 pl-5 text-sm">{list((a) => a.bureau_id === b.id).map((a) => <li key={a.id}>{a.libelle}<Del a={a} /></li>)}</ul>
                     </Card>
                   ))}
                   {c.divisions.map((d) => (
-                    <Card key={d.id} title={<span className="flex items-center gap-2">{d.nom} <RangBadge rang="DIVISION" /></span>}>
+                    <Card key={d.id} title={<span className="flex items-center gap-2"><CodeOrg code={d.code_organique} />{d.nom} <RangBadge rang="DIVISION" /></span>}>
                       <p className="mb-2 text-sm text-slate-600">{d.missions}</p>
                       <ul className="list-disc space-y-1 pl-5 text-sm">{list((a) => a.cible_type === 'DIVISION' && a.division_id === d.id).map((a) => <li key={a.id}>{a.libelle}<Del a={a} /></li>)}</ul>
                       <div className="mt-3 space-y-3 border-l-2 border-teal-200 pl-4">
                         {c.bureaux.filter((b) => b.division_id === d.id).map((b) => (
                           <div key={b.id}>
-                            <div className="flex items-center gap-2 text-sm font-semibold">{b.nom} <RangBadge rang="BUREAU" /></div>
+                            <div className="flex items-center gap-2 text-sm font-semibold"><CodeOrg code={b.code_organique} />{b.nom} <RangBadge rang="BUREAU" /></div>
                             <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-slate-700">{list((a) => a.cible_type === 'BUREAU' && a.bureau_id === b.id).map((a) => <li key={a.id}>{a.libelle}<Del a={a} /></li>)}</ul>
                           </div>
                         ))}

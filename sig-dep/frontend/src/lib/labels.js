@@ -1,7 +1,7 @@
 // Libellés et couleurs de l’interface (entièrement en français).
 export const DEP_NOM = 'Direction d’Études et Planification';
 export const DEP_SIGLE = 'DEP';
-export const SG_NOM = 'Secrétariat Général à l’Économie Numérique';
+export const SG_NOM = 'Secrétariat Général au Numérique';
 
 export const ROLES = {
   ADMIN_SYSTEME: 'Admin Système', SECRETAIRE_GENERAL: 'Secrétaire Général', DIRECTEUR: 'Directeur',

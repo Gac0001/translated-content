@@ -3,7 +3,7 @@
 /** Appellation officielle — ne jamais utiliser une autre forme. */
 const DEP_NOM = 'Direction d’Études et Planification';
 const DEP_SIGLE = 'DEP';
-const SG_NOM = 'Secrétariat Général à l’Économie Numérique';
+const SG_NOM = 'Secrétariat Général au Numérique';
 const PAYS = 'République Démocratique du Congo';
 const SECRETARIAT_CODE = 'BSD';
 const SECRETARIAT_NOM = 'Bureau Secrétariat de Direction';

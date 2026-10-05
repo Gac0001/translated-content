@@ -7,6 +7,7 @@ import { Modal, Field, InfoAlert, runAction } from '../../components/ui';
 const schema = z.object({
   code: z.string().trim().min(2, 'Code requis (2 caractères minimum)').max(20, '20 caractères au maximum'),
   nom: z.string().trim().min(3, 'Intitulé requis'),
+  code_organique: z.string().trim().regex(/^(\d+(\.\d+)*)?$/, 'Format attendu : 5.3.3.1').max(30).optional(),
   missions: z.string().max(5000).optional(),
   rattachement: z.enum(['DIVISION', 'DIRECTION']).optional(),
   division_id: z.string().optional(),
@@ -22,7 +23,7 @@ export default function StructureModal({ type, structure, divisions = [], defaul
   const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
-      code: structure?.code || '', nom: structure?.nom || '', missions: structure?.missions || '',
+      code: structure?.code || '', code_organique: structure?.codeOrganique || structure?.code_organique || '', nom: structure?.nom || '', missions: structure?.missions || '',
       rattachement: initialRatt, division_id: String(structure?.rattachement?.divisionId || defaultDivisionId || ''),
     },
   });
@@ -30,8 +31,8 @@ export default function StructureModal({ type, structure, divisions = [], defaul
   const submit = async (v) => {
     if (type === 'bureau' && v.rattachement === 'DIVISION' && !v.division_id) return;
     const body = type === 'division'
-      ? { code: v.code, nom: v.nom, missions: v.missions || null }
-      : { code: v.code, nom: v.nom, missions: v.missions || null, rattachement: v.rattachement, division_id: v.rattachement === 'DIVISION' ? Number(v.division_id) : null };
+      ? { code: v.code, code_organique: v.code_organique || null, nom: v.nom, missions: v.missions || null }
+      : { code: v.code, code_organique: v.code_organique || null, nom: v.nom, missions: v.missions || null, rattachement: v.rattachement, division_id: v.rattachement === 'DIVISION' ? Number(v.division_id) : null };
     const base = type === 'division' ? '/organisation/divisions' : '/organisation/bureaux';
     await runAction(() => (structure ? api.put(`${base}/${structure.id}`, body) : api.post(base, body)), structure ? 'Structure modifiée.' : 'Structure créée avec ses postes organiques.');
     onSaved();
@@ -44,8 +45,9 @@ export default function StructureModal({ type, structure, divisions = [], defaul
           <InfoAlert>Quel que soit son rattachement, la structure garde le <b>rang de Bureau</b> et son responsable le titre de Chef de Bureau. Le rattachement ne détermine que son supérieur direct.</InfoAlert>
         )}
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Code" error={errors.code?.message} required><input className="input uppercase" {...register('code')} /></Field>
-          <Field label="Intitulé" error={errors.nom?.message} required className="sm:col-span-2"><input className="input" {...register('nom')} /></Field>
+          <Field label="Code interne" error={errors.code?.message} required><input className="input uppercase" {...register('code')} /></Field>
+          <Field label="Code organique" error={errors.code_organique?.message} hint={type === 'division' ? 'Ex. 5.3.3.1' : 'Ex. 5.3.3.1.1 (5.3.3.0 : Secrétariat)'}><input className="input font-mono" {...register('code_organique')} /></Field>
+          <Field label="Intitulé" error={errors.nom?.message} required><input className="input" {...register('nom')} /></Field>
         </div>
         {type === 'bureau' && (
           <div className="space-y-3">

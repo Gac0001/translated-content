@@ -15,7 +15,7 @@ const { removeQuiet } = require('./files');
 /** Tables conservées : structure de la Direction, référentiels, sécurité, paramètres. */
 const CONSERVEES = [
   'knex_migrations', 'knex_migrations_lock', 'directions', 'divisions', 'bureaux', 'grades', 'fonctions',
-  'postes_organiques', 'attributions', 'roles', 'permissions', 'role_permissions', 'parametres',
+  'postes_organiques', 'attributions', 'effectif_reference', 'roles', 'permissions', 'role_permissions', 'parametres',
   // Traçabilité : jamais effacée (tables protégées en base contre la troncature)
   'audit_logs', 'login_history', 'alertes_securite',
 ];

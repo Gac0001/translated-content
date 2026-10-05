@@ -61,7 +61,11 @@ describe('Gestion des structures', () => {
   test('le changement de rattachement d’un Bureau est propagé aux affectations en cours', async () => {
     const bur = await db('bureaux').where({ code: 'BUR-DOI' }).first();
     const target = await db('divisions').where({ code: 'DIV-SCI' }).first();
-    const r = await dir.put(`/organisation/bureaux/${bur.id}`, { code: bur.code, nom: bur.nom, rattachement: 'DIVISION', division_id: target.id });
+    // Le code organique doit suivre la nouvelle Division (5.3.3.2.N).
+    const sansCode = await dir.put(`/organisation/bureaux/${bur.id}`, { code: bur.code, nom: bur.nom, rattachement: 'DIVISION', division_id: target.id });
+    expect(sansCode.status).toBe(400);
+    expect(sansCode.body.error.message).toMatch(/5\.3\.3\.2\.N/);
+    const r = await dir.put(`/organisation/bureaux/${bur.id}`, { code: bur.code, nom: bur.nom, code_organique: '5.3.3.2.3', rattachement: 'DIVISION', division_id: target.id });
     expect(r.status).toBe(200);
     const affs = await db('affectations').where({ bureau_id: bur.id, est_active: true });
     expect(affs.length).toBeGreaterThan(0);
@@ -70,7 +74,7 @@ describe('Gestion des structures', () => {
     expect(contacts.body.data[0].username).toBe('cd.sci');
     // retour à la situation initiale
     const orig = await db('divisions').where({ code: 'DIV-EDI' }).first();
-    await dir.put(`/organisation/bureaux/${bur.id}`, { code: bur.code, nom: bur.nom, rattachement: 'DIVISION', division_id: orig.id });
+    expect((await dir.put(`/organisation/bureaux/${bur.id}`, { code: bur.code, nom: bur.nom, code_organique: bur.code_organique, rattachement: 'DIVISION', division_id: orig.id })).status).toBe(200);
     expect((await db('affectations').where({ bureau_id: bur.id, est_active: true }).first()).division_id).toBe(orig.id);
   });
 

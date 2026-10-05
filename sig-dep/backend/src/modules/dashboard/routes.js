@@ -14,6 +14,7 @@ const { donneesDemo } = require('../../services/reinitialisation');
 const { politique } = require('../../services/politique');
 const { dernierControle, versionApplication, espaceDisque } = require('../../services/sante');
 const { etatSauvegardes } = require('../../services/sauvegarde');
+const effectifs = require('../../services/effectifs');
 
 const router = express.Router();
 
@@ -112,6 +113,12 @@ async function sgDashboard(ctx) {
   };
 }
 
+/** Effectif organique, effectif réel, écarts et postes de commandement vacants. */
+async function resumeEffectif() {
+  const e = await effectifs.synthese();
+  return { totaux: e.totaux, ecarts: e.lignes.filter((l) => l.ecart !== 0), postesVacants: e.postesVacants };
+}
+
 async function directeurDashboard(ctx) {
   const [perf, tachesRetard, instructionsRetard, docsAValider, presencesSoumises, courriersRecevoir, courriersCirculation, pipAValider, instructionsSG, presSemaine] = await Promise.all([
     performanceParStructure(),
@@ -131,6 +138,7 @@ async function directeurDashboard(ctx) {
     presencesSoumises, presencesSemaine: presSemaine, courriersARecevoir: courriersRecevoir, courriers: courriersCirculation,
     pipAValider, instructionsRecues: instructionsSG,
     pip: await statutsCount('pip_projects'),
+    effectif: await resumeEffectif(),
   };
 }
 

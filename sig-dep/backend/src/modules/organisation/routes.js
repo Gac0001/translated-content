@@ -12,6 +12,7 @@ const { requirePerm } = require('../../middleware/auth');
 const { audit } = require('../../services/audit');
 const { notFound, badRequest, forbidden } = require('../../utils/errors');
 const { DEP_NOM } = require('../../constants');
+const effectifs = require('../../services/effectifs');
 
 const router = express.Router();
 const id = z.object({ id: z.coerce.number().int().positive() });
@@ -58,7 +59,7 @@ router.get('/organigramme', requirePerm('organisation.consulter'), async (req, r
     const members = aff.filter((a) => a.bureau_id === b.id);
     const chef = members.find((a) => a.role_associe === 'CHEF_BUREAU');
     return {
-      id: b.id, code: b.code, nom: b.nom,
+      id: b.id, code: b.code, codeOrganique: b.code_organique, nom: b.nom,
       typeStructure: b.type_structure, rangOrganique: b.rang_organique,
       rattachement: { parentType: b.parent_type, divisionId: b.division_id, superieurDirect: b.superieur_direct, libelle: rattachementLabel(b, divisionsById) },
       perimetreAcces: b.perimetre_acces, responsableRole: b.responsable_role, responsableTitre: 'Chef de Bureau',
@@ -75,7 +76,7 @@ router.get('/organigramme', requirePerm('organisation.consulter'), async (req, r
   const directeur = aff.find((a) => a.niveau === 'DIRECTION' && a.role_associe === 'DIRECTEUR');
   res.json({
     direction: {
-      id: dep.id, code: dep.code, sigle: dep.sigle, nom: dep.nom, rangOrganique: dep.rang_organique,
+      id: dep.id, code: dep.code, codeOrganique: dep.code_organique, sigle: dep.sigle, nom: dep.nom, rangOrganique: dep.rang_organique,
       autoriteTutelle: dep.autorite_tutelle, missions: attrs.filter((x) => x.cible_type === 'DIRECTION' && x.categorie === 'MISSION').map((x) => x.libelle),
       presentation: dep.missions,
       responsable: personView(directeur), responsableTitre: 'Directeur',
@@ -87,7 +88,7 @@ router.get('/organigramme', requirePerm('organisation.consulter'), async (req, r
     divisions: divisions.map((d) => {
       const chef = aff.find((a) => a.niveau === 'DIVISION' && a.division_id === d.id && a.role_associe === 'CHEF_DIVISION');
       return {
-        id: d.id, code: d.code, nom: d.nom, typeStructure: d.type_structure, rangOrganique: d.rang_organique,
+        id: d.id, code: d.code, codeOrganique: d.code_organique, nom: d.nom, typeStructure: d.type_structure, rangOrganique: d.rang_organique,
         rattachement: { parentType: 'DIRECTION', superieurDirect: 'DIRECTEUR', libelle: 'Placée sous l’autorité du Directeur' },
         perimetreAcces: d.perimetre_acces, responsableTitre: 'Chef de Division', missions: d.missions,
         attributions: attrs.filter((x) => x.cible_type === 'DIVISION' && x.division_id === d.id).map((x) => x.libelle),
@@ -169,13 +170,38 @@ router.get('/structures/:type/:id', requirePerm('organisation.consulter'), valid
 });
 
 // ─── Gestion des structures (Directeur) ─────────────────────────────────────
+const codeOrganique = z.string().trim().max(30).regex(/^(\d+(\.\d+)*)?$/, 'Code organique attendu sous la forme 5.3.3.1.').optional().nullable();
+/** Champ absent : inchangé ; champ vide : retiré. */
+const normCode = (v) => (v === undefined ? undefined : v || null);
+
+/**
+ * Le code organique d’une structure prolonge celui de sa structure de rattachement d’un niveau :
+ * Division et Bureau rattaché au Directeur → 5.3.3.N ; Bureau d’une Division → 5.3.3.N.M.
+ * Le Bureau Secrétariat de Direction porte le suffixe .0.
+ */
+async function verifierCodeOrganique(code, { parentCode, secretariat = false, table, idCourant }) {
+  if (!code) return;
+  if (!parentCode) throw badRequest('Renseignez d’abord le code organique de la structure de rattachement.');
+  const suffixe = code.startsWith(`${parentCode}.`) ? code.slice(parentCode.length + 1) : null;
+  if (!suffixe || !/^\d+$/.test(suffixe)) throw badRequest(`Le code organique doit prolonger celui de la structure de rattachement (${parentCode}.N).`);
+  if (secretariat && suffixe !== '0') throw badRequest(`Le Bureau Secrétariat de Direction porte le code ${parentCode}.0.`);
+  if (!secretariat && suffixe === '0') throw badRequest(`Le suffixe .0 est réservé au Bureau Secrétariat de Direction.`);
+  for (const t of ['divisions', 'bureaux']) {
+    const q = db(t).where({ code_organique: code });
+    if (t === table && idCourant) q.whereNot('id', idCourant);
+    if (await q.first()) throw badRequest(`Le code organique ${code} est déjà attribué.`);
+  }
+}
+
 const divisionSchema = z.object({
-  code: z.string().trim().min(2).max(20), nom: z.string().trim().min(3).max(200),
+  code: z.string().trim().min(2).max(20), nom: z.string().trim().min(3).max(200), code_organique: codeOrganique,
   missions: z.string().max(5000).optional().nullable(), ordre: z.coerce.number().int().optional(),
 });
 
 router.post('/divisions', requirePerm('organisation.gerer'), validate({ body: divisionSchema }), async (req, res) => {
   const dep = await db('directions').where({ code: 'DEP' }).first();
+  await verifierCodeOrganique(normCode(req.valid.body.code_organique), { parentCode: dep.code_organique, table: 'divisions' });
+  req.valid.body.code_organique = normCode(req.valid.body.code_organique) ?? null;
   const row = await db.transaction(async (trx) => {
     const ordre = req.valid.body.ordre ?? Number((await trx('divisions').max('ordre as m').first()).m || 0) + 1;
     const [d] = await trx('divisions').insert({ ...req.valid.body, ordre, direction_id: dep.id }).returning('*');
@@ -190,23 +216,32 @@ router.post('/divisions', requirePerm('organisation.gerer'), validate({ body: di
 router.put('/divisions/:id', requirePerm('organisation.gerer'), validate({ params: id, body: divisionSchema.partial() }), async (req, res) => {
   const before = await db('divisions').where({ id: req.valid.params.id }).first();
   if (!before) throw notFound();
+  req.valid.body.code_organique = normCode(req.valid.body.code_organique);
+  if (req.valid.body.code_organique === undefined) delete req.valid.body.code_organique;
+  else if (req.valid.body.code_organique !== before.code_organique) {
+    const dep = await db('directions').where({ id: before.direction_id }).first();
+    await verifierCodeOrganique(req.valid.body.code_organique, { parentCode: dep.code_organique, table: 'divisions', idCourant: before.id });
+    const bureauxCodes = await db('bureaux').where({ division_id: before.id }).whereNotNull('code_organique').first();
+    if (bureauxCodes) throw badRequest('Modifiez d’abord les codes organiques des Bureaux de cette Division.');
+  }
   const [row] = await db('divisions').where({ id: before.id }).update({ ...req.valid.body, updated_at: db.fn.now() }).returning('*');
   await audit(req, { action: 'MODIFICATION', module: 'organisation', entite: 'division', entiteId: row.id, avant: before, apres: row });
   res.json(row);
 });
 
 const bureauSchema = z.object({
-  code: z.string().trim().min(2).max(20), nom: z.string().trim().min(3).max(200),
+  code: z.string().trim().min(2).max(20), nom: z.string().trim().min(3).max(200), code_organique: codeOrganique,
   rattachement: z.enum(['DIVISION', 'DIRECTION']),
   division_id: z.coerce.number().int().positive().optional().nullable(),
   missions: z.string().max(5000).optional().nullable(), ordre: z.coerce.number().int().optional(),
 });
 
-function bureauRow(body) {
+function bureauRow(body, before = null) {
   if (body.rattachement === 'DIVISION' && !body.division_id) throw badRequest('Un Bureau rattaché à une Division doit préciser sa Division.');
   const isDirection = body.rattachement === 'DIRECTION';
+  const co = normCode(body.code_organique);
   return {
-    code: body.code, nom: body.nom, missions: body.missions, ordre: body.ordre,
+    code: body.code, nom: body.nom, code_organique: co === undefined ? (before ? before.code_organique : null) : co, missions: body.missions, ordre: body.ordre,
     type_structure: 'BUREAU', rang_organique: 'BUREAU', responsable_role: 'CHEF_BUREAU', perimetre_acces: 'BUREAU',
     parent_type: body.rattachement, division_id: isDirection ? null : body.division_id,
     superieur_direct: isDirection ? 'DIRECTEUR' : 'CHEF_DIVISION',
@@ -216,6 +251,11 @@ function bureauRow(body) {
 async function gradeId(trx, code) {
   const g = await trx('grades').where({ code }).first();
   return g ? g.id : null;
+}
+
+async function codeParent(data) {
+  if (data.parent_type === 'DIVISION') return (await db('divisions').where({ id: data.division_id }).first())?.code_organique;
+  return (await db('directions').where({ code: 'DEP' }).first()).code_organique;
 }
 
 async function assertDivisionActive(divisionId) {
@@ -228,6 +268,7 @@ router.post('/bureaux', requirePerm('organisation.gerer'), validate({ body: bure
   const dep = await db('directions').where({ code: 'DEP' }).first();
   const data = bureauRow(req.valid.body);
   await assertDivisionActive(data.division_id);
+  await verifierCodeOrganique(data.code_organique, { parentCode: await codeParent(data), table: 'bureaux' });
   const row = await db.transaction(async (trx) => {
     const ordre = data.ordre ?? Number((await trx('bureaux').where({ parent_type: data.parent_type, division_id: data.division_id }).max('ordre as m').first()).m || 0) + 1;
     const [b] = await trx('bureaux').insert({ ...data, ordre, direction_id: dep.id, est_secretariat_direction: false }).returning('*');
@@ -244,11 +285,14 @@ router.post('/bureaux', requirePerm('organisation.gerer'), validate({ body: bure
 router.put('/bureaux/:id', requirePerm('organisation.gerer'), validate({ params: id, body: bureauSchema }), async (req, res) => {
   const before = await db('bureaux').where({ id: req.valid.params.id }).first();
   if (!before) throw notFound();
-  const data = bureauRow(req.valid.body);
+  const data = bureauRow(req.valid.body, before);
   if (before.est_secretariat_direction && data.parent_type !== 'DIRECTION') {
     throw forbidden('Le Bureau Secrétariat de Direction reste directement rattaché au Directeur : il ne peut être rattaché à une Division.', 'SECRETARIAT_RATTACHEMENT');
   }
   await assertDivisionActive(data.division_id);
+  if (data.code_organique !== before.code_organique || data.division_id !== before.division_id) {
+    await verifierCodeOrganique(data.code_organique, { parentCode: await codeParent(data), secretariat: before.est_secretariat_direction, table: 'bureaux', idCourant: before.id });
+  }
   const row = await db.transaction(async (trx) => {
     const [b] = await trx('bureaux').where({ id: before.id }).update({ ...data, updated_at: trx.fn.now() }).returning('*');
     if (b.division_id !== before.division_id) {
@@ -278,6 +322,26 @@ for (const table of ['divisions', 'bureaux']) {
     res.json(row);
   });
 }
+
+// ─── Effectif organique et effectif réel ────────────────────────────────────
+router.get('/effectifs', requirePerm('organisation.consulter'), async (req, res) => {
+  res.json(await effectifs.synthese());
+});
+
+router.put('/effectifs/:id', requirePerm('cadre.gerer'), validate({
+  params: id,
+  body: z.object({
+    nombre: z.coerce.number().int().min(0).max(500),
+    source: z.string().trim().min(5, 'Indiquez l’acte ou la décision fondant cette référence.').max(300),
+  }),
+}), async (req, res) => {
+  const before = await db('effectif_reference').where({ id: req.valid.params.id }).first();
+  if (!before) throw notFound();
+  const [row] = await db('effectif_reference').where({ id: before.id })
+    .update({ ...req.valid.body, updated_by: req.ctx.userId, updated_at: db.fn.now() }).returning('*');
+  await audit(req, { action: 'MODIFICATION', module: 'organisation', entite: 'effectif_reference', entiteId: row.id, avant: before, apres: row, message: `Effectif de référence « ${row.libelle} » : ${before.nombre} → ${row.nombre}` });
+  res.json(row);
+});
 
 // ─── Cadre organique ────────────────────────────────────────────────────────
 router.get('/cadre', requirePerm('organisation.consulter'), async (req, res) => {

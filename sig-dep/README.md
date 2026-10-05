@@ -1,6 +1,6 @@
 # SIG-DEP — Système Intégré de Gestion de la Direction d’Études et Planification
 
-Application web de gestion de la **Direction d’Études et Planification (DEP)** du Secrétariat Général à l’Économie Numérique — République Démocratique du Congo.
+Application web de gestion de la **Direction d’Études et Planification (DEP)** du Secrétariat Général au Numérique — République Démocratique du Congo.
 
 Elle couvre l’organisation, le personnel et les affectations, les comptes, les présences hebdomadaires, les courriers, les instructions et tâches, les documents de service, les fiches de projets PIP, les notifications, le journal d’audit, les tableaux de bord et les rapports, avec des exports PDF, Excel et Word.
 
@@ -100,12 +100,23 @@ Le seed `05_demo_activites.js` ajoute aussi une activité de démonstration, ave
 
 L’organigramme créé par le seed est **celui de la DEP** (liste officielle des agents, 2026) :
 
-| Structure | Rang | Bureaux |
+| Code | Structure | Supérieur direct |
 |---|---|---|
-| Bureau Secrétariat de Direction | Bureau (rattaché au Directeur) | — |
-| Division Études, Documentation et Information | Division | Bureau Études, Analyses et Perspective ; Bureau Documentation et Information |
-| Division Stratégies et Coopération Internationale | Division | Bureau Stratégies ; Bureau Coopération Internationale |
-| Division Programme et Suivi | Division | Bureau Programme ; Bureau Suivi-Évaluation |
+| 5.3.3 | Direction d’Études et Planification | Secrétariat Général |
+| 5.3.3.0 | Bureau Secrétariat de Direction (rang Bureau) | Directeur |
+| 5.3.3.1 | Division Études, Documentation et Information | Directeur |
+| 5.3.3.1.1 | Bureau Études, Analyses et Prospective | Division 5.3.3.1 |
+| 5.3.3.1.2 | Bureau Documentation et Information | Division 5.3.3.1 |
+| 5.3.3.2 | Division Stratégies et Coopération Internationale | Directeur |
+| 5.3.3.2.1 | Bureau Stratégies | Division 5.3.3.2 |
+| 5.3.3.2.2 | Bureau Coopération Internationale | Division 5.3.3.2 |
+| 5.3.3.3 | Division Programme et Suivi | Directeur |
+| 5.3.3.3.1 | Bureau Programme | Division 5.3.3.3 |
+| 5.3.3.3.2 | Bureau Suivi-Évaluation | Division 5.3.3.3 |
+
+Les **codes organiques** (section 5.3.3 du cadre organique du Secrétariat Général au Numérique) complètent les codes internes (`BSD`, `DIV-EDI`, `BUR-EAP`…). Le code d’une structure prolonge celui de sa structure de rattachement ; le suffixe `.0` est réservé au Bureau Secrétariat de Direction. Déplacer un Bureau vers une autre Division impose de mettre à jour son code.
+
+**Effectif organique de référence** (Cadre organique → Effectif) : 1 Directeur, 3 Chefs de Division, 7 Chefs de Bureau, 7 Attachés d’Administration de 1re classe, 1 Attaché de 2e classe, 1 Huissier, soit 20 postes. Cette référence **ne limite pas** l’enregistrement des Agents : l’application compare l’effectif réel (Agents en activité, en congé ou suspendus, ayant une affectation active, hors Secrétaire Général), indique les écarts, vacances, sureffectifs, Agents hors cadre de référence et postes de commandement sans titulaire. Le Directeur peut ajuster la référence sur la base d’un acte (audité). Ces indicateurs figurent aussi sur son tableau de bord.
 
 Les **missions et attributions** de ces structures sont déduites de leurs intitulés et restent **à valider** par le Directeur (Cadre organique). Les structures se gèrent dans l’application (Organigramme → « Nouvelle Division », « Nouveau Bureau », crayon et archivage sur chaque structure) ou dans `backend/src/db/seed-data/organisation.js`.
 
@@ -424,6 +435,7 @@ Les tests réinitialisent la base `sig_dep_test` (migrations et seeds), puis vé
 * la réinitialisation de la base (réservée à l’Admin, confirmations, base vierge conservant l’organigramme et le compte Admin, rechargement des données fictives) et l’identification des agents à l’enrôlement ;
 * la recherche globale limitée au périmètre, et la sérialisation du journal d’audit ;
 * les notifications par e-mail : mise en file, préférences, confidentialité, mot de passe jamais envoyé, envoi SMTP réel vers un serveur de test local, réessais puis échec et relance, administration ;
+* la conformité au cadre organique : codes 5.3.3 (format, unicité, rattachement, suffixe du Secrétariat), effectif de référence et effectif réel, postes vacants, import reconnaissant les codes organiques ;
 * les sauvegardes et la maintenance : planification et conservation, chiffrement, intégrité, test de restauration, circuit complet de restauration avec réintégration des traces, mode maintenance, annonces, migrations, masquage des secrets.
 
 **Intégration continue** : `.github/workflows/sig-dep.yml` exécute ces tests sur un PostgreSQL 16 éphémère et compile le frontend à chaque modification du dossier `sig-dep/`.
