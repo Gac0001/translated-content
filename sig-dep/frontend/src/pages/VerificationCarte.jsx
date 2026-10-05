@@ -34,6 +34,10 @@ function Resultat({ r }) {
             <div><dt className="text-xs uppercase text-slate-500">Grade</dt><dd className="font-medium">{r.titulaire.grade || '—'}</dd></div>
             <div><dt className="text-xs uppercase text-slate-500">Fonction</dt><dd className="font-medium">{r.titulaire.fonction || '—'}</dd></div>
             <div><dt className="text-xs uppercase text-slate-500">Affectation</dt><dd className="font-medium">{r.titulaire.affectation || '—'}</dd></div>
+            {r.carte && (
+              <div><dt className="text-xs uppercase text-slate-500">Date d’expiration</dt>
+                <dd className={`font-semibold ${r.verdict === 'EXPIREE' ? 'text-red-700' : 'text-emerald-800'}`}>{fmtDate(r.carte.dateExpiration)}{r.verdict === 'EXPIREE' && ' — carte expirée'}</dd></div>
+            )}
             <div><dt className="text-xs uppercase text-slate-500">Service émetteur</dt><dd>{r.emetteur}</dd></div>
           </dl>
         </div>
