@@ -77,10 +77,14 @@ function bandeau(doc, modele, ox, oy, hauteur) {
   const lignes = (Array.isArray(modele.intitule) ? modele.intitule : JSON.parse(modele.intitule || '[]')).map((t) => t.toUpperCase());
   const largeur = W * 0.5;
   doc.font('Helvetica-Bold');
+  // Taille limitée par la largeur et par la hauteur du bandeau (marges haute et basse préservées).
+  const INTERLIGNE = 1.1;
+  const CAPITALE = 0.718; // hauteur des capitales d'Helvetica-Bold
+  const blocHauteur = (t) => (lignes.length - 1) * t * INTERLIGNE + t * CAPITALE;
   let taille = 6;
-  while (taille > 4 && lignes.some((t) => doc.fontSize(taille).widthOfString(t) > largeur)) taille -= 0.2;
-  const pas = taille * 1.12;
-  let ty = oy + hauteur / 2 - (lignes.length * pas) / 2 + 0.4;
+  while (taille > 4 && (lignes.some((t) => doc.fontSize(taille).widthOfString(t) > largeur) || blocHauteur(taille) > hauteur * 0.74)) taille -= 0.1;
+  const pas = taille * INTERLIGNE;
+  let ty = oy + hauteur / 2 - blocHauteur(taille) / 2;
   doc.fillColor('#ffffff');
   lignes.forEach((t) => { doc.fontSize(taille).text(t, lx + 5, ty, { width: largeur, lineBreak: false }); ty += pas; });
   // Adresse en haut à droite (modèle de la charte, p. 43)
