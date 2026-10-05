@@ -29,7 +29,7 @@ function Formulaire({ m, onSaved }) {
   };
   return (
     <form onSubmit={enregistrer} className="grid gap-3 sm:grid-cols-2">
-      <Field label="Intitulé officiel (une ligne par ligne imprimée)" required className="sm:col-span-2" hint="Les premières lignes en capitales grasses, la dernière en caractères normaux (charte graphique)."><textarea className="input font-medium" rows={3} value={f.intitule} onChange={up('intitule')} /></Field>
+      <Field label="Intitulé officiel (une ligne par ligne imprimée)" required className="sm:col-span-2" hint="Imprimé en capitales grasses, taille homogène (charte graphique) : ministère, secrétariat général, direction."><textarea className="input font-medium" rows={3} value={f.intitule} onChange={up('intitule')} /></Field>
       <Field label="Adresse (bandeau du recto)"><input className="input" value={f.adresse} onChange={up('adresse')} /></Field>
       <Field label="Site web (verso)"><input className="input" value={f.site_web} onChange={up('site_web')} /></Field>
       <Field label="Couleur du bandeau"><input type="color" className="input h-10" value={f.couleur_bandeau} onChange={up('couleur_bandeau')} /></Field>

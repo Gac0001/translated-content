@@ -19,7 +19,6 @@ const H = 54 * MM;
 const LIGNE_ETAT = ['#0095c9', '#fff24b', '#db3832']; // charte : bleu, jaune, rouge (haut vers bas)
 const ENCRE = '#1f2937';
 
-const fr = (iso) => (iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : '—');
 const fichier = (nom) => { try { const p = safePath(nom); return fs.existsSync(p) ? p : null; } catch (e) { return null; } };
 
 function urlVerification(jeton) {
@@ -47,7 +46,7 @@ function ligneEtat(doc, x, y, h, l = 1.6) {
   LIGNE_ETAT.forEach((c, i) => doc.rect(x, y + (i * h) / 3, l, h / 3).fill(c));
 }
 
-function codeBarres(doc, texte, x, y, largeur, hauteur) {
+function codeBarres(doc, texte, x, y, largeur, hauteur, { lisible = true } = {}) {
   const modules = encoder(texte);
   const total = modules.reduce((s, m) => s + m, 0);
   const u = largeur / total;
@@ -56,7 +55,7 @@ function codeBarres(doc, texte, x, y, largeur, hauteur) {
     if (i % 2 === 0) doc.rect(cx, y, m * u, hauteur).fill('#000000');
     cx += m * u;
   });
-  doc.fillColor(ENCRE).font('Helvetica').fontSize(4.6).text(texte, x, y + hauteur + 0.8, { width: largeur, align: 'center', lineBreak: false });
+  if (lisible) doc.fillColor(ENCRE).font('Helvetica').fontSize(4.6).text(texte, x, y + hauteur + 0.8, { width: largeur, align: 'center', lineBreak: false });
 }
 
 function filigraneSpecimen(doc, ox, oy) {
@@ -74,17 +73,22 @@ function bandeau(doc, modele, ox, oy, hauteur) {
   armoirie(doc, modele, ox + 5 + r, oy + hauteur / 2, r);
   const lx = ox + 5 + 2 * r + 4;
   ligneEtat(doc, lx, oy + hauteur / 2 - r, 2 * r);
-  const lignes = Array.isArray(modele.intitule) ? modele.intitule : JSON.parse(modele.intitule || '[]');
+  // Intitulé officiel : capitales grasses, taille homogène (charte, p. 8), ajusté à la largeur disponible.
+  const lignes = (Array.isArray(modele.intitule) ? modele.intitule : JSON.parse(modele.intitule || '[]')).map((t) => t.toUpperCase());
+  const largeur = W * 0.5;
+  doc.font('Helvetica-Bold');
+  let taille = 6;
+  while (taille > 4 && lignes.some((t) => doc.fontSize(taille).widthOfString(t) > largeur)) taille -= 0.2;
+  const pas = taille * 1.12;
+  let ty = oy + hauteur / 2 - (lignes.length * pas) / 2 + 0.4;
   doc.fillColor('#ffffff');
-  let ty = oy + hauteur / 2 - (lignes.length * 6.2) / 2;
-  lignes.forEach((t, i) => {
-    doc.font(i < lignes.length - 1 ? 'Helvetica-Bold' : 'Helvetica').fontSize(i < lignes.length - 1 ? 6.2 : 5.6)
-      .text(i < lignes.length - 1 ? t.toUpperCase() : t, lx + 5, ty, { width: W * 0.52, lineBreak: false });
-    ty += 6.4;
-  });
+  lignes.forEach((t) => { doc.fontSize(taille).text(t, lx + 5, ty, { width: largeur, lineBreak: false }); ty += pas; });
+  // Adresse en haut à droite (modèle de la charte, p. 43)
   if (modele.adresse) {
-    doc.font('Helvetica').fontSize(4.4).fillColor('#e5e7eb')
-      .text(modele.adresse, ox + W * 0.62, oy + hauteur / 2 - 5, { width: W * 0.36, align: 'right' });
+    doc.font('Helvetica').fontSize(4.4).fillColor('#e5e7eb');
+    const lx2 = ox + W - 3 * MM - 25 * MM;
+    const h = doc.heightOfString(modele.adresse, { width: 25 * MM, align: 'right' });
+    doc.text(modele.adresse, lx2, oy + Math.max(2, hauteur / 2 - h / 2), { width: 25 * MM, align: 'right' });
   }
 }
 
@@ -109,7 +113,7 @@ function recto(doc, carte, modele, specimen, ox, oy) {
   // Renseignements
   const fx = px + pw + 3.5 * MM; const lw = 15 * MM; let fy = py + 0.5;
   const champs = [
-    ['Matricule', d.matricule], ['Nom', d.nom], ['Postnom', d.postnom], ['Prénom', d.prenom],
+    ['Matricule', d.matricule], ['Prénom', d.prenom], ['Nom', d.nom], ['Postnom', d.postnom],
     ['Grade', d.grade], ['Fonction', d.fonction], ['Affectation', d.affectation],
   ];
   for (const [label, valeur] of champs) {
@@ -121,19 +125,16 @@ function recto(doc, carte, modele, specimen, ox, oy) {
     fy += Math.min(Math.max(h, 6.6), label === 'Affectation' ? 13 : 7) + 0.6;
   }
 
-  // Code à barres (numéro de la carte)
-  if (carte.numero) codeBarres(doc, carte.numero, px - 1, py + ph + 1.6 * MM, pw + 2, 4.2 * MM);
+  // Code à barres de sécurité (charte : sous la photo) ; le numéro n’est pas imprimé en clair.
+  if (carte.numero) codeBarres(doc, carte.numero, px - 1, py + ph + 1.8 * MM, pw + 2, 4.6 * MM, { lisible: false });
 
-  // Numéro, validité, signature
-  const by = oy + H - 9.5 * MM;
-  doc.fillColor(ENCRE).font('Helvetica').fontSize(4.8)
-    .text(`N° ${carte.numero || '—'}`, fx, by, { lineBreak: false })
-    .text(`Délivrée le ${fr(carte.date_delivrance)}  ·  Expire le ${fr(carte.date_expiration)}`, fx, by + 6, { lineBreak: false });
-  const sx = ox + W - 25 * MM;
-  doc.fillColor('#4b5563').fontSize(4.6).text(specimen ? specimen.qualite : 'Le Directeur', sx, oy + H - 12.5 * MM, { width: 22 * MM, align: 'center' });
+  // Signature (charte : « Signature : » sous les renseignements, sur le sceau)
+  const sy = oy + H - 10.5 * MM;
+  doc.fillColor('#4b5563').font('Helvetica').fontSize(5.2).text('Signature :', fx, sy + 2.2 * MM, { width: lw, lineBreak: false });
   const img = specimen && fichier(specimen.fichier);
-  if (img) doc.image(img, sx + 3 * MM, oy + H - 10.5 * MM, { fit: [16 * MM, 6.5 * MM], align: 'center', valign: 'center' });
-  if (specimen) doc.fillColor(ENCRE).font('Helvetica-Bold').fontSize(4.6).text(specimen.signataire, sx, oy + H - 3.6 * MM, { width: 22 * MM, align: 'center', lineBreak: false });
+  if (img) doc.image(img, fx + lw, sy - 1 * MM, { fit: [20 * MM, 7 * MM], align: 'left', valign: 'center' });
+  doc.fillColor(ENCRE).font('Helvetica-Bold').fontSize(4.6)
+    .text(specimen ? `${specimen.signataire}, ${specimen.qualite}` : 'Le Directeur', fx + lw, oy + H - 4.4 * MM, { width: ox + W - 3.5 * MM - (fx + lw), lineBreak: false, ellipsis: true });
   // Liseré tricolore en pied de carte
   LIGNE_ETAT.forEach((c, i) => doc.rect(ox + (i * W) / 3, oy + H - 1.2, W / 3, 1.2).fill(c));
   if (!carte.numero) filigraneSpecimen(doc, ox, oy);
@@ -168,7 +169,7 @@ async function verso(doc, carte, modele, ox, oy) {
   doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(5.6)
     .text(modele.mention_verso, ox + 5 * MM, oy + H - 12.5 * MM, { width: W - 10 * MM, align: 'center' });
   doc.font('Helvetica').fontSize(4.4).fillColor('#dbeafe')
-    .text(`${carte.numero ? `N° ${carte.numero} · ` : ''}${modele.site_web || 'Vérification : scannez le QR code ou saisissez le matricule'}`, ox + 5 * MM, oy + H - 4.2 * MM, { width: W - 10 * MM, align: 'center', lineBreak: false });
+    .text(modele.site_web || 'Vérification : scannez le QR code ou saisissez le matricule', ox + 5 * MM, oy + H - 4.2 * MM, { width: W - 10 * MM, align: 'center', lineBreak: false });
   if (!carte.numero) filigraneSpecimen(doc, ox, oy);
 }
 

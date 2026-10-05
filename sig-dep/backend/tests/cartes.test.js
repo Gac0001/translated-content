@@ -27,18 +27,18 @@ describe('Cartes de service', () => {
 
   test('modèle versionné : configuré par l’Admin, validité de 5 ans', async () => {
     const m = (await admin.get('/cartes/modele')).body.actif;
-    expect(m).toMatchObject({ version: 1, validite_annees: 5, titre_verso: 'LAISSEZ PASSER', verification_matricule: true });
-    expect(m.intitule).toEqual(['SECRÉTARIAT GÉNÉRAL', 'AU NUMÉRIQUE', 'Direction d’Études et Planification']);
+    expect(m).toMatchObject({ version: 2, validite_annees: 5, titre_verso: 'LAISSEZ PASSER', verification_matricule: true, adresse: '45, Avenue Lubefu, Quartier Royal, Kinshasa-Gombe' });
+    expect(m.intitule).toEqual(['MINISTÈRE DE L’ÉCONOMIE NUMÉRIQUE', 'SECRÉTARIAT GÉNÉRAL', 'DIRECTION D’ÉTUDES ET PLANIFICATION']);
     const corps = { ...m, adresse: 'Kinshasa/Gombe — République Démocratique du Congo', site_web: 'www.numerique.gouv.cd' };
     for (const k of ['id', 'version', 'actif', 'armoirie_path', 'created_by', 'created_at', 'auteur']) delete corps[k];
     expect((await dir.put('/cartes/modele', corps)).status).toBe(403);
     expect((await admin.put('/cartes/modele', { ...corps, couleur_bandeau: 'bleu' })).status).toBe(400);
     const v2 = await admin.put('/cartes/modele', corps);
     expect(v2.status).toBe(200);
-    expect(v2.body).toMatchObject({ version: 2, actif: true, adresse: corps.adresse });
+    expect(v2.body).toMatchObject({ version: 3, actif: true, adresse: corps.adresse });
     const arm = await request(app).post('/api/cartes/modele/armoirie').set('Authorization', `Bearer ${await loginAdmin()}`).attach('armoirie', PNG, { filename: 'armoirie.png', contentType: 'image/png' });
     expect(arm.status).toBe(200);
-    expect(arm.body).toMatchObject({ version: 3, adresse: corps.adresse, armoirie_path: expect.stringMatching(/\.png$/) });
+    expect(arm.body).toMatchObject({ version: 4, adresse: corps.adresse, armoirie_path: expect.stringMatching(/\.png$/) });
     expect((await db('modeles_carte').where({ actif: true })).length).toBe(1);
   });
 

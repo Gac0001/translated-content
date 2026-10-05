@@ -1,5 +1,14 @@
 # Journal des versions — SIG-DEP
 
+## 1.12.1
+
+### Carte de service
+- Intitulé officiel : MINISTÈRE DE L’ÉCONOMIE NUMÉRIQUE / SECRÉTARIAT GÉNÉRAL / DIRECTION D’ÉTUDES ET PLANIFICATION, en capitales grasses de taille homogène (charte, p. 8).
+- Adresse en haut à droite du bandeau : 45, Avenue Lubefu, Quartier Royal, Kinshasa-Gombe.
+- Numéro et dates (délivrance, expiration) retirés de la carte imprimée ; ils restent enregistrés et affichés par la vérification. Le code à barres de sécurité est conservé, sans numéro lisible.
+- Recto réorganisé selon le modèle de la charte (p. 43) : Matricule, Prénom, Nom, Postnom, Grade, Fonction, Affectation, puis « Signature : ».
+- Nouvelle version du modèle de carte (les cartes déjà validées conservent la leur).
+
 ## 1.12.0
 
 ### Cartes de service (cahier des charges, §§ 20 et 31 ; charte graphique du Gouvernement, p. 43)
