@@ -54,7 +54,11 @@ describe('Réinitialisation de la base', () => {
     const { request, app } = require('./helpers');
     await db('users').where({ id: d.body.id }).update({ must_change_password: false });
     const l = await request(app).post('/api/auth/login').send({ username: 'directeur.dep', password: d.body.motDePasseTemporaire });
-    const dir = api(l.body.accessToken);
+    // Le Directeur configure d’abord la double authentification et son adresse de récupération.
+    expect(l.body.user.exigences).toEqual(expect.arrayContaining(['DEUX_FACTEURS', 'EMAIL_RECUPERATION', 'REGLES']));
+    expect((await api(l.body.accessToken).get('/liste-declarative')).body.error.code).toBe('CONFIGURATION_SECURITE_REQUISE');
+    const { login } = require('./helpers');
+    const dir = api(await login('directeur.dep', d.body.motDePasseTemporaire));
     const liste = await dir.get('/liste-declarative');
     expect(liste.body).toMatchObject({ statut: 'NON_VALIDEE', actions: { valider: true } });
     expect((await dir.post('/liste-declarative/valider', {})).status).toBe(400); // liste vide

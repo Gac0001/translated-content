@@ -342,7 +342,7 @@ function ChefBureauPanel({ d }) {
         <Stat label="À valider (exécutées)" value={d.taches.EXECUTEE || 0} icon={Activity} tone="violet" to="/taches?statut=EXECUTEE" />
         <Stat label="Documents à vérifier" value={d.documentsAVerifier.length} icon={FileText} tone={d.documentsAVerifier.length ? 'jaune' : 'gris'} to="/documents" />
       </div>
-      {d.delegations?.length > 0 && <div className="mt-4"><InfoAlert>Opérations déléguées par le Directeur : {d.delegations.map((x) => DELEGATIONS[x] || x).join(', ')}. Ces délégations ne modifient pas le rang du Bureau.</InfoAlert></div>}
+      {d.delegations?.length > 0 && <div className="mt-4"><InfoAlert>Opérations exercées par désignation du Directeur : {d.delegations.map((x) => DELEGATIONS[x] || x).join(', ')}. Ces désignations, fondées sur un acte, ne modifient pas le rang du Bureau.</InfoAlert></div>}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card title="Agents du Bureau" actions={<Link to="/taches/nouvelle" className="btn-primary py-1.5"><ListTodo size={14} /> Attribuer une tâche</Link>}>
           <ul className="divide-y divide-slate-100">{d.agents.map((a) => <li key={a.id} className="flex items-center justify-between py-2 text-sm"><Link to={`/personnel/${a.id}`} className="text-dep-700 hover:underline">{a.nom}</Link><span className="text-xs text-slate-500">{a.poste} · {a.taches_en_cours} tâche(s) en cours</span></li>)}</ul>

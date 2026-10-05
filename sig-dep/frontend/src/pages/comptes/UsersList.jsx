@@ -18,7 +18,7 @@ export default function UsersList() {
     <>
       <PageHeader title="Comptes utilisateurs" breadcrumb={[{ label: 'Administration' }, { label: 'Comptes' }]}
         actions={<>
-          {can('delegations.gerer') && <Link to="/delegations" className="btn-secondary"><Share2 size={16} /> Délégations</Link>}
+          {can('designations.gerer') && <Link to="/designations" className="btn-secondary"><Share2 size={16} /> Désignations</Link>}
           {can('liste.consulter') && <Link to="/liste-declarative" className="btn-secondary"><ListChecks size={16} /> Liste déclarative</Link>}
           {can('compte.enroler') && <Link to="/comptes/enrolement" className="btn-secondary"><UserPlus size={16} /> Enrôler un agent</Link>}
           {can('compte.creer_initial') && <Link to="/comptes/nouveau" className="btn-primary"><Plus size={16} /> Compte institutionnel</Link>}

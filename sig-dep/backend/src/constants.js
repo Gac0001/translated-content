@@ -41,7 +41,7 @@ const PERIMETRES = {
 /** Permissions réservées aux Divisions : jamais attribuables au Bureau Secrétariat de Direction ou à son Chef. */
 const DIVISION_ONLY_PERMISSIONS = ['division.gerer', 'division.superviser', 'division.valider', 'chef_division.agir'];
 
-/** Permissions que le Directeur peut déléguer au Chef du Bureau Secrétariat de Direction. */
+/** Opérations désignables (désignation temporaire sur acte). */
 const DELEGABLE_PERMISSIONS = [
   'personnel.suivre',
   'presences.preparer_direction',

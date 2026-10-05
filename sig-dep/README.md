@@ -94,6 +94,8 @@ Mot de passe commun : **`Demo@2026`**. Désactivez-les en production avec `SEED_
 | `cb.eap`, `cb.doi`, `cb.str`, `cb.coi`, `cb.prg`, `cb.sev` | Chef de Bureau | Bureaux des Divisions |
 | `ag.eap1`, `ag.eap2`, `ag.doi1`, … `ag.sev2` | Agent | Bureaux des Divisions |
 
+Les comptes **`directeur`** et **`sg`** configurent leur **double authentification** à la première connexion (application d’authentification sur téléphone, adresse de récupération, règles de sécurité), comme l’Admin Système.
+
 La liste déclarative de démonstration est **déjà validée** par le Directeur. Trois agents fictifs y figurent **sans compte**, pour essayer l’enrôlement : un agent du Bureau Secrétariat de Direction (enrôlable par l’Admin), un agent du Bureau Stratégies et un agent sans affectation (enrôlables par le Secrétariat).
 
 Le seed `05_demo_activites.js` ajoute aussi une activité de démonstration, avec des dates relatives au jour du seed : instructions, tâches (dont une en retard), courriers, documents avec visas, présences de la semaine précédente et fiches PIP. Les tableaux de bord et les rapports sont ainsi parlants dès l’installation.
@@ -145,7 +147,7 @@ Après une réinitialisation « base vierge », le tableau de bord guide la mise
 6. Les agents importés sont inscrits sur la **liste déclarative**, que le Directeur valide ensuite (section suivante). Désigner les responsables manquants avant la validation.
 7. Les informations complémentaires (sexe, date de naissance, date de mise en service, carte IGAP, fonction, photo, commission d’affectation, téléphone, adresse électronique) sont saisies à l’**enrôlement**.
 
-Le Bureau Secrétariat de Direction peut importer les fiches sur délégation (`personnel.suivre`) ; les affectations restent réservées au Directeur. Le fichier importé n’est jamais conservé sur le serveur.
+Le Bureau Secrétariat de Direction peut importer les fiches sur désignation (`personnel.suivre`) ; les affectations restent réservées au Directeur. Le fichier importé n’est jamais conservé sur le serveur.
 
 ### Création des comptes : liste déclarative et enrôlement
 
@@ -298,7 +300,7 @@ Une autorisation dépend à la fois du **rôle**, des **permissions**, de l’**
 | Chef de Bureau | `BUREAU` | son Bureau : tâches aux Agents, présences (saisie, vérification, soumission), examen et transmission des documents, rapports du Bureau |
 | Agent | `PERSONNEL` | ses tâches, ses documents, son profil, ses notifications, informations collectives validées du Bureau |
 
-**Délégations du Directeur** (table `user_permissions`, écran « Délégations ») au seul Chef du Bureau Secrétariat de Direction : `personnel.suivre`, `presences.preparer_direction`, `courriers.enregistrer`, `dossiers.transmettre`. Ces délégations ne changent ni son rang ni son périmètre. L’enrôlement (`compte.enroler`) n’est pas une délégation : il est accordé à tous les membres actifs du Bureau Secrétariat de Direction du fait de leur affectation, pour les agents des autres structures uniquement.
+**Désignations** (table `user_permissions`, écran « Désignations ») fondées sur un acte validé, pour une période : `personnel.suivre`, `presences.preparer_direction`, `courriers.enregistrer`, `dossiers.transmettre`. Elles ne changent ni le rang ni le périmètre du bénéficiaire et expirent d’elles-mêmes. L’enrôlement (`compte.enroler`) et la préparation des actes (`actes.preparer`) ne sont pas des désignations : il est accordé à tous les membres actifs du Bureau Secrétariat de Direction du fait de leur affectation, pour les agents des autres structures uniquement.
 
 La matrice complète figure dans `backend/src/db/seed-data/permissions.js`. L’Admin peut la modifier dans l’écran « Rôles et permissions », dans la limite des garde-fous ci-dessus.
 
@@ -326,6 +328,10 @@ Directeur → Chef du Bureau Secrétariat de Direction → Agents du Bureau Secr
 | Instructions | `Brouillon → Transmise → Reçue → En cours → Exécutée → Validée → Clôturée`, avec `À corriger` et `En retard` (automatique). Déclinaison en sous-instructions ou en tâches. |
 | Tâches | Même cycle, entre le Chef de Bureau et un Agent de son Bureau. |
 | Documents | Rédaction guidée (10 modèles) → transmission au supérieur direct → examen (retour pour correction, visa) → validation Division (Chef de Division) → validation et signature du Directeur → archivage. Chaque enregistrement crée une version ; les versions ne peuvent pas être supprimées (déclencheur). |
+| Actes administratifs | Préparation par le Bureau Secrétariat de Direction (ou le Directeur) avec la **copie scannée de l’acte signé** → soumission → validation ou refus motivé du **Directeur**. Les actes relatifs au poste de Directeur sont enregistrés par l’**Admin Système** et validés par le **Secrétaire Général**. Un acte validé est intangible (contrôle en base) : il se corrige par un **rectificatif**, qui le remplace à sa validation, ou cesse par **révocation** motivée. Numérotation `DEP/ACT/2026/0001`. |
+| Intérims | Acte d’intérim sur un poste de commandement (Directeur, Chef de Division, Chef de Bureau), pour une période déterminée. Un seul intérim par poste et par intérimaire sur une même période (contrôle en base). Pendant la période, l’intérimaire exerce le rôle du poste **dans le seul périmètre de ce poste**, prend sa place dans la chaîne hiérarchique et reçoit les notifications destinées au poste ; le **titulaire** reste titulaire mais est **suspendu** de ce rôle ; le grade permanent de l’intérimaire ne change pas. Les droits commencent et **expirent d’eux-mêmes** aux dates de l’acte, ou cessent à sa révocation. Notifications à l’entrée en vigueur, 3 jours avant la fin et à l’échéance. L’organigramme affiche l’intérim à côté du titulaire. |
+| Désignations | Les anciennes « délégations » deviennent des **désignations** : opérations administratives désignables accordées par un acte de désignation, pour une période, avec expiration automatique. Les droits accordés sans acte avant la version 1.10 sont **à régulariser sous 30 jours** (Comptes → Désignations), puis retirés automatiquement. |
+| Rôles d’autorité | L’Admin Système n’attribue ou ne retire les rôles Directeur, Chef de Division, Secrétaire Général et Admin Système qu’en citant un **acte validé** (nomination, affectation ou fin de fonction) concernant la personne ; l’acte figure dans l’audit. |
 | PIP | `Brouillon → En vérification (Chef de Division, ou Directeur pour les structures rattachées à la Direction) → Vérifiée → Validée (Directeur) → Archivée`, avec retour `À corriger`. Page de contrôle générée automatiquement. |
 
 Les exports disponibles : présences (PDF, Excel), registre des courriers et fiche de circulation, instructions et tâches, documents (PDF, Word, Excel pour les tableaux), fiches et portefeuille PIP, personnel, rapports mensuels, trimestriels et annuels, journal d’audit (Excel). Chaque export est audité.
@@ -338,7 +344,7 @@ Les exports disponibles : présences (PDF, Excel), registre des courriers et fic
 |---|---|
 | Organisation | `directions`, `divisions`, `bureaux` (+ vue `v_structures`), `grades`, `fonctions`, `postes_organiques`, `attributions` (missions, attributions, responsabilités) |
 | Personnel | `agents`, `affectations` (une seule active par Agent, historique conservé) |
-| Sécurité | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `user_permissions` (délégations), `refresh_tokens` (rotation par famille), `login_history`, `parametres` |
+| Sécurité | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `user_permissions` (désignations), `actes_administratifs`, `refresh_tokens` (rotation par famille), `login_history`, `parametres` |
 | Présences | `presence_sheets`, `presence_entries` |
 | Courriers | `courriers`, `courrier_transmissions`, `courrier_annotations` |
 | Activités | `instructions`, `tasks`, `historiques` |
@@ -388,9 +394,10 @@ Contrôlez ensuite depuis **Admin → Système → Messagerie** : « Tester la c
 ## 8. Sécurité
 
 * Mots de passe hachés avec **bcrypt** (coût 12). **Politique configurable** par l’Admin (Sécurité → Politique), dans des bornes qui empêchent de l’affaiblir : par défaut 10 caractères, majuscule, minuscule, chiffre et caractère spécial, refus des mots de passe courants ou dérivés du nom d’utilisateur, interdiction des 5 derniers, expiration facultative.
-* **Double authentification** (TOTP) obligatoire pour l’Admin Système ; secret chiffré en base (AES-256-GCM, clé `TOTP_ENC_KEY` ou dérivée du secret JWT), codes de secours hachés et à usage unique.
+* **Double authentification** (TOTP) obligatoire pour l’Admin Système, le **Directeur** et le **Secrétaire Général** (y compris pour un Directeur par intérim) ; secret chiffré en base (AES-256-GCM, clé `TOTP_ENC_KEY` ou dérivée du secret JWT), codes de secours hachés et à usage unique.
 * **Journal d’audit infalsifiable** : chaque entrée porte l’empreinte SHA-256 de la précédente (chaînage calculé par un déclencheur PostgreSQL). Modification, suppression ou troncature sont refusées en base ; une altération faite malgré tout (accès direct à PostgreSQL) est détectée par « Vérifier l’intégrité ». L’historique des connexions est lui aussi en ajout seul. La réinitialisation de la base ne les efface jamais.
 * **Alertes de sécurité** (Sécurité → Alertes, notification et e-mail à l’Admin) : vague d’échecs de connexion, tentative sur un compte Admin, verrouillage, réutilisation d’un jeton de session, code de secours utilisé, changement de politique, désactivation d’un compte sensible, réinitialisation, intégrité de l’audit rompue.
+* **Avis de connexion depuis un nouvel appareil** (Admin, Directeur, SG) : notification et e-mail, avec l’appareil et l’adresse IP. Chaque utilisateur voit ses **sessions ouvertes** dans son profil et peut **fermer à distance** celle d’un appareil qu’il ne reconnaît pas.
 * **Sessions** : durée maximale et délai d’inactivité configurables ; l’Admin voit les sessions actives (utilisateur, adresse IP, navigateur) et peut en fermer une ; il peut bloquer temporairement un compte compromis, imposer un changement de mot de passe, détecter (et facultativement désactiver) les comptes inactifs.
 * **Vérification de sécurité** à la demande : intégrité de l’audit, 2FA des Admins, comptes, politique, configuration (secret JWT, cookies HTTPS, messagerie), sauvegarde, fichiers téléversés.
 * **Supervision** (Admin Système) :
@@ -400,7 +407,7 @@ Contrôlez ensuite depuis **Admin → Système → Messagerie** : « Tester la c
   * **registre des sauvegardes** : chaque tentative, réussie ou échouée, avec durée, taille, origine et cause de l’échec (alerte en cas d’échec) ;
   * **rapport mensuel de sécurité** : produit automatiquement au début de chaque mois pour le mois écoulé (et à la demande), adressé à l’Admin Système et au **Directeur** (menu « Rapports de sécurité », PDF) : connexions, adresses IP suspectes, comptes, changements de rôles, réinitialisations, incidents, sauvegardes, intégrité de l’audit ;
   * tout **incident critique** est aussi notifié immédiatement au **Directeur** (notification et e-mail).
-* **Rôles institutionnels protégés** en base (ni suppression, ni renommage). L’Admin ne peut attribuer ni retirer les rôles Directeur, Chef de Division, Secrétaire Général ou Admin Système sans décision administrative enregistrée, ni donner une permission technique à un rôle institutionnel ; le rôle Admin Système n’est pas modifiable depuis l’application.
+* **Rôles institutionnels protégés** en base (ni suppression, ni renommage). L’Admin ne peut attribuer ni retirer les rôles Directeur, Chef de Division, Secrétaire Général ou Admin Système sans acte validé enregistré dans le registre des actes, ni donner une permission technique à un rôle institutionnel ; le rôle Admin Système n’est pas modifiable depuis l’application.
 * **Jeton d’accès** JWT de courte durée (`ACCESS_TOKEN_TTL`, 15 min), gardé en mémoire côté navigateur.
 * **Refresh token** aléatoire dans un cookie `httpOnly`, `SameSite=Strict`, limité au chemin `/api/auth`. Seule son empreinte SHA-256 est stockée. Rotation à chaque renouvellement ; la réutilisation d’un ancien jeton révoque toute la famille.
 * `token_version` : un changement de mot de passe, une désactivation ou un changement de rôle invalide immédiatement les jetons existants.
@@ -436,6 +443,7 @@ Les tests réinitialisent la base `sig_dep_test` (migrations et seeds), puis vé
 * la recherche globale limitée au périmètre, et la sérialisation du journal d’audit ;
 * les notifications par e-mail : mise en file, préférences, confidentialité, mot de passe jamais envoyé, envoi SMTP réel vers un serveur de test local, réessais puis échec et relance, administration ;
 * la conformité au cadre organique : codes 5.3.3 (format, unicité, rattachement, suffixe du Secrétariat), effectif de référence et effectif réel, postes vacants, import reconnaissant les codes organiques ;
+* les actes administratifs : circuit (pièce obligatoire, validation réservée, conflit d’intérêts), intérim (rôle et périmètre de l’intérimaire, suspension du titulaire, chaîne hiérarchique, organigramme), unicité de l’intérim, intangibilité en base, rectificatif, révocation, poste de Directeur (Admin → SG), désignations bornées et expirées, régularisation des droits sans acte, rôles d’autorité sur acte, visibilité du registre ; double authentification du Directeur et du SG, avis de nouvel appareil, fermeture de session à distance ;
 * les sauvegardes et la maintenance : planification et conservation, chiffrement, intégrité, test de restauration, circuit complet de restauration avec réintégration des traces, mode maintenance, annonces, migrations, masquage des secrets.
 
 **Intégration continue** : `.github/workflows/sig-dep.yml` exécute ces tests sur un PostgreSQL 16 éphémère et compile le frontend à chaque modification du dossier `sig-dep/`.

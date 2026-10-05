@@ -33,6 +33,8 @@ const EMAIL_TYPES = {
   MDP_REINITIALISE: 'Mot de passe réinitialisé',
   SECURITE: 'Alerte de sécurité',
   SYSTEME: 'Annonce de l’administration du système',
+  ACTE: 'Acte administratif (intérim, désignation…)',
+  CONNEXION: 'Connexion depuis un nouvel appareil',
 };
 
 const RETRY_MINUTES = [1, 5, 15, 60, 240];

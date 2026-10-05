@@ -12,7 +12,7 @@ const { notFound, badRequest, forbidden } = require('../../utils/errors');
 
 const router = express.Router();
 const upload = makeUpload();
-const TYPES = ['COURRIER', 'INSTRUCTION', 'TASK', 'DOCUMENT', 'PIP'];
+const TYPES = ['COURRIER', 'INSTRUCTION', 'TASK', 'DOCUMENT', 'PIP', 'ACTE'];
 const entityParams = z.object({ type: z.enum(TYPES), id: z.coerce.number().int().positive() });
 
 router.get('/:type/:id', validate({ params: entityParams }), async (req, res) => {

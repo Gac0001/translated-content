@@ -36,7 +36,7 @@ describe('Présences hebdomadaires', () => {
     expect(r.status).toBe(403);
   });
 
-  test('le Bureau Secrétariat prépare la liste de la Direction par délégation', async () => {
+  test('le Bureau Secrétariat prépare la liste de la Direction par désignation', async () => {
     const r = await api(await login('cb.secretariat')).post('/presences', { structure_type: 'DIRECTION', semaine_debut: '2026-09-07' });
     expect(r.status).toBe(201);
     expect(r.body.structure_type).toBe('DIRECTION');

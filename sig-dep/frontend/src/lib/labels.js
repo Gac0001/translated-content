@@ -27,7 +27,7 @@ export const STATUTS = {
   // Présences
   VERIFIEE: ['Vérifiée', C.indigo], SOUMISE: ['Soumise', C.violet], VERROUILLEE: ['Verrouillée', C.marine],
   // Documents
-  EN_EXAMEN: ['En examen', C.jaune], VALIDE_DIVISION: ['Validé (Division)', C.indigo], VALIDE: ['Validé', C.vert], REJETE: ['Rejeté', C.rouge], ARCHIVE: ['Archivé', C.gris],
+  EN_EXAMEN: ['En examen', C.jaune], VALIDE_DIVISION: ['Validé (Division)', C.indigo], VALIDE: ['Validé', C.vert], SOUMIS: ['Soumis', C.bleu], REFUSE: ['Refusé', C.rouge], REVOQUE: ['Révoqué', C.orange], EXPIRE: ['Expiré', C.gris], REMPLACE: ['Remplacé', C.marine], REJETE: ['Rejeté', C.rouge], ARCHIVE: ['Archivé', C.gris],
   // PIP
   EN_VERIFICATION: ['En vérification', C.jaune], VERIFIE: ['Vérifiée', C.indigo],
   // Courriers
@@ -51,6 +51,7 @@ export const PRESENCES = {
 export const JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi'];
 
 export const ACTIONS_HISTO = {
+  PREPARATION: 'Préparation de l’enregistrement', REFUS: 'Refus', REVOCATION: 'Révocation', REPRISE: 'Reprise d’un acte refusé',
   CREATION: 'Création', CREATION_BROUILLON: 'Brouillon créé', TRANSMISSION: 'Transmission', RECEPTION: 'Accusé de réception',
   AVANCEMENT: 'Mise à jour de l’avancement', COMPTE_RENDU: 'Compte rendu', VALIDATION: 'Validation', RETOUR_CORRECTION: 'Retour pour correction',
   CLOTURE: 'Clôture', RETARD: 'Passage en retard', ATTRIBUTION: 'Attribution', NOUVELLE_VERSION: 'Nouvelle version', VALIDATION_DIVISION: 'Validation au niveau de la Division',
@@ -63,11 +64,21 @@ export const ACTIONS_HISTO = {
 export const NOTIF_TYPES = {
   INSTRUCTION: 'Instruction', TACHE: 'Tâche', COURRIER: 'Courrier', DOCUMENT_RETOURNE: 'Document retourné', DOCUMENT_VALIDE: 'Document validé',
   DOCUMENT_A_EXAMINER: 'Document à examiner', ECHEANCE: 'Échéance proche', RETARD: 'Retard', COMPTE_CREE: 'Compte', MDP_REINITIALISE: 'Mot de passe',
-  AFFECTATION: 'Affectation', PRESENCE: 'Présences', PIP: 'PIP', INSTRUCTION_REPONSE: 'Compte rendu', SECURITE: 'Sécurité', SYSTEME: 'Annonce',
+  AFFECTATION: 'Affectation', PRESENCE: 'Présences', PIP: 'PIP', INSTRUCTION_REPONSE: 'Compte rendu', SECURITE: 'Sécurité', SYSTEME: 'Annonce', ACTE: 'Acte administratif', CONNEXION: 'Nouvelle connexion',
 };
 
 export const DELEGATIONS = {
   'personnel.suivre': 'suivi administratif du personnel',
   'presences.preparer_direction': 'préparation des listes de présence', 'courriers.enregistrer': 'enregistrement des courriers',
   'dossiers.transmettre': 'transmission des dossiers',
+};
+
+/** Actes administratifs (registre). */
+export const TYPES_ACTE = {
+  NOMINATION: 'Nomination', AFFECTATION: 'Affectation', INTERIM: 'Intérim', DESIGNATION: 'Désignation', FIN_FONCTION: 'Fin de fonction', AUTRE: 'Autre acte',
+};
+export const EFFETS_ACTE = {
+  EN_VIGUEUR: ['En vigueur', 'bg-emerald-50 text-emerald-800 ring-emerald-200'],
+  A_VENIR: ['À venir', 'bg-sky-50 text-sky-800 ring-sky-200'],
+  ECHU: ['Échu', 'bg-slate-100 text-slate-700 ring-slate-200'],
 };

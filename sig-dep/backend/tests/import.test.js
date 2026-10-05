@@ -157,7 +157,7 @@ describe('Exécution de l’import', () => {
     expect(hist[1]).toMatchObject({ est_active: true, bureau_id: str.id });
   });
 
-  test('le Bureau Secrétariat (délégation) importe les fiches sans pouvoir affecter', async () => {
+  test('le Bureau Secrétariat (désignation) importe les fiches sans pouvoir affecter', async () => {
     const cbs = api(await login('cb.secretariat'));
     const r = await cbs.post('/imports/personnel/executer', { date_affectation: '2026-03-23', lignes: [{ matricule: '9900401', nom: 'TESTM', structure_type: 'BUREAU', structure_id: str.id, role: 'AGENT' }] });
     expect(r.status).toBe(201);

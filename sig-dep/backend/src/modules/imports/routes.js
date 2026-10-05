@@ -24,7 +24,7 @@ const upload = multer({
 });
 
 function assertCanImport(ctx) {
-  if (!ctx.can('personnel.gerer') && !ctx.can('personnel.suivre') && !ctx.can('liste.gerer')) throw forbidden('L’import du personnel est réservé à l’Admin, au Directeur et au Bureau Secrétariat de Direction (sur délégation).', 'PERMISSION_REQUISE');
+  if (!ctx.can('personnel.gerer') && !ctx.can('personnel.suivre') && !ctx.can('liste.gerer')) throw forbidden('L’import du personnel est réservé à l’Admin, au Directeur et au Bureau Secrétariat de Direction (sur désignation).', 'PERMISSION_REQUISE');
 }
 
 async function referentiel() {

@@ -3,7 +3,7 @@
 /**
  * Catalogue des permissions et matrice rôles → permissions.
  * `reservee_division` : ne peut jamais être attribuée au Bureau Secrétariat de Direction ni à son Chef.
- * `delegable` : peut être déléguée par le Directeur au Chef du Bureau Secrétariat de Direction.
+ * `delegable` : opération désignable, accordée temporairement par un acte de désignation.
  */
 const PERMISSIONS = [
   // Système et sécurité (Admin Système — aucune autorité administrative)
@@ -44,7 +44,7 @@ const PERMISSIONS = [
   ['personnel.gerer', 'personnel', 'Créer et modifier les fiches du personnel'],
   ['personnel.suivre', 'personnel', 'Assurer le suivi administratif du personnel', { delegable: true }],
   ['affectations.gerer', 'personnel', 'Gérer les affectations'],
-  ['delegations.gerer', 'personnel', 'Déléguer des opérations administratives au Bureau Secrétariat de Direction'],
+  ['designations.gerer', 'personnel', 'Accorder et révoquer les désignations temporaires (sur acte)'],
   // Présences
   ['presences.consulter', 'presences', 'Consulter les présences du périmètre'],
   ['presences.saisir', 'presences', 'Créer et saisir les listes de présence du Bureau'],
@@ -82,6 +82,11 @@ const PERMISSIONS = [
   // Rapports
   ['rapports.consulter', 'rapports', 'Consulter les rapports et statistiques du périmètre'],
   ['rapport_securite.consulter', 'rapports', 'Consulter les rapports mensuels de sécurité'],
+  ['actes.consulter', 'gouvernance', 'Consulter le registre des actes administratifs'],
+  ['actes.preparer', 'gouvernance', 'Préparer l’enregistrement des actes administratifs'],
+  ['actes.valider', 'gouvernance', 'Valider les actes administratifs relevant du Directeur'],
+  ['actes.valider_direction', 'gouvernance', 'Valider les actes relatifs au poste de Directeur'],
+  ['actes.enregistrer_direction', 'gouvernance', 'Enregistrer les actes relatifs au poste de Directeur'],
   ['sauvegarde.valider_restauration', 'gouvernance', 'Valider ou refuser une demande de restauration de la base'],
   ['exports.generer', 'rapports', 'Générer des exports PDF / Excel / Word'],
   ['supervision.globale', 'supervision', 'Supervision globale en lecture de la DEP'],
@@ -109,15 +114,17 @@ const MATRICE = {
     'modele_carte.configurer',
     'compte.consulter', 'compte.creer_initial', 'compte.enroler', 'compte.activer', 'compte.desactiver', 'compte.deverrouiller',
     'compte.reinitialiser_mot_de_passe', 'session.consulter', 'session.revoquer', 'rapport_securite.consulter',
+    'actes.enregistrer_direction',
   ],
   SECRETAIRE_GENERAL: [
     'supervision.globale', 'organisation.consulter', 'personnel.consulter', 'presences.consulter',
     'courriers.consulter', 'instructions.consulter', 'instructions.emettre', 'instructions.valider',
     'taches.consulter', 'documents.consulter', 'pip.consulter', 'rapports.consulter', 'exports.generer',
+    'actes.consulter', 'actes.valider_direction',
   ],
   DIRECTEUR: [
     'organisation.consulter', 'organisation.gerer', 'cadre.gerer',
-    'personnel.consulter', 'personnel.gerer', 'personnel.suivre', 'affectations.gerer', 'delegations.gerer',
+    'personnel.consulter', 'personnel.gerer', 'personnel.suivre', 'affectations.gerer', 'designations.gerer', 'actes.consulter', 'actes.preparer', 'actes.valider',
     'compte.consulter', 'compte.activer', 'compte.desactiver', 'rapport_securite.consulter', 'sauvegarde.valider_restauration', 'liste.consulter', 'liste.gerer', 'liste.valider',
     'presences.consulter', 'presences.verrouiller',
     'courriers.consulter', 'courriers.enregistrer', 'courriers.transmettre', 'courriers.annoter', 'courriers.classer',

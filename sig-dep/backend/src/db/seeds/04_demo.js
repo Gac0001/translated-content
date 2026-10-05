@@ -63,6 +63,7 @@ exports.chargerDemo = async function chargerDemo(knex) {
 
   // Bureau Secrétariat de Direction (rang BUREAU, rattaché au Directeur)
   const cbBsd = await personne({ nom: 'NSIMBA', postnom: 'LANDU', prenom: 'Marie', sexe: 'F', grade: 'CB', fonction: 'F-CB', username: 'cb.secretariat', role: 'CHEF_BUREAU', niveau: 'BUREAU', bureau: 'BSD', poste: 'P-CB-BSD' });
+  const cbBsdAgent = await knex('agents').where({ id: cbBsd.agent_id }).first();
   await personne({ nom: 'KAPINGA', postnom: 'TSHIBOLA', prenom: 'Esther', sexe: 'F', grade: 'AGA1', fonction: 'F-SEC', username: 'ag.secretariat1', role: 'AGENT', niveau: 'BUREAU', bureau: 'BSD', poste: 'P-AG-BSD' });
   await personne({ nom: 'MBALA', postnom: 'NZUZI', prenom: 'Patrick', sexe: 'M', grade: 'AGA2', fonction: 'F-ASS', username: 'ag.secretariat2', role: 'AGENT', niveau: 'BUREAU', bureau: 'BSD', poste: 'P-AG-BSD' });
 
@@ -109,12 +110,24 @@ exports.chargerDemo = async function chargerDemo(knex) {
     agents: JSON.stringify(inscrits.map(snapshotEntry)), commentaire: 'Validation initiale (données de démonstration)',
   });
 
-  // Délégations du Directeur au Chef du Bureau Secrétariat de Direction
+  // Désignation du Chef du Bureau Secrétariat de Direction, fondée sur un acte (fictif) valable un an.
   const delegables = await knex('permissions').where({ delegable: true });
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const debut = new Date(Date.now() - 30 * 86400000);
+  const fin = new Date(Date.now() + 335 * 86400000);
+  const { nextReference } = require('../../services/sequence');
+  const [acte] = await knex('actes_administratifs').insert({
+    numero: await nextReference('ACTE', 'DEP/ACT', knex), type: 'DESIGNATION',
+    reference: 'Note de service n° 001/DEP/2026 (démonstration)', date_acte: iso(debut), autorite: 'Le Directeur',
+    objet: 'Désignation du Chef du Bureau Secrétariat de Direction pour les opérations administratives de la Direction',
+    agent_id: cbBsdAgent.id, permissions: JSON.stringify(delegables.map((p) => p.code)),
+    date_debut: iso(debut), date_fin: iso(fin), validation_par: 'DIRECTEUR', statut: 'VALIDE',
+    prepare_par: cbBsd.id, soumis_at: knex.fn.now(), decide_par: directeur.id, decide_at: knex.fn.now(),
+  }).returning('*');
   for (const p of delegables) {
     await knex('user_permissions').insert({
-      user_id: cbBsd.id, permission_id: p.id, granted_by: directeur.id,
-      motif: 'Délégation du Directeur : opérations administratives du Bureau Secrétariat de Direction',
+      user_id: cbBsd.id, permission_id: p.id, granted_by: directeur.id, motif: `${acte.numero} — ${acte.reference}`,
+      acte_id: acte.id, date_debut: acte.date_debut, date_fin: acte.date_fin,
     });
   }
   await knex('parametres').insert({ cle: 'donnees_demo', valeur: 'true', libelle: 'La base contient des données fictives de démonstration' })

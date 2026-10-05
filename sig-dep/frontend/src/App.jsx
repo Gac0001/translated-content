@@ -24,7 +24,10 @@ const UsersList = p(() => import('./pages/comptes/UsersList'));
 const UserDetail = p(() => import('./pages/comptes/UserDetail'));
 const UserCreate = p(() => import('./pages/comptes/UserCreate'));
 const Roles = p(() => import('./pages/comptes/Roles'));
-const Delegations = p(() => import('./pages/comptes/Delegations'));
+const Designations = p(() => import('./pages/comptes/Designations'));
+const ActesList = p(() => import('./pages/actes/ActesList'));
+const ActeForm = p(() => import('./pages/actes/ActeForm'));
+const ActeDetail = p(() => import('./pages/actes/ActeDetail'));
 const ListeDeclarative = p(() => import('./pages/comptes/ListeDeclarative'));
 const Enrolement = p(() => import('./pages/comptes/Enrolement'));
 const PresencesList = p(() => import('./pages/presences/PresencesList'));
@@ -108,7 +111,12 @@ export default function App() {
             <Route path="comptes/nouveau" element={G(['compte.creer_initial'], <UserCreate />)} />
             <Route path="comptes/:id" element={G(['compte.consulter'], <UserDetail />)} />
             <Route path="roles" element={G(['role.attribuer'], <Roles />)} />
-            <Route path="delegations" element={G(['delegations.gerer'], <Delegations />)} />
+            <Route path="designations" element={G(['designations.gerer'], <Designations />)} />
+            <Route path="delegations" element={<Navigate to="/designations" replace />} />
+            <Route path="actes" element={<ActesList />} />
+            <Route path="actes/nouveau" element={G(['actes.preparer', 'actes.enregistrer_direction'], <ActeForm />)} />
+            <Route path="actes/:id" element={<ActeDetail />} />
+            <Route path="actes/:id/modifier" element={G(['actes.preparer', 'actes.enregistrer_direction'], <ActeForm />)} />
             <Route path="presences" element={G(['presences.consulter', 'presences.preparer_direction'], <PresencesList />)} />
             <Route path="presences/nouvelle" element={G(['presences.saisir', 'presences.preparer_direction'], <PresenceCreate />)} />
             <Route path="presences/:id" element={<PresenceSheet />} />

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
+import { fmtDate } from '../../lib/format';
 import {
   LayoutDashboard, Network, BookOpen, Users, UserCog, CalendarCheck, Mail, Send, ListTodo, FileText, FolderKanban,
-  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench,
+  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth, useCompteurs } from '../../store/auth';
@@ -30,6 +31,8 @@ const MENU = [
   { to: '/liste-declarative', label: 'Liste déclarative', icon: ListChecks, perms: ['liste.consulter'] },
   { to: '/comptes/enrolement', label: 'Enrôlement des agents', icon: UserPlus, perms: ['compte.enroler'] },
   { to: '/comptes', label: 'Comptes utilisateurs', icon: UserCog, perms: ['compte.consulter'], end: true },
+  { to: '/actes', label: 'Actes administratifs', icon: Stamp, perms: ['actes.consulter', 'actes.preparer', 'actes.enregistrer_direction'] },
+  { to: '/designations', label: 'Désignations', icon: Share2, perms: ['designations.gerer'] },
   { to: '/roles', label: 'Rôles et permissions', icon: ShieldCheck, perms: ['role.attribuer'] },
   { to: '/securite', label: 'Sécurité', icon: ShieldAlert, perms: ['securite.superviser'], counter: 'alertes' },
   { to: '/rapports-securite', label: 'Rapports de sécurité', icon: FileBarChart, perms: ['rapport_securite.consulter'] },
@@ -183,6 +186,18 @@ export default function AppLayout() {
             {user.permissions.includes('systeme.maintenir') && <Link to="/systeme/maintenance" className="ml-auto underline">Gérer</Link>}
           </div>
         )}
+        {user.interim && (
+          <div className="flex flex-wrap items-center gap-2 bg-sky-50 px-4 py-2 text-sm text-sky-900 no-print" role="status">
+            <Stamp size={16} /> Vous exercez par intérim les fonctions de <b>{user.interim.poste}</b> jusqu’au {fmtDate(user.interim.dateFin)} inclus.
+            <Link to={`/actes/${user.interim.acteId}`} className="ml-auto underline">Acte {user.interim.numero}</Link>
+          </div>
+        )}
+        {user.suspensions?.map((x) => (
+          <div key={x.acteId} className="flex flex-wrap items-center gap-2 bg-amber-50 px-4 py-2 text-sm text-amber-900 no-print" role="status">
+            <Stamp size={16} /> Pendant votre absence, les fonctions de <b>{x.poste}</b> sont exercées par intérim par {x.interimaire} jusqu’au {fmtDate(x.dateFin)} inclus.
+            <Link to={`/actes/${x.acteId}`} className="ml-auto underline">Voir l’acte</Link>
+          </div>
+        ))}
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 sm:px-6">
           <Outlet />
         </main>

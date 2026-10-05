@@ -1,5 +1,18 @@
 # Journal des versions — SIG-DEP
 
+## 1.10.0
+
+### Actes administratifs, intérims et désignations (cahier des charges, §§ 9, 33 et 36)
+- **Registre des actes administratifs** (Administration → Actes administratifs) : nomination, affectation, intérim, désignation, fin de fonction. Préparation par le Bureau Secrétariat de Direction avec la copie scannée de l’acte signé, validation ou refus motivé par le Directeur ; actes relatifs au poste de Directeur enregistrés par l’Admin Système et validés par le Secrétaire Général. Un acte validé est intangible (contrôle en base) : rectificatif ou révocation motivée. Nul ne valide un acte qui le concerne.
+- **Intérims** : un seul par poste et par intérimaire sur une période ; l’intérimaire exerce le rôle du poste dans son seul périmètre, prend sa place dans la chaîne hiérarchique et reçoit les notifications du poste ; le titulaire est suspendu de ce rôle sans perdre sa titularité ; expiration automatique aux dates de l’acte. Bandeaux d’information pour l’intérimaire et le titulaire ; intérim affiché dans l’organigramme ; notifications d’entrée en vigueur, de fin prochaine et d’échéance.
+- **Désignations** (remplacent les délégations) : opérations désignables accordées sur acte, pour une période, avec expiration automatique. Droits antérieurs sans acte à régulariser sous 30 jours, puis retirés.
+- **Rôles d’autorité** attribués ou retirés par l’Admin Système uniquement sur un acte validé concernant la personne (référence inscrite dans l’audit).
+
+### Sécurité du Directeur et du Secrétaire Général
+- **Double authentification obligatoire**, adresse de récupération et règles de sécurité à la première connexion (également pour un Directeur par intérim).
+- **Avis de connexion depuis un nouvel appareil** (Admin, Directeur, SG).
+- **Sessions ouvertes** visibles dans le profil de chaque utilisateur, avec fermeture à distance.
+
 ## 1.9.0
 
 ### Conformité au cadre organique (cahier des charges, partie 2)

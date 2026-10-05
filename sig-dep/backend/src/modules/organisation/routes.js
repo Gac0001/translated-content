@@ -13,6 +13,7 @@ const { audit } = require('../../services/audit');
 const { notFound, badRequest, forbidden } = require('../../utils/errors');
 const { DEP_NOM } = require('../../constants');
 const effectifs = require('../../services/effectifs');
+const { interimsEnVigueur } = require('../../services/interims');
 
 const router = express.Router();
 const id = z.object({ id: z.coerce.number().int().positive() });
@@ -54,6 +55,12 @@ router.get('/organigramme', requirePerm('organisation.consulter'), async (req, r
   const attrs = await db('attributions').where({ actif: true }).orderBy('ordre');
   const divisionsById = Object.fromEntries(divisions.map((d) => [d.id, d]));
   const showAgents = req.ctx.perimetre !== 'SYSTEME';
+  // Intérims en vigueur : affichés à côté du titulaire, qui reste le titulaire du poste.
+  const interims = await interimsEnVigueur();
+  const interimDe = (pred) => {
+    const i = interims.find(pred);
+    return i ? { nomComplet: i.interimaire, titre: i.role_associe === 'DIRECTEUR' ? 'Directeur ad intérim' : i.role_associe === 'CHEF_DIVISION' ? 'Chef de Division ad intérim' : 'Chef de Bureau ad intérim', dateFin: i.date_fin, acte: i.numero } : null;
+  };
 
   const bureauView = (b) => {
     const members = aff.filter((a) => a.bureau_id === b.id);
@@ -68,6 +75,7 @@ router.get('/organigramme', requirePerm('organisation.consulter'), async (req, r
       missions: b.missions,
       attributions: attrs.filter((x) => x.cible_type === 'BUREAU' && x.bureau_id === b.id).map((x) => x.libelle),
       responsable: personView(chef),
+      interim: interimDe((i) => i.role_associe === 'CHEF_BUREAU' && i.bureau_id === b.id),
       agents: showAgents ? members.filter((a) => a !== chef).map(personView) : [],
       effectif: members.length,
     };
@@ -80,6 +88,7 @@ router.get('/organigramme', requirePerm('organisation.consulter'), async (req, r
       autoriteTutelle: dep.autorite_tutelle, missions: attrs.filter((x) => x.cible_type === 'DIRECTION' && x.categorie === 'MISSION').map((x) => x.libelle),
       presentation: dep.missions,
       responsable: personView(directeur), responsableTitre: 'Directeur',
+      interim: interimDe((i) => i.role_associe === 'DIRECTEUR'),
       responsabilites: attrs.filter((x) => x.cible_type === 'ROLE' && x.role_code === 'DIRECTEUR').map((x) => x.libelle),
     },
     // Bureaux directement rattachés au Directeur (rang BUREAU)
@@ -93,6 +102,7 @@ router.get('/organigramme', requirePerm('organisation.consulter'), async (req, r
         perimetreAcces: d.perimetre_acces, responsableTitre: 'Chef de Division', missions: d.missions,
         attributions: attrs.filter((x) => x.cible_type === 'DIVISION' && x.division_id === d.id).map((x) => x.libelle),
         responsable: personView(chef),
+        interim: interimDe((i) => i.role_associe === 'CHEF_DIVISION' && i.division_id === d.id),
         bureaux: bureaux.filter((b) => b.division_id === d.id).map(bureauView),
       };
     }),

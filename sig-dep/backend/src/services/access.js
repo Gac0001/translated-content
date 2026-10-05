@@ -33,7 +33,7 @@ function scopeCourriers(qb, ctx) {
         }
       });
     });
-    // Délégation d’enregistrement : registre de la Direction (courriers ordinaires)
+    // Désignation d’enregistrement : registre de la Direction (courriers ordinaires)
     if (ctx.can('courriers.enregistrer')) w.orWhere('c.confidentialite', 'ORDINAIRE');
   });
 }
@@ -115,6 +115,11 @@ const LOADERS = {
   TASK: { table: 'tasks as t', alias: 't', scope: scopeTasks, writers: (r) => [r.agent_user_id, r.assigne_par_user_id] },
   DOCUMENT: { table: 'documents as d', alias: 'd', scope: scopeDocuments, writers: (r) => [r.auteur_user_id, r.detenteur_user_id] },
   PIP: { table: 'pip_projects as p', alias: 'p', scope: scopePip, writers: (r) => [r.auteur_user_id, r.detenteur_user_id] },
+  // Actes administratifs : la copie scannée se joint pendant la préparation, par la personne qui prépare l’acte.
+  ACTE: {
+    table: 'actes_administratifs as x', alias: 'x', scope: (qb, ctx) => require('./actes').scopeActes(qb, ctx),
+    writers: (r) => (r.statut === 'BROUILLON' ? [r.prepare_par] : []), strict: true,
+  },
 };
 
 /** Charge un élément en vérifiant le périmètre ; mode 'write' exige d’être partie prenante. */
@@ -126,9 +131,10 @@ async function loadEntity(ctx, type, id, mode = 'read') {
   const row = await L.scope(db(L.table).where(`${L.alias}.id`, id), ctx).first(`${L.alias}.*`);
   if (!row) throw forbidden('Cet élément est hors de votre périmètre administratif.', 'HORS_PERIMETRE');
   if (mode === 'write') {
-    if (ctx.perimetre === 'SUPERVISION_GLOBALE' && type !== 'INSTRUCTION') throw forbidden('Accès en lecture seule.', 'LECTURE_SEULE');
+    if (ctx.perimetre === 'SUPERVISION_GLOBALE' && !['INSTRUCTION', 'ACTE'].includes(type)) throw forbidden('Accès en lecture seule.', 'LECTURE_SEULE');
     const writers = L.writers(row).filter(Boolean);
     const courrierRegistrar = type === 'COURRIER' && ctx.can('courriers.enregistrer');
+    if (L.strict && !writers.includes(ctx.userId)) throw forbidden('Les pièces d’un acte se joignent pendant sa préparation, par la personne qui le prépare.');
     if (!writers.includes(ctx.userId) && !courrierRegistrar && ctx.perimetre !== 'DIRECTION') {
       throw forbidden('Seules les personnes en charge de cet élément peuvent y joindre ou modifier des fichiers.');
     }

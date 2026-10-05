@@ -4,6 +4,7 @@
  * et e-mail de récupération si la messagerie est active).
  */
 const db = require('../db/knex');
+const { comptesExercant } = require('./interims');
 const { notify } = require('./notifications');
 
 const GRAVITES = ['INFO', 'ATTENTION', 'CRITIQUE'];
@@ -41,9 +42,10 @@ async function alerter({ type, gravite = 'ATTENTION', titre, message = null, det
   }
 }
 
+/** Directeur en exercice : le titulaire, ou l’intérimaire pendant un intérim. */
 async function directeursActifs() {
-  return db('users as u').join('user_roles as ur', 'ur.user_id', 'u.id').join('roles as r', 'r.id', 'ur.role_id')
-    .where({ 'r.code': 'DIRECTEUR', 'u.statut': 'ACTIF' }).pluck('u.id');
+  const ids = await comptesExercant('DIRECTEUR');
+  return ids.length ? db('users').whereIn('id', ids).where('statut', 'ACTIF').pluck('id') : [];
 }
 
 module.exports = { alerter, adminsActifs, directeursActifs, GRAVITES };

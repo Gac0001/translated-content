@@ -8,8 +8,17 @@ const { dechiffrer } = require('../src/services/deuxFacteurs');
 const DEMO = 'Demo@2026';
 const ADMIN_NEW = 'Kivu#Systeme2026';
 
+/**
+ * Connexion d’un compte de démonstration. Les comptes soumis aux exigences renforcées
+ * (Directeur, Secrétaire Général) terminent leur configuration de sécurité à la première
+ * connexion, puis se connectent avec leur second facteur.
+ */
 async function login(username, password = DEMO) {
-  const res = await request(app).post('/api/auth/login').send({ username, password });
+  let res = await connexion(username, password);
+  if (res.status === 200 && res.body.user.exigences && res.body.user.exigences.length && !res.body.user.exigences.includes('MOT_DE_PASSE')) {
+    await configurerSecurite(res.body.accessToken, { motDePasse: password, email: `${username}.recuperation@example.cd` });
+    res = await connexion(username, password);
+  }
   if (res.status !== 200) throw new Error(`Connexion impossible pour ${username} : ${res.status} ${JSON.stringify(res.body)}`);
   return res.body.accessToken;
 }
@@ -30,7 +39,7 @@ async function connexion(username, password) {
 }
 
 /** Termine les étapes de première connexion de l’Admin Système (2FA, récupération, règles). */
-async function configurerSecurite(token) {
+async function configurerSecurite(token, { motDePasse = ADMIN_NEW, email = 'admin.systeme@example.cd' } = {}) {
   const a = api(token);
   let me = (await a.get('/auth/me')).body.user;
   if (me.exigences.includes('DEUX_FACTEURS')) {
@@ -38,10 +47,10 @@ async function configurerSecurite(token) {
     await a.post('/auth/2fa/activer', { code: authenticator.generate(p.body.secret.replace(/\s/g, '')) });
   }
   if (me.exigences.includes('EMAIL_RECUPERATION')) {
-    const r = await a.post('/auth/email-recuperation', { email: 'admin.systeme@example.cd', motDePasse: ADMIN_NEW });
+    const r = await a.post('/auth/email-recuperation', { email, motDePasse });
     if (r.body.verificationEnvoyee) {
       // Messagerie active (tests e-mail) : le code est lu dans la file d’envoi.
-      const m = await db('email_outbox').where({ to_email: 'admin.systeme@example.cd' }).orderBy('id', 'desc').first();
+      const m = await db('email_outbox').where({ to_email: email }).orderBy('id', 'desc').first();
       await a.post('/auth/email-recuperation/verifier', { code: m.text_body.match(/Code de vérification : (\d{6})/)[1] });
     }
   }
