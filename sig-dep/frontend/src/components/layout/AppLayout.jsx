@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-do
 import { fmtDate } from '../../lib/format';
 import {
   LayoutDashboard, Network, BookOpen, Users, UserCog, CalendarCheck, Mail, Send, ListTodo, FileText, FolderKanban,
-  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2, Landmark,
+  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2, Landmark, IdCard,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth, useCompteurs } from '../../store/auth';
@@ -20,6 +20,7 @@ const MENU = [
   { to: '/organigramme', label: 'Organigramme', icon: Network, perms: ['organisation.consulter'] },
   { to: '/cadre-organique', label: 'Cadre organique', icon: BookOpen, perms: ['organisation.consulter'] },
   { to: '/personnel', label: 'Personnel', icon: Users, perms: ['personnel.consulter', 'personnel.suivre'] },
+  { to: '/ma-carte', label: 'Ma carte de service', icon: IdCard, agent: true },
   { section: 'Activités' },
   { to: '/instructions', label: 'Instructions', icon: Send, perms: ['instructions.consulter'], counter: 'instructions' },
   { to: '/taches', label: 'Tâches', icon: ListTodo, perms: ['taches.consulter'], counter: 'taches' },
@@ -31,6 +32,8 @@ const MENU = [
   { to: '/liste-declarative', label: 'Liste déclarative', icon: ListChecks, perms: ['liste.consulter'] },
   { to: '/comptes/enrolement', label: 'Enrôlement des agents', icon: UserPlus, perms: ['compte.enroler'] },
   { to: '/comptes', label: 'Comptes utilisateurs', icon: UserCog, perms: ['compte.consulter'], end: true },
+  { to: '/cartes', label: 'Cartes de service', icon: IdCard, perms: ['cartes.consulter'], end: true },
+  { to: '/cartes/modele', label: 'Modèle de carte', icon: IdCard, perms: ['modele_carte.configurer'] },
   { to: '/actes', label: 'Actes administratifs', icon: Stamp, perms: ['actes.consulter', 'actes.preparer', 'actes.enregistrer_direction'] },
   { to: '/designations', label: 'Désignations', icon: Share2, perms: ['designations.gerer'] },
   { to: '/roles', label: 'Rôles et permissions', icon: ShieldCheck, perms: ['role.attribuer'] },
@@ -50,7 +53,7 @@ const MENU = [
 function Sidebar({ onNavigate }) {
   const { user } = useAuth();
   const { compteurs } = useCompteurs();
-  const items = MENU.filter((m) => m.section || !m.perms || m.perms.some((p) => user.permissions.includes(p)));
+  const items = MENU.filter((m) => m.section || (m.agent ? !!user.agent : !m.perms || m.perms.some((p) => user.permissions.includes(p))));
   // Retire les titres de section sans éléments
   const visible = items.filter((m, i) => !m.section || (items[i + 1] && !items[i + 1].section));
   return (

@@ -1,5 +1,15 @@
 # Journal des versions — SIG-DEP
 
+## 1.12.0
+
+### Cartes de service (cahier des charges, §§ 20 et 31 ; charte graphique du Gouvernement, p. 43)
+- **Modèle conforme à la charte** : bandeau avec Bloc-armoirie, Ligne d’État (bleu #0095c9, jaune #fff24b, rouge #db3832 à parts égales) et intitulé officiel ; recto avec photo, matricule, nom, postnom, prénom, grade, fonction, affectation, code à barres et signature du Directeur ; verso « LAISSEZ PASSER », mention aux autorités et QR code. Format 85,6 × 54 mm ; planche A4 de 10 cartes avec traits de coupe et verso en miroir.
+- **Modèle versionné** configuré par l’Admin Système (intitulé, adresse, couleurs, armoirie, validité, mention), sans pouvoir de validation.
+- **Spécimen de signature** déposé par le Directeur (mot de passe exigé), appliqué aux cartes qu’il valide, y compris celles validées avant le dépôt.
+- **Circuit** : préparation et contrôle du dossier par le Bureau Secrétariat de Direction, vérification, validation par le Directeur (numéro unique, jeton du QR code, renseignements et photo figés, **validité de 5 ans**), impression, remise, accusé de réception par le titulaire ; suspension, réactivation, annulation, perte (déclarable par le titulaire), remplacement, renouvellement, expiration automatique. Carte validée intangible en base.
+- **Vérification publique** sans connexion, par QR code ou par matricule : photo, nom complet, grade, fonction, affectation et état de la carte. Journal des vérifications, limitation de débit, alerte en cas de recherches répétées sans résultat, vérification par matricule désactivable.
+- « Ma carte de service » pour chaque agent ; nouvelle variable `PUBLIC_URL` (adresse encodée dans le QR code).
+
 ## 1.11.0
 
 ### Gouvernance du compte Admin Système (cahier des charges, § 12)

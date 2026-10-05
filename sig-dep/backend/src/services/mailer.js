@@ -34,6 +34,7 @@ const EMAIL_TYPES = {
   SECURITE: 'Alerte de sécurité',
   SYSTEME: 'Annonce de l’administration du système',
   ACTE: 'Acte administratif (intérim, désignation…)',
+  CARTE: 'Carte de service',
   CONNEXION: 'Connexion depuis un nouvel appareil',
 };
 

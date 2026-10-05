@@ -21,6 +21,7 @@ const TYPES = {
   SECURITE: 'Alerte de sécurité',
   SYSTEME: 'Annonce système',
   ACTE: 'Acte administratif',
+  CARTE: 'Carte de service',
   CONNEXION: 'Nouvelle connexion',
 };
 

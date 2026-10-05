@@ -33,6 +33,9 @@ app.get('/api/statut-public', async (req, res) => {
   res.json({ maintenance: { active: m.active, message: m.active ? m.message : '', fin: m.active ? m.fin : '' } });
 });
 
+// Vérification publique des cartes de service (QR code ou matricule), sans authentification
+app.use('/api/public/cartes', require('./modules/cartes/public'));
+
 app.use('/api/auth', require('./modules/auth/routes'));
 
 // Toutes les routes suivantes exigent une authentification
@@ -63,6 +66,7 @@ const protectedModules = {
   maintenance: './modules/maintenance/routes',
   actes: './modules/actes/routes',
   gouvernance: './modules/gouvernance/routes',
+  cartes: './modules/cartes/routes',
 };
 for (const [path, mod] of Object.entries(protectedModules)) {
   // Un module manquant doit empêcher le démarrage, jamais être ignoré.

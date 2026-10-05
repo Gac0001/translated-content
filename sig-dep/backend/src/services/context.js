@@ -111,6 +111,9 @@ async function loadContext(userId, trx = db) {
       permissions.add('compte.enroler');
       // Le Secrétariat prépare l’enregistrement des actes administratifs, validés par le Directeur.
       permissions.add('actes.preparer');
+      // Il prépare, imprime et remet les cartes de service, validées par le Directeur.
+      permissions.add('cartes.preparer');
+      permissions.add('cartes.consulter');
     }
   }
   // Un rôle Chef de Division sans affectation de Division ne confère pas les permissions de Division.

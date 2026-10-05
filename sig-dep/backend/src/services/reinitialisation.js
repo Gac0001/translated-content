@@ -18,6 +18,8 @@ const CONSERVEES = [
   'postes_organiques', 'attributions', 'effectif_reference', 'roles', 'permissions', 'role_permissions', 'parametres',
   // Traçabilité : jamais effacée (tables protégées en base contre la troncature)
   'audit_logs', 'login_history', 'alertes_securite', 'demandes_confirmation', 'acces_support', 'activations_urgence',
+  // Modèle de carte (référentiel) et journal des vérifications publiques
+  'modeles_carte', 'verifications_carte',
 ];
 
 async function volumes(trx = db) {

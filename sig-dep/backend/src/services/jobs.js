@@ -107,6 +107,11 @@ async function rapportMensuel() {
   await require('./rapportSecurite').genererMoisEcoule();
 }
 
+/** Cartes de service arrivées à échéance. */
+async function expirerCartes() {
+  await require('./cartes').expirer();
+}
+
 /** Gouvernance : confirmations et accès de support échus, fermeture du compte d’urgence à l’échéance. */
 async function gouvernancePeriodique() {
   await require('./gouvernance').tachePeriodique();
@@ -124,7 +129,7 @@ async function controleSante() {
 
 async function runAll() {
   if (maintenance.operationEnCours()) return; // restauration en cours
-  for (const fn of [markOverdue, remindDeadlines, autolockPresences, purgeTokens, purgeDefis, desactiverInactifs, purgeSupervision, rapportMensuel, echeancesActes, gouvernancePeriodique]) {
+  for (const fn of [markOverdue, remindDeadlines, autolockPresences, purgeTokens, purgeDefis, desactiverInactifs, purgeSupervision, rapportMensuel, echeancesActes, gouvernancePeriodique, expirerCartes]) {
     try { await fn(); } catch (e) {
       console.error(`[JOBS] ${fn.name} :`, e.message);
       require('./erreurs').enregistrer(Object.assign(e, { contexte: `tâche ${fn.name}` }));
@@ -165,4 +170,4 @@ function start(intervalMs = 10 * 60000) {
   setTimeout(tacheSauvegardes, 20000);
 }
 
-module.exports = { start, runAll, echeancesActes, gouvernancePeriodique, sendMails, markOverdue, remindDeadlines, autolockPresences, desactiverInactifs, purgeSupervision, rapportMensuel, controleSante };
+module.exports = { start, runAll, echeancesActes, gouvernancePeriodique, expirerCartes, sendMails, markOverdue, remindDeadlines, autolockPresences, desactiverInactifs, purgeSupervision, rapportMensuel, controleSante };
