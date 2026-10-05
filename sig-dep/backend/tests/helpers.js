@@ -104,6 +104,20 @@ async function enroler(token, agentId, fields = {}) {
   return r;
 }
 
+/**
+ * Exécute une opération critique de l’Admin : la première tentative crée la demande (202),
+ * le Directeur la confirme, puis l’opération est relancée avec les mêmes paramètres.
+ */
+async function avecConfirmation(adminApi, method, url, body, { valideur = 'directeur', motDePasse = DEMO } = {}) {
+  let r = await adminApi[method](url, body);
+  if (r.status !== 202) return r;
+  const dir = api(await login(valideur, motDePasse));
+  const d = await dir.post(`/gouvernance/confirmations/${r.body.demande.id}/decision`, { decision: 'CONFIRMER', motDePasse });
+  if (d.status !== 200) throw new Error(`Confirmation impossible : ${d.status} ${JSON.stringify(d.body)}`);
+  r = await adminApi[method](url, body);
+  return r;
+}
+
 async function userId(username) { return (await db('users').where({ username }).first()).id; }
 
-module.exports = { app, db, request, login, loginAdmin, connexion, codeTotp, configurerSecurite, api, userId, enroler, PNG, PDF, DEMO, ADMIN_NEW };
+module.exports = { app, db, request, login, loginAdmin, avecConfirmation, connexion, codeTotp, configurerSecurite, api, userId, enroler, PNG, PDF, DEMO, ADMIN_NEW };

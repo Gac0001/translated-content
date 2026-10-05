@@ -32,7 +32,7 @@ export default function UsersList() {
             <Select value={inactifs} onChange={setInactifs} placeholder="Tous les comptes" options={[['1', `Inactifs (> ${state.data?.seuilInactiviteJours ?? 90} j)`]]} />
           </>}
           columns={[
-            { key: 'username', header: 'Utilisateur', render: (u) => <span className="font-medium">{u.username}</span> },
+            { key: 'username', header: 'Utilisateur', render: (u) => <span className="font-medium">{u.username}{u.compte_urgence && <Badge className="ml-2 bg-red-50 text-red-800 ring-red-200">Compte d’urgence{u.statut === 'DESACTIVE' ? ' — scellé' : ' — actif'}</Badge>}</span> },
             { key: 'nom', header: 'Titulaire', render: (u) => [u.prenom, u.nom].filter(Boolean).join(' ') || <span className="text-slate-400">Compte technique</span>, search: (u) => `${u.prenom} ${u.nom}` },
             { key: 'roles', header: 'Rôle(s)', render: (u) => <div className="flex flex-wrap gap-1">{u.roles.map((r) => <Badge key={r}>{ROLES[r]}</Badge>)}</div>, search: (u) => u.roles.map((r) => ROLES[r]).join(' ') },
             { key: 'structure', header: 'Structure', render: (u) => u.bureau_nom || u.division_nom || '—', search: (u) => `${u.bureau_nom} ${u.division_nom}` },

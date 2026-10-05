@@ -25,6 +25,7 @@ const { temporaryPassword } = require('../../utils/password');
 const { notFound, badRequest, forbidden, conflict } = require('../../utils/errors');
 const { ROLE_LIBELLES } = require('../../constants');
 const { aujourdhui } = require('../../services/interims');
+const gouvernance = require('../../services/gouvernance');
 
 const router = express.Router();
 const idParam = z.object({ id: z.coerce.number().int().positive() });
@@ -37,6 +38,8 @@ const PERMS_TECHNIQUES = ['compte.creer_initial', 'compte.deverrouiller', 'compt
 const estTechnique = (p) => MODULES_TECHNIQUES.includes(p.module) || PERMS_TECHNIQUES.includes(p.code);
 // Rôles d’autorité : leur attribution ou leur retrait exige une décision administrative enregistrée.
 const ROLES_DECISION = ['ADMIN_SYSTEME', 'SECRETAIRE_GENERAL', 'DIRECTEUR', 'CHEF_DIVISION'];
+// Modules métier : jamais attribuables au rôle Admin Système (aucune autorité administrative).
+const MODULES_METIER = ['documents', 'pip', 'presences', 'courriers', 'instructions', 'taches', 'liste', 'division', 'personnel'];
 
 async function rolesOf(userId, trx = db) {
   return (await trx('user_roles as ur').join('roles as r', 'r.id', 'ur.role_id').where('ur.user_id', userId).select('r.code')).map((r) => r.code);
@@ -68,6 +71,7 @@ async function userView(id) {
 async function assertManageable(ctx, targetId) {
   const target = await db('users').where({ id: targetId }).first();
   if (!target) throw notFound('Compte introuvable.');
+  if (target.compte_urgence) throw forbidden('Le compte d’urgence est scellé : il ne s’active et ne se referme que depuis la page Gouvernance (Directeur ou Secrétaire Général).', 'COMPTE_URGENCE');
   const roles = await rolesOf(targetId);
   if (ctx.primaryRole === 'ADMIN_SYSTEME' || ctx.roles.includes('ADMIN_SYSTEME')) return { target, roles };
   if (roles.includes('ADMIN_SYSTEME') || roles.includes('SECRETAIRE_GENERAL') || roles.includes('DIRECTEUR')) {
@@ -110,7 +114,7 @@ router.get('/', requirePerm('compte.consulter'), validate({ query: z.object({ q:
     .leftJoin('bureaux as b', 'b.id', 'a.bureau_id').leftJoin('divisions as d', 'd.id', 'a.division_id')
     .select('u.id', 'u.username', 'u.statut', 'u.must_change_password', 'u.last_login_at', 'u.locked_until', 'u.created_at', 'u.autorise_par', 'u.totp_actif', 'u.motif_blocage',
       db.raw(`(u.statut <> 'DESACTIVE' and coalesce(u.last_login_at, u.created_at) < now() - make_interval(days => ?)) as inactif`, [seuil]),
-      'ag.matricule', 'ag.nom', 'ag.postnom', 'ag.prenom', 'b.nom as bureau_nom', 'd.nom as division_nom',
+      'ag.matricule', 'ag.nom', 'ag.postnom', 'ag.prenom', 'b.nom as bureau_nom', 'd.nom as division_nom', 'u.compte_urgence', 'u.urgence_jusqua',
       db.raw(`ARRAY(SELECT r.code FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id) as roles`))
     .orderBy('u.username');
   if (!req.ctx.roles.includes('ADMIN_SYSTEME')) {
@@ -339,11 +343,20 @@ router.put('/roles/:code/permissions', requirePerm('role.attribuer'), validate({
   if (!role) throw notFound('Rôle introuvable.');
   const perms = await db('permissions').whereIn('code', req.valid.body.permissions);
   if (perms.length !== new Set(req.valid.body.permissions).size) throw badRequest('Permission inconnue.');
+  let conf = null;
   if (role.code === 'ADMIN_SYSTEME') {
-    // Rôle protégé : sa modification exige une double validation (Directeur), non disponible ici.
-    throw forbidden('Le rôle Admin Système est protégé : sa modification exige la validation du Directeur.', 'ROLE_PROTEGE');
+    // Rôle protégé : aucune permission métier (validation, liste, activités) ; double confirmation du Directeur.
+    const metier = perms.filter((p) => MODULES_METIER.includes(p.module) || /valider/.test(p.code) || p.reservee_division);
+    if (metier.length) throw forbidden(`Permissions métier incompatibles avec le rôle Admin Système : ${metier.map((p) => p.code).join(', ')}.`, 'PERMISSION_INCOMPATIBLE');
+    const liste = [...new Set(req.valid.body.permissions)].sort();
+    const actuelles = (await db('role_permissions as rp').join('permissions as p', 'p.id', 'rp.permission_id').where('rp.role_id', role.id).pluck('p.code'));
+    const ajout = liste.filter((c) => !actuelles.includes(c)); const retrait = actuelles.filter((c) => !liste.includes(c));
+    conf = await gouvernance.exigerConfirmation(req, 'ROLE_ADMIN', { permissions: liste },
+      `Rôle Admin Système — ajout : ${ajout.join(', ') || 'aucun'} ; retrait : ${retrait.join(', ') || 'aucun'}`);
+    if (conf.reponse) return res.status(202).json(conf.reponse);
+    await gouvernance.consommer(conf.demande);
   }
-  const techniques = perms.filter(estTechnique);
+  const techniques = role.code === 'ADMIN_SYSTEME' ? [] : perms.filter(estTechnique);
   if (techniques.length) throw forbidden(`Permissions techniques incompatibles avec le rôle ${role.libelle} : ${techniques.map((p) => p.code).join(', ')}.`, 'PERMISSION_INCOMPATIBLE');
   if (['CHEF_BUREAU', 'AGENT', 'SECRETAIRE_GENERAL', 'ADMIN_SYSTEME'].includes(role.code)) {
     const bad = perms.filter((p) => p.reservee_division);

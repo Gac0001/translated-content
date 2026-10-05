@@ -1,5 +1,17 @@
 # Journal des versions — SIG-DEP
 
+## 1.11.0
+
+### Gouvernance du compte Admin Système (cahier des charges, § 12)
+- **Double confirmation par le Directeur** des opérations critiques : réinitialisation de la base, politique de sécurité, migrations, permissions du rôle Admin Système. Demande créée à la première tentative, confirmation protégée par le mot de passe du Directeur, exécution unique dans les 24 heures avec les paramètres confirmés, refus motivé, expiration.
+- Le rôle Admin Système devient modifiable sous double confirmation, sans jamais recevoir de permission métier.
+- **Accès de support temporaire** aux pièces jointes : demande motivée de l’Admin (élément ou type d’élément, 4 heures au plus), validation par le Directeur, lecture seule, consultations auditées, révocation et expiration automatiques.
+- **Compte d’urgence** scellé, distinct du compte Admin : activation par le Directeur ou le Secrétaire Général (24 heures au plus, mot de passe temporaire, double authentification à la connexion), alerte immédiate à chaque activation et connexion, fermeture manuelle ou automatique, procédure serveur `npm run urgence`.
+- Page **Gouvernance** (Admin, Directeur, SG) ; compte d’urgence signalé dans la liste des comptes et dans la vérification de sécurité.
+
+### Correction
+- Le téléchargement d’une pièce jointe (`/api/attachments/fichier/:id`) était intercepté par une autre route et échouait : ordre des routes corrigé, test de non-régression ajouté.
+
 ## 1.10.0
 
 ### Actes administratifs, intérims et désignations (cahier des charges, §§ 9, 33 et 36)

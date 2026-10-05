@@ -55,6 +55,7 @@ const Securite = p(() => import('./pages/systeme/Securite'));
 const Sante = p(() => import('./pages/systeme/Sante'));
 const Sauvegardes = p(() => import('./pages/systeme/Sauvegardes'));
 const Restaurations = p(() => import('./pages/systeme/Restaurations'));
+const Gouvernance = p(() => import('./pages/systeme/Gouvernance'));
 const Maintenance = p(() => import('./pages/systeme/Maintenance'));
 const JournalTechnique = p(() => import('./pages/systeme/JournalTechnique'));
 const RapportsSecurite = p(() => import('./pages/RapportsSecurite'));
@@ -143,6 +144,7 @@ export default function App() {
             <Route path="rapports" element={G(['rapports.consulter'], <Rapports />)} />
             <Route path="systeme" element={G(['systeme.consulter', 'systeme.configurer'], <Systeme />)} />
             <Route path="systeme/sauvegardes" element={G(['sauvegarde.creer'], <Sauvegardes />)} />
+            <Route path="gouvernance" element={G(['operations.confirmer', 'systeme.maintenir', 'role.attribuer', 'acces_support.demander', 'acces_support.valider', 'urgence.activer', 'urgence.desactiver'], <Gouvernance />)} />
             <Route path="restaurations" element={G(['sauvegarde.restaurer', 'sauvegarde.valider_restauration'], <Restaurations />)} />
             <Route path="systeme/maintenance" element={G(['systeme.consulter', 'systeme.maintenir'], <Maintenance />)} />
             <Route path="systeme/sante" element={G(['systeme.consulter'], <Sante />)} />

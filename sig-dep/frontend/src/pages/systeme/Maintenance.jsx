@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle2, Power, Send, XCircle } from 'lucide-react'
 import api from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { fmtDateTime } from '../../lib/format';
-import { useApi, Loadable, PageHeader, Card, Tabs, DataTable, Badge, InfoAlert, runAction, useConfirm } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, Tabs, DataTable, Badge, InfoAlert, runAction, useConfirm, runCritique } from '../../components/ui';
 
 function ModeMaintenance() {
   const state = useApi('/maintenance');
@@ -75,7 +75,7 @@ function Migrations() {
   const appliquer = async () => {
     const mdp = await confirm({ title: 'Appliquer les migrations', message: 'Une sauvegarde de la base est faite automatiquement avant l’application.', confirmLabel: 'Appliquer', input: { label: 'Votre mot de passe', required: true } });
     if (!mdp) return;
-    await runAction(() => api.post('/maintenance/migrations/appliquer', { motDePasse: mdp }), 'Migrations appliquées.'); state.reload();
+    await runCritique(() => api.post('/maintenance/migrations/appliquer', { motDePasse: mdp }), 'Migrations appliquées.'); state.reload();
   };
   return (
     <Loadable state={state}>

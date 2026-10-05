@@ -27,7 +27,10 @@ function calculerExigences(user, roles, pol) {
   const expire = pol.mdp_expiration_jours > 0 && user.password_changed_at
     && (Date.now() - new Date(user.password_changed_at).getTime()) > pol.mdp_expiration_jours * 86400000;
   if (user.must_change_password || expire) ex.push('MOT_DE_PASSE');
-  if (roles.some((r) => ROLES_RENFORCES.includes(r))) {
+  if (user.compte_urgence) {
+    // Compte d’urgence : nouveau mot de passe et double authentification à chaque activation.
+    if (!user.totp_actif) ex.push('DEUX_FACTEURS');
+  } else if (roles.some((r) => ROLES_RENFORCES.includes(r))) {
     if (!user.totp_actif) ex.push('DEUX_FACTEURS');
     // Adresse de récupération obligatoire ; sa vérification (code par e-mail) est demandée lorsque la
     // messagerie est active, sans bloquer le compte (elle conditionne la récupération par e-mail).
@@ -146,6 +149,8 @@ async function loadContext(userId, trx = db) {
     bureauId: aff ? aff.bureau_id : null,
     inSecretariat,
     isAdminOnly: roles.length > 0 && roles.every((r) => r === 'ADMIN_SYSTEME'),
+    compteUrgence: !!user.compte_urgence,
+    urgenceJusqua: user.urgence_jusqua,
     // Portée de l’enrôlement : l’Admin enrôle uniquement les agents du Secrétariat autorisés
     // nominativement par le Directeur ; le Secrétariat enrôle les agents des autres structures.
     enrolement: roles.includes('ADMIN_SYSTEME') ? 'SECRETARIAT_AUTORISE' : inSecretariat ? 'HORS_SECRETARIAT' : null,
@@ -176,6 +181,8 @@ function publicContext(ctx) {
     interim: ctx.interim,
     suspensions: ctx.suspensions,
     inSecretariat: ctx.inSecretariat,
+    compteUrgence: ctx.compteUrgence,
+    urgenceJusqua: ctx.urgenceJusqua,
     agent: a ? { id: a.id, matricule: a.matricule, nom: a.nom, postnom: a.postnom, prenom: a.prenom, sexe: a.sexe, email: a.email, telephone: a.telephone, hasPhoto: !!a.photo_path } : null,
     affectation: aff ? {
       niveau: aff.niveau, directionId: aff.direction_id, divisionId: aff.division_id, divisionNom: aff.division_nom,

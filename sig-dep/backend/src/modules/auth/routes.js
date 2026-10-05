@@ -128,6 +128,15 @@ async function nouvelAppareil(req, user) {
 }
 
 async function ouvrirSession(req, res, user, motif = 'Connexion réussie') {
+  if (user.compte_urgence) {
+    // Compte d’urgence : uniquement pendant la période d’activation ; chaque connexion est signalée.
+    if (!user.urgence_jusqua || new Date(user.urgence_jusqua) <= new Date()) {
+      await require('../../services/gouvernance').fermerUrgence({ par: 'SIG-DEP', motif: 'Échéance de l’activation' });
+      await logLogin(req, user, user.username, false, 'Compte d’urgence hors période d’activation');
+      throw unauthorized('Le compte d’urgence n’est pas activé.', 'COMPTE_DESACTIVE');
+    }
+    await require('../../services/gouvernance').signalerConnexionUrgence(user, req.ip);
+  }
   await controlerMaintenance(user);
   await db('users').where({ id: user.id }).update({ failed_attempts: 0, locked_until: null, last_login_at: db.fn.now() });
   const nouveau = await nouvelAppareil(req, user);

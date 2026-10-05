@@ -129,7 +129,19 @@ async function loadEntity(ctx, type, id, mode = 'read') {
   const exists = await db(L.table).where(`${L.alias}.id`, id).first(`${L.alias}.*`);
   if (!exists) throw notFound('Élément introuvable.');
   const row = await L.scope(db(L.table).where(`${L.alias}.id`, id), ctx).first(`${L.alias}.*`);
-  if (!row) throw forbidden('Cet élément est hors de votre périmètre administratif.', 'HORS_PERIMETRE');
+  if (!row) {
+    // Admin Système : lecture des pièces jointes uniquement par un accès de support validé par le Directeur.
+    if (mode === 'read') {
+      const gouvernance = require('./gouvernance');
+      const acces = await gouvernance.accesSupportActif(ctx, type, id);
+      if (acces) {
+        await gouvernance.noterConsultation(acces);
+        ctx.accesSupport = acces;
+        return exists;
+      }
+    }
+    throw forbidden('Cet élément est hors de votre périmètre administratif.', 'HORS_PERIMETRE');
+  }
   if (mode === 'write') {
     if (ctx.perimetre === 'SUPERVISION_GLOBALE' && !['INSTRUCTION', 'ACTE'].includes(type)) throw forbidden('Accès en lecture seule.', 'LECTURE_SEULE');
     const writers = L.writers(row).filter(Boolean);

@@ -18,6 +18,8 @@ const maintenance = require('../../services/maintenance');
 const { creerSauvegarde, executer } = require('../../services/sauvegarde');
 const { badRequest } = require('../../utils/errors');
 
+const gouvernance = require('../../services/gouvernance');
+
 const router = express.Router();
 
 // ─── Mode maintenance ────────────────────────────────────────────────────────
@@ -64,8 +66,19 @@ router.post('/migrations/appliquer', requirePerm('systeme.maintenir'), validate(
   if (!(await bcrypt.compare(req.valid.body.motDePasse, u.password_hash))) throw badRequest('Mot de passe incorrect.');
   const avant = await migrations();
   if (!avant.enAttente.length) return res.json({ message: 'Aucune migration en attente.', ...avant });
-  const copie = await creerSauvegarde('-avant-migration', { origine: 'AVANT_MIGRATION', user: { id: req.ctx.userId, username: req.ctx.username } });
-  const [, appliquees] = await db.migrate.latest();
+  // Opération critique : confirmation préalable du Directeur, pour exactement ces migrations.
+  const conf = await gouvernance.exigerConfirmation(req, 'MIGRATIONS', { migrations: avant.enAttente },
+    `${avant.enAttente.length} migration(s) : ${avant.enAttente.join(', ')} (sauvegarde préalable automatique)`);
+  if (conf.reponse) return res.status(202).json(conf.reponse);
+  await gouvernance.consommer(conf.demande);
+  let copie; let appliquees;
+  try {
+    copie = await creerSauvegarde('-avant-migration', { origine: 'AVANT_MIGRATION', user: { id: req.ctx.userId, username: req.ctx.username } });
+    [, appliquees] = await db.migrate.latest();
+  } catch (e) {
+    await gouvernance.restituer(conf.demande);
+    throw e;
+  }
   await audit(req, { action: 'MIGRATION', module: 'systeme', apres: { appliquees, sauvegarde: copie.fichier }, message: `${appliquees.length} migration(s) appliquée(s) ; sauvegarde préalable ${copie.fichier}` });
   res.json({ message: `${appliquees.length} migration(s) appliquée(s). Sauvegarde préalable : ${copie.fichier}.`, ...(await migrations()) });
 });

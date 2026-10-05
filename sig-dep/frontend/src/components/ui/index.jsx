@@ -55,6 +55,21 @@ export function Toaster() {
 }
 
 /** Exécute une action API avec toast de succès/erreur. */
+/**
+ * Opération critique de l’Admin Système : la première tentative crée une demande de confirmation
+ * adressée au Directeur (réponse 202) ; une fois confirmée, la même opération s’exécute.
+ * Renvoie la réponse si l’opération a été exécutée, null si elle attend une confirmation.
+ */
+export async function runCritique(fn, successMessage) {
+  const r = await runAction(fn);
+  if (r && r.status === 202) {
+    toast.info(`${r.data.message} Suivi : Administration → Gouvernance.`);
+    return null;
+  }
+  if (successMessage) toast.success(successMessage);
+  return r;
+}
+
 export async function runAction(fn, successMessage) {
   try {
     const r = await fn();

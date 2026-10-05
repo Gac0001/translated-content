@@ -15,7 +15,7 @@ const config = require('../src/config/env');
 const sv = require('../src/services/sauvegarde');
 const { dechiffrer } = require('../src/services/deuxFacteurs');
 const { DEFAUTS } = require('../src/services/politique');
-const { db, request, app, login, loginAdmin, api, userId, connexion, ADMIN_NEW, DEMO } = require('./helpers');
+const { db, request, app, login, loginAdmin, api, userId, connexion, avecConfirmation, ADMIN_NEW, DEMO } = require('./helpers');
 
 let outils = false;
 const avecOutils = (nom, fn) => test(nom, async () => { if (!outils) { console.warn(`[ignoré : pg_dump/pg_restore indisponibles] ${nom}`); return; } await fn(); });
@@ -148,7 +148,7 @@ describe('Restauration validée par le Directeur', () => {
     // Activité postérieure à la sauvegarde (doit survivre à la restauration dans les traces)
     await new Promise((r) => setTimeout(r, 1100));
     const marqueur = `Marqueur ${Date.now()}`;
-    await admin.put('/securite/politique', { alerte_echecs_seuil: 11 });
+    await avecConfirmation(admin, 'put', '/securite/politique', { alerte_echecs_seuil: 11 });
     await request(app).post('/api/auth/login').send({ username: 'ag.doi1', password: 'mauvais-mot' });
     await db('users').where({ username: 'ag.doi1' }).update({ failed_attempts: 0 });
     // Modification « métier » postérieure : effacée par la restauration

@@ -17,7 +17,7 @@ const CONSERVEES = [
   'knex_migrations', 'knex_migrations_lock', 'directions', 'divisions', 'bureaux', 'grades', 'fonctions',
   'postes_organiques', 'attributions', 'effectif_reference', 'roles', 'permissions', 'role_permissions', 'parametres',
   // Traçabilité : jamais effacée (tables protégées en base contre la troncature)
-  'audit_logs', 'login_history', 'alertes_securite',
+  'audit_logs', 'login_history', 'alertes_securite', 'demandes_confirmation', 'acces_support', 'activations_urgence',
 ];
 
 async function volumes(trx = db) {
@@ -46,6 +46,9 @@ async function reinitialiser({ mode, adminId }) {
     const adminPrefs = await trx('notification_preferences').where({ user_id: adminId }).first();
     const adminCodes = await trx('codes_secours').where({ user_id: adminId });
     const adminHisto = await trx('historique_mots_de_passe').where({ user_id: adminId });
+    // Le compte d’urgence (scellé) survit lui aussi à la réinitialisation.
+    const urgence = await trx('users').where({ compte_urgence: true }).whereNot('id', adminId).first();
+    const urgenceRoles = urgence ? await trx('user_roles').where({ user_id: urgence.id }) : [];
 
     // 2. Fichiers déposés à supprimer après validation de la transaction
     fichiers.push(...await trx('attachments').pluck('stored_name'), ...(await trx('agents').whereNotNull('photo_path').pluck('photo_path')));
@@ -64,6 +67,10 @@ async function reinitialiser({ mode, adminId }) {
     if (adminPrefs) await trx('notification_preferences').insert(adminPrefs);
     if (adminCodes.length) await trx('codes_secours').insert(adminCodes.map(({ id, ...c }) => c));
     if (adminHisto.length) await trx('historique_mots_de_passe').insert(adminHisto.map(({ id, ...h }) => h));
+    if (urgence) {
+      await trx('users').insert({ ...urgence, agent_id: null, created_by: null, autorise_par: null });
+      if (urgenceRoles.length) await trx('user_roles').insert(urgenceRoles.map(({ id, ...r }) => ({ ...r, granted_by: null })));
+    }
 
     // 5. Données fictives éventuelles
     if (mode === 'DEMO') {

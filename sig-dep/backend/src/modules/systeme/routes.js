@@ -16,6 +16,8 @@ const reinit = require('../../services/reinitialisation');
 const { alerter } = require('../../services/alertes');
 const { notFound, badRequest, AppError } = require('../../utils/errors');
 
+const gouvernance = require('../../services/gouvernance');
+
 const router = express.Router();
 
 // Paramètres lisibles par tout utilisateur authentifié (en-têtes, libellés)
@@ -158,6 +160,21 @@ router.post('/reinitialisation', requirePerm('systeme.maintenir'), validate({
     await audit(req, { action: 'REINITIALISATION', module: 'systeme', resultat: 'ECHEC', message: 'Mot de passe incorrect' });
     throw badRequest('Mot de passe incorrect.');
   }
+  // Opération critique : confirmation préalable du Directeur.
+  const conf = await gouvernance.exigerConfirmation(req, 'REINITIALISATION', { mode, sauvegarde },
+    `${mode === 'DEMO' ? 'Réinitialisation avec les données fictives de démonstration' : 'Réinitialisation en base vierge (mise en service)'} ; sauvegarde préalable : ${sauvegarde ? 'oui' : 'non'}`);
+  if (conf.reponse) return res.status(202).json(conf.reponse);
+  await gouvernance.consommer(conf.demande);
+  try {
+    await executerReinitialisation(req, res, { mode, sauvegarde });
+  } catch (e) {
+    await gouvernance.restituer(conf.demande);
+    throw e;
+  }
+  return undefined;
+});
+
+async function executerReinitialisation(req, res, { mode, sauvegarde }) {
   let copie = null;
   if (sauvegarde) {
     copie = await creerSauvegarde('-avant-reinitialisation', { origine: 'AVANT_REINITIALISATION', user: { id: req.ctx.userId, username: req.ctx.username } }).catch(async (e) => {
@@ -177,6 +194,6 @@ router.post('/reinitialisation', requirePerm('systeme.maintenir'), validate({
       ? 'Base réinitialisée avec les données fictives de démonstration.'
       : 'Base vierge : créez le compte du Directeur, qui importera et validera la liste officielle des agents.',
   });
-});
+}
 
 module.exports = router;
