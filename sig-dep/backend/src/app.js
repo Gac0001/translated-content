@@ -68,6 +68,9 @@ const protectedModules = {
   gouvernance: './modules/gouvernance/routes',
   cartes: './modules/cartes/routes',
   'demandes-information': './modules/demandesInformation/routes',
+  reunions: './modules/reunions/routes',
+  decisions: './modules/decisions/routes',
+  agenda: './modules/agenda/routes',
 };
 for (const [path, mod] of Object.entries(protectedModules)) {
   // Un module manquant doit empêcher le démarrage, jamais être ignoré.

@@ -178,8 +178,8 @@ const createSchema = z.object({
   justification_exception: z.string().trim().max(5000).optional().nullable(),
 });
 
-router.post('/', requirePerm('instructions.emettre'), validate({ body: createSchema }), async (req, res) => {
-  const b = req.valid.body;
+/** Crée (et transmet, sauf brouillon) une instruction ; utilisé aussi pour mettre en œuvre une décision. */
+async function creerInstruction(req, b) {
   if (b.exceptionnelle && (!b.justification_exception || b.justification_exception.length < 10)) throw badRequest('Justifiez l’instruction exceptionnelle (10 caractères au moins).');
   const { dest, superieur } = await resoudreDestinataire(req.ctx, b.destinataire_user_id, b.exceptionnelle);
   if (b.exceptionnelle && b.parent_id) throw badRequest('Une instruction exceptionnelle ne peut pas décliner une autre instruction.');
@@ -207,7 +207,11 @@ router.post('/', requirePerm('instructions.emettre'), validate({ body: createSch
   });
   await audit(req, { action: b.brouillon ? 'CREATION' : 'TRANSMISSION', module: 'instructions', entite: 'instruction', entiteId: row.id, apres: row, message: b.exceptionnelle ? `Instruction exceptionnelle — ${b.justification_exception}` : undefined });
   if (!b.brouillon) await notifierTransmission(req, row);
-  res.status(201).json(row);
+  return row;
+}
+
+router.post('/', requirePerm('instructions.emettre'), validate({ body: createSchema }), async (req, res) => {
+  res.status(201).json(await creerInstruction(req, req.valid.body));
 });
 
 /** Notifie le destinataire et, pour une instruction exceptionnelle, le supérieur immédiat en copie. */
@@ -358,3 +362,4 @@ router.get('/:id/pdf', requirePerm('instructions.consulter'), requirePerm('expor
 
 module.exports = router;
 module.exports.STATUT_LIBELLES = STATUT_LIBELLES;
+module.exports.creerInstruction = creerInstruction;

@@ -114,6 +114,11 @@ async function loadContext(userId, trx = db) {
       // Il prépare, imprime et remet les cartes de service, validées par le Directeur.
       permissions.add('cartes.preparer');
       permissions.add('cartes.consulter');
+      // Il organise les audiences, réunions et rappels de l’agenda du Directeur et prépare
+      // les réunions qu’il préside (convocation, présence, projet de compte rendu).
+      permissions.add('agenda.consulter');
+      permissions.add('agenda.gerer');
+      permissions.add('reunions.preparer_direction');
     }
   }
   // Un rôle Chef de Division sans affectation de Division ne confère pas les permissions de Division.

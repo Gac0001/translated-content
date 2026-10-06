@@ -28,6 +28,12 @@ const Roles = p(() => import('./pages/comptes/Roles'));
 const Designations = p(() => import('./pages/comptes/Designations'));
 const ActesList = p(() => import('./pages/actes/ActesList'));
 const DemandesList = p(() => import('./pages/demandes/DemandesList'));
+const ReunionsList = p(() => import('./pages/reunions/ReunionsList'));
+const ReunionForm = p(() => import('./pages/reunions/ReunionForm'));
+const ReunionDetail = p(() => import('./pages/reunions/ReunionDetail'));
+const DecisionsRegistre = p(() => import('./pages/decisions/DecisionsRegistre'));
+const DecisionDetail = p(() => import('./pages/decisions/DecisionDetail'));
+const Agenda = p(() => import('./pages/agenda/Agenda'));
 const DemandeDetail = p(() => import('./pages/demandes/DemandeDetail'));
 const ActeForm = p(() => import('./pages/actes/ActeForm'));
 const ActeDetail = p(() => import('./pages/actes/ActeDetail'));
@@ -124,6 +130,13 @@ export default function App() {
             <Route path="roles" element={G(['role.attribuer'], <Roles />)} />
             <Route path="designations" element={G(['designations.gerer'], <Designations />)} />
             <Route path="delegations" element={<Navigate to="/designations" replace />} />
+            <Route path="reunions" element={<ReunionsList />} />
+            <Route path="reunions/nouvelle" element={G(['reunions.organiser', 'reunions.preparer_direction'], <ReunionForm />)} />
+            <Route path="reunions/:id" element={<ReunionDetail />} />
+            <Route path="reunions/:id/modifier" element={G(['reunions.organiser', 'reunions.preparer_direction'], <ReunionForm />)} />
+            <Route path="decisions" element={<DecisionsRegistre />} />
+            <Route path="decisions/:id" element={<DecisionDetail />} />
+            <Route path="agenda" element={G(['agenda.consulter'], <Agenda />)} />
             <Route path="demandes-information" element={G(['demandes_info.emettre', 'demandes_info.repondre'], <DemandesList />)} />
             <Route path="demandes-information/:id" element={G(['demandes_info.emettre', 'demandes_info.repondre'], <DemandeDetail />)} />
             <Route path="actes" element={<ActesList />} />

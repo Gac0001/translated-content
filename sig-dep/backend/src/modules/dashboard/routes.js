@@ -139,6 +139,27 @@ async function directeurDashboard(ctx) {
     pipAValider, instructionsRecues: instructionsSG,
     pip: await statutsCount('pip_projects'),
     effectif: await resumeEffectif(),
+    ...(await pilotageDecisions()),
+  };
+}
+
+/** Centre de pilotage du Directeur : décisions ouvertes et en retard, agenda du jour, demandes du SG. */
+async function pilotageDecisions() {
+  const [stats, decisions, agenda, demandes] = await Promise.all([
+    db('decisions').whereIn('statut', ['A_EXECUTER', 'EN_COURS'])
+      .select(db.raw('count(*) as ouvertes'), db.raw('count(*) FILTER (WHERE echeance < CURRENT_DATE) as en_retard')).first(),
+    db('decisions as d').join('users as u', 'u.id', 'd.responsable_user_id').leftJoin('agents as a', 'a.id', 'u.agent_id')
+      .whereIn('d.statut', ['A_EXECUTER', 'EN_COURS']).orderByRaw('d.echeance ASC NULLS LAST').limit(8)
+      .select('d.id', 'd.reference', 'd.libelle', 'd.echeance', 'd.statut', db.raw(`concat_ws(' ', a.prenom, a.nom) as responsable_nom`),
+        db.raw('(d.echeance IS NOT NULL AND d.echeance < CURRENT_DATE) as en_retard')),
+    db('agenda_evenements').whereNot('statut', 'ANNULE')
+      .whereRaw(`(debut AT TIME ZONE 'Africa/Kinshasa')::date = (now() AT TIME ZONE 'Africa/Kinshasa')::date`).orderBy('debut')
+      .select('id', 'type', 'titre', 'debut', 'fin', 'lieu', 'statut', 'reunion_id'),
+    db('demandes_information').where('statut', 'ENVOYEE').orderBy('created_at').select('id', 'reference', 'objet', 'echeance', 'priorite'),
+  ]);
+  return {
+    decisions: { ouvertes: Number(stats.ouvertes), enRetard: Number(stats.en_retard), liste: decisions },
+    agendaDuJour: agenda, demandesInfo: demandes,
   };
 }
 

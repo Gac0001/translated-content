@@ -138,18 +138,8 @@ router.get('/:id', requirePerm('taches.consulter'), validate({ params: idParam }
   });
 });
 
-router.post('/', requirePerm('taches.attribuer'), validate({ body: z.object({
-  agent_user_id: z.coerce.number().int().positive(),
-  titre: z.string().trim().min(3).max(300),
-  description: z.string().trim().max(10000).optional().nullable(),
-  priorite: z.enum(PRIORITES).default('NORMALE'),
-  date_debut: z.string().date().optional().nullable(),
-  echeance: z.string().date().optional().nullable(),
-  instruction_id: z.coerce.number().int().positive().optional().nullable(),
-  parent_task_id: z.coerce.number().int().positive().optional().nullable(),
-  depend_de: z.array(z.coerce.number().int().positive()).max(20).optional().default([]),
-}) }), async (req, res) => {
-  const { depend_de: dependDe, ...b } = req.valid.body;
+/** Attribue une tâche à un Agent du Bureau ; utilisé aussi pour mettre en œuvre une décision. */
+async function creerTache(req, { depend_de: dependDe = [], ...b }) {
   const me = ctxNode(req.ctx);
   const all = await loadAllNodes();
   const agent = all.find((n) => n.userId === b.agent_user_id);
@@ -182,7 +172,21 @@ router.post('/', requirePerm('taches.attribuer'), validate({ body: z.object({
   });
   await audit(req, { action: 'CREATION', module: 'taches', entite: 'task', entiteId: row.id, apres: row });
   await notify(agent.userId, { type: 'TACHE', titre: `Nouvelle tâche : ${row.titre}`, message: `Réf. ${row.reference}`, lien: `/taches/${row.id}`, expediteur: req.ctx.userId });
-  res.status(201).json(row);
+  return row;
+}
+
+router.post('/', requirePerm('taches.attribuer'), validate({ body: z.object({
+  agent_user_id: z.coerce.number().int().positive(),
+  titre: z.string().trim().min(3).max(300),
+  description: z.string().trim().max(10000).optional().nullable(),
+  priorite: z.enum(PRIORITES).default('NORMALE'),
+  date_debut: z.string().date().optional().nullable(),
+  echeance: z.string().date().optional().nullable(),
+  instruction_id: z.coerce.number().int().positive().optional().nullable(),
+  parent_task_id: z.coerce.number().int().positive().optional().nullable(),
+  depend_de: z.array(z.coerce.number().int().positive()).max(20).optional().default([]),
+}) }), async (req, res) => {
+  res.status(201).json(await creerTache(req, req.valid.body));
 });
 
 async function loadOwn(req, role) {
@@ -298,3 +302,4 @@ router.post('/:id/prolonger', requirePerm('taches.attribuer'), validate({ params
 });
 
 module.exports = router;
+module.exports.creerTache = creerTache;

@@ -24,6 +24,9 @@ const TYPES = {
   CARTE: 'Carte de service',
   CONNEXION: 'Nouvelle connexion',
   DEMANDE_INFO: 'Demande d’information',
+  REUNION: 'Réunion',
+  DECISION: 'Décision',
+  AGENDA: 'Agenda du Directeur',
 };
 
 /**

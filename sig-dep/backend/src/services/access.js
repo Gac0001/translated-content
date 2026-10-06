@@ -124,6 +124,11 @@ const LOADERS = {
   TASK: { table: 'tasks as t', alias: 't', scope: scopeTasks, writers: (r) => [r.agent_user_id, r.assigne_par_user_id] },
   DOCUMENT: { table: 'documents as d', alias: 'd', scope: scopeDocuments, writers: (r) => [r.auteur_user_id, r.detenteur_user_id] },
   PIP: { table: 'pip_projects as p', alias: 'p', scope: scopePip, writers: (r) => [r.auteur_user_id, r.detenteur_user_id] },
+  // Réunions : annexes du compte rendu, jointes par l’organisateur, le rédacteur ou le président
+  REUNION: {
+    table: 'reunions as r', alias: 'r', scope: (qb, ctx) => require('../modules/reunions/routes').scopeReunions(qb, ctx),
+    writers: (r) => (r.statut === 'CLOTUREE' ? [] : [r.organisateur_user_id, r.redacteur_user_id, r.president_user_id]),
+  },
   // Demandes d’information du SG : pièces jointes par le SG (question) ou le Directeur (réponse)
   DEMANDE_INFO: {
     table: 'demandes_information as x', alias: 'x', scope: (qb, ctx) => require('../modules/demandesInformation/routes').scopeDemandes(qb, ctx),

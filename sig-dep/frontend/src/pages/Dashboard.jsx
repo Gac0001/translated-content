@@ -246,6 +246,7 @@ function DirecteurPanel({ d }) {
         <Stat label="Présences soumises" value={d.presencesSoumises.length} hint={d.presencesSemaine ? `Taux de présence : ${d.presencesSemaine.tauxPresence ?? '—'} %` : null} icon={CalendarCheck} tone="violet" to="/presences" />
         <Stat label="Courriers à réceptionner" value={d.courriersARecevoir.length} icon={Mail} tone={d.courriersARecevoir.length ? 'jaune' : 'gris'} to="/courriers" />
       </div>
+      {d.decisions && <PilotageCard d={d} />}
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <Card title="Documents à valider">
           <MiniList rows={d.documentsAValider} to="/documents" empty="Aucun document en attente." render={(x) => <div className="text-sm"><div className="truncate font-medium">{x.titre}</div><div className="text-xs text-slate-500">{x.reference} · {fmtDateTime(x.updated_at)}</div></div>} />
@@ -271,6 +272,25 @@ function DirecteurPanel({ d }) {
       {d.effectif && <EffectifCard e={d.effectif} />}
       <Card title="Performance des structures" className="mt-4"><PerformanceBars perf={d.performance} /></Card>
     </>
+  );
+}
+
+/** Centre de pilotage du Directeur : décisions, agenda du jour, demandes du Secrétaire Général. */
+function PilotageCard({ d }) {
+  const heure = (x) => new Date(x).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Kinshasa' });
+  return (
+    <div className="mt-4 grid gap-4 lg:grid-cols-3">
+      <Card title="Décisions à suivre" actions={<Link to="/decisions" className="text-xs text-dep-700 hover:underline">Registre</Link>}>
+        <div className="mb-2 flex gap-2 text-xs"><Badge>{d.decisions.ouvertes} ouverte(s)</Badge>{d.decisions.enRetard > 0 && <Badge className="bg-red-50 text-red-800 ring-red-200">{d.decisions.enRetard} en retard</Badge>}</div>
+        <MiniList rows={d.decisions.liste} to="/decisions" empty="Aucune décision ouverte." render={(x) => <div className="text-sm"><div className="truncate font-medium">{x.libelle}</div><div className={`text-xs ${x.en_retard ? 'text-red-700' : 'text-slate-500'}`}>{x.responsable_nom} · {x.echeance ? `échéance ${fmtDate(x.echeance)}` : 'sans échéance'}</div></div>} />
+      </Card>
+      <Card title="Agenda du jour" actions={<Link to="/agenda" className="text-xs text-dep-700 hover:underline">Agenda</Link>}>
+        <MiniList rows={d.agendaDuJour} to={(e) => (e.reunion_id ? `/reunions/${e.reunion_id}` : '/agenda')} empty="Aucun rendez-vous aujourd’hui." render={(e) => <div className="flex gap-3 text-sm"><span className="w-12 shrink-0 font-semibold tabular-nums text-dep-800">{heure(e.debut)}</span><div className="min-w-0"><div className="truncate font-medium">{e.titre}</div><div className="text-xs text-slate-500">{e.lieu || '—'}</div></div></div>} />
+      </Card>
+      <Card title="Demandes du Secrétaire Général" actions={<Link to="/demandes-information" className="text-xs text-dep-700 hover:underline">Toutes</Link>}>
+        <MiniList rows={d.demandesInfo} to="/demandes-information" empty="Aucune demande en attente." render={(x) => <div className="text-sm"><div className="truncate font-medium">{x.objet}</div><div className="text-xs text-slate-500">{x.reference}{x.echeance ? ` · réponse attendue le ${fmtDate(x.echeance)}` : ''}</div></div>} />
+      </Card>
+    </div>
   );
 }
 

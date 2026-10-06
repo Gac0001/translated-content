@@ -127,9 +127,12 @@ async function controleSante() {
   try { await require('./sante').controler('AUTO'); } catch (e) { console.error('[JOBS] contrôle de santé :', e.message); }
 }
 
+async function suiviDecisions() { return require('./decisions').synchroniser(); }
+async function rappelsAgenda() { return require('./agenda').rappels(); }
+
 async function runAll() {
   if (maintenance.operationEnCours()) return; // restauration en cours
-  for (const fn of [markOverdue, remindDeadlines, autolockPresences, purgeTokens, purgeDefis, desactiverInactifs, purgeSupervision, rapportMensuel, echeancesActes, gouvernancePeriodique, expirerCartes]) {
+  for (const fn of [markOverdue, remindDeadlines, autolockPresences, purgeTokens, purgeDefis, desactiverInactifs, purgeSupervision, rapportMensuel, echeancesActes, gouvernancePeriodique, expirerCartes, suiviDecisions, rappelsAgenda]) {
     try { await fn(); } catch (e) {
       console.error(`[JOBS] ${fn.name} :`, e.message);
       require('./erreurs').enregistrer(Object.assign(e, { contexte: `tâche ${fn.name}` }));

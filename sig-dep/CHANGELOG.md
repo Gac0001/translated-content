@@ -1,5 +1,16 @@
 # Journal des versions — SIG-DEP
 
+## 1.14.0
+
+### Lot 8B — Réunions, décisions et agenda du Directeur (cahier des charges, §§ 14, 16 et 25)
+- **Réunions** : préparation par le Directeur, les Chefs de Division et de Bureau pour leur structure, ou par le Bureau Secrétariat de Direction pour les réunions que préside le Directeur ; ordre du jour, participants internes et invités extérieurs, confidentialité. Circuit `Brouillon → Convoquée → Tenue → Compte rendu à valider → Clôturée`, annulation motivée, report notifié, rappel la veille aux participants.
+- **Présence** relevée à partir de l’heure de la réunion (présent, absent, excusé, représenté) ; **compte rendu** rédigé par le rédacteur désigné, soumis au président, retourné avec observations ou validé ; une fois validé, il est **verrouillé en base** (déclencheur) ; convocation et compte rendu en PDF ; annexes.
+- **Décisions** : saisies avec le compte rendu (projets), elles entrent au registre à sa validation et sont notifiées à leur responsable. Le Directeur peut aussi prendre une décision hors réunion.
+- **Mise en œuvre** d’une décision en un clic : tâche (Chef de Bureau → Agent), instruction (subordonné direct) ou instruction exceptionnelle du Directeur, justifiée par la référence de la décision ; **suivi automatique** : la décision est exécutée à la validation de l’instruction ou de la tâche, et redevient à exécuter si celle-ci est annulée. Compte rendu d’exécution par le responsable, abandon motivé par le décideur.
+- **Registre des décisions** : filtres (statut, origine, retard, mes décisions), indicateurs, exports PDF et Excel ; périmètres respectés (Directeur : toutes ; chefs : leur structure ; responsables et décideurs : les leurs).
+- **Agenda du Directeur**, tenu par le Bureau Secrétariat de Direction : audiences, déplacements, cérémonies ; les réunions présidées par le Directeur s’y inscrivent à la convocation et suivent reports et annulations ; rappels la veille et une heure avant.
+- **Tableau de bord du Directeur** : décisions à suivre (dont en retard), agenda du jour, demandes du Secrétaire Général en attente.
+
 ## 1.13.0
 
 ### Lot 8A — Compléments des circuits de traitement (cahier des charges, §§ 13, 14, 25 et annexe 2)

@@ -37,6 +37,9 @@ const EMAIL_TYPES = {
   CARTE: 'Carte de service',
   CONNEXION: 'Connexion depuis un nouvel appareil',
   DEMANDE_INFO: 'Demande d’information du Secrétaire Général ou réponse du Directeur',
+  REUNION: 'Convocation, report, rappel ou compte rendu de réunion',
+  DECISION: 'Décision à exécuter ou suivi d’une décision',
+  AGENDA: 'Agenda du Directeur (rendez-vous et rappels)',
 };
 
 const RETRY_MINUTES = [1, 5, 15, 60, 240];
