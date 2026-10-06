@@ -12,7 +12,7 @@ const { notFound, badRequest, forbidden } = require('../../utils/errors');
 
 const router = express.Router();
 const upload = makeUpload();
-const TYPES = ['COURRIER', 'INSTRUCTION', 'TASK', 'DOCUMENT', 'PIP', 'ACTE', 'DEMANDE_INFO', 'REUNION'];
+const TYPES = ['COURRIER', 'INSTRUCTION', 'TASK', 'DOCUMENT', 'PIP', 'ACTE', 'DEMANDE_INFO', 'REUNION', 'PTBA'];
 const entityParams = z.object({ type: z.enum(TYPES), id: z.coerce.number().int().positive() });
 
 // Déclarée avant « /:type/:id », qui l’intercepterait sinon (« fichier » n’est pas un type d’élément).

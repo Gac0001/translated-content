@@ -20,6 +20,8 @@ const CONSERVEES = [
   'audit_logs', 'login_history', 'alertes_securite', 'demandes_confirmation', 'acces_support', 'activations_urgence',
   // Modèle de carte (référentiel) et journal des vérifications publiques
   'modeles_carte', 'verifications_carte',
+  // Maquette programmatique et services du Ministère (référentiel de la planification)
+  'plan_programmes', 'plan_actions', 'plan_services',
 ];
 
 async function volumes(trx = db) {

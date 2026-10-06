@@ -40,6 +40,7 @@ const EMAIL_TYPES = {
   REUNION: 'Convocation, report, rappel ou compte rendu de réunion',
   DECISION: 'Décision à exécuter ou suivi d’une décision',
   AGENDA: 'Agenda du Directeur (rendez-vous et rappels)',
+  PTBA: 'PTBA à vérifier, consolider, valider ou corriger',
 };
 
 const RETRY_MINUTES = [1, 5, 15, 60, 240];

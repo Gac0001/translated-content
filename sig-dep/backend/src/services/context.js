@@ -121,6 +121,22 @@ async function loadContext(userId, trx = db) {
       permissions.add('reunions.preparer_direction');
     }
   }
+  // Planification (cadre organique) : le Bureau Programme prépare les PTBA, son Chef les vérifie ;
+  // le Chef de la Division Programme et Suivi les consolide ; le Bureau Suivi-Évaluation suit
+  // leur exécution. Accordé par la structure d’affectation (titulaire ou intérimaire).
+  if (user.statut === 'ACTIF' && aff) {
+    if (aff.bureau_code === 'BUR-PRG') {
+      permissions.add('ptba.preparer');
+      permissions.add('planification.referentiel');
+      if (primaryRole === 'CHEF_BUREAU') permissions.add('ptba.verifier');
+    }
+    if (aff.bureau_code === 'BUR-SEV') permissions.add('ptba.suivre');
+    if (primaryRole === 'CHEF_DIVISION' && perimetre === PERIMETRES.DIVISION && aff.division_code === 'DIV-PS') {
+      permissions.add('ptba.consolider');
+      permissions.add('planification.referentiel');
+      permissions.add('ptba.suivre');
+    }
+  }
   // Un rôle Chef de Division sans affectation de Division ne confère pas les permissions de Division.
   if (primaryRole === 'CHEF_DIVISION' && perimetre !== PERIMETRES.DIVISION) {
     for (const p of DIVISION_ONLY_PERMISSIONS) permissions.delete(p);

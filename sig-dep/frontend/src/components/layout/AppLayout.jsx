@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-do
 import { fmtDate } from '../../lib/format';
 import {
   LayoutDashboard, Network, BookOpen, Users, UserCog, CalendarCheck, Mail, Send, ListTodo, FileText, FolderKanban,
-  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2, Landmark, IdCard, MessageCircleQuestion, CalendarDays, Gavel, Presentation,
+  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2, Landmark, IdCard, MessageCircleQuestion, CalendarDays, Gavel, Presentation, Target,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth, useCompteurs } from '../../store/auth';
@@ -18,6 +18,8 @@ const MENU = [
   { to: '/agenda', label: 'Agenda du Directeur', icon: CalendarDays, perms: ['agenda.consulter'] },
   { to: '/decisions', label: 'Registre des décisions', icon: Gavel, agent: true },
   { to: '/rapports', label: 'Rapports et statistiques', icon: BarChart3, perms: ['rapports.consulter'] },
+  { section: 'Planification' },
+  { to: '/planification', label: 'PTBA et exécution', icon: Target, perms: ['planification.consulter'] },
   { section: 'Organisation' },
   { to: '/organigramme', label: 'Organigramme', icon: Network, perms: ['organisation.consulter'] },
   { to: '/cadre-organique', label: 'Cadre organique', icon: BookOpen, perms: ['organisation.consulter'] },

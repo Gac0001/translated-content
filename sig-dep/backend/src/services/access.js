@@ -129,6 +129,11 @@ const LOADERS = {
     table: 'reunions as r', alias: 'r', scope: (qb, ctx) => require('../modules/reunions/routes').scopeReunions(qb, ctx),
     writers: (r) => (r.statut === 'CLOTUREE' ? [] : [r.organisateur_user_id, r.redacteur_user_id, r.president_user_id]),
   },
+  // PTBA : pièces justificatives de l’exécution (Bureau Suivi-Évaluation) ou de la préparation
+  PTBA: {
+    table: 'ptba as p', alias: 'p', scope: (qb, ctx) => (ctx.can('planification.consulter') ? (ctx.perimetre === 'SUPERVISION_GLOBALE' ? qb.where('p.statut', 'VALIDE') : qb) : qb.whereRaw('false')),
+    writers: (r) => [r.prepare_par, r.detenteur_user_id],
+  },
   // Demandes d’information du SG : pièces jointes par le SG (question) ou le Directeur (réponse)
   DEMANDE_INFO: {
     table: 'demandes_information as x', alias: 'x', scope: (qb, ctx) => require('../modules/demandesInformation/routes').scopeDemandes(qb, ctx),

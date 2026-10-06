@@ -47,6 +47,7 @@ export const STATUTS = {
   // Décisions
   PROJET: ['Projet', C.gris], A_EXECUTER: ['À exécuter', C.jaune], ABANDONNEE: ['Abandonnée', C.gris],
   // Agenda
+  CONSOLIDE: ['Consolidé', C.violet],
   PREVU: ['Prévu', C.bleu], CONFIRME: ['Confirmé', C.vert], TENU: ['Tenu', C.marine], ANNULE: ['Annulé', C.gris],
 };
 
@@ -72,7 +73,7 @@ export const ACTIONS_HISTO = {
   BLOCAGE: 'Blocage signalé', DEBLOCAGE: 'Blocage levé', RAPPORT_INTERMEDIAIRE: 'Rapport intermédiaire', ANNULATION: 'Annulation',
   DEMANDE_PROLONGATION: 'Demande de prolongation', PROLONGATION_ACCORDEE: 'Prolongation accordée', PROLONGATION_REFUSEE: 'Prolongation refusée',
   PROLONGATION: 'Délai prolongé', SOUS_TACHE: 'Sous-tâche créée', DEPENDANCE: 'Dépendance ajoutée', DEPENDANCE_RETIREE: 'Dépendance retirée',
-  VISA: 'Visa', PUBLICATION: 'Publication', CONVOCATION: 'Convocation', REPORT: 'Report', MODIFICATION: 'Modification', PRESENCE: 'Présence relevée',
+  VISA: 'Visa', PUBLICATION: 'Publication', IMPORT: 'Import', CONSOLIDATION: 'Consolidation', SUIVI: 'Suivi de l’exécution', CONVOCATION: 'Convocation', REPORT: 'Report', MODIFICATION: 'Modification', PRESENCE: 'Présence relevée',
   TENUE: 'Réunion tenue', SOUMISSION_CR: 'Compte rendu soumis', RETOUR_CR: 'Compte rendu retourné', VALIDATION_CR: 'Compte rendu validé',
   DECISION: 'Décision', MISE_EN_OEUVRE: 'Mise en œuvre', EXECUTION: 'Exécution', ABANDON: 'Abandon', MISE_EN_OEUVRE_ANNULEE: 'Mise en œuvre annulée', ENVOI: 'Envoi', REPONSE: 'Réponse', COMPLEMENT_REPONSE: 'Complément de réponse', RELANCE: 'Relance',
 };
@@ -81,7 +82,7 @@ export const NOTIF_TYPES = {
   INSTRUCTION: 'Instruction', TACHE: 'Tâche', COURRIER: 'Courrier', DOCUMENT_RETOURNE: 'Document retourné', DOCUMENT_VALIDE: 'Document validé',
   DOCUMENT_A_EXAMINER: 'Document à examiner', ECHEANCE: 'Échéance proche', RETARD: 'Retard', COMPTE_CREE: 'Compte', MDP_REINITIALISE: 'Mot de passe',
   AFFECTATION: 'Affectation', PRESENCE: 'Présences', PIP: 'PIP', INSTRUCTION_REPONSE: 'Compte rendu', SECURITE: 'Sécurité', SYSTEME: 'Annonce', ACTE: 'Acte administratif', CARTE: 'Carte de service', CONNEXION: 'Nouvelle connexion',
-  DEMANDE_INFO: 'Demande d’information', REUNION: 'Réunion', DECISION: 'Décision', AGENDA: 'Agenda',
+  DEMANDE_INFO: 'Demande d’information', REUNION: 'Réunion', DECISION: 'Décision', AGENDA: 'Agenda', PTBA: 'PTBA',
 };
 
 export const DELEGATIONS = {

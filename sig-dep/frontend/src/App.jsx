@@ -34,6 +34,8 @@ const ReunionDetail = p(() => import('./pages/reunions/ReunionDetail'));
 const DecisionsRegistre = p(() => import('./pages/decisions/DecisionsRegistre'));
 const DecisionDetail = p(() => import('./pages/decisions/DecisionDetail'));
 const Agenda = p(() => import('./pages/agenda/Agenda'));
+const Planification = p(() => import('./pages/planification/Planification'));
+const PtbaDetail = p(() => import('./pages/planification/PtbaDetail'));
 const DemandeDetail = p(() => import('./pages/demandes/DemandeDetail'));
 const ActeForm = p(() => import('./pages/actes/ActeForm'));
 const ActeDetail = p(() => import('./pages/actes/ActeDetail'));
@@ -136,6 +138,8 @@ export default function App() {
             <Route path="reunions/:id/modifier" element={G(['reunions.organiser', 'reunions.preparer_direction'], <ReunionForm />)} />
             <Route path="decisions" element={<DecisionsRegistre />} />
             <Route path="decisions/:id" element={<DecisionDetail />} />
+            <Route path="planification" element={G(['planification.consulter'], <Planification />)} />
+            <Route path="planification/ptba/:id" element={G(['planification.consulter'], <PtbaDetail />)} />
             <Route path="agenda" element={G(['agenda.consulter'], <Agenda />)} />
             <Route path="demandes-information" element={G(['demandes_info.emettre', 'demandes_info.repondre'], <DemandesList />)} />
             <Route path="demandes-information/:id" element={G(['demandes_info.emettre', 'demandes_info.repondre'], <DemandeDetail />)} />

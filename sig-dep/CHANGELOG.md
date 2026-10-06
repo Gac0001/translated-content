@@ -1,5 +1,15 @@
 # Journal des versions — SIG-DEP
 
+## 1.15.0
+
+### Lot 9A — Planification : PTBA au format du Ministère (cahier des charges, §§ 3 et 24)
+- **Référentiel** : exercices budgétaires (en préparation, en exécution, clôturé), maquette programmatique (programmes et actions, services normatifs, opérateurs) et services du Ministère ; tenu par le Bureau Programme, la Division Programme et Suivi et le Directeur.
+- **PTBA par service et par exercice**, au format du Ministère : programme, objectif global, objectifs spécifiques, activités principales, tâches, coût en CDF, chronogramme mensuel (J à D, regroupé par trimestre), structure responsable, résultats attendus, indicateurs de réalisation, source de vérification, source de financement.
+- **Import d’un classeur existant** (une feuille par service) : analyse, choix des feuilles, rapprochement des services et des programmes, création en brouillon ; le chronogramme est lu sur les cellules surlignées ; les sous-totaux sont ignorés ; les feuilles d’un autre format sont signalées.
+- **Circuit** conforme au cadre organique : préparation par le Bureau Programme → vérification par son Chef → consolidation par le Chef de la Division Programme et Suivi → validation par le Directeur ; retour pour correction à chaque étape ; **PTBA validé intangible en base** ; le Secrétaire Général ne voit que les PTBA validés.
+- **Suivi trimestriel de l’exécution** par le Bureau Suivi-Évaluation : exécution physique, montants engagés et décaissés (contrôles de cohérence), commentaire et pièces justificatives ; tableau de bord de l’exercice (coût programmé, engagé, décaissé, taux d’exécution physique pondéré et financier par service).
+- **Exports** : PTBA au format Excel du Ministère (en-têtes T1–T4 et mois, chronogramme surligné), PDF, et **PTBA consolidé** de l’exercice (synthèse par service et par trimestre, puis une feuille par service).
+
 ## 1.14.0
 
 ### Lot 8B — Réunions, décisions et agenda du Directeur (cahier des charges, §§ 14, 16 et 25)
