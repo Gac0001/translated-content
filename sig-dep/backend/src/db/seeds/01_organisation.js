@@ -36,7 +36,7 @@ exports.seed = async function seed(knex) {
 
   // Bureau Secrétariat de Direction : rang BUREAU, rattaché directement à la Direction
   const bsd = await upsert(knex, 'bureaux', {
-    code: SECRETARIAT.code, nom: SECRETARIAT.nom, direction_id: dep.id, division_id: null,
+    code: SECRETARIAT.code, code_organique: SECRETARIAT.code_organique, nom: SECRETARIAT.nom, direction_id: dep.id, division_id: null,
     type_structure: 'BUREAU', rang_organique: 'BUREAU', parent_type: 'DIRECTION',
     responsable_role: 'CHEF_BUREAU', perimetre_acces: 'BUREAU', superieur_direct: 'DIRECTEUR',
     est_secretariat_direction: true, missions: SECRETARIAT.missions, ordre: 0,
@@ -49,7 +49,7 @@ exports.seed = async function seed(knex) {
 
   for (const [di, d] of DIVISIONS.entries()) {
     const div = await upsert(knex, 'divisions', {
-      code: d.code, nom: d.nom, direction_id: dep.id, missions: d.missions, ordre: di + 1,
+      code: d.code, code_organique: d.code_organique, nom: d.nom, direction_id: dep.id, missions: d.missions, ordre: di + 1,
     });
     await upsert(knex, 'postes_organiques', { code: `P-CD-${d.code}`, libelle: `Chef de ${d.nom}`, niveau: 'DIVISION', role_associe: 'CHEF_DIVISION', direction_id: dep.id, division_id: div.id, grade_minimum_id: grades.CD });
     for (const [i, a] of d.attributions.entries()) {
@@ -57,7 +57,7 @@ exports.seed = async function seed(knex) {
     }
     for (const [bi, b] of d.bureaux.entries()) {
       const bur = await upsert(knex, 'bureaux', {
-        code: b.code, nom: b.nom, direction_id: dep.id, division_id: div.id,
+        code: b.code, code_organique: b.code_organique, nom: b.nom, direction_id: dep.id, division_id: div.id,
         type_structure: 'BUREAU', rang_organique: 'BUREAU', parent_type: 'DIVISION',
         responsable_role: 'CHEF_BUREAU', perimetre_acces: 'BUREAU', superieur_direct: 'CHEF_DIVISION',
         est_secretariat_direction: false, missions: b.missions, ordre: bi + 1,
@@ -81,7 +81,7 @@ exports.seed = async function seed(knex) {
 
   const params = [
     ['pays', 'République Démocratique du Congo', 'Pays'],
-    ['autorite_tutelle', 'Secrétariat Général à l’Économie Numérique', 'Autorité de tutelle'],
+    ['autorite_tutelle', 'Secrétariat Général au Numérique', 'Autorité de tutelle'],
     ['direction_nom', 'Direction d’Études et Planification', 'Appellation officielle de la Direction'],
     ['direction_sigle', 'DEP', 'Sigle'],
     ['ville', 'Kinshasa', 'Ville'],

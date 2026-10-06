@@ -1,7 +1,7 @@
 'use strict';
 /**
  * Génération PDF (pdfkit) avec en-tête administratif officiel :
- * République Démocratique du Congo — Secrétariat Général à l’Économie Numérique —
+ * République Démocratique du Congo — Secrétariat Général au Numérique —
  * Direction d’Études et Planification.
  */
 const PDFDocument = require('pdfkit');
@@ -148,7 +148,7 @@ function signatureBlock(doc, visas = []) {
   const y = doc.y;
   list.forEach((v, i) => {
     doc.font('Helvetica-Bold').fontSize(9).text(v.libelle || '', x0 + i * w, y, { width: w, align: 'center' });
-    doc.font('Helvetica').fontSize(8).fillColor(GREY).text(v.type ? `${v.type === 'SIGNATURE' ? 'Signé' : 'Visa'} le ${fmtDateTime(v.date)}` : '', x0 + i * w, y + 14, { width: w, align: 'center' });
+    doc.font('Helvetica').fontSize(8).fillColor(GREY).text(v.type ? `${v.type === 'SIGNATURE' ? 'Signé' : v.type === 'RELECTURE' ? 'Relu' : 'Visa'} le ${fmtDateTime(v.date)}` : '', x0 + i * w, y + 14, { width: w, align: 'center' });
     doc.fillColor('#000').font('Helvetica-Bold').fontSize(9).text(v.nom || '', x0 + i * w, y + 48, { width: w, align: 'center' });
   });
   doc.y = y + 70;

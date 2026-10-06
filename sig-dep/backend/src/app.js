@@ -27,6 +27,14 @@ app.use(cookieParser());
 if (!config.isTest) app.use(morgan(config.isProd ? 'combined' : 'dev'));
 
 app.get('/api/health', (req, res) => res.json({ statut: 'ok', application: 'SIG-DEP', direction: DEP_NOM }));
+// Statut public (page de connexion, page de maintenance) : aucun détail technique
+app.get('/api/statut-public', async (req, res) => {
+  const m = await require('./services/maintenance').etat();
+  res.json({ maintenance: { active: m.active, message: m.active ? m.message : '', fin: m.active ? m.fin : '' } });
+});
+
+// Vérification publique des cartes de service (QR code ou matricule), sans authentification
+app.use('/api/public/cartes', require('./modules/cartes/public'));
 
 app.use('/api/auth', require('./modules/auth/routes'));
 
@@ -53,6 +61,16 @@ const protectedModules = {
   'liste-declarative': './modules/listeDeclarative/routes',
   enrolement: './modules/enrolement/routes',
   securite: './modules/securite/routes',
+  supervision: './modules/supervision/routes',
+  sauvegardes: './modules/sauvegardes/routes',
+  maintenance: './modules/maintenance/routes',
+  actes: './modules/actes/routes',
+  gouvernance: './modules/gouvernance/routes',
+  cartes: './modules/cartes/routes',
+  'demandes-information': './modules/demandesInformation/routes',
+  reunions: './modules/reunions/routes',
+  decisions: './modules/decisions/routes',
+  agenda: './modules/agenda/routes',
 };
 for (const [path, mod] of Object.entries(protectedModules)) {
   // Un module manquant doit empêcher le démarrage, jamais être ignoré.

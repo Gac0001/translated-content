@@ -4,10 +4,11 @@
  * Le test se termine par un rechargement des données fictives pour laisser la base
  * de test dans son état de démonstration.
  */
-const { db, login, loginAdmin, api, ADMIN_NEW } = require('./helpers');
+const { db, login, loginAdmin, api, avecConfirmation, ADMIN_NEW } = require('./helpers');
 
 describe('Réinitialisation de la base', () => {
   let admin;
+  let mdpDirecteur; // Directeur créé après la base vierge : valide la réinitialisation suivante
   beforeAll(async () => { admin = api(await loginAdmin()); });
 
   test('réservée à l’Admin, avec phrase de confirmation et mot de passe', async () => {
@@ -30,10 +31,21 @@ describe('Réinitialisation de la base', () => {
     const divisions = Number((await db('divisions').count('* as n').first()).n);
     const compte = async (t) => Number((await db(t).count('* as n').first()).n);
     const [auditAvant, connexionsAvant] = [await compte('audit_logs'), await compte('login_history')];
-    const r = await admin.post('/systeme/reinitialisation', { mode: 'VIERGE', confirmation: 'reinitialiser', motDePasse: ADMIN_NEW, sauvegarde: false });
+    const corps = { mode: 'VIERGE', confirmation: 'reinitialiser', motDePasse: ADMIN_NEW, sauvegarde: false };
+    // Opération critique : sans confirmation du Directeur, une demande est créée et rien n’est effacé.
+    const attente = await admin.post('/systeme/reinitialisation', corps);
+    expect(attente.status).toBe(202);
+    expect(attente.body).toMatchObject({ confirmationRequise: true, demande: { type: 'REINITIALISATION', statut: 'EN_ATTENTE' } });
+    expect(Number((await db('agents').count('* as n').first()).n)).toBeGreaterThan(20);
+    const r = await avecConfirmation(admin, 'post', '/systeme/reinitialisation', corps);
     expect(r.status).toBe(200);
-    expect(r.body.volumes).toMatchObject({ agents: 0, comptes: 1, instructions: 0, courriers: 0, documents: 0, pip: 0 });
+    // Comptes conservés : l’Admin et le compte d’urgence (toujours scellé).
+    expect(r.body.volumes).toMatchObject({ agents: 0, comptes: 2, instructions: 0, courriers: 0, documents: 0, pip: 0 });
+    expect(await db('users').where({ compte_urgence: true, statut: 'DESACTIVE' }).first()).toBeTruthy();
+    // La confirmation ne sert qu’une fois et reste tracée.
+    expect((await db('demandes_confirmation').where({ id: attente.body.demande.id }).first()).statut).toBe('EXECUTEE');
     expect(Number((await db('divisions').count('* as n').first()).n)).toBe(divisions);
+    expect(await compte('effectif_reference')).toBe(6); // référentiel du cadre organique conservé
     // Traçabilité conservée : ni le journal d’audit ni l’historique des connexions ne sont effacés
     expect(await compte('audit_logs')).toBeGreaterThan(auditAvant);
     expect(await compte('login_history')).toBeGreaterThanOrEqual(connexionsAvant);
@@ -50,17 +62,23 @@ describe('Réinitialisation de la base', () => {
     // Mise en service : l’Admin crée le Directeur, qui trouve une liste vide à constituer
     const d = await admin.post('/users/initial', { type: 'DIRECTEUR', username: 'directeur.dep', matricule: 'DIR-0001', nom: 'DIRECTEUR', prenom: 'Test' });
     expect(d.status).toBe(201);
+    mdpDirecteur = d.body.motDePasseTemporaire;
     const { request, app } = require('./helpers');
     await db('users').where({ id: d.body.id }).update({ must_change_password: false });
     const l = await request(app).post('/api/auth/login').send({ username: 'directeur.dep', password: d.body.motDePasseTemporaire });
-    const dir = api(l.body.accessToken);
+    // Le Directeur configure d’abord la double authentification et son adresse de récupération.
+    expect(l.body.user.exigences).toEqual(expect.arrayContaining(['DEUX_FACTEURS', 'EMAIL_RECUPERATION', 'REGLES']));
+    expect((await api(l.body.accessToken).get('/liste-declarative')).body.error.code).toBe('CONFIGURATION_SECURITE_REQUISE');
+    const { login } = require('./helpers');
+    const dir = api(await login('directeur.dep', d.body.motDePasseTemporaire));
     const liste = await dir.get('/liste-declarative');
     expect(liste.body).toMatchObject({ statut: 'NON_VALIDEE', actions: { valider: true } });
     expect((await dir.post('/liste-declarative/valider', {})).status).toBe(400); // liste vide
   });
 
   test('rechargement des données fictives de démonstration', async () => {
-    const r = await admin.post('/systeme/reinitialisation', { mode: 'DEMO', confirmation: 'REINITIALISER', motDePasse: ADMIN_NEW, sauvegarde: false });
+    const r = await avecConfirmation(admin, 'post', '/systeme/reinitialisation', { mode: 'DEMO', confirmation: 'REINITIALISER', motDePasse: ADMIN_NEW, sauvegarde: false },
+      { valideur: 'directeur.dep', motDePasse: mdpDirecteur });
     expect(r.status).toBe(200);
     expect(r.body.volumes.agents).toBeGreaterThan(20);
     expect(r.body.volumes.instructions).toBeGreaterThan(0);

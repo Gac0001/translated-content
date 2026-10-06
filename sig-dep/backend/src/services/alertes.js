@@ -4,6 +4,7 @@
  * et e-mail de récupération si la messagerie est active).
  */
 const db = require('../db/knex');
+const { comptesExercant } = require('./interims');
 const { notify } = require('./notifications');
 
 const GRAVITES = ['INFO', 'ATTENTION', 'CRITIQUE'];
@@ -30,6 +31,10 @@ async function alerter({ type, gravite = 'ATTENTION', titre, message = null, det
     if (gravite !== 'INFO') {
       await notify(await adminsActifs(), { type: 'SECURITE', titre: `${gravite === 'CRITIQUE' ? 'Alerte critique' : 'Alerte'} : ${titre}`, message, lien: '/securite' });
     }
+    // Incident critique : le Directeur, autorité de la Direction, est informé immédiatement.
+    if (gravite === 'CRITIQUE') {
+      await notify(await directeursActifs(), { type: 'SECURITE', titre: `Incident de sécurité critique : ${titre}`, message: `${message ? `${message}\n` : ''}L’Admin Système a été alerté.`, lien: '/notifications' });
+    }
     return a;
   } catch (e) {
     console.error('[ALERTE] enregistrement impossible :', e.message);
@@ -37,4 +42,10 @@ async function alerter({ type, gravite = 'ATTENTION', titre, message = null, det
   }
 }
 
-module.exports = { alerter, adminsActifs, GRAVITES };
+/** Directeur en exercice : le titulaire, ou l’intérimaire pendant un intérim. */
+async function directeursActifs() {
+  const ids = await comptesExercant('DIRECTEUR');
+  return ids.length ? db('users').whereIn('id', ids).where('statut', 'ACTIF').pluck('id') : [];
+}
+
+module.exports = { alerter, adminsActifs, directeursActifs, GRAVITES };

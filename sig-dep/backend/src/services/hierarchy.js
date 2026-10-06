@@ -10,6 +10,7 @@
  */
 const db = require('../db/knex');
 const { FUNCTIONAL_ORDER, ROLE_LIBELLES } = require('../constants');
+const { interimsEnVigueur, appliquerInterims } = require('./interims');
 
 function nodeFrom({ userId, primaryRole, directionId, divisionId, bureauId, rattacheDirection, perimetre }) {
   switch (primaryRole) {
@@ -41,11 +42,15 @@ async function loadAllNodes(trx = db) {
     .leftJoin('bureaux as b', 'b.id', 'a.bureau_id')
     .leftJoin('divisions as d', 'd.id', 'a.division_id')
     .where('u.statut', '<>', 'DESACTIVE')
-    .select('u.id as user_id', 'u.username', 'ag.nom', 'ag.postnom', 'ag.prenom', 'a.niveau', 'a.direction_id', 'a.division_id',
+    .select('u.id as user_id', 'u.agent_id', 'u.username', 'ag.nom', 'ag.postnom', 'ag.prenom', 'a.niveau', 'a.direction_id', 'a.division_id',
       'a.bureau_id', 'b.nom as bureau_nom', 'b.est_secretariat_direction', 'b.parent_type', 'd.nom as division_nom',
       db.raw(`ARRAY(SELECT r.code FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id) as roles`));
   const dep = await trx('directions').where({ code: 'DEP' }).first();
-  return rows.map((r) => {
+  const interims = await interimsEnVigueur(trx);
+  return rows.map((brut) => {
+    // Intérims : l’intérimaire occupe le nœud du poste exercé ; le titulaire suspendu le quitte.
+    const s = appliquerInterims({ agentId: brut.agent_id, roles: brut.roles, affectation: brut }, interims);
+    const r = { ...s.affectation, user_id: brut.user_id, username: brut.username, nom: brut.nom, postnom: brut.postnom, prenom: brut.prenom, roles: s.roles };
     const primaryRole = FUNCTIONAL_ORDER.find((x) => r.roles.includes(x)) || null;
     const perimetre = primaryRole === 'CHEF_DIVISION' ? (r.niveau === 'DIVISION' ? 'DIVISION' : 'PERSONNEL') : null;
     const node = nodeFrom({
@@ -55,7 +60,8 @@ async function loadAllNodes(trx = db) {
     return {
       userId: r.user_id, username: r.username, primaryRole, node,
       nomComplet: [r.prenom, r.nom, r.postnom].filter(Boolean).join(' ') || r.username,
-      roleLibelle: ROLE_LIBELLES[primaryRole] || '',
+      roleLibelle: `${ROLE_LIBELLES[primaryRole] || ''}${s.interim ? ' ad intérim' : ''}`,
+      interim: !!s.interim,
       structure: r.bureau_nom || r.division_nom || (primaryRole === 'DIRECTEUR' ? 'Direction d’Études et Planification' : primaryRole === 'SECRETAIRE_GENERAL' ? 'Secrétariat Général' : ''),
       divisionId: r.division_id, bureauId: r.bureau_id, inSecretariat: !!r.est_secretariat_direction,
     };

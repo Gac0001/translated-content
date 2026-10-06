@@ -6,7 +6,7 @@ import { ExportButtons } from '../../components/shared';
 import { fmtDate, isOverdue } from '../../lib/format';
 import { PRIORITES, ROLES, STATUTS } from '../../lib/labels';
 
-const ST = ['BROUILLON', 'TRANSMISE', 'RECUE', 'EN_COURS', 'A_CORRIGER', 'EXECUTEE', 'VALIDEE', 'CLOTUREE', 'EN_RETARD'];
+const ST = ['BROUILLON', 'TRANSMISE', 'RECUE', 'EN_COURS', 'BLOQUEE', 'RAPPORT_INTERMEDIAIRE', 'A_CORRIGER', 'EXECUTEE', 'VALIDEE', 'CLOTUREE', 'EN_RETARD', 'ANNULEE'];
 
 export default function InstructionsList() {
   const can = useAuth((s) => s.can);

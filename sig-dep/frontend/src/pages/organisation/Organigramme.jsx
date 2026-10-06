@@ -3,11 +3,18 @@ import { Link } from 'react-router-dom';
 import { Archive, ChevronDown, ChevronRight, Crown, Landmark, Layers, Pencil, Plus, User, Users } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../store/auth';
+import { fmtDate } from '../../lib/format';
 import { useApi, Loadable, PageHeader, Card, Badge, RangBadge, InfoAlert, Stat, runAction, useConfirm } from '../../components/ui';
 import StructureModal from './StructureModal';
 
 /** Actions de gestion (Directeur) transmises aux nœuds de l’organigramme. */
 const ManageCtx = createContext(null);
+
+/** Intérim en cours : l’intérimaire exerce les fonctions ; le titulaire reste titulaire du poste. */
+function Interim({ i }) {
+  if (!i) return null;
+  return <div className="mt-0.5 text-xs text-sky-800">{i.titre} : <b>{i.nomComplet}</b> jusqu’au {fmtDate(i.dateFin)} <span className="text-slate-500">(acte {i.acte})</span></div>;
+}
 
 function ManageButtons({ type, s }) {
   const m = useContext(ManageCtx);
@@ -47,12 +54,12 @@ function BureauNode({ b, defaultOpen = false }) {
         <Layers size={18} className="mt-0.5 text-teal-600" aria-hidden />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <Link to={`/structures/bureau/${b.id}`} className="font-semibold text-slate-900 hover:underline">{b.nom}</Link>
+            <Link to={`/structures/bureau/${b.id}`} className="font-semibold text-slate-900 hover:underline">{b.codeOrganique && <span className="mr-1.5 font-mono text-xs font-normal text-slate-500">{b.codeOrganique}</span>}{b.nom}</Link>
             <RangBadge rang={b.rangOrganique} />
             {b.badge && <Badge tone="ambre">{b.badge}</Badge>}
           </div>
           <div className="mt-1 text-xs text-slate-500">Rattachement : {b.rattachement.libelle} · Supérieur direct : {b.rattachement.superieurDirect === 'DIRECTEUR' ? 'Directeur' : 'Chef de Division'} · Périmètre d’accès : Bureau</div>
-          <div className="mt-1.5"><Person p={b.responsable} titre="Chef de Bureau" /></div>
+          <div className="mt-1.5"><Person p={b.responsable} titre="Chef de Bureau" /><Interim i={b.interim} /></div>
         </div>
         <Badge><Users size={12} /> {b.effectif}</Badge>
         <ManageButtons type="bureau" s={b} />
@@ -82,12 +89,12 @@ function DivisionNode({ d }) {
         <Landmark size={18} className="mt-0.5 text-indigo-600" aria-hidden />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <Link to={`/structures/division/${d.id}`} className="font-semibold text-slate-900 hover:underline">{d.nom}</Link>
+            <Link to={`/structures/division/${d.id}`} className="font-semibold text-slate-900 hover:underline">{d.codeOrganique && <span className="mr-1.5 font-mono text-xs font-normal text-slate-500">{d.codeOrganique}</span>}{d.nom}</Link>
             <RangBadge rang="DIVISION" />
             <span className="ml-auto"><ManageButtons type="division" s={d} /></span>
           </div>
           <div className="mt-1 text-xs text-slate-500">Rattachement : {d.rattachement.libelle} · Périmètre d’accès : Division</div>
-          <div className="mt-1.5"><Person p={d.responsable} titre="Chef de Division" /></div>
+          <div className="mt-1.5"><Person p={d.responsable} titre="Chef de Division" /><Interim i={d.interim} /></div>
           {open && <><p className="mt-2 text-sm text-slate-700">{d.missions}</p><Attributions list={d.attributions} /></>}
         </div>
       </div>
@@ -139,9 +146,9 @@ export default function Organigramme() {
               <div className="flex flex-wrap items-start gap-3">
                 <Crown size={22} className="text-dep-700" aria-hidden />
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2"><Link to={`/structures/direction/${o.direction.id}`} className="text-lg font-semibold hover:underline">{o.direction.nom} ({o.direction.sigle})</Link><RangBadge rang="DIRECTION" /></div>
+                  <div className="flex flex-wrap items-center gap-2"><Link to={`/structures/direction/${o.direction.id}`} className="text-lg font-semibold hover:underline">{o.direction.codeOrganique && <span className="mr-2 font-mono text-sm font-normal text-slate-500">{o.direction.codeOrganique}</span>}{o.direction.nom} ({o.direction.sigle})</Link><RangBadge rang="DIRECTION" /></div>
                   <div className="text-xs text-slate-500">Placée sous l’autorité du {o.direction.autoriteTutelle}</div>
-                  <div className="mt-1.5"><Person p={o.direction.responsable} titre="Directeur" /></div>
+                  <div className="mt-1.5"><Person p={o.direction.responsable} titre="Directeur" /><Interim i={o.direction.interim} /></div>
                   <details className="mt-2 text-sm"><summary className="cursor-pointer text-dep-700">Missions de la Direction</summary><ul className="mt-1 list-disc pl-5 text-slate-700">{o.direction.missions.map((m, i) => <li key={i}>{m}</li>)}</ul></details>
                 </div>
               </div>

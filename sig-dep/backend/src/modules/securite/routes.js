@@ -17,6 +17,8 @@ const { politique, invalider, DEFAUTS, BORNES } = require('../../services/politi
 const { verifier } = require('../../services/auditIntegrite');
 const { notFound, badRequest } = require('../../utils/errors');
 
+const gouvernance = require('../../services/gouvernance');
+
 const router = express.Router();
 
 // ─── Politique ───────────────────────────────────────────────────────────────
@@ -27,6 +29,8 @@ const LIBELLES = {
   session_duree_jours: 'Durée maximale d’une session (jours)', session_inactivite_minutes: 'Déconnexion après inactivité (minutes)',
   inactivite_compte_jours: 'Compte inactif après (jours sans connexion)', inactivite_desactivation_auto: 'Désactiver automatiquement les comptes inactifs',
   alerte_echecs_seuil: 'Alerte : échecs de connexion en 15 minutes',
+  disque_seuil_attention: 'Espace disque : alerte sous (% libre)', disque_seuil_critique: 'Espace disque : critique sous (% libre)',
+  erreurs_conservation_jours: 'Journal technique : conservation (jours)',
 };
 
 router.get('/politique', requirePerm('systeme.consulter', 'securite.superviser'), async (req, res) => {
@@ -47,7 +51,14 @@ router.put('/politique', requirePerm('systeme.configurer'), validate({ body: z.r
     }
     if (avant[cle] !== v) changes[cle] = v;
   }
+  const futur = { ...avant, ...changes };
+  if (futur.disque_seuil_attention <= futur.disque_seuil_critique) throw badRequest('Le seuil d’alerte d’espace disque doit être supérieur au seuil critique.');
   if (!Object.keys(changes).length) return res.json({ message: 'Aucun changement.' });
+  // Opération critique : confirmation préalable du Directeur.
+  const conf = await gouvernance.exigerConfirmation(req, 'POLITIQUE', changes,
+    Object.keys(changes).map((k) => `${LIBELLES[k]} : ${avant[k]} → ${changes[k]}`).join(' ; '));
+  if (conf.reponse) return res.status(202).json(conf.reponse);
+  await gouvernance.consommer(conf.demande);
   await db.transaction(async (trx) => {
     for (const [cle, v] of Object.entries(changes)) {
       await trx('parametres').where({ cle }).update({ valeur: String(v), updated_at: trx.fn.now(), updated_by: req.ctx.userId });
@@ -144,12 +155,16 @@ router.post('/verification', requirePerm('securite.superviser'), async (req, res
   const integrite = await verifier();
   add('Intégrité du journal d’audit', integrite.integre ? 'OK' : 'CRITIQUE', integrite.integre ? `${integrite.entrees} entrées chaînées, aucune altération.` : integrite.problemes.map((x) => x.raison).slice(0, 3).join(' ; '));
 
-  const admins = await db('users as u').join('user_roles as ur', 'ur.user_id', 'u.id').join('roles as r', 'r.id', 'ur.role_id').where('r.code', 'ADMIN_SYSTEME').whereNot('u.statut', 'DESACTIVE').select('u.username', 'u.totp_actif', 'u.email_recuperation', 'u.email_recuperation_verifie_at');
+  const admins = await db('users as u').join('user_roles as ur', 'ur.user_id', 'u.id').join('roles as r', 'r.id', 'ur.role_id').where('r.code', 'ADMIN_SYSTEME').whereNot('u.statut', 'DESACTIVE').where('u.compte_urgence', false).select('u.username', 'u.totp_actif', 'u.email_recuperation', 'u.email_recuperation_verifie_at');
   const sans2fa = admins.filter((a) => !a.totp_actif);
   add('Double authentification des Admins', sans2fa.length ? 'CRITIQUE' : 'OK', sans2fa.length ? `Sans 2FA : ${sans2fa.map((a) => a.username).join(', ')}` : `${admins.length} compte(s) Admin protégé(s).`);
   const nonVerifies = admins.filter((a) => !a.email_recuperation || !a.email_recuperation_verifie_at);
   add('Adresse de récupération des Admins', nonVerifies.length ? 'ATTENTION' : 'OK', nonVerifies.length ? `Non vérifiée : ${nonVerifies.map((a) => a.username).join(', ')} (récupération par e-mail impossible).` : 'Vérifiée.');
   add('Nombre de comptes Admin Système', admins.length === 1 ? 'OK' : 'ATTENTION', `${admins.length} compte(s) actif(s) (un seul attendu).`);
+  const urgence = await gouvernance.etatUrgence();
+  add('Compte d’urgence', urgence.username ? (urgence.actif ? 'ATTENTION' : 'OK') : 'ATTENTION', urgence.username
+    ? (urgence.actif ? `Actif jusqu’au ${new Date(urgence.jusqua).toLocaleString('fr-FR', { timeZone: 'Africa/Kinshasa' })} : à refermer dès la fin de l’intervention.` : 'Scellé (désactivé, mot de passe inconnu).')
+    : 'Absent : appliquez les migrations.');
 
   const temporaires = Number((await db('users').where({ must_change_password: true }).whereNot('statut', 'DESACTIVE').where('created_at', '<', db.raw(`now() - interval '7 days'`)).count('* as n').first()).n);
   add('Mots de passe temporaires anciens', temporaires ? 'ATTENTION' : 'OK', temporaires ? `${temporaires} compte(s) n’ont pas changé leur mot de passe temporaire depuis plus de 7 jours.` : 'Aucun.');
@@ -180,6 +195,11 @@ router.post('/verification', requirePerm('securite.superviser'), async (req, res
   } catch (e) { /* aucun répertoire */ }
   const age = derniere ? (Date.now() - derniere.getTime()) / 3600000 : null;
   add('Dernière sauvegarde', !derniere ? 'CRITIQUE' : age > 48 ? 'ATTENTION' : 'OK', derniere ? `Il y a ${Math.round(age)} h.` : 'Aucune sauvegarde trouvée.');
+
+  add('Chiffrement des sauvegardes', config.backupEncKey ? 'OK' : (config.isProd ? 'CRITIQUE' : 'ATTENTION'), config.backupEncKey ? 'Sauvegardes chiffrées (AES-256-GCM). Clé à conserver hors ligne.' : 'BACKUP_ENC_KEY non définie : sauvegardes non chiffrées.');
+  add('Copie des sauvegardes hors du serveur', config.backupCopyDir ? 'OK' : 'ATTENTION', config.backupCopyDir ? `Copie vers ${config.backupCopyDir}.` : 'BACKUP_COPY_DIR non défini : une panne du serveur emporterait les sauvegardes.');
+  const test = await db('verifications_sauvegarde').where({ type: 'RESTAURATION' }).orderBy('created_at', 'desc').first();
+  add('Test de restauration', !test ? 'ATTENTION' : test.statut !== 'OK' ? 'CRITIQUE' : (Date.now() - new Date(test.created_at).getTime()) > 14 * 86400000 ? 'ATTENTION' : 'OK', test ? `Dernier test le ${new Date(test.created_at).toLocaleDateString('fr-FR')} : ${test.statut === 'OK' ? 'réussi' : 'échoué'}.` : 'Aucun test de restauration réalisé.');
 
   const f = await controlerFichiers();
   add('Fichiers téléversés', f.statut, f.detail);

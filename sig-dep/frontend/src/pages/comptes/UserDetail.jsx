@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Ban, KeyRound, LogOut, Power, RefreshCcw, ShieldCheck, Unlock } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../store/auth';
-import { useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, Badge, Modal, runAction, useConfirm, DataTable, Button, IconButton, DropdownMenu } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, Badge, Modal, Field, runAction, useConfirm, DataTable, Button, IconButton, DropdownMenu } from '../../components/ui';
 import { fmtDateTime } from '../../lib/format';
 import { ROLES } from '../../lib/labels';
 import TempPassword from './TempPassword';
@@ -32,15 +32,30 @@ function BloquerModal({ user, onClose, onDone }) {
 function RolesModal({ user, onClose, onDone }) {
   const { user: me } = useAuth();
   const isAdmin = me.roles.includes('ADMIN_SYSTEME');
-  const options = isAdmin ? Object.keys(ROLES).filter((r) => !ROLES_DECISION.includes(r) || user.roles.includes(r)) : ['CHEF_DIVISION', 'CHEF_BUREAU', 'AGENT'];
+  const options = isAdmin ? Object.keys(ROLES) : ['CHEF_DIVISION', 'CHEF_BUREAU', 'AGENT'];
   const [roles, setRoles] = useState(user.roles);
+  const [acteId, setActeId] = useState('');
+  const fondements = useApi(isAdmin && user.agent_id ? `/actes/fondements?agent_id=${user.agent_id}` : null);
   const toggle = (r) => setRoles((x) => (x.includes(r) ? x.filter((y) => y !== r) : [...x, r]));
-  const save = async () => { await runAction(() => api.put(`/users/${user.id}/roles`, { roles }), 'Rôles mis à jour.'); onDone(); };
+  // Rôles d’autorité modifiés : un acte validé (nomination, affectation, fin de fonction) est exigé.
+  const sensible = ROLES_DECISION.some((r) => roles.includes(r) !== user.roles.includes(r));
+  const save = async () => { await runAction(() => api.put(`/users/${user.id}/roles`, { roles, acte_id: acteId ? Number(acteId) : undefined }), 'Rôles mis à jour.'); onDone(); };
+  const actes = fondements.data?.data || [];
   return (
-    <Modal open title="Rôles du compte" onClose={onClose} footer={<><button type="button" className="btn-secondary" onClick={onClose}>Annuler</button><button type="button" className="btn-primary" disabled={!roles.length} onClick={save}>Enregistrer</button></>}>
+    <Modal open title="Rôles du compte" onClose={onClose} footer={<><button type="button" className="btn-secondary" onClick={onClose}>Annuler</button><button type="button" className="btn-primary" disabled={!roles.length || (sensible && !acteId)} onClick={save}>Enregistrer</button></>}>
       <p className="mb-3 text-sm text-slate-600">Le rôle doit être cohérent avec l’affectation : un Chef de Division est affecté au niveau d’une Division ; le Chef du Bureau Secrétariat de Direction reste un Chef de Bureau.</p>
-      {isAdmin && <p className="mb-3 rounded-md bg-amber-50 p-2 text-xs text-amber-900">Les rôles Directeur, Chef de Division, Secrétaire Général et Admin Système ne peuvent être attribués ou retirés qu’en exécution d’une décision administrative enregistrée.</p>}
-      <div className="space-y-2">{options.map((r) => <label key={r} className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={isAdmin && ROLES_DECISION.includes(r)} checked={roles.includes(r)} onChange={() => toggle(r)} /> {ROLES[r]}</label>)}</div>
+      {isAdmin && <p className="mb-3 rounded-md bg-amber-50 p-2 text-xs text-amber-900">Les rôles Directeur, Chef de Division, Secrétaire Général et Admin Système ne s’attribuent ou ne se retirent qu’en exécution d’un acte validé (nomination, affectation ou fin de fonction) enregistré dans le registre des actes.</p>}
+      <div className="space-y-2">{options.map((r) => <label key={r} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={roles.includes(r)} onChange={() => toggle(r)} /> {ROLES[r]}</label>)}</div>
+      {sensible && (
+        <div className="mt-4">
+          <Field label="Acte fondant la décision" required hint={actes.length ? undefined : 'Aucun acte validé ne concerne cette personne : faites enregistrer et valider l’acte au préalable.'}>
+            <select className="input" value={acteId} onChange={(e) => setActeId(e.target.value)}>
+              <option value="">— Choisir —</option>
+              {actes.map((a) => <option key={a.id} value={a.id}>{a.numero} · {a.typeLibelle} · {a.reference}</option>)}
+            </select>
+          </Field>
+        </div>
+      )}
     </Modal>
   );
 }
@@ -95,8 +110,8 @@ export default function UserDetail() {
                 ['Créé le', fmtDateTime(u.created_at)], ['Créé (enrôlé) par', u.autorise_par_username ? `${u.autorise_par_username} le ${fmtDateTime(u.autorise_at)}` : '—'],
               ]} />
             </Card>
-            <Card title="Délégations reçues">
-              {u.delegations.length ? <ul className="space-y-2 text-sm">{u.delegations.map((d) => <li key={d.id}><b>{d.libelle}</b><div className="text-xs text-slate-500">Accordée par {d.granted_by} le {fmtDateTime(d.granted_at)}</div></li>)}</ul> : <p className="text-sm text-slate-500">Aucune.</p>}
+            <Card title="Désignations en cours">
+              {u.delegations.length ? <ul className="space-y-2 text-sm">{u.delegations.map((d) => <li key={d.id}><b>{d.libelle}</b><div className="text-xs text-slate-500">{d.acte_numero ? `Acte ${d.acte_numero}${d.date_fin ? ` — jusqu’au ${d.date_fin.split('-').reverse().join('/')}` : ''}` : `Sans acte — à régulariser`} · accordée par {d.granted_by} le {fmtDateTime(d.granted_at)}</div></li>)}</ul> : <p className="text-sm text-slate-500">Aucune.</p>}
             </Card>
             <Card title="Sessions actives" className="lg:col-span-3" bodyClass="p-0">
               <DataTable encadre={false} searchable={false} label="Sessions actives" rows={u.sessions} empty="Aucune session active." columns={[

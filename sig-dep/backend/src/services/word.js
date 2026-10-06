@@ -42,7 +42,7 @@ async function buildDocx({ titre, reference, meta = [], sections = [], visas = [
   }
   if (visas.length) {
     children.push(p(''), new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: 'Visas et signature', bold: true, size: 22, color: '0B3D6E' })] }));
-    for (const v of visas) children.push(p(`${v.libelle} — ${v.nom} — ${v.type === 'SIGNATURE' ? 'Signé' : 'Visa'} le ${new Date(v.date).toLocaleString('fr-FR', { timeZone: 'Africa/Kinshasa' })}`, { size: 18 }));
+    for (const v of visas) children.push(p(`${v.libelle} — ${v.nom} — ${v.type === 'SIGNATURE' ? 'Signé' : v.type === 'RELECTURE' ? 'Relu' : 'Visa'} le ${new Date(v.date).toLocaleString('fr-FR', { timeZone: 'Africa/Kinshasa' })}`, { size: 18 }));
   }
   const doc = new Document({ creator: `SIG-DEP — ${DEP_NOM}`, title: titre, sections: [{ properties: {}, children }] });
   return Packer.toBuffer(doc);

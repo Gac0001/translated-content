@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Archive, CheckCircle2, Eye, MessageSquarePlus, Pencil, Send, ShieldCheck, Undo2, XCircle } from 'lucide-react';
+import { Archive, CheckCircle2, Eye, Megaphone, MessageSquarePlus, Pencil, Send, ShieldCheck, Stamp, Undo2, XCircle } from 'lucide-react';
 import api from '../../lib/api';
-import { useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, ConfidBadge, Modal, runAction, useConfirm, InfoAlert, Badge, Button, IconButton, WorkflowPanel, DetailLayout } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, ConfidBadge, Modal, Field, runAction, useConfirm, InfoAlert, Badge, Button, IconButton, WorkflowPanel, DetailLayout } from '../../components/ui';
 import { Attachments, DynamicValue, ExportButtons, Timeline } from '../../components/shared';
 import { fmtDateTime } from '../../lib/format';
 import { ROLES } from '../../lib/labels';
@@ -17,8 +17,45 @@ function VersionModal({ docId, numero, type, onClose }) {
   );
 }
 
+/** Publication par le Directeur : toute la Direction ou structures choisies, et le SG s’il le faut. */
+function PublierModal({ onClose, onSave }) {
+  const divisions = useApi('/organisation/divisions');
+  const bureaux = useApi('/organisation/bureaux');
+  const [diffusion, setDiffusion] = useState('DIRECTION');
+  const [divs, setDivs] = useState([]);
+  const [burs, setBurs] = useState([]);
+  const [sg, setSg] = useState(false);
+  const [commentaire, setCommentaire] = useState('');
+  const bascule = (liste, set, id) => set(liste.includes(id) ? liste.filter((x) => x !== id) : [...liste, id]);
+  const vide = diffusion === 'STRUCTURES' && !divs.length && !burs.length;
+  return (
+    <Modal open size="lg" title="Publier le document" onClose={onClose} footer={<><button type="button" className="btn-secondary" onClick={onClose}>Annuler</button><button type="button" className="btn-primary" disabled={vide} onClick={() => onSave({ diffusion, divisions: divs, bureaux: burs, sg, commentaire: commentaire || undefined })}><Megaphone size={16} /> Publier</button></>}>
+      <div className="space-y-3 text-sm">
+        <label className="flex items-center gap-2"><input type="radio" checked={diffusion === 'DIRECTION'} onChange={() => setDiffusion('DIRECTION')} /> Toute la Direction</label>
+        <label className="flex items-center gap-2"><input type="radio" checked={diffusion === 'STRUCTURES'} onChange={() => setDiffusion('STRUCTURES')} /> Structures choisies</label>
+        {diffusion === 'STRUCTURES' && (
+          <div className="grid gap-3 rounded-md border border-slate-200 p-3 sm:grid-cols-2">
+            <div>
+              <div className="mb-1 text-xs font-medium uppercase text-slate-500">Divisions (avec leurs Bureaux)</div>
+              {(divisions.data?.data || []).map((d) => <label key={d.id} className="flex items-start gap-2"><input type="checkbox" className="mt-0.5" checked={divs.includes(d.id)} onChange={() => bascule(divs, setDivs, d.id)} /> {d.nom}</label>)}
+            </div>
+            <div>
+              <div className="mb-1 text-xs font-medium uppercase text-slate-500">Bureaux</div>
+              {(bureaux.data?.data || []).map((b) => <label key={b.id} className="flex items-start gap-2"><input type="checkbox" className="mt-0.5" checked={burs.includes(b.id)} onChange={() => bascule(burs, setBurs, b.id)} /> {b.nom}</label>)}
+            </div>
+          </div>
+        )}
+        <label className="flex items-center gap-2"><input type="checkbox" checked={sg} onChange={(e) => setSg(e.target.checked)} /> Diffuser aussi au Secrétaire Général</label>
+        <Field label="Commentaire (facultatif)"><input className="input" value={commentaire} onChange={(e) => setCommentaire(e.target.value)} /></Field>
+        <p className="text-xs text-slate-500">Les agents des structures destinataires sont notifiés et peuvent consulter le document publié.</p>
+      </div>
+    </Modal>
+  );
+}
+
 function attente(d) {
   if (d.statut === 'ARCHIVE') return 'Circuit terminé : le document est archivé.';
+  if (d.statut === 'PUBLIE') return 'Document validé et publié.';
   if (d.statut === 'VALIDE') return 'Document validé et signé par le Directeur.';
   if (d.statut === 'REJETE') return 'Document rejeté par le Directeur.';
   return d.detenteur_nom ? `Document actuellement entre les mains de ${d.detenteur_nom}.` : null;
@@ -30,6 +67,8 @@ export default function DocumentDetail() {
   const confirm = useConfirm();
   const [version, setVersion] = useState(null);
   const [comment, setComment] = useState('');
+  const [publier, setPublier] = useState(false);
+  const publication = async (body) => { await runAction(() => api.post(`/documents/${id}/publier`, body), 'Document publié.'); setPublier(false); state.reload(); };
   const act = async (path, msg, opts) => {
     let body = {};
     if (opts) {
@@ -57,9 +96,10 @@ export default function DocumentDetail() {
               actions={[
                 a.transmettre && <Button key="tr" variant="primary" icon={Send} onClick={() => act('transmettre', 'Document transmis au supérieur hiérarchique.', { title: 'Transmettre', message: 'Le document sera transmis à votre supérieur hiérarchique direct.', input: { label: 'Commentaire (facultatif)' } })}>Transmettre</Button>,
                 a.retourner && <Button key="re" icon={Undo2} onClick={() => act('retourner', 'Document retourné pour correction.', { title: 'Retourner pour correction', message: 'Le document sera renvoyé à son auteur.', input: { label: 'Corrections demandées', required: true }, danger: true })}>Retourner</Button>,
-                a.validerDivision && <Button key="vd" variant="success" icon={ShieldCheck} onClick={() => act('valider-division', 'Validé au niveau de la Division.', { title: 'Valider au niveau de la Division', message: 'Votre visa de Chef de Division sera apposé.', input: { label: 'Commentaire (facultatif)' } })}>Valider (Division)</Button>,
+                a.viser && <Button key="vi" variant="success" icon={Stamp} onClick={() => act('viser', 'Document visé.', { title: 'Viser le document', message: 'Votre visa sera apposé ; vous pourrez ensuite transmettre le document au Directeur.', input: { label: 'Commentaire (facultatif)' } })}>Viser</Button>,
                 a.valider && <Button key="va" variant="success" icon={CheckCircle2} onClick={() => act('valider', 'Document validé et signé.', { title: 'Validation définitive', message: 'Le document sera validé et signé par le Directeur.', input: { label: 'Commentaire (facultatif)' } })}>Valider et signer</Button>,
                 a.rejeter && <Button key="rj" variant="danger" icon={XCircle} onClick={() => act('rejeter', 'Document rejeté.', { title: 'Rejeter le document', message: 'Le rejet est définitif pour cette version.', input: { label: 'Motif du rejet', required: true }, danger: true })}>Rejeter</Button>,
+                a.publier && <Button key="pu" variant="primary" icon={Megaphone} onClick={() => setPublier(true)}>Publier</Button>,
                 a.archiver && <Button key="ar" icon={Archive} onClick={() => act('archiver', 'Document archivé.')}>Archiver</Button>,
               ]} />
             <DetailLayout
@@ -87,16 +127,19 @@ export default function DocumentDetail() {
                     ['Statut', <StatusBadge key="s" value={d.statut} />], ['Confidentialité', <ConfidBadge key="c" value={d.confidentialite} />],
                     ['Auteur', d.auteur_nom], ['Structure', d.bureau_nom || d.division_nom || 'Direction'], ['Détenteur actuel', d.detenteur_nom],
                     d.valide_at && ['Validé le', fmtDateTime(d.valide_at)],
+                    d.publie_at && ['Publié le', fmtDateTime(d.publie_at)],
+                    d.publie_at && ['Diffusion', `${d.diffusion === 'DIRECTION' ? 'Toute la Direction' : d.diffusions.map((x) => x.nom).join(', ')}${d.diffusion_sg ? ' ; Secrétaire Général' : ''}`],
                   ]} />
                 </Card>
                 <Card title="Visas et signature">
-                  {d.visas.length ? <ul className="space-y-2 text-sm">{d.visas.map((v, i) => <li key={i} className="flex items-start gap-2"><ShieldCheck size={16} className={`mt-0.5 shrink-0 ${v.type === 'SIGNATURE' ? 'text-emerald-600' : 'text-dep-600'}`} aria-hidden /><div><b>{v.type === 'SIGNATURE' ? 'Signature' : v.type === 'VALIDATION_DIVISION' ? 'Validation (Division)' : 'Visa'}</b> — {v.nom} ({ROLES[v.role]})<div className="text-xs text-slate-500">{fmtDateTime(v.date)}</div></div></li>)}</ul> : <p className="text-sm text-slate-500">Aucun visa.</p>}
+                  {d.visas.length ? <ul className="space-y-2 text-sm">{d.visas.map((v, i) => <li key={i} className="flex items-start gap-2"><ShieldCheck size={16} className={`mt-0.5 shrink-0 ${v.type === 'SIGNATURE' ? 'text-emerald-600' : 'text-dep-600'}`} aria-hidden /><div><b>{v.type === 'SIGNATURE' ? 'Signature' : v.type === 'VALIDATION_DIVISION' ? 'Validation (Division)' : v.type === 'RELECTURE' ? 'Relecture' : 'Visa'}</b> — {v.nom} ({ROLES[v.role]})<div className="text-xs text-slate-500">{fmtDateTime(v.date)}</div></div></li>)}</ul> : <p className="text-sm text-slate-500">Aucun visa.</p>}
                 </Card>
                 <Card title="Versions (conservées)">
                   <ul className="divide-y divide-slate-100 text-sm">{d.versions.map((v) => <li key={v.id} className="flex items-center justify-between gap-2 py-1.5"><span><b>v{v.numero}</b> — {v.commentaire}<span className="block text-xs text-slate-500">{v.auteur} · {fmtDateTime(v.created_at)}</span></span><IconButton label={`Voir la version ${v.numero}`} icon={Eye} className="px-2" onClick={() => setVersion(v.numero)} /></li>)}</ul>
                 </Card>
                 <Card title="Pièces jointes"><Attachments type="DOCUMENT" id={id} canUpload={a.modifier || a.transmettre} /></Card>
               </>} />
+            {publier && <PublierModal onClose={() => setPublier(false)} onSave={publication} />}
             {version && <VersionModal docId={id} numero={version} type={d.type} onClose={() => setVersion(null)} />}
           </>
         );

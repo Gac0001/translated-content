@@ -32,7 +32,7 @@ async function performanceParStructure({ du, au, divisionId, bureauId } = {}) {
       agents: agents.filter(filter).length,
       taches: t.length, tachesTerminees: t.filter((x) => DONE.includes(x.statut)).length, tachesEnRetard: t.filter((x) => x.statut === 'EN_RETARD').length,
       instructions: i.length, instructionsExecutees: i.filter((x) => DONE.includes(x.statut)).length, instructionsEnRetard: i.filter((x) => x.statut === 'EN_RETARD').length,
-      documents: d.length, documentsValides: d.filter((x) => ['VALIDE', 'ARCHIVE', 'VALIDE_DIVISION'].includes(x.statut)).length,
+      documents: d.length, documentsValides: d.filter((x) => ['VALIDE', 'PUBLIE', 'ARCHIVE'].includes(x.statut)).length,
       tauxExecution: total ? Math.round((faits / total) * 100) : null,
     };
   };

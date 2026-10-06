@@ -1,12 +1,14 @@
 'use strict';
 /**
- * Comptes utilisateurs, rôles, permissions et délégations.
+ * Comptes utilisateurs, rôles, permissions et désignations.
  *
  * Circuit :
  *  - l’Admin crée les comptes institutionnels initiaux (Secrétaire Général, Directeur) ;
  *  - le Directeur crée/autorise les comptes de la DEP ;
- *  - le Bureau Secrétariat de Direction peut PRÉPARER des comptes sur délégation du Directeur
- *    (comptes créés désactivés, en attente d’autorisation du Directeur).
+ *  - le Bureau Secrétariat de Direction peut PRÉPARER des comptes sur désignation du Directeur
+ *    (comptes créés désactivés, en attente d’autorisation du Directeur) ;
+ *  - les désignations temporaires reposent sur un acte (module actes) et expirent d’elles-mêmes ;
+ *  - les rôles d’autorité ne s’attribuent ou ne se retirent que sur un acte validé.
  */
 const express = require('express');
 const bcrypt = require('bcrypt');
@@ -21,7 +23,9 @@ const { politique } = require('../../services/politique');
 const { revokeAllForUser } = require('../../services/tokens');
 const { temporaryPassword } = require('../../utils/password');
 const { notFound, badRequest, forbidden, conflict } = require('../../utils/errors');
-const { ROLE_LIBELLES, DELEGABLE_PERMISSIONS } = require('../../constants');
+const { ROLE_LIBELLES } = require('../../constants');
+const { aujourdhui } = require('../../services/interims');
+const gouvernance = require('../../services/gouvernance');
 
 const router = express.Router();
 const idParam = z.object({ id: z.coerce.number().int().positive() });
@@ -34,6 +38,8 @@ const PERMS_TECHNIQUES = ['compte.creer_initial', 'compte.deverrouiller', 'compt
 const estTechnique = (p) => MODULES_TECHNIQUES.includes(p.module) || PERMS_TECHNIQUES.includes(p.code);
 // Rôles d’autorité : leur attribution ou leur retrait exige une décision administrative enregistrée.
 const ROLES_DECISION = ['ADMIN_SYSTEME', 'SECRETAIRE_GENERAL', 'DIRECTEUR', 'CHEF_DIVISION'];
+// Modules métier : jamais attribuables au rôle Admin Système (aucune autorité administrative).
+const MODULES_METIER = ['documents', 'pip', 'presences', 'courriers', 'instructions', 'taches', 'liste', 'division', 'personnel'];
 
 async function rolesOf(userId, trx = db) {
   return (await trx('user_roles as ur').join('roles as r', 'r.id', 'ur.role_id').where('ur.user_id', userId).select('r.code')).map((r) => r.code);
@@ -54,14 +60,18 @@ async function userView(id) {
   if (!u) return null;
   u.roles = await rolesOf(id);
   u.delegations = (await db('user_permissions as up').join('permissions as p', 'p.id', 'up.permission_id').leftJoin('users as g', 'g.id', 'up.granted_by')
-    .where('up.user_id', id).whereNull('up.revoked_at').select('up.id', 'p.code', 'p.libelle', 'up.granted_at', 'up.motif', 'g.username as granted_by'));
+    .leftJoin('actes_administratifs as x', 'x.id', 'up.acte_id')
+    .where('up.user_id', id).whereNull('up.revoked_at')
+    .select('up.id', 'p.code', 'p.libelle', 'up.granted_at', 'up.motif', 'g.username as granted_by', 'up.date_debut', 'up.date_fin', 'up.a_regulariser_avant', 'x.numero as acte_numero', 'up.acte_id'));
+  u.designations = u.delegations;
   return u;
 }
 
-/** Le Directeur (et le Bureau Secrétariat par délégation) ne gère que les comptes de la DEP. */
+/** Le Directeur (et le Bureau Secrétariat par désignation) ne gère que les comptes de la DEP. */
 async function assertManageable(ctx, targetId) {
   const target = await db('users').where({ id: targetId }).first();
   if (!target) throw notFound('Compte introuvable.');
+  if (target.compte_urgence) throw forbidden('Le compte d’urgence est scellé : il ne s’active et ne se referme que depuis la page Gouvernance (Directeur ou Secrétaire Général).', 'COMPTE_URGENCE');
   const roles = await rolesOf(targetId);
   if (ctx.primaryRole === 'ADMIN_SYSTEME' || ctx.roles.includes('ADMIN_SYSTEME')) return { target, roles };
   if (roles.includes('ADMIN_SYSTEME') || roles.includes('SECRETAIRE_GENERAL') || roles.includes('DIRECTEUR')) {
@@ -104,7 +114,7 @@ router.get('/', requirePerm('compte.consulter'), validate({ query: z.object({ q:
     .leftJoin('bureaux as b', 'b.id', 'a.bureau_id').leftJoin('divisions as d', 'd.id', 'a.division_id')
     .select('u.id', 'u.username', 'u.statut', 'u.must_change_password', 'u.last_login_at', 'u.locked_until', 'u.created_at', 'u.autorise_par', 'u.totp_actif', 'u.motif_blocage',
       db.raw(`(u.statut <> 'DESACTIVE' and coalesce(u.last_login_at, u.created_at) < now() - make_interval(days => ?)) as inactif`, [seuil]),
-      'ag.matricule', 'ag.nom', 'ag.postnom', 'ag.prenom', 'b.nom as bureau_nom', 'd.nom as division_nom',
+      'ag.matricule', 'ag.nom', 'ag.postnom', 'ag.prenom', 'b.nom as bureau_nom', 'd.nom as division_nom', 'u.compte_urgence', 'u.urgence_jusqua',
       db.raw(`ARRAY(SELECT r.code FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id) as roles`))
     .orderBy('u.username');
   if (!req.ctx.roles.includes('ADMIN_SYSTEME')) {
@@ -128,14 +138,34 @@ router.get('/roles', requirePerm('compte.consulter', 'role.attribuer'), async (r
   });
 });
 
-router.get('/delegations', requirePerm('delegations.gerer'), async (req, res) => {
+/** État d’une désignation à la date du jour. */
+function etatDesignation(d, jour = aujourdhui()) {
+  if (d.revoked_at) return 'RETIREE';
+  if (!d.acte_id) return 'A_REGULARISER';
+  if (d.date_debut && String(d.date_debut) > jour) return 'A_VENIR';
+  if (d.date_fin && String(d.date_fin) < jour) return 'ECHUE';
+  return 'EN_VIGUEUR';
+}
+
+router.get('/designations', requirePerm('designations.gerer'), async (req, res) => {
   const rows = await db('user_permissions as up').join('permissions as p', 'p.id', 'up.permission_id').join('users as u', 'u.id', 'up.user_id')
     .leftJoin('agents as ag', 'ag.id', 'u.agent_id').leftJoin('users as g', 'g.id', 'up.granted_by')
-    .select('up.*', 'p.code', 'p.libelle', 'u.username', 'ag.nom', 'ag.prenom', 'g.username as granted_by_username').orderBy('up.granted_at', 'desc');
-  const chef = await db('users as u').join('affectations as a', function j() { this.on('a.agent_id', 'u.agent_id').andOn('a.est_active', db.raw('true')); })
-    .join('bureaux as b', 'b.id', 'a.bureau_id').join('postes_organiques as p', 'p.id', 'a.poste_id')
-    .where({ 'b.est_secretariat_direction': true, 'p.role_associe': 'CHEF_BUREAU' }).first('u.id', 'u.username');
-  res.json({ data: rows, chefSecretariat: chef || null, delegables: await db('permissions').where({ delegable: true }) });
+    .leftJoin('actes_administratifs as x', 'x.id', 'up.acte_id')
+    .select('up.*', 'p.code', 'p.libelle', 'u.username', 'ag.nom', 'ag.prenom', 'g.username as granted_by_username', 'x.numero as acte_numero', 'x.reference as acte_reference')
+    .orderBy('up.granted_at', 'desc');
+  res.json({
+    data: rows.map((d) => ({ ...d, etat: etatDesignation(d) })),
+    designables: await db('permissions').where({ delegable: true }).select('code', 'libelle'),
+  });
+});
+
+router.delete('/designations/:id', requirePerm('designations.gerer'), validate({ params: idParam, body: z.object({ motif: z.string().trim().max(300).optional() }).optional() }), async (req, res) => {
+  const row = await db('user_permissions').where({ id: req.valid.params.id }).whereNull('revoked_at').first();
+  if (!row) throw notFound('Désignation introuvable.');
+  const motif = (req.valid.body && req.valid.body.motif) || 'Retrait par le Directeur';
+  await db('user_permissions').where({ id: row.id }).update({ revoked_at: db.fn.now(), revoked_by: req.ctx.userId, motif_revocation: motif });
+  await audit(req, { action: 'REVOCATION_DESIGNATION', module: 'comptes', entite: 'user', entiteId: row.user_id, avant: row, message: motif });
+  res.json({ message: 'Désignation retirée (conservée dans l’historique).' });
 });
 
 router.get('/:id', requirePerm('compte.consulter'), validate({ params: idParam }), async (req, res) => {
@@ -204,7 +234,7 @@ router.post('/initial', requirePerm('compte.creer_initial'), validate({ body: in
 // uniquement pour les agents inscrits sur la liste déclarative validée.
 
 // ─── Rôles d’un compte ──────────────────────────────────────────────────────
-router.put('/:id/roles', requirePerm('role.attribuer'), validate({ params: idParam, body: z.object({ roles: z.array(z.enum(['ADMIN_SYSTEME', 'SECRETAIRE_GENERAL', 'DIRECTEUR', 'CHEF_DIVISION', 'CHEF_BUREAU', 'AGENT'])).min(1).max(3) }) }), async (req, res) => {
+router.put('/:id/roles', requirePerm('role.attribuer'), validate({ params: idParam, body: z.object({ roles: z.array(z.enum(['ADMIN_SYSTEME', 'SECRETAIRE_GENERAL', 'DIRECTEUR', 'CHEF_DIVISION', 'CHEF_BUREAU', 'AGENT'])).min(1).max(3), acte_id: z.coerce.number().int().positive().optional().nullable() }) }), async (req, res) => {
   const { target, roles: before } = await assertManageable(req.ctx, req.valid.params.id);
   const roles = [...new Set(req.valid.body.roles)];
   const isAdmin = req.ctx.roles.includes('ADMIN_SYSTEME');
@@ -212,8 +242,14 @@ router.put('/:id/roles', requirePerm('role.attribuer'), validate({ params: idPar
   // L’Admin ne fait jamais d’une personne un Directeur, un Chef de Division, un Secrétaire Général ou un Admin
   // (ni ne retire ces rôles) sans décision administrative enregistrée.
   const sensibles = ROLES_DECISION.filter((r) => roles.includes(r) !== before.includes(r));
+  let acte = null;
   if (sensibles.length) {
-    throw forbidden(`L’attribution ou le retrait du rôle ${sensibles.map((r) => ROLE_LIBELLES[r]).join(', ')} exige une décision administrative enregistrée : opération refusée.`, 'DECISION_ADMINISTRATIVE_REQUISE');
+    // Décision administrative : un acte validé (nomination, affectation ou fin de fonction) concernant cette personne.
+    acte = req.valid.body.acte_id ? await db('actes_administratifs').where({ id: req.valid.body.acte_id, statut: 'VALIDE' })
+      .whereIn('type', ['NOMINATION', 'AFFECTATION', 'FIN_FONCTION']).first() : null;
+    if (!acte || !target.agent_id || acte.agent_id !== target.agent_id) {
+      throw forbidden(`L’attribution ou le retrait du rôle ${sensibles.map((r) => ROLE_LIBELLES[r]).join(', ')} exige un acte validé (nomination, affectation ou fin de fonction) concernant cette personne : opération refusée.`, 'DECISION_ADMINISTRATIVE_REQUISE');
+    }
   }
   if (target.id === req.ctx.userId && before.includes('ADMIN_SYSTEME') && !roles.includes('ADMIN_SYSTEME')) throw badRequest('Vous ne pouvez pas retirer votre propre rôle Admin.');
   if (target.agent_id) await checkRoleCoherence(target.agent_id, roles.filter((r) => r !== 'ADMIN_SYSTEME' && r !== 'SECRETAIRE_GENERAL'));
@@ -222,7 +258,7 @@ router.put('/:id/roles', requirePerm('role.attribuer'), validate({ params: idPar
     await setRoles(trx, target.id, roles, req.ctx.userId);
     await trx('users').where({ id: target.id }).increment('token_version', 1);
   });
-  await audit(req, { action: 'CHANGEMENT_ROLE', module: 'comptes', entite: 'user', entiteId: target.id, avant: { roles: before }, apres: { roles } });
+  await audit(req, { action: 'CHANGEMENT_ROLE', module: 'comptes', entite: 'user', entiteId: target.id, avant: { roles: before }, apres: { roles, acte: acte ? acte.numero : null }, message: acte ? `Sur l’acte ${acte.numero} (${acte.reference})` : null });
   res.json({ message: 'Rôles mis à jour.', roles });
 });
 
@@ -307,11 +343,20 @@ router.put('/roles/:code/permissions', requirePerm('role.attribuer'), validate({
   if (!role) throw notFound('Rôle introuvable.');
   const perms = await db('permissions').whereIn('code', req.valid.body.permissions);
   if (perms.length !== new Set(req.valid.body.permissions).size) throw badRequest('Permission inconnue.');
+  let conf = null;
   if (role.code === 'ADMIN_SYSTEME') {
-    // Rôle protégé : sa modification exige une double validation (Directeur), non disponible ici.
-    throw forbidden('Le rôle Admin Système est protégé : sa modification exige la validation du Directeur.', 'ROLE_PROTEGE');
+    // Rôle protégé : aucune permission métier (validation, liste, activités) ; double confirmation du Directeur.
+    const metier = perms.filter((p) => MODULES_METIER.includes(p.module) || /valider/.test(p.code) || p.reservee_division);
+    if (metier.length) throw forbidden(`Permissions métier incompatibles avec le rôle Admin Système : ${metier.map((p) => p.code).join(', ')}.`, 'PERMISSION_INCOMPATIBLE');
+    const liste = [...new Set(req.valid.body.permissions)].sort();
+    const actuelles = (await db('role_permissions as rp').join('permissions as p', 'p.id', 'rp.permission_id').where('rp.role_id', role.id).pluck('p.code'));
+    const ajout = liste.filter((c) => !actuelles.includes(c)); const retrait = actuelles.filter((c) => !liste.includes(c));
+    conf = await gouvernance.exigerConfirmation(req, 'ROLE_ADMIN', { permissions: liste },
+      `Rôle Admin Système — ajout : ${ajout.join(', ') || 'aucun'} ; retrait : ${retrait.join(', ') || 'aucun'}`);
+    if (conf.reponse) return res.status(202).json(conf.reponse);
+    await gouvernance.consommer(conf.demande);
   }
-  const techniques = perms.filter(estTechnique);
+  const techniques = role.code === 'ADMIN_SYSTEME' ? [] : perms.filter(estTechnique);
   if (techniques.length) throw forbidden(`Permissions techniques incompatibles avec le rôle ${role.libelle} : ${techniques.map((p) => p.code).join(', ')}.`, 'PERMISSION_INCOMPATIBLE');
   if (['CHEF_BUREAU', 'AGENT', 'SECRETAIRE_GENERAL', 'ADMIN_SYSTEME'].includes(role.code)) {
     const bad = perms.filter((p) => p.reservee_division);
@@ -324,28 +369,6 @@ router.put('/roles/:code/permissions', requirePerm('role.attribuer'), validate({
   });
   await audit(req, { action: 'CHANGEMENT_ROLE', module: 'comptes', entite: 'role', entiteId: role.code, avant: { permissions: before }, apres: { permissions: req.valid.body.permissions } });
   res.json({ message: 'Permissions du rôle mises à jour.' });
-});
-
-// ─── Délégations du Directeur au Chef du Bureau Secrétariat de Direction ────
-router.post('/:id/delegations', requirePerm('delegations.gerer'), validate({ params: idParam, body: z.object({ permission: z.enum(DELEGABLE_PERMISSIONS), motif: z.string().trim().min(3).max(300) }) }), async (req, res) => {
-  const target = await db('users as u').join('affectations as a', function j() { this.on('a.agent_id', 'u.agent_id').andOn('a.est_active', db.raw('true')); })
-    .join('bureaux as b', 'b.id', 'a.bureau_id').leftJoin('postes_organiques as p', 'p.id', 'a.poste_id')
-    .where('u.id', req.valid.params.id).first('u.id', 'b.est_secretariat_direction', 'p.role_associe');
-  if (!target || !target.est_secretariat_direction || target.role_associe !== 'CHEF_BUREAU') {
-    throw forbidden('Les délégations administratives du Directeur ne concernent que le Chef du Bureau Secrétariat de Direction.');
-  }
-  const perm = await db('permissions').where({ code: req.valid.body.permission, delegable: true }).first();
-  const [row] = await db('user_permissions').insert({ user_id: target.id, permission_id: perm.id, granted_by: req.ctx.userId, motif: req.valid.body.motif }).returning('*');
-  await audit(req, { action: 'DELEGATION', module: 'comptes', entite: 'user', entiteId: target.id, apres: { permission: perm.code, motif: req.valid.body.motif } });
-  res.status(201).json(row);
-});
-
-router.delete('/delegations/:id', requirePerm('delegations.gerer'), validate({ params: idParam }), async (req, res) => {
-  const row = await db('user_permissions').where({ id: req.valid.params.id }).whereNull('revoked_at').first();
-  if (!row) throw notFound('Délégation introuvable.');
-  await db('user_permissions').where({ id: row.id }).update({ revoked_at: db.fn.now(), revoked_by: req.ctx.userId });
-  await audit(req, { action: 'REVOCATION_DELEGATION', module: 'comptes', entite: 'user', entiteId: row.user_id, avant: row });
-  res.json({ message: 'Délégation révoquée (conservée dans l’historique).' });
 });
 
 module.exports = router;

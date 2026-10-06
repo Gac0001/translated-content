@@ -12,12 +12,13 @@ const config = require('../config/env');
 const { notify } = require('./notifications');
 const { addHistory } = require('./history');
 const mailer = require('./mailer');
+const maintenance = require('./maintenance');
 const { audit } = require('./audit');
 const { alerter } = require('./alertes');
 const { politique } = require('./politique');
 const { revokeAllForUser } = require('./tokens');
 
-const ACTIVE = ['TRANSMISE', 'RECUE', 'EN_COURS', 'A_CORRIGER'];
+const ACTIVE = ['TRANSMISE', 'RECUE', 'EN_COURS', 'RAPPORT_INTERMEDIAIRE', 'A_CORRIGER'];
 
 async function markOverdue() {
   for (const [table, entity, userCol, supCol, lien, label] of [
@@ -94,9 +95,48 @@ async function purgeDefis() {
   await db('defis_auth').where('expires_at', '<', db.raw(`now() - interval '1 day'`)).del();
 }
 
+/** Journal technique (durée de la politique) et historique de santé (30 jours) : purge. */
+async function purgeSupervision() {
+  const p = await politique();
+  await db('erreurs_techniques').where('derniere_at', '<', db.raw(`now() - make_interval(days => ?)`, [p.erreurs_conservation_jours])).del();
+  await db('sante_controles').where('created_at', '<', db.raw(`now() - interval '30 days'`)).del();
+}
+
+/** Rapport de sécurité du mois écoulé, généré dès les premiers jours du mois. */
+async function rapportMensuel() {
+  await require('./rapportSecurite').genererMoisEcoule();
+}
+
+/** Cartes de service arrivées à échéance. */
+async function expirerCartes() {
+  await require('./cartes').expirer();
+}
+
+/** Gouvernance : confirmations et accès de support échus, fermeture du compte d’urgence à l’échéance. */
+async function gouvernancePeriodique() {
+  await require('./gouvernance').tachePeriodique();
+}
+
+/** Actes temporaires : entrée en vigueur, rappel, expiration ; régularisation des désignations sans acte. */
+async function echeancesActes() {
+  await require('./actes').tacheQuotidienne();
+}
+
+async function controleSante() {
+  if (maintenance.operationEnCours()) return;
+  try { await require('./sante').controler('AUTO'); } catch (e) { console.error('[JOBS] contrôle de santé :', e.message); }
+}
+
+async function suiviDecisions() { return require('./decisions').synchroniser(); }
+async function rappelsAgenda() { return require('./agenda').rappels(); }
+
 async function runAll() {
-  for (const fn of [markOverdue, remindDeadlines, autolockPresences, purgeTokens, purgeDefis, desactiverInactifs]) {
-    try { await fn(); } catch (e) { console.error(`[JOBS] ${fn.name} :`, e.message); }
+  if (maintenance.operationEnCours()) return; // restauration en cours
+  for (const fn of [markOverdue, remindDeadlines, autolockPresences, purgeTokens, purgeDefis, desactiverInactifs, purgeSupervision, rapportMensuel, echeancesActes, gouvernancePeriodique, expirerCartes, suiviDecisions, rappelsAgenda]) {
+    try { await fn(); } catch (e) {
+      console.error(`[JOBS] ${fn.name} :`, e.message);
+      require('./erreurs').enregistrer(Object.assign(e, { contexte: `tâche ${fn.name}` }));
+    }
   }
 }
 
@@ -105,7 +145,19 @@ async function sendMails() {
 }
 
 let timer = null;
-let mailTimer = null;
+let mailTimer = null; // eslint-disable-line no-unused-vars
+let santeTimer = null; // eslint-disable-line no-unused-vars
+let sauvegardeTimer = null; // eslint-disable-line no-unused-vars
+let sauvegardeEnCours = false;
+
+async function tacheSauvegardes() {
+  if (sauvegardeEnCours || maintenance.operationEnCours()) return;
+  sauvegardeEnCours = true;
+  try { await require('./sauvegarde').tachePlanifiee(); } catch (e) {
+    console.error('[JOBS] sauvegardes :', e.message);
+    require('./erreurs').enregistrer(Object.assign(e, { contexte: 'tâche sauvegardes' }));
+  } finally { sauvegardeEnCours = false; }
+}
 function start(intervalMs = 10 * 60000) {
   if (timer) return;
   setTimeout(runAll, 5000);
@@ -113,6 +165,12 @@ function start(intervalMs = 10 * 60000) {
   // La file des e-mails est traitée chaque minute
   mailTimer = setInterval(sendMails, 60000);
   setTimeout(sendMails, 8000);
+  // Centre de santé : contrôle toutes les 15 minutes
+  setTimeout(controleSante, 15000);
+  santeTimer = setInterval(controleSante, 15 * 60000);
+  // Sauvegardes programmées, conservation et test de restauration : vérification chaque minute
+  sauvegardeTimer = setInterval(tacheSauvegardes, 60000);
+  setTimeout(tacheSauvegardes, 20000);
 }
 
-module.exports = { start, runAll, sendMails, markOverdue, remindDeadlines, autolockPresences, desactiverInactifs };
+module.exports = { start, runAll, echeancesActes, gouvernancePeriodique, expirerCartes, sendMails, markOverdue, remindDeadlines, autolockPresences, desactiverInactifs, purgeSupervision, rapportMensuel, controleSante };

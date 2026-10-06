@@ -7,6 +7,8 @@ import { ConfirmProvider, Spinner, Toaster } from './components/ui';
 import Login from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
 import PremiereConnexion from './pages/PremiereConnexion';
+import MaintenancePublique from './pages/MaintenancePublique';
+import VerificationCarte from './pages/VerificationCarte';
 import { Forbidden, NotFound } from './pages/Errors';
 
 const p = (loader) => lazy(loader);
@@ -23,7 +25,18 @@ const UsersList = p(() => import('./pages/comptes/UsersList'));
 const UserDetail = p(() => import('./pages/comptes/UserDetail'));
 const UserCreate = p(() => import('./pages/comptes/UserCreate'));
 const Roles = p(() => import('./pages/comptes/Roles'));
-const Delegations = p(() => import('./pages/comptes/Delegations'));
+const Designations = p(() => import('./pages/comptes/Designations'));
+const ActesList = p(() => import('./pages/actes/ActesList'));
+const DemandesList = p(() => import('./pages/demandes/DemandesList'));
+const ReunionsList = p(() => import('./pages/reunions/ReunionsList'));
+const ReunionForm = p(() => import('./pages/reunions/ReunionForm'));
+const ReunionDetail = p(() => import('./pages/reunions/ReunionDetail'));
+const DecisionsRegistre = p(() => import('./pages/decisions/DecisionsRegistre'));
+const DecisionDetail = p(() => import('./pages/decisions/DecisionDetail'));
+const Agenda = p(() => import('./pages/agenda/Agenda'));
+const DemandeDetail = p(() => import('./pages/demandes/DemandeDetail'));
+const ActeForm = p(() => import('./pages/actes/ActeForm'));
+const ActeDetail = p(() => import('./pages/actes/ActeDetail'));
 const ListeDeclarative = p(() => import('./pages/comptes/ListeDeclarative'));
 const Enrolement = p(() => import('./pages/comptes/Enrolement'));
 const PresencesList = p(() => import('./pages/presences/PresencesList'));
@@ -48,6 +61,17 @@ const Notifications = p(() => import('./pages/Notifications'));
 const Audit = p(() => import('./pages/systeme/Audit'));
 const Systeme = p(() => import('./pages/systeme/Systeme'));
 const Securite = p(() => import('./pages/systeme/Securite'));
+const Sante = p(() => import('./pages/systeme/Sante'));
+const Sauvegardes = p(() => import('./pages/systeme/Sauvegardes'));
+const Restaurations = p(() => import('./pages/systeme/Restaurations'));
+const Gouvernance = p(() => import('./pages/systeme/Gouvernance'));
+const CartesRegistre = p(() => import('./pages/cartes/CartesRegistre'));
+const CarteDetail = p(() => import('./pages/cartes/CarteDetail'));
+const ModeleCarte = p(() => import('./pages/cartes/ModeleCarte'));
+const MaCarte = p(() => import('./pages/cartes/MaCarte'));
+const Maintenance = p(() => import('./pages/systeme/Maintenance'));
+const JournalTechnique = p(() => import('./pages/systeme/JournalTechnique'));
+const RapportsSecurite = p(() => import('./pages/RapportsSecurite'));
 const Reinitialisation = p(() => import('./pages/systeme/Reinitialisation'));
 const Rapports = p(() => import('./pages/Rapports'));
 
@@ -93,6 +117,10 @@ export default function App() {
       <Suspense fallback={<Spinner />}>
         <Routes>
           <Route path="/connexion" element={<ConnexionRoute />} />
+          <Route path="/maintenance" element={<MaintenancePublique />} />
+          {/* Vérification publique des cartes de service (sans connexion) */}
+          <Route path="/verification" element={<VerificationCarte />} />
+          <Route path="/verification/c/:jeton" element={<VerificationCarte />} />
           <Route path="/premiere-connexion" element={<RequireAuth><PremiereConnexion /></RequireAuth>} />
           <Route path="/changer-mot-de-passe" element={<Navigate to="/premiere-connexion" replace />} />
           <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
@@ -113,7 +141,21 @@ export default function App() {
             <Route path="comptes/nouveau" element={G(['compte.creer_initial'], <UserCreate />)} />
             <Route path="comptes/:id" element={G(['compte.consulter'], <UserDetail />)} />
             <Route path="roles" element={G(['role.attribuer'], <Roles />)} />
-            <Route path="delegations" element={G(['delegations.gerer'], <Delegations />)} />
+            <Route path="designations" element={G(['designations.gerer'], <Designations />)} />
+            <Route path="delegations" element={<Navigate to="/designations" replace />} />
+            <Route path="reunions" element={<ReunionsList />} />
+            <Route path="reunions/nouvelle" element={G(['reunions.organiser', 'reunions.preparer_direction'], <ReunionForm />)} />
+            <Route path="reunions/:id" element={<ReunionDetail />} />
+            <Route path="reunions/:id/modifier" element={G(['reunions.organiser', 'reunions.preparer_direction'], <ReunionForm />)} />
+            <Route path="decisions" element={<DecisionsRegistre />} />
+            <Route path="decisions/:id" element={<DecisionDetail />} />
+            <Route path="agenda" element={G(['agenda.consulter'], <Agenda />)} />
+            <Route path="demandes-information" element={G(['demandes_info.emettre', 'demandes_info.repondre'], <DemandesList />)} />
+            <Route path="demandes-information/:id" element={G(['demandes_info.emettre', 'demandes_info.repondre'], <DemandeDetail />)} />
+            <Route path="actes" element={<ActesList />} />
+            <Route path="actes/nouveau" element={G(['actes.preparer', 'actes.enregistrer_direction'], <ActeForm />)} />
+            <Route path="actes/:id" element={<ActeDetail />} />
+            <Route path="actes/:id/modifier" element={G(['actes.preparer', 'actes.enregistrer_direction'], <ActeForm />)} />
             <Route path="presences" element={G(['presences.consulter', 'presences.preparer_direction'], <PresencesList />)} />
             <Route path="presences/nouvelle" element={G(['presences.saisir', 'presences.preparer_direction'], <PresenceCreate />)} />
             <Route path="presences/:id" element={<PresenceSheet />} />
@@ -139,6 +181,17 @@ export default function App() {
             <Route path="audit" element={G(['audit.consulter'], <Audit />)} />
             <Route path="rapports" element={G(['rapports.consulter'], <Rapports />)} />
             <Route path="systeme" element={G(['systeme.consulter', 'systeme.configurer'], <Systeme />)} />
+            <Route path="systeme/sauvegardes" element={G(['sauvegarde.creer'], <Sauvegardes />)} />
+            <Route path="cartes" element={G(['cartes.consulter'], <CartesRegistre />)} />
+            <Route path="cartes/modele" element={G(['modele_carte.configurer'], <ModeleCarte />)} />
+            <Route path="cartes/:id" element={<CarteDetail />} />
+            <Route path="ma-carte" element={<MaCarte />} />
+            <Route path="gouvernance" element={G(['operations.confirmer', 'systeme.maintenir', 'role.attribuer', 'acces_support.demander', 'acces_support.valider', 'urgence.activer', 'urgence.desactiver'], <Gouvernance />)} />
+            <Route path="restaurations" element={G(['sauvegarde.restaurer', 'sauvegarde.valider_restauration'], <Restaurations />)} />
+            <Route path="systeme/maintenance" element={G(['systeme.consulter', 'systeme.maintenir'], <Maintenance />)} />
+            <Route path="systeme/sante" element={G(['systeme.consulter'], <Sante />)} />
+            <Route path="systeme/erreurs" element={G(['systeme.consulter'], <JournalTechnique />)} />
+            <Route path="rapports-securite" element={G(['rapport_securite.consulter'], <RapportsSecurite />)} />
             <Route path="securite" element={G(['securite.superviser', 'session.consulter'], <Securite />)} />
             <Route path="systeme/reinitialisation" element={G(['systeme.maintenir'], <Reinitialisation />)} />
             <Route path="acces-refuse" element={<Forbidden />} />

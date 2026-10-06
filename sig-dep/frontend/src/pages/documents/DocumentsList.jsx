@@ -23,7 +23,7 @@ export default function DocumentsList() {
       }}
       filtres={[
         { key: 'type', label: 'Type de document', placeholder: 'Tous types', options: (types.data?.data || []).map((t) => [t.code, t.libelle]) },
-        { key: 'statut', label: 'Statut', placeholder: 'Tous statuts', options: ['BROUILLON', 'EN_EXAMEN', 'A_CORRIGER', 'VALIDE_DIVISION', 'VALIDE', 'REJETE', 'ARCHIVE'].map((s) => [s, STATUTS[s][0]]) },
+        { key: 'statut', label: 'Statut', placeholder: 'Tous statuts', options: ['BROUILLON', 'EN_RELECTURE', 'A_CORRIGER', 'VISE', 'VALIDE', 'PUBLIE', 'REJETE', 'ARCHIVE'].map((s) => [s, STATUTS[s][0]]) },
       ]}
       columns={[
         { key: 'reference', header: 'Référence', sortable: true, render: (d) => <span className="whitespace-nowrap font-medium">{d.reference}</span> },

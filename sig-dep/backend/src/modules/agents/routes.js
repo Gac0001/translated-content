@@ -23,7 +23,7 @@ const photoUpload = makeUpload({ imagesOnly: true });
 
 const STATUTS = ['ACTIF', 'CONGE', 'DETACHE', 'SUSPENDU', 'RETRAITE', 'ARCHIVE'];
 
-/** Lecture du personnel : périmètre + délégation « suivi administratif du personnel ». */
+/** Lecture du personnel : périmètre + désignation « suivi administratif du personnel ». */
 function canReadAll(ctx) {
   return ['SUPERVISION_GLOBALE', 'DIRECTION'].includes(ctx.perimetre) || ctx.can('personnel.suivre');
 }

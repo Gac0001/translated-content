@@ -17,7 +17,7 @@ export default function Structure() {
             <div className="grid gap-4 lg:grid-cols-3">
               <Card title="Identification" className="lg:col-span-2">
                 <KeyValues items={[
-                  ['Code', st.code], ['Rang organique', rang === 'BUREAU' ? 'Bureau' : rang === 'DIVISION' ? 'Division' : 'Direction'],
+                  ['Code organique', st.code_organique || '—'], ['Code interne', st.code], ['Rang organique', rang === 'BUREAU' ? 'Bureau' : rang === 'DIVISION' ? 'Division' : 'Direction'],
                   ['Rattachement hiérarchique', s.rattachement?.libelle],
                   type === 'bureau' && ['Division de rattachement', s.rattachement?.divisionRattachement],
                   type !== 'direction' && ['Supérieur direct', s.rattachement?.superieurDirect === 'DIRECTEUR' ? 'Directeur' : 'Chef de Division'],

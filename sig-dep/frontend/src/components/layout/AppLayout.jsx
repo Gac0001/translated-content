@@ -1,9 +1,10 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
+import { fmtDate } from '../../lib/format';
 import {
   LayoutDashboard, Network, BookOpen, Users, UserCog, CalendarCheck, Mail, Send, ListTodo, FileText, FolderKanban,
-  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap, ShieldAlert,
-  Search, Share2,
+  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2, Landmark, IdCard, MessageCircleQuestion,
+  Search, CalendarDays, Gavel, Presentation,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth, useCompteurs } from '../../store/auth';
@@ -15,13 +16,18 @@ import GlobalSearch from './GlobalSearch';
 const MENU = [
   { section: 'Pilotage' },
   { to: '/', label: 'Tableau de bord', icon: LayoutDashboard, end: true },
+  { to: '/agenda', label: 'Agenda du Directeur', icon: CalendarDays, perms: ['agenda.consulter'] },
+  { to: '/decisions', label: 'Registre des décisions', icon: Gavel, agent: true },
   { to: '/rapports', label: 'Rapports et statistiques', icon: BarChart3, perms: ['rapports.consulter'] },
   { section: 'Organisation' },
   { to: '/organigramme', label: 'Organigramme', icon: Network, perms: ['organisation.consulter'] },
   { to: '/cadre-organique', label: 'Cadre organique', icon: BookOpen, perms: ['organisation.consulter'] },
   { to: '/personnel', label: 'Personnel', icon: Users, perms: ['personnel.consulter', 'personnel.suivre'] },
+  { to: '/ma-carte', label: 'Ma carte de service', icon: IdCard, agent: true },
   { section: 'Activités' },
   { to: '/instructions', label: 'Instructions', icon: Send, perms: ['instructions.consulter'], counter: 'instructions' },
+  { to: '/reunions', label: 'Réunions', icon: Presentation, agent: true },
+  { to: '/demandes-information', label: 'Demandes d’information', icon: MessageCircleQuestion, perms: ['demandes_info.emettre', 'demandes_info.repondre'], counter: 'demandesInfo' },
   { to: '/taches', label: 'Tâches', icon: ListTodo, perms: ['taches.consulter'], counter: 'taches' },
   { to: '/presences', label: 'Présences', icon: CalendarCheck, perms: ['presences.consulter', 'presences.preparer_direction'], counter: 'presences' },
   { to: '/courriers', label: 'Courriers', icon: Mail, perms: ['courriers.consulter'], counter: 'courriers' },
@@ -31,20 +37,30 @@ const MENU = [
   { to: '/liste-declarative', label: 'Liste déclarative', icon: ListChecks, perms: ['liste.consulter'] },
   { to: '/comptes/enrolement', label: 'Enrôlement des agents', icon: UserPlus, perms: ['compte.enroler'] },
   { to: '/comptes', label: 'Comptes utilisateurs', icon: UserCog, perms: ['compte.consulter'], end: true },
-  { to: '/delegations', label: 'Délégations', icon: Share2, perms: ['delegations.gerer'] },
+  { to: '/cartes', label: 'Cartes de service', icon: IdCard, perms: ['cartes.consulter'], end: true },
+  { to: '/cartes/modele', label: 'Modèle de carte', icon: IdCard, perms: ['modele_carte.configurer'] },
+  { to: '/actes', label: 'Actes administratifs', icon: Stamp, perms: ['actes.consulter', 'actes.preparer', 'actes.enregistrer_direction'] },
+  { to: '/designations', label: 'Désignations', icon: Share2, perms: ['designations.gerer'] },
   { to: '/roles', label: 'Rôles et permissions', icon: ShieldCheck, perms: ['role.attribuer'] },
   { to: '/securite', label: 'Sécurité', icon: ShieldAlert, perms: ['securite.superviser'], counter: 'alertes' },
+  { to: '/rapports-securite', label: 'Rapports de sécurité', icon: FileBarChart, perms: ['rapport_securite.consulter'] },
   { to: '/audit', label: 'Journal d’audit', icon: ScrollText, perms: ['audit.consulter'] },
+  { to: '/systeme/sauvegardes', label: 'Sauvegardes', icon: DatabaseBackup, perms: ['sauvegarde.creer'] },
+  { to: '/gouvernance', label: 'Gouvernance', icon: Landmark, perms: ['operations.confirmer', 'systeme.maintenir', 'acces_support.demander', 'acces_support.valider', 'urgence.activer', 'urgence.desactiver'] },
+  { to: '/restaurations', label: 'Restaurations', icon: History, perms: ['sauvegarde.restaurer', 'sauvegarde.valider_restauration'] },
+  { to: '/systeme/maintenance', label: 'Maintenance', icon: Wrench, perms: ['systeme.maintenir'] },
+  { to: '/systeme/sante', label: 'Santé du système', icon: HeartPulse, perms: ['systeme.consulter'] },
+  { to: '/systeme/erreurs', label: 'Journal technique', icon: Bug, perms: ['systeme.consulter'] },
   { to: '/systeme', label: 'Système', icon: Settings, perms: ['systeme.consulter', 'systeme.configurer'], end: true },
   { to: '/systeme/reinitialisation', label: 'Réinitialisation', icon: DatabaseZap, perms: ['systeme.maintenir'] },
 ];
 
-/** Regroupe le menu par section, en ne gardant que les entrées autorisées. */
-function groupes(permissions) {
+/** Regroupe le menu par section, en ne gardant que les entrées autorisées (« agent » : réservé aux titulaires d’une fiche Agent). */
+function groupes(user) {
   const res = [];
   for (const m of MENU) {
     if (m.section) res.push({ section: m.section, items: [] });
-    else if (!m.perms || m.perms.some((p) => permissions.includes(p))) res[res.length - 1].items.push(m);
+    else if (m.agent ? !!user.agent : !m.perms || m.perms.some((p) => user.permissions.includes(p))) res[res.length - 1].items.push(m);
   }
   return res.filter((g) => g.items.length);
 }
@@ -54,7 +70,7 @@ function Sidebar({ onNavigate }) {
   const { compteurs } = useCompteurs();
   return (
     <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Menu principal">
-      {groupes(user.permissions).map((g) => (
+      {groupes(user).map((g) => (
         <div key={g.section} className="mt-4 first:mt-0">
           <h2 id={`menu-${g.section}`} className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-dep-200">{g.section}</h2>
           <ul aria-labelledby={`menu-${g.section}`} className="space-y-0.5">
@@ -132,6 +148,15 @@ export default function AppLayout() {
     navigate('/connexion', { state: raison === 'inactivite' ? { message: 'Vous avez été déconnecté après une période d’inactivité.' } : undefined });
   };
   const { remaining, prolonger } = useInactivity(() => logout('inactivite'), user.sessionInactiviteMinutes);
+  // Bandeau « maintenance active » (visible des Admins Système, seuls à garder l’accès)
+  const [maintenanceActive, setMaintenanceActive] = useState(null);
+  useEffect(() => {
+    let vivant = true;
+    const lire = () => api.get('/statut-public').then((r) => vivant && setMaintenanceActive(r.data.maintenance.active ? r.data.maintenance : null)).catch(() => {});
+    lire();
+    const t = setInterval(lire, 60000);
+    return () => { vivant = false; clearInterval(t); };
+  }, [location.pathname]);
 
   const nom = user.agent ? [user.agent.prenom, user.agent.nom].filter(Boolean).join(' ') : user.username;
   const structure = user.affectation?.bureauNom || user.affectation?.divisionNom || (user.primaryRole === 'DIRECTEUR' ? DEP_NOM : user.primaryRole === 'SECRETAIRE_GENERAL' ? SG_NOM : 'Administration technique');
@@ -206,6 +231,24 @@ export default function AppLayout() {
           <div className="text-xs uppercase">{SG_NOM}</div>
           <div className="text-sm font-bold uppercase text-dep-800">{DEP_NOM} (DEP)</div>
         </div>
+        {maintenanceActive && (
+          <div className="flex flex-wrap items-center gap-2 bg-amber-100 px-4 py-2 text-sm text-amber-900 no-print" role="status">
+            <Wrench size={16} /> <b>Mode maintenance actif</b> — seuls les Admins Système accèdent à l’application. {maintenanceActive.message}
+            {user.permissions.includes('systeme.maintenir') && <Link to="/systeme/maintenance" className="ml-auto underline">Gérer</Link>}
+          </div>
+        )}
+        {user.interim && (
+          <div className="flex flex-wrap items-center gap-2 bg-sky-50 px-4 py-2 text-sm text-sky-900 no-print" role="status">
+            <Stamp size={16} /> Vous exercez par intérim les fonctions de <b>{user.interim.poste}</b> jusqu’au {fmtDate(user.interim.dateFin)} inclus.
+            <Link to={`/actes/${user.interim.acteId}`} className="ml-auto underline">Acte {user.interim.numero}</Link>
+          </div>
+        )}
+        {user.suspensions?.map((x) => (
+          <div key={x.acteId} className="flex flex-wrap items-center gap-2 bg-amber-50 px-4 py-2 text-sm text-amber-900 no-print" role="status">
+            <Stamp size={16} /> Pendant votre absence, les fonctions de <b>{x.poste}</b> sont exercées par intérim par {x.interimaire} jusqu’au {fmtDate(x.dateFin)} inclus.
+            <Link to={`/actes/${x.acteId}`} className="ml-auto underline">Voir l’acte</Link>
+          </div>
+        ))}
         <main id="contenu" ref={main} tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 focus:outline-none sm:px-6">
           {/* Le menu et l’en-tête restent affichés pendant le chargement d’une page. */}
           <Suspense fallback={<Spinner />}><Outlet /></Suspense>

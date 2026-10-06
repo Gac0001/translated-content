@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, DatabaseZap, FlaskConical, ShieldCheck, UserPlus } from 'lucide-react';
 import api from '../../lib/api';
-import { useApi, Loadable, PageHeader, Card, InfoAlert, Field, runAction, KeyValues } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, InfoAlert, Field, runAction, KeyValues, runCritique } from '../../components/ui';
 
 const PHRASE = 'REINITIALISER';
 
@@ -31,8 +31,9 @@ export default function Reinitialisation() {
     e.preventDefault();
     setBusy(true);
     try {
-      const r = await runAction(() => api.post('/systeme/reinitialisation', { mode, confirmation: phrase, motDePasse, sauvegarde }), 'Base réinitialisée.');
-      setResultat(r.data); setPhrase(''); setMotDePasse(''); state.reload();
+      const r = await runCritique(() => api.post('/systeme/reinitialisation', { mode, confirmation: phrase, motDePasse, sauvegarde }), 'Base réinitialisée.');
+      if (r) { setResultat(r.data); state.reload(); }
+      setPhrase(''); setMotDePasse('');
     } catch { /* message affiché */ } finally { setBusy(false); }
   };
 

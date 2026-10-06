@@ -5,7 +5,7 @@ import api from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { fmtDateTime } from '../../lib/format';
 import { COLORS, ROLES } from '../../lib/labels';
-import { useApi, Loadable, PageHeader, Card, Tabs, DataTable, Badge, InfoAlert, runAction, useConfirm, Select, Stat } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, Tabs, DataTable, Badge, InfoAlert, runAction, useConfirm, Select, Stat, runCritique } from '../../components/ui';
 
 const GRAVITE = {
   CRITIQUE: ['Critique', COLORS.danger],
@@ -139,7 +139,7 @@ function Politique() {
   const modifie = Object.keys(v).some((k) => v[k] !== valeurs[k]);
   const enregistrer = async () => {
     const changes = Object.fromEntries(Object.keys(v).filter((k) => v[k] !== valeurs[k]).map((k) => [k, v[k]]));
-    await runAction(() => api.put('/securite/politique', changes), 'Politique enregistrée.');
+    await runCritique(() => api.put('/securite/politique', changes), 'Politique enregistrée.');
     state.reload();
   };
   const groupes = [
@@ -147,6 +147,7 @@ function Politique() {
     ['Verrouillage et alertes', ['verrouillage_tentatives', 'verrouillage_minutes', 'alerte_echecs_seuil']],
     ['Sessions', ['session_duree_jours', 'session_inactivite_minutes']],
     ['Comptes inactifs', ['inactivite_compte_jours', 'inactivite_desactivation_auto']],
+    ['Supervision', ['disque_seuil_attention', 'disque_seuil_critique', 'erreurs_conservation_jours']],
   ];
   const lecture = !can('systeme.configurer');
   return (

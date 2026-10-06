@@ -3,7 +3,7 @@
 /** Appellation officielle — ne jamais utiliser une autre forme. */
 const DEP_NOM = 'Direction d’Études et Planification';
 const DEP_SIGLE = 'DEP';
-const SG_NOM = 'Secrétariat Général à l’Économie Numérique';
+const SG_NOM = 'Secrétariat Général au Numérique';
 const PAYS = 'République Démocratique du Congo';
 const SECRETARIAT_CODE = 'BSD';
 const SECRETARIAT_NOM = 'Bureau Secrétariat de Direction';
@@ -41,7 +41,7 @@ const PERIMETRES = {
 /** Permissions réservées aux Divisions : jamais attribuables au Bureau Secrétariat de Direction ou à son Chef. */
 const DIVISION_ONLY_PERMISSIONS = ['division.gerer', 'division.superviser', 'division.valider', 'chef_division.agir'];
 
-/** Permissions que le Directeur peut déléguer au Chef du Bureau Secrétariat de Direction. */
+/** Opérations désignables (désignation temporaire sur acte). */
 const DELEGABLE_PERMISSIONS = [
   'personnel.suivre',
   'presences.preparer_direction',

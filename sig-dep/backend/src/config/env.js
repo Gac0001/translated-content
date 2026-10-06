@@ -38,6 +38,13 @@ const config = {
   presenceAutolockHours: Number(process.env.PRESENCE_AUTOLOCK_HOURS || 24),
   seedDemo: process.env.SEED_DEMO !== 'false',
   pgDumpPath: process.env.PG_DUMP_PATH || 'pg_dump',
+  pgRestorePath: process.env.PG_RESTORE_PATH || 'pg_restore',
+  // Copie de chaque sauvegarde hors du serveur (disque externe, partage réseau) — vide : aucune copie
+  backupCopyDir: process.env.BACKUP_COPY_DIR ? path.resolve(process.env.BACKUP_COPY_DIR) : null,
+  // Clé de chiffrement des sauvegardes (AES-256-GCM). À conserver hors ligne : sans elle, les sauvegardes sont illisibles.
+  backupEncKey: process.env.BACKUP_ENC_KEY || null,
+  // Adresse publique de la page de vérification des cartes de service (contenu du QR code).
+  publicUrl: (process.env.PUBLIC_URL || process.env.APP_URL || 'http://localhost:5173').replace(/\/+$/, ''),
   mail: {
     enabled: process.env.MAIL_ENABLED === 'true',
     // smtp (production) | json (tests : aucun envoi réseau) | log (affichage console)

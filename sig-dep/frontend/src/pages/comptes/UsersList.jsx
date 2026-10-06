@@ -16,7 +16,7 @@ export default function UsersList() {
     <ListPage title="Comptes utilisateurs" breadcrumb={[{ label: 'Administration' }, { label: 'Comptes' }]}
       liste={liste} state={state} onRowClick={(u) => navigate(`/comptes/${u.id}`)}
       actions={<>
-        {can('delegations.gerer') && <Link to="/delegations" className="btn-secondary"><Share2 size={16} aria-hidden /> Délégations</Link>}
+        {can('designations.gerer') && <Link to="/designations" className="btn-secondary"><Share2 size={16} aria-hidden /> Désignations</Link>}
         {can('liste.consulter') && <Link to="/liste-declarative" className="btn-secondary"><ListChecks size={16} aria-hidden /> Liste déclarative</Link>}
         {can('compte.enroler') && <Link to="/comptes/enrolement" className="btn-secondary"><UserPlus size={16} aria-hidden /> Enrôler un agent</Link>}
         {can('compte.creer_initial') && <Link to="/comptes/nouveau" className="btn-primary"><Plus size={16} aria-hidden /> Compte institutionnel</Link>}
@@ -27,7 +27,7 @@ export default function UsersList() {
         { key: 'inactifs', label: 'Activité', placeholder: 'Tous les comptes', options: [['1', `Inactifs (> ${state.data?.seuilInactiviteJours ?? 90} j)`]] },
       ]}
       columns={[
-        { key: 'username', header: 'Utilisateur', primary: true, sortable: true, render: (u) => <span className="font-medium">{u.username}</span> },
+        { key: 'username', header: 'Utilisateur', primary: true, sortable: true, render: (u) => <span className="font-medium">{u.username}{u.compte_urgence && <Badge tone="danger" className="ml-2">Compte d’urgence{u.statut === 'DESACTIVE' ? ' — scellé' : ' — actif'}</Badge>}</span> },
         { key: 'nom', header: 'Titulaire', sortValue: (u) => [u.nom, u.prenom].filter(Boolean).join(' '), search: titulaire, render: (u) => titulaire(u) || <span className="text-slate-500">Compte technique</span> },
         { key: 'roles', header: 'Rôle(s)', sortValue: (u) => u.roles.map((r) => ROLES[r]).join(' '), search: (u) => u.roles.map((r) => ROLES[r]).join(' '), render: (u) => <div className="flex flex-wrap gap-1">{u.roles.map((r) => <Badge key={r}>{ROLES[r]}</Badge>)}</div> },
         { key: 'structure', header: 'Structure', sortValue: (u) => u.bureau_nom || u.division_nom, search: (u) => `${u.bureau_nom} ${u.division_nom}`, render: (u) => u.bureau_nom || u.division_nom || '—' },

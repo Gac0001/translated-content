@@ -5,6 +5,7 @@ import { useApi, Loadable, PageHeader, toast } from '../../components/ui';
 import AgentView from './AgentView';
 import NotificationPreferences from '../../components/NotificationPreferences';
 import SecuriteCompte from '../../components/SecuriteCompte';
+import SessionsCompte from '../../components/SessionsCompte';
 import { useAuth } from '../../store/auth';
 
 export default function Profil() {
@@ -24,7 +25,7 @@ export default function Profil() {
           {(a) => <AgentView a={a} photoVersion={v} extraActions={<label className="btn-ghost mt-2 cursor-pointer text-xs focus-within:ring-2 focus-within:ring-dep-400"><Upload size={14} /> Changer la photo<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => upload(e.target.files[0])} /></label>} />}
         </Loadable>
       )}
-      <div className="mt-4 space-y-4"><SecuriteCompte /><NotificationPreferences /></div>
+      <div className="mt-4 space-y-4"><SecuriteCompte /><SessionsCompte /><NotificationPreferences /></div>
     </>
   );
 }

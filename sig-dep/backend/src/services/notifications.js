@@ -19,6 +19,14 @@ const TYPES = {
   PIP: 'Fiche PIP',
   INSTRUCTION_REPONSE: 'Compte rendu d’instruction',
   SECURITE: 'Alerte de sécurité',
+  SYSTEME: 'Annonce système',
+  ACTE: 'Acte administratif',
+  CARTE: 'Carte de service',
+  CONNEXION: 'Nouvelle connexion',
+  DEMANDE_INFO: 'Demande d’information',
+  REUNION: 'Réunion',
+  DECISION: 'Décision',
+  AGENDA: 'Agenda du Directeur',
 };
 
 /**

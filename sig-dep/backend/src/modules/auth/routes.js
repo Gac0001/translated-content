@@ -20,9 +20,12 @@ const { politique } = require('../../services/politique');
 const deuxFacteurs = require('../../services/deuxFacteurs');
 const { envoyerDirect } = require('../../services/mailer');
 const tokens = require('../../services/tokens');
+const maintenance = require('../../services/maintenance');
 const { passwordSchema, verifierPolitique, historiser, reglesLisibles } = require('../../utils/password');
 const { unauthorized, badRequest, AppError } = require('../../utils/errors');
 const { REGLES_SECURITE } = require('../../constants');
+const { notify } = require('../../services/notifications');
+const { ROLES_RENFORCES } = require('../../services/context');
 
 const router = express.Router();
 
@@ -103,13 +106,53 @@ async function controlerStatut(req, user, username) {
   }
 }
 
+/** En maintenance, seuls les Admins Système peuvent ouvrir une session. */
+async function controlerMaintenance(user) {
+  const m = await maintenance.etat();
+  if (m.active && !(await estAdmin(user.id))) throw new AppError(503, 'MAINTENANCE', m.message || 'Le SIG-DEP est en maintenance.', { fin: m.fin });
+}
+
+/** Navigateur et système lisibles à partir de l’en-tête User-Agent. */
+function appareil(ua = '') {
+  const nav = /Edg\//.test(ua) ? 'Edge' : /OPR\/|Opera/.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Navigateur inconnu';
+  const os = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Mac OS X/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : 'système inconnu';
+  return `${nav} sur ${os}`;
+}
+
+/** Première connexion réussie depuis cet appareil (navigateur) au cours des 180 derniers jours, hors toute première connexion. */
+async function nouvelAppareil(req, user) {
+  const ua = String(req.headers['user-agent'] || '').slice(0, 300);
+  const prec = await db('login_history').where({ user_id: user.id, succes: true }).where('created_at', '>', db.raw(`now() - interval '180 days'`))
+    .select(db.raw('count(*)::int as total'), db.raw('count(*) FILTER (WHERE user_agent = ?)::int as meme', [ua])).first();
+  return prec.total > 0 && prec.meme === 0;
+}
+
 async function ouvrirSession(req, res, user, motif = 'Connexion réussie') {
+  if (user.compte_urgence) {
+    // Compte d’urgence : uniquement pendant la période d’activation ; chaque connexion est signalée.
+    if (!user.urgence_jusqua || new Date(user.urgence_jusqua) <= new Date()) {
+      await require('../../services/gouvernance').fermerUrgence({ par: 'SIG-DEP', motif: 'Échéance de l’activation' });
+      await logLogin(req, user, user.username, false, 'Compte d’urgence hors période d’activation');
+      throw unauthorized('Le compte d’urgence n’est pas activé.', 'COMPTE_DESACTIVE');
+    }
+    await require('../../services/gouvernance').signalerConnexionUrgence(user, req.ip);
+  }
+  await controlerMaintenance(user);
   await db('users').where({ id: user.id }).update({ failed_attempts: 0, locked_until: null, last_login_at: db.fn.now() });
+  const nouveau = await nouvelAppareil(req, user);
   const { raw, row } = await tokens.issueRefresh(user.id, req);
   tokens.setRefreshCookie(res, raw, row.expires_at);
   await logLogin(req, user, user.username, true, motif);
   const fresh = await db('users').where({ id: user.id }).first();
   const ctx = await loadContext(user.id);
+  // Comptes sensibles (Admin, Directeur, SG) : avis de connexion depuis un nouvel appareil.
+  if (nouveau && ctx.roles.concat(ctx.rolesPermanents || []).some((r) => ROLES_RENFORCES.includes(r))) {
+    await notify(user.id, {
+      type: 'CONNEXION', titre: 'Connexion depuis un nouvel appareil',
+      message: `Le ${new Date().toLocaleString('fr-FR', { timeZone: 'Africa/Kinshasa' })}, ${appareil(req.headers['user-agent'])}, adresse ${req.ip}. Si ce n’est pas vous, fermez cette session depuis Mon profil → Sessions et changez votre mot de passe.`,
+      lien: '/profil',
+    });
+  }
   return res.json({ accessToken: tokens.signAccess(fresh), user: publicContext(ctx) });
 }
 
@@ -187,6 +230,7 @@ router.post('/refresh', async (req, res) => {
   if (new Date(row.expires_at) <= new Date()) { tokens.clearRefreshCookie(res); throw unauthorized('Session expirée.', 'SESSION_EXPIREE'); }
   const user = await db('users').where({ id: row.user_id }).first();
   if (!user || user.statut !== 'ACTIF') { tokens.clearRefreshCookie(res); throw unauthorized('Compte indisponible.', 'COMPTE_INDISPONIBLE'); }
+  await controlerMaintenance(user);
 
   const result = await db.transaction(async (trx) => {
     const n = await tokens.issueRefresh(user.id, req, row.family_id, trx, row.expires_at);
@@ -213,6 +257,33 @@ router.post('/logout', async (req, res) => {
 
 router.get('/me', authenticate, async (req, res) => {
   res.json({ user: publicContext(req.ctx) });
+});
+
+// ─── Sessions personnelles (appareils connectés) ─────────────────────────────
+router.get('/sessions', authenticate, async (req, res) => {
+  const raw = req.cookies && req.cookies[tokens.COOKIE_NAME];
+  const courant = raw ? await db('refresh_tokens').where({ token_hash: tokens.sha256(raw) }).first('family_id') : null;
+  const rows = await db('refresh_tokens').where({ user_id: req.ctx.userId }).whereNull('revoked_at').where('expires_at', '>', db.fn.now())
+    .select('family_id', 'ip', 'user_agent', 'created_at', 'expires_at').orderBy('created_at', 'desc');
+  const ouvertures = await db('refresh_tokens').where({ user_id: req.ctx.userId }).whereIn('family_id', rows.map((r) => r.family_id))
+    .groupBy('family_id').select('family_id', db.raw('min(created_at) as ouverte_at'));
+  res.json({
+    data: rows.map((r) => ({
+      id: r.family_id, appareil: appareil(r.user_agent), ip: r.ip, derniereActivite: r.created_at, expire: r.expires_at,
+      ouverte: (ouvertures.find((o) => o.family_id === r.family_id) || {}).ouverte_at, courante: !!courant && courant.family_id === r.family_id,
+    })),
+  });
+});
+
+/** Ferme une session (appareil) : son jeton de renouvellement est révoqué et les jetons d’accès en cours sont invalidés. */
+router.post('/sessions/:id/fermer', authenticate, validate({ params: z.object({ id: z.uuid() }) }), async (req, res) => {
+  const n = await db('refresh_tokens').where({ user_id: req.ctx.userId, family_id: req.valid.params.id }).whereNull('revoked_at')
+    .update({ revoked_at: db.fn.now(), revoked_reason: 'FERMETURE_UTILISATEUR' });
+  if (!n) throw badRequest('Session introuvable ou déjà fermée.');
+  await db('users').where({ id: req.ctx.userId }).increment('token_version', 1);
+  await audit(req, { action: 'REVOCATION_SESSION', module: 'auth', entite: 'user', entiteId: req.ctx.userId, message: 'Session fermée par son titulaire depuis un autre appareil' });
+  const fresh = await db('users').where({ id: req.ctx.userId }).first();
+  res.json({ message: 'Session fermée.', accessToken: tokens.signAccess(fresh) });
 });
 
 /** Change le mot de passe (politique, historique), révoque les autres sessions et en ouvre une nouvelle. */

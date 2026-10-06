@@ -12,6 +12,7 @@ const validate = require('../../middleware/validate');
 const { requirePerm } = require('../../middleware/auth');
 const { audit } = require('../../services/audit');
 const { notify } = require('../../services/notifications');
+const { directeursActifs } = require('../../services/alertes');
 const { addHistory, getHistory } = require('../../services/history');
 const { scopePresences } = require('../../services/access');
 const pdf = require('../../services/pdf');
@@ -50,7 +51,7 @@ async function loadSheet(ctx, id) {
   return row;
 }
 
-/** Peut préparer/modifier la liste : créateur, Chef du Bureau concerné, ou délégation Direction. */
+/** Peut préparer/modifier la liste : créateur, Chef du Bureau concerné, ou désignation Direction. */
 function canEdit(ctx, s) {
   if (ctx.perimetre === 'SUPERVISION_GLOBALE') return false;
   if (s.created_by === ctx.userId) return true;
@@ -122,7 +123,7 @@ router.post('/', requirePerm('presences.saisir', 'presences.preparer_direction')
     const own = req.ctx.can('presences.saisir') && req.ctx.perimetre === 'BUREAU' && req.ctx.bureauId === bureau.id;
     if (!own && !req.ctx.can('presences.preparer_direction')) throw forbidden('Vous ne pouvez créer que la liste de présence de votre propre Bureau.', 'HORS_PERIMETRE');
   } else if (!req.ctx.can('presences.preparer_direction')) {
-    throw forbidden('La préparation des listes de la Direction relève du Bureau Secrétariat de Direction sur délégation du Directeur.');
+    throw forbidden('La préparation des listes de la Direction relève du Bureau Secrétariat de Direction sur désignation du Directeur.');
   }
   const eligible = await eligibleAgents(b.structure_type, bureau ? bureau.id : null);
   const ids = b.agent_ids && b.agent_ids.length ? b.agent_ids : eligible.map((a) => a.id);
@@ -246,7 +247,7 @@ router.post('/:id/soumettre', requirePerm('presences.soumettre', 'presences.prep
   await db('presence_sheets').where({ id: s.id }).update({ statut: 'SOUMISE', submitted_by: req.ctx.userId, submitted_at: db.fn.now(), updated_at: db.fn.now() });
   await addHistory('PRESENCE', s.id, req.ctx.userId, { action: 'SOUMISSION', ancien: 'VERIFIEE', nouveau: 'SOUMISE', commentaire: 'Soumise au Directeur — liste verrouillée en écriture' });
   await audit(req, { action: 'TRANSMISSION', module: 'presences', entite: 'presence_sheet', entiteId: s.id, avant: { statut: s.statut }, apres: { statut: 'SOUMISE' } });
-  const directeurs = await db('users as u').join('user_roles as ur', 'ur.user_id', 'u.id').join('roles as r', 'r.id', 'ur.role_id').where({ 'r.code': 'DIRECTEUR', 'u.statut': 'ACTIF' }).pluck('u.id');
+  const directeurs = await directeursActifs();
   await notify(directeurs, { type: 'PRESENCE', titre: `Liste de présence soumise : ${s.reference}`, lien: `/presences/${s.id}`, expediteur: req.ctx.userId });
   res.json(await sheetDetail(req.ctx, s.id));
 });

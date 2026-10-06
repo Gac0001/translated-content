@@ -10,7 +10,7 @@ const { authenticator } = require('otplib');
 const config = require('../src/config/env');
 const { dechiffrer } = require('../src/services/deuxFacteurs');
 const { invalider } = require('../src/services/politique');
-const { db, request, app, login, loginAdmin, api, userId, connexion, ADMIN_NEW } = require('./helpers');
+const { db, request, app, login, loginAdmin, api, userId, connexion, avecConfirmation, ADMIN_NEW } = require('./helpers');
 
 /** Crée directement un second compte technique « neuf » pour dérouler la première connexion. */
 async function compteNeuf(username) {
@@ -181,7 +181,12 @@ describe('Gestion des comptes, sessions et rôles par l’Admin', () => {
     // Permissions techniques interdites aux rôles institutionnels ; rôle Admin protégé
     const agent = await admin.put('/users/roles/AGENT/permissions', { permissions: ['organisation.consulter', 'sauvegarde.restaurer'] });
     expect(agent.body.error.code).toBe('PERMISSION_INCOMPATIBLE');
-    expect((await admin.put('/users/roles/ADMIN_SYSTEME/permissions', { permissions: ['audit.consulter'] })).body.error.code).toBe('ROLE_PROTEGE');
+    // Rôle Admin Système : aucune permission métier ; toute autre modification exige la confirmation du Directeur.
+    expect((await admin.put('/users/roles/ADMIN_SYSTEME/permissions', { permissions: ['audit.consulter', 'documents.valider_final'] })).body.error.code).toBe('PERMISSION_INCOMPATIBLE');
+    const attente = await admin.put('/users/roles/ADMIN_SYSTEME/permissions', { permissions: ['audit.consulter'] });
+    expect(attente.status).toBe(202);
+    expect(attente.body.demande.type).toBe('ROLE_ADMIN');
+    expect((await admin.post(`/gouvernance/confirmations/${attente.body.demande.id}/annuler`)).status).toBe(200);
     await expect(db('roles').where({ code: 'DIRECTEUR' }).update({ libelle: 'Chef' })).rejects.toThrow(/ROLE_PROTEGE/);
     await expect(db('roles').where({ code: 'AGENT' }).del()).rejects.toThrow(/ROLE_PROTEGE/);
   });
@@ -196,7 +201,7 @@ describe('Politique de sécurité', () => {
     expect((await admin.get('/securite/politique')).body.valeurs.mdp_longueur_min).toBe(10);
     expect((await admin.put('/securite/politique', { mdp_longueur_min: 4 })).status).toBe(400);
     expect((await admin.put('/securite/politique', { inconnu: 3 })).status).toBe(400);
-    expect((await admin.put('/securite/politique', { mdp_longueur_min: 12 })).status).toBe(200);
+    expect((await avecConfirmation(admin, 'put', '/securite/politique', { mdp_longueur_min: 12 })).status).toBe(200);
     expect(await db('alertes_securite').where({ type: 'POLITIQUE' }).first()).toBeTruthy();
     expect(await db('audit_logs').where({ action: 'POLITIQUE_SECURITE' }).first()).toBeTruthy();
     // Non modifiable par le contournement des paramètres généraux

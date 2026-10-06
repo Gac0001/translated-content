@@ -10,9 +10,13 @@
 const db = require('../db/knex');
 const { FUNCTIONAL_ORDER, DIVISION_ONLY_PERMISSIONS, PERIMETRES } = require('../constants');
 const { politique } = require('./politique');
+const { interimsEnVigueur, appliquerInterims, aujourdhui } = require('./interims');
 
-/** Rôles soumis aux exigences renforcées (double authentification, récupération, règles). */
-const ROLES_RENFORCES = ['ADMIN_SYSTEME'];
+/**
+ * Rôles soumis aux exigences renforcées (double authentification, récupération, règles) :
+ * Admin Système, Directeur et Secrétaire Général (cahier des charges, §§ 12 à 14).
+ */
+const ROLES_RENFORCES = ['ADMIN_SYSTEME', 'DIRECTEUR', 'SECRETAIRE_GENERAL'];
 
 /**
  * Étapes de sécurité à accomplir avant d’accéder à l’application, dans l’ordre :
@@ -23,7 +27,10 @@ function calculerExigences(user, roles, pol) {
   const expire = pol.mdp_expiration_jours > 0 && user.password_changed_at
     && (Date.now() - new Date(user.password_changed_at).getTime()) > pol.mdp_expiration_jours * 86400000;
   if (user.must_change_password || expire) ex.push('MOT_DE_PASSE');
-  if (roles.some((r) => ROLES_RENFORCES.includes(r))) {
+  if (user.compte_urgence) {
+    // Compte d’urgence : nouveau mot de passe et double authentification à chaque activation.
+    if (!user.totp_actif) ex.push('DEUX_FACTEURS');
+  } else if (roles.some((r) => ROLES_RENFORCES.includes(r))) {
     if (!user.totp_actif) ex.push('DEUX_FACTEURS');
     // Adresse de récupération obligatoire ; sa vérification (code par e-mail) est demandée lorsque la
     // messagerie est active, sans bloquer le compte (elle conditionne la récupération par e-mail).
@@ -64,32 +71,55 @@ function computePerimetre(primaryRole, aff) {
 async function loadContext(userId, trx = db) {
   const user = await trx('users').where({ id: userId }).first();
   if (!user) return null;
-  const roles = (await trx('user_roles as ur').join('roles as r', 'r.id', 'ur.role_id').where('ur.user_id', userId).select('r.code'))
+  const rolesPermanents = (await trx('user_roles as ur').join('roles as r', 'r.id', 'ur.role_id').where('ur.user_id', userId).select('r.code'))
     .map((r) => r.code);
-  const rolePerms = await trx('user_roles as ur')
-    .join('role_permissions as rp', 'rp.role_id', 'ur.role_id')
+  const agent = user.agent_id ? await trx('agents').where({ id: user.agent_id }).first() : null;
+  // Intérims en vigueur : rôle et périmètre du poste exercé, suspension du titulaire absent.
+  const situation = appliquerInterims({
+    agentId: user.agent_id, roles: rolesPermanents, affectation: await loadAffectation(user.agent_id, trx),
+  }, await interimsEnVigueur(trx));
+  const { roles } = situation;
+  const aff = situation.affectation;
+  const rolePerms = roles.length ? await trx('roles as r')
+    .join('role_permissions as rp', 'rp.role_id', 'r.id')
     .join('permissions as p', 'p.id', 'rp.permission_id')
-    .where('ur.user_id', userId).distinct('p.code');
+    .whereIn('r.code', roles).distinct('p.code') : [];
+  // Désignations : uniquement pendant leur période, et tant qu’un droit accordé sans acte n’a pas dépassé son délai de régularisation.
+  const jour = aujourdhui();
   const userPerms = await trx('user_permissions as up')
     .join('permissions as p', 'p.id', 'up.permission_id')
-    .where('up.user_id', userId).whereNull('up.revoked_at').distinct('p.code');
+    .where('up.user_id', userId).whereNull('up.revoked_at')
+    .where((w) => w.whereNull('up.date_debut').orWhere('up.date_debut', '<=', jour))
+    .where((w) => w.whereNull('up.date_fin').orWhere('up.date_fin', '>=', jour))
+    .where((w) => w.whereNull('up.a_regulariser_avant').orWhere('up.a_regulariser_avant', '>', trx.fn.now()))
+    .distinct('p.code');
   const permissions = new Set([...rolePerms, ...userPerms].map((p) => p.code));
   const delegations = userPerms.map((p) => p.code);
-
-  const agent = user.agent_id ? await trx('agents').where({ id: user.agent_id }).first() : null;
-  const aff = await loadAffectation(user.agent_id, trx);
   const primaryRole = FUNCTIONAL_ORDER.find((r) => roles.includes(r)) || (roles.includes('ADMIN_SYSTEME') ? 'ADMIN_SYSTEME' : null);
   let perimetre = computePerimetre(primaryRole, aff);
   const inSecretariat = !!(aff && aff.est_secretariat_direction);
   const pol = await politique();
-  const { exigences, mdpExpire } = calculerExigences(user, roles, pol);
+  // Exigences renforcées dès que le rôle est détenu, à titre permanent ou par intérim.
+  const { exigences, mdpExpire } = calculerExigences(user, [...new Set([...rolesPermanents, ...roles])], pol);
 
   if (inSecretariat) {
     for (const p of DIVISION_ONLY_PERMISSIONS) permissions.delete(p);
     if (perimetre === PERIMETRES.DIVISION) perimetre = PERIMETRES.BUREAU;
     // Les membres du Bureau Secrétariat de Direction enrôlent les agents des autres structures
     // (accordé par la structure d’affectation, quel que soit le rôle).
-    if (user.statut === 'ACTIF') permissions.add('compte.enroler');
+    if (user.statut === 'ACTIF') {
+      permissions.add('compte.enroler');
+      // Le Secrétariat prépare l’enregistrement des actes administratifs, validés par le Directeur.
+      permissions.add('actes.preparer');
+      // Il prépare, imprime et remet les cartes de service, validées par le Directeur.
+      permissions.add('cartes.preparer');
+      permissions.add('cartes.consulter');
+      // Il organise les audiences, réunions et rappels de l’agenda du Directeur et prépare
+      // les réunions qu’il préside (convocation, présence, projet de compte rendu).
+      permissions.add('agenda.consulter');
+      permissions.add('agenda.gerer');
+      permissions.add('reunions.preparer_direction');
+    }
   }
   // Un rôle Chef de Division sans affectation de Division ne confère pas les permissions de Division.
   if (primaryRole === 'CHEF_DIVISION' && perimetre !== PERIMETRES.DIVISION) {
@@ -112,7 +142,13 @@ async function loadContext(userId, trx = db) {
     agent,
     affectation: aff,
     roles,
+    rolesPermanents,
     primaryRole,
+    interim: situation.interim ? {
+      acteId: situation.interim.acte_id, numero: situation.interim.numero, reference: situation.interim.reference,
+      poste: situation.interim.poste_libelle, role: situation.interim.role_associe, dateDebut: situation.interim.date_debut, dateFin: situation.interim.date_fin,
+    } : null,
+    suspensions: situation.suspensions.map((x) => ({ acteId: x.acte_id, poste: x.poste_libelle, interimaire: x.interimaire, dateFin: x.date_fin })),
     perimetre,
     permissions,
     delegations,
@@ -121,6 +157,8 @@ async function loadContext(userId, trx = db) {
     bureauId: aff ? aff.bureau_id : null,
     inSecretariat,
     isAdminOnly: roles.length > 0 && roles.every((r) => r === 'ADMIN_SYSTEME'),
+    compteUrgence: !!user.compte_urgence,
+    urgenceJusqua: user.urgence_jusqua,
     // Portée de l’enrôlement : l’Admin enrôle uniquement les agents du Secrétariat autorisés
     // nominativement par le Directeur ; le Secrétariat enrôle les agents des autres structures.
     enrolement: roles.includes('ADMIN_SYSTEME') ? 'SECRETARIAT_AUTORISE' : inSecretariat ? 'HORS_SECRETARIAT' : null,
@@ -147,11 +185,16 @@ function publicContext(ctx) {
     perimetre: ctx.perimetre,
     permissions: [...ctx.permissions].sort(),
     delegations: ctx.delegations,
+    designations: ctx.delegations,
+    interim: ctx.interim,
+    suspensions: ctx.suspensions,
     inSecretariat: ctx.inSecretariat,
+    compteUrgence: ctx.compteUrgence,
+    urgenceJusqua: ctx.urgenceJusqua,
     agent: a ? { id: a.id, matricule: a.matricule, nom: a.nom, postnom: a.postnom, prenom: a.prenom, sexe: a.sexe, email: a.email, telephone: a.telephone, hasPhoto: !!a.photo_path } : null,
     affectation: aff ? {
       niveau: aff.niveau, directionId: aff.direction_id, divisionId: aff.division_id, divisionNom: aff.division_nom,
-      bureauId: aff.bureau_id, bureauNom: aff.bureau_nom, poste: aff.poste_libelle, dateDebut: aff.date_debut,
+      bureauId: aff.bureau_id, bureauNom: aff.bureau_nom, poste: aff.poste_libelle, dateDebut: aff.date_debut, interim: !!aff.interim,
     } : null,
   };
 }

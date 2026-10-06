@@ -7,14 +7,16 @@
  */
 const DIRECTION = {
   code: 'DEP',
+  code_organique: '5.3.3',
   sigle: 'DEP',
   nom: 'Direction d’Études et Planification',
-  autorite_tutelle: 'Secrétariat Général à l’Économie Numérique',
-  missions: 'La Direction d’Études et Planification (DEP) est chargée de conduire les études, la planification, la programmation des investissements, le suivi-évaluation et la production statistique du Secrétariat Général à l’Économie Numérique.',
+  autorite_tutelle: 'Secrétariat Général au Numérique',
+  missions: 'La Direction d’Études et Planification (DEP) est chargée de conduire les études, la planification, la programmation des investissements, le suivi-évaluation et la production statistique du Secrétariat Général au Numérique.',
 };
 
 const SECRETARIAT = {
   code: 'BSD',
+  code_organique: '5.3.3.0',
   nom: 'Bureau Secrétariat de Direction',
   missions: 'Assurer le secrétariat du Directeur, l’enregistrement et la circulation des courriers, le suivi administratif du personnel et des présences, ainsi que la préparation des dossiers soumis au Directeur.',
   attributions: [
@@ -36,6 +38,7 @@ const SECRETARIAT = {
 const DIVISIONS = [
   {
     code: 'DIV-EDI',
+    code_organique: '5.3.3.1',
     nom: 'Division Études, Documentation et Information',
     missions: 'Conduire les études et analyses du secteur de l’économie numérique, gérer la documentation et diffuser l’information de la Direction.',
     attributions: [
@@ -44,12 +47,13 @@ const DIVISIONS = [
       'Assurer la collecte, le traitement et la diffusion de l’information',
     ],
     bureaux: [
-      { code: 'BUR-EAP', nom: 'Bureau Études, Analyses et Perspective', missions: 'Réaliser les études, analyses et travaux de perspective.', attributions: ['Conception et réalisation des études', 'Analyses sectorielles et notes de conjoncture', 'Travaux de perspective et de prospective'] },
-      { code: 'BUR-DOI', nom: 'Bureau Documentation et Information', missions: 'Gérer la documentation et l’information de la Direction.', attributions: ['Tenue du fonds documentaire', 'Collecte et diffusion de l’information', 'Archivage des publications et rapports'] },
+      { code: 'BUR-EAP', code_organique: '5.3.3.1.1', nom: 'Bureau Études, Analyses et Prospective', missions: 'Réaliser les études, analyses et travaux de prospective.', attributions: ['Conception et réalisation des études', 'Analyses sectorielles et notes de conjoncture', 'Travaux de prospective'] },
+      { code: 'BUR-DOI', code_organique: '5.3.3.1.2', nom: 'Bureau Documentation et Information', missions: 'Gérer la documentation et l’information de la Direction.', attributions: ['Tenue du fonds documentaire', 'Collecte et diffusion de l’information', 'Archivage des publications et rapports'] },
     ],
   },
   {
     code: 'DIV-SCI',
+    code_organique: '5.3.3.2',
     nom: 'Division Stratégies et Coopération Internationale',
     missions: 'Élaborer les stratégies du secteur et suivre la coopération internationale.',
     attributions: [
@@ -58,12 +62,13 @@ const DIVISIONS = [
       'Préparer la participation de la DEP aux rencontres avec les partenaires',
     ],
     bureaux: [
-      { code: 'BUR-STR', nom: 'Bureau Stratégies', missions: 'Élaborer et suivre les stratégies du secteur.', attributions: ['Élaboration des documents de stratégie', 'Suivi de la mise en œuvre des stratégies', 'Préparation des plans d’actions'] },
-      { code: 'BUR-COI', nom: 'Bureau Coopération Internationale', missions: 'Suivre la coopération bilatérale et multilatérale.', attributions: ['Suivi des accords de coopération', 'Relations avec les partenaires techniques et financiers', 'Préparation des dossiers de coopération'] },
+      { code: 'BUR-STR', code_organique: '5.3.3.2.1', nom: 'Bureau Stratégies', missions: 'Élaborer et suivre les stratégies du secteur.', attributions: ['Élaboration des documents de stratégie', 'Suivi de la mise en œuvre des stratégies', 'Préparation des plans d’actions'] },
+      { code: 'BUR-COI', code_organique: '5.3.3.2.2', nom: 'Bureau Coopération Internationale', missions: 'Suivre la coopération bilatérale et multilatérale.', attributions: ['Suivi des accords de coopération', 'Relations avec les partenaires techniques et financiers', 'Préparation des dossiers de coopération'] },
     ],
   },
   {
     code: 'DIV-PS',
+    code_organique: '5.3.3.3',
     nom: 'Division Programme et Suivi',
     missions: 'Programmer les activités et investissements et en assurer le suivi-évaluation.',
     attributions: [
@@ -72,8 +77,8 @@ const DIVISIONS = [
       'Produire les rapports périodiques de performance',
     ],
     bureaux: [
-      { code: 'BUR-PRG', nom: 'Bureau Programme', missions: 'Préparer la programmation des activités et des investissements.', attributions: ['Élaboration des programmes d’activités', 'Préparation des fiches de projets PIP', 'Suivi de la programmation budgétaire'] },
-      { code: 'BUR-SEV', nom: 'Bureau Suivi-Évaluation', missions: 'Suivre et évaluer l’exécution des programmes et projets.', attributions: ['Élaboration des fiches de suivi-évaluation', 'Missions de suivi', 'Rapports d’évaluation'] },
+      { code: 'BUR-PRG', code_organique: '5.3.3.3.1', nom: 'Bureau Programme', missions: 'Préparer la programmation des activités et des investissements.', attributions: ['Élaboration des programmes d’activités', 'Préparation des fiches de projets PIP', 'Suivi de la programmation budgétaire'] },
+      { code: 'BUR-SEV', code_organique: '5.3.3.3.2', nom: 'Bureau Suivi-Évaluation', missions: 'Suivre et évaluer l’exécution des programmes et projets.', attributions: ['Élaboration des fiches de suivi-évaluation', 'Missions de suivi', 'Rapports d’évaluation'] },
     ],
   },
 ];

@@ -4,7 +4,7 @@
  * rang BUREAU, rattachement direct au Directeur, aucune Division, aucune permission de Division,
  * jamais présenté ni comptabilisé comme une Division.
  */
-const { db, login, loginAdmin, api, userId } = require('./helpers');
+const { db, login, loginAdmin, api, userId, request, app, PDF } = require('./helpers');
 const { DIVISION_ONLY_PERMISSIONS } = require('../src/constants');
 
 let bsd;
@@ -73,10 +73,19 @@ describe('API — rang, rattachement et permissions', () => {
     expect(res.status).toBe(403);
   });
 
-  test('le Directeur ne peut déléguer qu’une permission délégable (jamais une permission de Division)', async () => {
+  test('une désignation ne porte que sur des opérations désignables (jamais une permission de Division)', async () => {
     const dir = api(await login('directeur'));
-    const res = await dir.post(`/users/${await userId('cb.secretariat')}/delegations`, { permission: 'division.gerer', motif: 'Test interdit' });
+    const agent = await db('users').where({ username: 'cb.secretariat' }).first('agent_id');
+    const a = await dir.post('/actes', {
+      type: 'DESIGNATION', reference: 'Note de test interdite', date_acte: '2026-10-01', autorite: 'Le Directeur', objet: 'Désignation interdite (test)',
+      agent_id: agent.agent_id, permissions: ['division.gerer'], date_debut: '2026-10-01', date_fin: '2026-12-31',
+    });
+    expect(a.status).toBe(201);
+    await request(app).post(`/api/attachments/ACTE/${a.body.id}`).set('Authorization', `Bearer ${await login('directeur')}`).attach('fichiers', PDF, { filename: 'acte.pdf', contentType: 'application/pdf' });
+    const res = await dir.post(`/actes/${a.body.id}/soumettre`);
     expect(res.status).toBe(400);
+    expect(res.body.error.message).toMatch(/non désignables : division\.gerer/);
+    await dir.del(`/actes/${a.body.id}`);
   });
 
   test('la liste des Divisions n’inclut jamais le Bureau Secrétariat de Direction', async () => {

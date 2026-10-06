@@ -1,5 +1,116 @@
 # Journal des versions — SIG-DEP
 
+## 1.14.0
+
+### Lot 8B — Réunions, décisions et agenda du Directeur (cahier des charges, §§ 14, 16 et 25)
+- **Réunions** : préparation par le Directeur, les Chefs de Division et de Bureau pour leur structure, ou par le Bureau Secrétariat de Direction pour les réunions que préside le Directeur ; ordre du jour, participants internes et invités extérieurs, confidentialité. Circuit `Brouillon → Convoquée → Tenue → Compte rendu à valider → Clôturée`, annulation motivée, report notifié, rappel la veille aux participants.
+- **Présence** relevée à partir de l’heure de la réunion (présent, absent, excusé, représenté) ; **compte rendu** rédigé par le rédacteur désigné, soumis au président, retourné avec observations ou validé ; une fois validé, il est **verrouillé en base** (déclencheur) ; convocation et compte rendu en PDF ; annexes.
+- **Décisions** : saisies avec le compte rendu (projets), elles entrent au registre à sa validation et sont notifiées à leur responsable. Le Directeur peut aussi prendre une décision hors réunion.
+- **Mise en œuvre** d’une décision en un clic : tâche (Chef de Bureau → Agent), instruction (subordonné direct) ou instruction exceptionnelle du Directeur, justifiée par la référence de la décision ; **suivi automatique** : la décision est exécutée à la validation de l’instruction ou de la tâche, et redevient à exécuter si celle-ci est annulée. Compte rendu d’exécution par le responsable, abandon motivé par le décideur.
+- **Registre des décisions** : filtres (statut, origine, retard, mes décisions), indicateurs, exports PDF et Excel ; périmètres respectés (Directeur : toutes ; chefs : leur structure ; responsables et décideurs : les leurs).
+- **Agenda du Directeur**, tenu par le Bureau Secrétariat de Direction : audiences, déplacements, cérémonies ; les réunions présidées par le Directeur s’y inscrivent à la convocation et suivent reports et annulations ; rappels la veille et une heure avant.
+- **Tableau de bord du Directeur** : décisions à suivre (dont en retard), agenda du jour, demandes du Secrétaire Général en attente.
+
+## 1.13.0
+
+### Lot 8A — Compléments des circuits de traitement (cahier des charges, §§ 13, 14, 25 et annexe 2)
+- **Instructions et tâches** : nouveaux statuts `Bloquée` (blocage motivé signalé par l’exécutant, levé par l’exécutant ou l’émetteur), `Rapport intermédiaire` (compte rendu d’étape) et `Annulée` (par l’émetteur, avec motif).
+- **Prolongation motivée** : demande de l’exécutant (une seule en attente), décision de l’émetteur (accord à la date demandée ou à une autre date, refus motivé) ou prolongation directe ; échéance initiale conservée, retard levé, historique des prolongations.
+- **Instruction exceptionnelle du Directeur** à tout agent de la DEP, hors chaîne hiérarchique : justification obligatoire (10 caractères au moins), copie automatique et notification au supérieur immédiat du destinataire, mention dans la fiche, le PDF et le journal d’audit. Les Agents peuvent désormais exécuter une instruction qui leur est adressée.
+- **Tâches** : sous-tâches (un niveau, échéance bornée par la tâche parente, qui n’est rendue qu’une fois ses sous-tâches exécutées), dépendances (contrôle des cycles) et **preuves d’exécution** jointes.
+- **Documents** : circuit de l’annexe 2 — `En relecture` → `Visé` → `Validé` → `Publié` → `Archivé`. Le visa revient au Chef de Division, ou au Chef du Bureau Secrétariat de Direction pour son Bureau ; le document ne monte au Directeur qu’une fois visé. **Publication** par le Directeur : toute la Direction ou structures choisies, et le Secrétaire Général s’il le décide ; les destinataires sont notifiés et voient le document publié. Les documents existants sont convertis (« En examen » → « En relecture », « Validé (Division) » → « Visé ») ; l’historique conserve les anciens libellés.
+- **Demandes d’information** du Secrétaire Général au Directeur : question, priorité, échéance, réponse avec pièces jointes, relance, clôture ; aucune tâche interne créée.
+- Compteurs du menu : blocages et demandes de prolongation à décider, demandes d’information en attente.
+
+## 1.12.3
+
+### Carte de service
+- Site web du ministère **www.numerique.cd** au pied du verso (nouvelle version du modèle de carte ; les cartes déjà validées conservent la leur).
+- Le Bloc-armoirie officiel (PNG à fond transparent) se dépose par l’Admin Système dans Administration → Modèle de carte ; il n’est pas versé au dépôt de code.
+
+## 1.12.2
+
+### Carte de service
+- Intitulé sur 3 lignes, taille de police réduite et ajustée pour garder au moins 4 mm d’espace avec l’adresse ; taille limitée aussi par la hauteur du bandeau.
+- **Code à barres = code du QR code** : à la validation, la carte reçoit un code de vérification de 20 chiffres, porté par le QR code (dans le lien de vérification) et par le code à barres (Code 128 C, barres plus larges, lisibles à l’impression). La page /verification accepte ce code (lecteur de code à barres ou saisie) ou le lien du QR code collé, en plus du matricule. Les cartes validées auparavant gardent leur code.
+- **Filigrane** : Bloc-armoirie en gris, plus visible, placé comme sur le modèle de la charte (p. 43) à droite des renseignements, la signature passant sur sa partie basse.
+- Le **Directeur valide lui-même sa propre carte** ; un Directeur intérimaire ne peut pas valider la sienne.
+- Vérification publique : **date d’expiration** affichée en évidence dans la fiche du titulaire (en rouge si la carte est expirée).
+
+## 1.12.1
+
+### Carte de service
+- Intitulé officiel : MINISTÈRE DE L’ÉCONOMIE NUMÉRIQUE / SECRÉTARIAT GÉNÉRAL / DIRECTION D’ÉTUDES ET PLANIFICATION, en capitales grasses de taille homogène (charte, p. 8).
+- Adresse en haut à droite du bandeau : 45, Avenue Lubefu, Quartier Royal, Kinshasa-Gombe.
+- Numéro et dates (délivrance, expiration) retirés de la carte imprimée ; ils restent enregistrés et affichés par la vérification. Le code à barres de sécurité est conservé, sans numéro lisible.
+- Recto réorganisé selon le modèle de la charte (p. 43) : Matricule, Prénom, Nom, Postnom, Grade, Fonction, Affectation, puis « Signature : ».
+- Nouvelle version du modèle de carte (les cartes déjà validées conservent la leur).
+
+## 1.12.0
+
+### Cartes de service (cahier des charges, §§ 20 et 31 ; charte graphique du Gouvernement, p. 43)
+- **Modèle conforme à la charte** : bandeau avec Bloc-armoirie, Ligne d’État (bleu #0095c9, jaune #fff24b, rouge #db3832 à parts égales) et intitulé officiel ; recto avec photo, matricule, nom, postnom, prénom, grade, fonction, affectation, code à barres et signature du Directeur ; verso « LAISSEZ PASSER », mention aux autorités et QR code. Format 85,6 × 54 mm ; planche A4 de 10 cartes avec traits de coupe et verso en miroir.
+- **Modèle versionné** configuré par l’Admin Système (intitulé, adresse, couleurs, armoirie, validité, mention), sans pouvoir de validation.
+- **Spécimen de signature** déposé par le Directeur (mot de passe exigé), appliqué aux cartes qu’il valide, y compris celles validées avant le dépôt.
+- **Circuit** : préparation et contrôle du dossier par le Bureau Secrétariat de Direction, vérification, validation par le Directeur (numéro unique, jeton du QR code, renseignements et photo figés, **validité de 5 ans**), impression, remise, accusé de réception par le titulaire ; suspension, réactivation, annulation, perte (déclarable par le titulaire), remplacement, renouvellement, expiration automatique. Carte validée intangible en base.
+- **Vérification publique** sans connexion, par QR code ou par matricule : photo, nom complet, grade, fonction, affectation et état de la carte. Journal des vérifications, limitation de débit, alerte en cas de recherches répétées sans résultat, vérification par matricule désactivable.
+- « Ma carte de service » pour chaque agent ; nouvelle variable `PUBLIC_URL` (adresse encodée dans le QR code).
+
+## 1.11.0
+
+### Gouvernance du compte Admin Système (cahier des charges, § 12)
+- **Double confirmation par le Directeur** des opérations critiques : réinitialisation de la base, politique de sécurité, migrations, permissions du rôle Admin Système. Demande créée à la première tentative, confirmation protégée par le mot de passe du Directeur, exécution unique dans les 24 heures avec les paramètres confirmés, refus motivé, expiration.
+- Le rôle Admin Système devient modifiable sous double confirmation, sans jamais recevoir de permission métier.
+- **Accès de support temporaire** aux pièces jointes : demande motivée de l’Admin (élément ou type d’élément, 4 heures au plus), validation par le Directeur, lecture seule, consultations auditées, révocation et expiration automatiques.
+- **Compte d’urgence** scellé, distinct du compte Admin : activation par le Directeur ou le Secrétaire Général (24 heures au plus, mot de passe temporaire, double authentification à la connexion), alerte immédiate à chaque activation et connexion, fermeture manuelle ou automatique, procédure serveur `npm run urgence`.
+- Page **Gouvernance** (Admin, Directeur, SG) ; compte d’urgence signalé dans la liste des comptes et dans la vérification de sécurité.
+
+### Correction
+- Le téléchargement d’une pièce jointe (`/api/attachments/fichier/:id`) était intercepté par une autre route et échouait : ordre des routes corrigé, test de non-régression ajouté.
+
+## 1.10.0
+
+### Actes administratifs, intérims et désignations (cahier des charges, §§ 9, 33 et 36)
+- **Registre des actes administratifs** (Administration → Actes administratifs) : nomination, affectation, intérim, désignation, fin de fonction. Préparation par le Bureau Secrétariat de Direction avec la copie scannée de l’acte signé, validation ou refus motivé par le Directeur ; actes relatifs au poste de Directeur enregistrés par l’Admin Système et validés par le Secrétaire Général. Un acte validé est intangible (contrôle en base) : rectificatif ou révocation motivée. Nul ne valide un acte qui le concerne.
+- **Intérims** : un seul par poste et par intérimaire sur une période ; l’intérimaire exerce le rôle du poste dans son seul périmètre, prend sa place dans la chaîne hiérarchique et reçoit les notifications du poste ; le titulaire est suspendu de ce rôle sans perdre sa titularité ; expiration automatique aux dates de l’acte. Bandeaux d’information pour l’intérimaire et le titulaire ; intérim affiché dans l’organigramme ; notifications d’entrée en vigueur, de fin prochaine et d’échéance.
+- **Désignations** (remplacent les délégations) : opérations désignables accordées sur acte, pour une période, avec expiration automatique. Droits antérieurs sans acte à régulariser sous 30 jours, puis retirés.
+- **Rôles d’autorité** attribués ou retirés par l’Admin Système uniquement sur un acte validé concernant la personne (référence inscrite dans l’audit).
+
+### Sécurité du Directeur et du Secrétaire Général
+- **Double authentification obligatoire**, adresse de récupération et règles de sécurité à la première connexion (également pour un Directeur par intérim).
+- **Avis de connexion depuis un nouvel appareil** (Admin, Directeur, SG).
+- **Sessions ouvertes** visibles dans le profil de chaque utilisateur, avec fermeture à distance.
+
+## 1.9.0
+
+### Conformité au cadre organique (cahier des charges, partie 2)
+- **Codes organiques officiels** (section 5.3.3) : 5.3.3 pour la Direction, 5.3.3.0 pour le Bureau Secrétariat de Direction, 5.3.3.1 à 5.3.3.3 pour les Divisions, 5.3.3.N.M pour leurs Bureaux. Affichés dans l’organigramme, les fiches de structure et le cadre organique ; saisis à la création ou à la modification d’une structure, avec contrôle de cohérence (prolongement du code parent, unicité, `.0` réservé au Secrétariat).
+- Nouvel onglet **Structure officielle** (code, structure, rang, supérieur direct).
+- **Effectif organique de référence** (20 postes) comparé à l’effectif réel : écarts, vacances, sureffectifs, Agents hors cadre de référence, postes de commandement sans titulaire. Référence modifiable par le Directeur sur la base d’un acte, avec audit ; synthèse sur le tableau de bord du Directeur. La référence est conservée lors d’une réinitialisation de la base.
+- Autorité de tutelle : **Secrétariat Général au Numérique**.
+- **Bureau Études, Analyses et Prospective** (au lieu de « Perspective »). L’import de la liste reconnaît l’ancienne graphie ainsi que les sections précédées d’un code organique ; le modèle d’import affiche les codes.
+
+## 1.8.0
+
+### Compte Admin Système (lot 3 : sauvegardes et maintenance)
+- **Sauvegardes automatiques** chaque nuit à 01:00 (heure de Kinshasa), conservation 7 quotidiennes / 4 hebdomadaires / 12 mensuelles, ponctuelles 90 jours.
+- **Chiffrement** AES-256-GCM des sauvegardes (`BACKUP_ENC_KEY`) et **copie hors serveur** contrôlée (`BACKUP_COPY_DIR`).
+- **Vérification d’intégrité** et **test de restauration réel** dans une base temporaire, à la demande et chaque semaine.
+- **Restauration en double validation** : demande motivée de l’Admin, validation du Directeur (24 h), exécution par l’Admin (phrase, mot de passe, second facteur) ; sauvegarde préalable, retour arrière automatique en cas d’échec, réintégration des traces d’audit et de connexion postérieures, fermeture de toutes les sessions (`sauvegarde.valider_restauration`).
+- **Mode maintenance** (page d’information, accès réservé aux Admins Système), **annonces système**, **migrations** depuis l’application avec sauvegarde préalable, **environnement** (secrets masqués).
+- Vérification de sécurité et centre de santé : chiffrement, copie hors serveur et dernier test de restauration contrôlés.
+
+## 1.7.0
+
+### Compte Admin Système (lot 2 : supervision)
+- **Tableau de bord Admin** complet : comptes (total, actifs, désactivés, verrouillés, inactifs), sessions actives, échecs de connexion (24 h / 7 j), alertes ouvertes, état des services, espace disque, dernière sauvegarde réussie, sauvegardes échouées, erreurs techniques récentes, version de l’application (numéro et révision), dernières opérations sensibles.
+- **Centre de santé du système** : API, PostgreSQL, stockage, sauvegarde, courriels, génération PDF/Excel ; contrôle automatique toutes les 15 minutes et à la demande, historique sur 48 heures, alertes de panne et de rétablissement.
+- **Journal technique** : erreurs internes regroupées par cause (occurrences, dernière requête, pile d’appels), résolution, purge après 90 jours.
+- **Registre des sauvegardes** (réussies et échouées), affiché dans Système → Sauvegardes ; alerte en cas d’échec.
+- **Rapport mensuel de sécurité** : génération automatique au début du mois, à la demande pour un mois donné, PDF avec visa du Directeur ; consultable par l’Admin Système et le Directeur (`rapport_securite.consulter`).
+- **Incidents critiques** notifiés immédiatement au Directeur.
+- Politique : seuils d’espace disque et durée de conservation du journal technique.
+
 ## 1.6.0
 
 ### Compte Admin Système (lot 1 : sécurité du compte)

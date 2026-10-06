@@ -159,12 +159,22 @@ function analyse(rows, ref) {
   if (h < 0) throw new Error('En-tête introuvable : le tableau doit comporter au moins les colonnes « Nom » et « Matricule ».');
   const col = columnMap(rows[h]);
   const idx = (k) => col[k];
-  const bureaux = ref.bureaux.map((b) => ({ ...b, n: norm(b.nom) }));
-  const divisions = ref.divisions.map((d) => ({ ...d, n: norm(d.nom) }));
+  // « Perspective » (ancienne graphie de certaines listes) désigne le Bureau Études, Analyses et Prospective.
+  const normStructure = (x) => norm(x).replace(/\bperspectives?\b/g, 'prospective');
+  const bureaux = ref.bureaux.map((x) => ({ ...x, n: normStructure(x.nom) }));
+  const divisions = ref.divisions.map((x) => ({ ...x, n: normStructure(x.nom) }));
   const grades = Object.fromEntries(ref.grades.map((g) => [g.code.toUpperCase(), g]));
 
   const matchStructure = (label) => {
-    const n = norm(label);
+    // Code organique en tête de ligne (ex. « 5.3.3.1.1 Bureau … ») : correspondance exacte.
+    const co = String(label || '').match(/^\s*(\d+(?:\.\d+){2,})\b/);
+    if (co) {
+      const bc = bureaux.find((x) => x.code_organique === co[1]);
+      if (bc) return { type: 'BUREAU', id: bc.id, nom: bc.nom, divisionId: bc.division_id };
+      const dc = divisions.find((x) => x.code_organique === co[1]);
+      if (dc) return { type: 'DIVISION', id: dc.id, nom: dc.nom };
+    }
+    const n = normStructure(label);
     if (!n) return null;
     const b = bureaux.find((x) => x.n === n) || bureaux.find((x) => n.includes(x.n) || x.n.includes(n));
     if (b) return { type: 'BUREAU', id: b.id, nom: b.nom, divisionId: b.division_id };

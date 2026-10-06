@@ -1,7 +1,7 @@
 // Libellés et couleurs de l’interface (entièrement en français).
 export const DEP_NOM = 'Direction d’Études et Planification';
 export const DEP_SIGLE = 'DEP';
-export const SG_NOM = 'Secrétariat Général à l’Économie Numérique';
+export const SG_NOM = 'Secrétariat Général au Numérique';
 
 export const ROLES = {
   ADMIN_SYSTEME: 'Admin Système', SECRETAIRE_GENERAL: 'Secrétaire Général', DIRECTEUR: 'Directeur',
@@ -29,10 +29,12 @@ export const STATUTS = {
   // Instructions et tâches
   BROUILLON: ['Brouillon', C.gris], TRANSMISE: ['Transmise', C.bleu], RECUE: ['Reçue', C.indigo], EN_COURS: ['En cours', C.jaune],
   A_CORRIGER: ['À corriger', C.orange], EXECUTEE: ['Exécutée', C.violet], VALIDEE: ['Validée', C.vert], CLOTUREE: ['Clôturée', C.marine], EN_RETARD: ['En retard', C.rouge],
+  BLOQUEE: ['Bloquée', C.rouge], RAPPORT_INTERMEDIAIRE: ['Rapport intermédiaire', C.indigo], ANNULEE: ['Annulée', C.gris],
   // Présences
   VERIFIEE: ['Vérifiée', C.indigo], SOUMISE: ['Soumise', C.violet], VERROUILLEE: ['Verrouillée', C.marine],
   // Documents
-  EN_EXAMEN: ['En examen', C.jaune], VALIDE_DIVISION: ['Validé (Division)', C.indigo], VALIDE: ['Validé', C.vert], REJETE: ['Rejeté', C.rouge], ARCHIVE: ['Archivé', C.gris],
+  EN_RELECTURE: ['En relecture', C.jaune], VISE: ['Visé', C.indigo], PUBLIE: ['Publié', C.marine],
+  EN_EXAMEN: ['En examen', C.jaune], VALIDE_DIVISION: ['Validé (Division)', C.indigo], VALIDE: ['Validé', C.vert], SOUMIS: ['Soumis', C.bleu], REFUSE: ['Refusé', C.rouge], REVOQUE: ['Révoqué', C.orange], EXPIRE: ['Expiré', C.gris], REMPLACE: ['Remplacé', C.marine], REJETE: ['Rejeté', C.rouge], ARCHIVE: ['Archivé', C.gris],
   // PIP
   EN_VERIFICATION: ['En vérification', C.jaune], VERIFIE: ['Vérifiée', C.indigo],
   // Courriers
@@ -43,6 +45,14 @@ export const STATUTS = {
   CONGE: ['En congé', C.jaune], DETACHE: ['Détaché', C.indigo], SUSPENDU: ['Suspendu', C.rouge], RETRAITE: ['Retraité', C.gris],
   // Réception
   EN_ATTENTE: ['En attente', C.jaune], RECU: ['Reçu', C.vert],
+  // Demandes d’information
+  ENVOYEE: ['En attente de réponse', C.jaune], REPONDUE: ['Répondue', C.vert], CLOSE: ['Close', C.gris],
+  // Réunions
+  CONVOQUEE: ['Convoquée', C.bleu], TENUE: ['Tenue', C.indigo], CR_A_VALIDER: ['Compte rendu à valider', C.jaune],
+  // Décisions
+  PROJET: ['Projet', C.gris], A_EXECUTER: ['À exécuter', C.jaune], ABANDONNEE: ['Abandonnée', C.gris],
+  // Agenda
+  PREVU: ['Prévu', C.bleu], CONFIRME: ['Confirmé', C.vert], TENU: ['Tenu', C.marine], ANNULE: ['Annulé', C.gris],
 };
 
 export const PRIORITES = { BASSE: ['Basse', C.gris], NORMALE: ['Normale', C.bleu], HAUTE: ['Haute', C.orange], URGENTE: ['Urgente', C.rouge] };
@@ -56,6 +66,7 @@ export const PRESENCES = {
 export const JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi'];
 
 export const ACTIONS_HISTO = {
+  PREPARATION: 'Préparation de l’enregistrement', REFUS: 'Refus', REVOCATION: 'Révocation', REPRISE: 'Reprise d’un acte refusé',
   CREATION: 'Création', CREATION_BROUILLON: 'Brouillon créé', TRANSMISSION: 'Transmission', RECEPTION: 'Accusé de réception',
   AVANCEMENT: 'Mise à jour de l’avancement', COMPTE_RENDU: 'Compte rendu', VALIDATION: 'Validation', RETOUR_CORRECTION: 'Retour pour correction',
   CLOTURE: 'Clôture', RETARD: 'Passage en retard', ATTRIBUTION: 'Attribution', NOUVELLE_VERSION: 'Nouvelle version', VALIDATION_DIVISION: 'Validation au niveau de la Division',
@@ -63,16 +74,33 @@ export const ACTIONS_HISTO = {
   VERROUILLAGE_AUTO: 'Verrouillage automatique', CREATION_RECTIFICATIF: 'Création du rectificatif', RECTIFICATIF: 'Rectificatif établi',
   SELECTION_AGENTS: 'Sélection des Agents', ENREGISTREMENT: 'Enregistrement', ANNOTATION: 'Annotation', ACCUSE_RECEPTION: 'Accusé de réception',
   TRAITEMENT: 'Traitement', CLASSEMENT: 'Classement',
+  BLOCAGE: 'Blocage signalé', DEBLOCAGE: 'Blocage levé', RAPPORT_INTERMEDIAIRE: 'Rapport intermédiaire', ANNULATION: 'Annulation',
+  DEMANDE_PROLONGATION: 'Demande de prolongation', PROLONGATION_ACCORDEE: 'Prolongation accordée', PROLONGATION_REFUSEE: 'Prolongation refusée',
+  PROLONGATION: 'Délai prolongé', SOUS_TACHE: 'Sous-tâche créée', DEPENDANCE: 'Dépendance ajoutée', DEPENDANCE_RETIREE: 'Dépendance retirée',
+  VISA: 'Visa', PUBLICATION: 'Publication', CONVOCATION: 'Convocation', REPORT: 'Report', MODIFICATION: 'Modification', PRESENCE: 'Présence relevée',
+  TENUE: 'Réunion tenue', SOUMISSION_CR: 'Compte rendu soumis', RETOUR_CR: 'Compte rendu retourné', VALIDATION_CR: 'Compte rendu validé',
+  DECISION: 'Décision', MISE_EN_OEUVRE: 'Mise en œuvre', EXECUTION: 'Exécution', ABANDON: 'Abandon', MISE_EN_OEUVRE_ANNULEE: 'Mise en œuvre annulée', ENVOI: 'Envoi', REPONSE: 'Réponse', COMPLEMENT_REPONSE: 'Complément de réponse', RELANCE: 'Relance',
 };
 
 export const NOTIF_TYPES = {
   INSTRUCTION: 'Instruction', TACHE: 'Tâche', COURRIER: 'Courrier', DOCUMENT_RETOURNE: 'Document retourné', DOCUMENT_VALIDE: 'Document validé',
   DOCUMENT_A_EXAMINER: 'Document à examiner', ECHEANCE: 'Échéance proche', RETARD: 'Retard', COMPTE_CREE: 'Compte', MDP_REINITIALISE: 'Mot de passe',
-  AFFECTATION: 'Affectation', PRESENCE: 'Présences', PIP: 'PIP', INSTRUCTION_REPONSE: 'Compte rendu', SECURITE: 'Sécurité',
+  AFFECTATION: 'Affectation', PRESENCE: 'Présences', PIP: 'PIP', INSTRUCTION_REPONSE: 'Compte rendu', SECURITE: 'Sécurité', SYSTEME: 'Annonce', ACTE: 'Acte administratif', CARTE: 'Carte de service', CONNEXION: 'Nouvelle connexion',
+  DEMANDE_INFO: 'Demande d’information', REUNION: 'Réunion', DECISION: 'Décision', AGENDA: 'Agenda',
 };
 
 export const DELEGATIONS = {
   'personnel.suivre': 'suivi administratif du personnel',
   'presences.preparer_direction': 'préparation des listes de présence', 'courriers.enregistrer': 'enregistrement des courriers',
   'dossiers.transmettre': 'transmission des dossiers',
+};
+
+/** Actes administratifs (registre). */
+export const TYPES_ACTE = {
+  NOMINATION: 'Nomination', AFFECTATION: 'Affectation', INTERIM: 'Intérim', DESIGNATION: 'Désignation', FIN_FONCTION: 'Fin de fonction', AUTRE: 'Autre acte',
+};
+export const EFFETS_ACTE = {
+  EN_VIGUEUR: ['En vigueur', 'bg-emerald-50 text-emerald-800 ring-emerald-200'],
+  A_VENIR: ['À venir', 'bg-sky-50 text-sky-800 ring-sky-200'],
+  ECHU: ['Échu', 'bg-slate-100 text-slate-700 ring-slate-200'],
 };

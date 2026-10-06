@@ -11,6 +11,10 @@ const { scopeDocuments, scopeInstructions, scopeTasks, scopeCourriers, scopePip,
 const { DEP_NOM } = require('../../constants');
 const liste = require('../../services/listeDeclarative');
 const { donneesDemo } = require('../../services/reinitialisation');
+const { politique } = require('../../services/politique');
+const { dernierControle, versionApplication, espaceDisque } = require('../../services/sante');
+const { etatSauvegardes } = require('../../services/sauvegarde');
+const effectifs = require('../../services/effectifs');
 
 const router = express.Router();
 
@@ -32,24 +36,53 @@ async function commun(ctx) {
   return { notificationsNonLues: Number(nonLues.n), echeances };
 }
 
+/** Opérations sensibles affichées au tableau de bord de l’Admin Système. */
+const OPERATIONS_SENSIBLES = ['CHANGEMENT_ROLE', 'BLOCAGE', 'DESACTIVATION', 'REINITIALISATION_MDP', 'CHANGEMENT_MDP_IMPOSE', 'POLITIQUE_SECURITE',
+  'REINITIALISATION', 'REVOCATION_SESSION', 'EXPORT', 'CHANGEMENT_APPAREIL_2FA', 'CODES_SECOURS', 'AUTORISATION', 'SAUVEGARDE', 'RESOLUTION_ERREUR'];
+
 async function adminDashboard() {
+  const p = await politique();
   const comptes = await db('users').select('statut').count('* as n').groupBy('statut');
   const by = Object.fromEntries(comptes.map((c) => [c.statut, Number(c.n)]));
-  const [mustChange, sessions, connexions24, echecs24, audit, dbSize, migrations] = await Promise.all([
-    db('users').where({ must_change_password: true }).count('* as n').first(),
+  const [mustChange, inactifs, sessions, utilisateurs, connexions24, echecs24, echecs7j, alertes, sensibles, dbSize, migrations, erreursOuvertes, erreursRecentes, derniereVerif] = await Promise.all([
+    db('users').where({ must_change_password: true }).whereNot('statut', 'DESACTIVE').count('* as n').first(),
+    db('users').whereNot('statut', 'DESACTIVE').whereRaw('coalesce(last_login_at, created_at) < now() - make_interval(days => ?)', [p.inactivite_compte_jours]).count('* as n').first(),
+    db('refresh_tokens').whereNull('revoked_at').where('expires_at', '>', db.fn.now()).countDistinct('family_id as n').first(),
     db('refresh_tokens').whereNull('revoked_at').where('expires_at', '>', db.fn.now()).countDistinct('user_id as n').first(),
     db('login_history').where('succes', true).where('created_at', '>', db.raw(`now() - interval '24 hours'`)).count('* as n').first(),
     db('login_history').where('succes', false).where('created_at', '>', db.raw(`now() - interval '24 hours'`)).count('* as n').first(),
-    db('audit_logs').orderBy('id', 'desc').limit(12),
+    db('login_history').where('succes', false).where('created_at', '>', db.raw(`now() - interval '7 days'`)).count('* as n').first(),
+    db('alertes_securite').whereNull('acquittee_at').select('gravite').count('* as n').groupBy('gravite'),
+    db('audit_logs').whereIn('action', OPERATIONS_SENSIBLES).orderBy('id', 'desc').limit(10).select('id', 'created_at', 'username', 'action', 'module', 'message', 'resultat'),
     db.raw('select pg_size_pretty(pg_database_size(current_database())) as taille'),
     db('knex_migrations').orderBy('id', 'desc').first(),
+    db('erreurs_techniques').whereNull('resolue_at').count('* as n').first(),
+    db('erreurs_techniques').whereNull('resolue_at').orderBy('derniere_at', 'desc').limit(5).select('id', 'methode', 'route', 'message', 'occurrences', 'derniere_at'),
+    db('parametres').where({ cle: 'securite_derniere_verification' }).first(),
   ]);
-  const verrouilles = await db('users').where({ statut: 'VERROUILLE' }).select('id', 'username', 'locked_until');
+  const verrouilles = await db('users').where({ statut: 'VERROUILLE' }).select('id', 'username', 'locked_until', 'motif_blocage');
+  let disque = null;
+  try { disque = await espaceDisque(); } catch (e) { disque = null; }
+  const parGravite = Object.fromEntries(alertes.map((a) => [a.gravite, Number(a.n)]));
   return {
-    comptes: { total: Object.values(by).reduce((a, b) => a + b, 0), actifs: by.ACTIF || 0, desactives: by.DESACTIVE || 0, verrouilles: by.VERROUILLE || 0, changementMdpRequis: Number(mustChange.n) },
-    securite: { utilisateursConnectes: Number(sessions.n), connexions24h: Number(connexions24.n), echecsConnexion24h: Number(echecs24.n), comptesVerrouilles: verrouilles },
-    audit,
-    systeme: { baseDeDonnees: 'Opérationnelle', tailleBase: dbSize.rows[0].taille, derniereMigration: migrations ? migrations.name : null, uptimeSecondes: Math.round(process.uptime()), node: process.version },
+    comptes: {
+      total: Object.values(by).reduce((a, b) => a + b, 0), actifs: by.ACTIF || 0, desactives: by.DESACTIVE || 0, verrouilles: by.VERROUILLE || 0,
+      inactifs: Number(inactifs.n), changementMdpRequis: Number(mustChange.n), seuilInactiviteJours: p.inactivite_compte_jours,
+    },
+    securite: {
+      sessionsActives: Number(sessions.n), utilisateursConnectes: Number(utilisateurs.n), connexions24h: Number(connexions24.n),
+      echecsConnexion24h: Number(echecs24.n), echecsConnexion7j: Number(echecs7j.n), comptesVerrouilles: verrouilles,
+      alertes: { CRITIQUE: parGravite.CRITIQUE || 0, ATTENTION: parGravite.ATTENTION || 0, INFO: parGravite.INFO || 0 },
+      derniereVerification: derniereVerif && derniereVerif.valeur ? JSON.parse(derniereVerif.valeur) : null,
+    },
+    systeme: {
+      sante: await dernierControle(), version: versionApplication(), tailleBase: dbSize.rows[0].taille,
+      derniereMigration: migrations ? migrations.name : null, uptimeSecondes: Math.round(process.uptime()),
+      disque: disque && { ...disque, seuilAttention: p.disque_seuil_attention, seuilCritique: p.disque_seuil_critique },
+    },
+    sauvegardes: await etatSauvegardes(),
+    erreurs: { ouvertes: Number(erreursOuvertes.n), recentes: erreursRecentes },
+    operationsSensibles: sensibles,
   };
 }
 
@@ -80,13 +113,19 @@ async function sgDashboard(ctx) {
   };
 }
 
+/** Effectif organique, effectif réel, écarts et postes de commandement vacants. */
+async function resumeEffectif() {
+  const e = await effectifs.synthese();
+  return { totaux: e.totaux, ecarts: e.lignes.filter((l) => l.ecart !== 0), postesVacants: e.postesVacants };
+}
+
 async function directeurDashboard(ctx) {
   const [perf, tachesRetard, instructionsRetard, docsAValider, presencesSoumises, courriersRecevoir, courriersCirculation, pipAValider, instructionsSG, presSemaine] = await Promise.all([
     performanceParStructure(),
     db('tasks as t').join('users as u', 'u.id', 't.agent_user_id').leftJoin('agents as a', 'a.id', 'u.agent_id').leftJoin('bureaux as b', 'b.id', 't.bureau_id')
       .where('t.statut', 'EN_RETARD').orderBy('t.echeance').limit(15).select('t.id', 't.reference', 't.titre', 't.echeance', 'b.nom as bureau', nomSql('a')),
     db('instructions').where('statut', 'EN_RETARD').orderBy('echeance').limit(10).select('id', 'reference', 'objet', 'echeance', 'destinataire_role'),
-    db('documents').where({ detenteur_user_id: ctx.userId }).whereIn('statut', ['EN_EXAMEN']).whereNot('auteur_user_id', ctx.userId).orderBy('updated_at', 'desc').select('id', 'reference', 'titre', 'type_document', 'updated_at'),
+    db('documents').where({ detenteur_user_id: ctx.userId }).whereIn('statut', ['EN_RELECTURE']).whereNot('auteur_user_id', ctx.userId).orderBy('updated_at', 'desc').select('id', 'reference', 'titre', 'type_document', 'updated_at'),
     db('presence_sheets as s').leftJoin('bureaux as b', 'b.id', 's.bureau_id').where('s.statut', 'SOUMISE').select('s.id', 's.reference', 's.submitted_at', 'b.nom as bureau'),
     db('courrier_transmissions as t').join('courriers as c', 'c.id', 't.courrier_id').where({ 't.to_user_id': ctx.userId, 't.etat_reception': 'EN_ATTENTE' }).select('c.id', 'c.numero_enregistrement', 'c.objet', 'c.urgence', 't.created_at'),
     statutsCount('courriers'),
@@ -99,6 +138,28 @@ async function directeurDashboard(ctx) {
     presencesSoumises, presencesSemaine: presSemaine, courriersARecevoir: courriersRecevoir, courriers: courriersCirculation,
     pipAValider, instructionsRecues: instructionsSG,
     pip: await statutsCount('pip_projects'),
+    effectif: await resumeEffectif(),
+    ...(await pilotageDecisions()),
+  };
+}
+
+/** Centre de pilotage du Directeur : décisions ouvertes et en retard, agenda du jour, demandes du SG. */
+async function pilotageDecisions() {
+  const [stats, decisions, agenda, demandes] = await Promise.all([
+    db('decisions').whereIn('statut', ['A_EXECUTER', 'EN_COURS'])
+      .select(db.raw('count(*) as ouvertes'), db.raw('count(*) FILTER (WHERE echeance < CURRENT_DATE) as en_retard')).first(),
+    db('decisions as d').join('users as u', 'u.id', 'd.responsable_user_id').leftJoin('agents as a', 'a.id', 'u.agent_id')
+      .whereIn('d.statut', ['A_EXECUTER', 'EN_COURS']).orderByRaw('d.echeance ASC NULLS LAST').limit(8)
+      .select('d.id', 'd.reference', 'd.libelle', 'd.echeance', 'd.statut', db.raw(`concat_ws(' ', a.prenom, a.nom) as responsable_nom`),
+        db.raw('(d.echeance IS NOT NULL AND d.echeance < CURRENT_DATE) as en_retard')),
+    db('agenda_evenements').whereNot('statut', 'ANNULE')
+      .whereRaw(`(debut AT TIME ZONE 'Africa/Kinshasa')::date = (now() AT TIME ZONE 'Africa/Kinshasa')::date`).orderBy('debut')
+      .select('id', 'type', 'titre', 'debut', 'fin', 'lieu', 'statut', 'reunion_id'),
+    db('demandes_information').where('statut', 'ENVOYEE').orderBy('created_at').select('id', 'reference', 'objet', 'echeance', 'priorite'),
+  ]);
+  return {
+    decisions: { ouvertes: Number(stats.ouvertes), enRetard: Number(stats.en_retard), liste: decisions },
+    agendaDuJour: agenda, demandesInfo: demandes,
   };
 }
 
@@ -117,7 +178,7 @@ async function chefDivisionDashboard(ctx) {
   const div = await db('divisions').where({ id: ctx.divisionId }).first();
   const [perf, docs, tasks, instr, pres, pipAVerifier] = await Promise.all([
     performanceParStructure({ divisionId: ctx.divisionId }),
-    db('documents').where({ detenteur_user_id: ctx.userId }).whereIn('statut', ['EN_EXAMEN', 'VALIDE_DIVISION']).whereNot('auteur_user_id', ctx.userId).select('id', 'reference', 'titre', 'statut', 'updated_at'),
+    db('documents').where({ detenteur_user_id: ctx.userId }).whereIn('statut', ['EN_RELECTURE', 'VISE']).whereNot('auteur_user_id', ctx.userId).select('id', 'reference', 'titre', 'statut', 'updated_at'),
     statutsCount('tasks', (q) => q.where('division_id', ctx.divisionId)),
     scopeInstructions(db('instructions as i'), ctx).where('i.destinataire_user_id', ctx.userId).whereNotIn('i.statut', ['CLOTUREE']).select('i.id', 'i.reference', 'i.objet', 'i.statut', 'i.echeance', 'i.avancement').orderBy('i.created_at', 'desc').limit(10),
     scopePresences(db('presence_sheets as s'), ctx).orderBy('s.semaine_debut', 'desc').limit(8).leftJoin('bureaux as b', 'b.id', 's.bureau_id').select('s.id', 's.reference', 's.statut', 'b.nom as bureau'),
@@ -143,7 +204,7 @@ async function chefBureauDashboard(ctx) {
     statutsCount('tasks', (q) => q.where('bureau_id', ctx.bureauId)),
     db('tasks as t').join('users as u', 'u.id', 't.agent_user_id').leftJoin('agents as a', 'a.id', 'u.agent_id').where('t.bureau_id', ctx.bureauId)
       .whereNotIn('t.statut', ['CLOTUREE']).orderBy('t.echeance').limit(15).select('t.id', 't.reference', 't.titre', 't.statut', 't.avancement', 't.echeance', nomSql('a')),
-    db('documents').where({ detenteur_user_id: ctx.userId, statut: 'EN_EXAMEN' }).whereNot('auteur_user_id', ctx.userId).select('id', 'reference', 'titre', 'updated_at'),
+    db('documents').where({ detenteur_user_id: ctx.userId, statut: 'EN_RELECTURE' }).whereNot('auteur_user_id', ctx.userId).select('id', 'reference', 'titre', 'updated_at'),
     db('presence_sheets').where({ bureau_id: ctx.bureauId }).orderBy('semaine_debut', 'desc').limit(6).select('id', 'reference', 'statut', 'semaine_debut'),
     db('instructions').where({ destinataire_user_id: ctx.userId }).whereNotIn('statut', ['CLOTUREE']).orderBy('created_at', 'desc').limit(10).select('id', 'reference', 'objet', 'statut', 'echeance', 'avancement'),
   ]);
@@ -199,7 +260,7 @@ router.get('/', async (req, res) => {
 router.get('/compteurs', async (req, res) => {
   const ctx = req.ctx;
   const [docs, instr, taches, courriers, pip, pres] = await Promise.all([
-    ctx.can('documents.consulter') ? scopeDocuments(db('documents as d'), ctx).where('d.detenteur_user_id', ctx.userId).whereIn('d.statut', ['EN_EXAMEN', 'VALIDE_DIVISION', 'A_CORRIGER']).count('* as n').first() : { n: 0 },
+    ctx.can('documents.consulter') ? scopeDocuments(db('documents as d'), ctx).where('d.detenteur_user_id', ctx.userId).whereIn('d.statut', ['EN_RELECTURE', 'VISE', 'A_CORRIGER']).count('* as n').first() : { n: 0 },
     ctx.can('instructions.consulter') ? scopeInstructions(db('instructions as i'), ctx).where('i.destinataire_user_id', ctx.userId).whereIn('i.statut', ['TRANSMISE', 'A_CORRIGER']).count('* as n').first() : { n: 0 },
     ctx.can('taches.consulter') ? scopeTasks(db('tasks as t'), ctx).where((w) => w.where((x) => x.where('t.agent_user_id', ctx.userId).whereIn('t.statut', ['TRANSMISE', 'A_CORRIGER'])).orWhere((x) => x.where('t.assigne_par_user_id', ctx.userId).where('t.statut', 'EXECUTEE'))).count('* as n').first() : { n: 0 },
     ctx.can('courriers.consulter') ? scopeCourriers(db('courriers as c'), ctx).whereExists(db('courrier_transmissions as t').whereRaw('t.courrier_id = c.id').where({ 't.to_user_id': ctx.userId, 't.etat_reception': 'EN_ATTENTE' })).count('* as n').first() : { n: 0 },
@@ -207,7 +268,17 @@ router.get('/compteurs', async (req, res) => {
     ctx.can('presences.verrouiller') ? db('presence_sheets').where('statut', 'SOUMISE').count('* as n').first() : { n: 0 },
   ]);
   const alertes = ctx.can('securite.superviser') ? await db('alertes_securite').whereNull('acquittee_at').whereIn('gravite', ['ATTENTION', 'CRITIQUE']).count('* as n').first() : { n: 0 };
-  res.json({ documents: Number(docs.n), instructions: Number(instr.n), taches: Number(taches.n), courriers: Number(courriers.n), pip: Number(pip.n), presences: Number(pres.n), alertes: Number(alertes.n) });
+  // Décisions attendues de l’émetteur : blocages signalés et demandes de prolongation
+  const attente = async (table, type, col) => Number((await db(`${table} as x`).where(`x.${col}`, ctx.userId).where((w) => w.where('x.statut', 'BLOQUEE')
+    .orWhereExists(db('prolongations as p').whereRaw('p.entity_id = x.id').where({ 'p.entity_type': type, 'p.statut': 'DEMANDEE' }))).count('* as n').first()).n);
+  const [instrAttente, tachesAttente] = await Promise.all([attente('instructions', 'INSTRUCTION', 'emetteur_user_id'), attente('tasks', 'TASK', 'assigne_par_user_id')]);
+  let demandesInfo = 0;
+  if (ctx.can('demandes_info.repondre')) demandesInfo = Number((await db('demandes_information').where('statut', 'ENVOYEE').count('* as n').first()).n);
+  else if (ctx.can('demandes_info.emettre')) demandesInfo = Number((await db('demandes_information').where({ statut: 'REPONDUE', emetteur_user_id: ctx.userId }).count('* as n').first()).n);
+  res.json({
+    documents: Number(docs.n), instructions: Number(instr.n) + instrAttente, taches: Number(taches.n) + tachesAttente, courriers: Number(courriers.n),
+    pip: Number(pip.n), presences: Number(pres.n), alertes: Number(alertes.n), demandesInfo,
+  });
 });
 
 module.exports = router;

@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Save } from 'lucide-react';
 import api from '../../lib/api';
-import { useApi, Loadable, PageHeader, Card, Badge, InfoAlert, runAction } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, Badge, InfoAlert, runAction, runCritique } from '../../components/ui';
 
 export default function Roles() {
   const state = useApi('/users/roles');
   const [matrix, setMatrix] = useState({});
   useEffect(() => { if (state.data) setMatrix(Object.fromEntries(state.data.roles.map((r) => [r.code, new Set(r.permissions)]))); }, [state.data]);
   const toggle = (role, perm) => setMatrix((m) => { const s = new Set(m[role]); if (s.has(perm)) s.delete(perm); else s.add(perm); return { ...m, [role]: s }; });
-  const save = async (role) => { await runAction(() => api.put(`/users/roles/${role}/permissions`, { permissions: [...matrix[role]] }), 'Permissions enregistrées.'); state.reload(); };
+  const save = async (role) => { await runCritique(() => api.put(`/users/roles/${role}/permissions`, { permissions: [...matrix[role]] }), 'Permissions enregistrées.'); state.reload(); };
   return (
     <>
       <PageHeader title="Rôles et permissions" subtitle="Matrice des permissions par rôle. Chaque accès reste en outre limité par le périmètre administratif." breadcrumb={[{ label: 'Administration' }, { label: 'Rôles et permissions' }]} />

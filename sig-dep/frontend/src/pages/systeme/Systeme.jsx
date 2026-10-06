@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { DatabaseBackup, DatabaseZap, Download, Mail, PlugZap, RotateCcw, Save, Send } from 'lucide-react';
-import api, { download, errorMessage } from '../../lib/api';
+import { DatabaseBackup, DatabaseZap, Mail, PlugZap, RotateCcw, Save, Send } from 'lucide-react';
+import api from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { useApi, Loadable, PageHeader, Card, KeyValues, runAction, toast, DataTable, InfoAlert, Badge, Field } from '../../components/ui';
-import { fmtDateTime, fmtTaille } from '../../lib/format';
+import { fmtDateTime } from '../../lib/format';
 import { COLORS } from '../../lib/labels';
 
 function Parametres() {
@@ -31,27 +31,6 @@ function Parametres() {
   );
 }
 
-function Sauvegardes() {
-  const state = useApi('/systeme/sauvegardes');
-  const [busy, setBusy] = useState(false);
-  const run = async () => { setBusy(true); try { await runAction(() => api.post('/systeme/sauvegardes'), 'Sauvegarde réalisée.'); state.reload(); } catch { /* affiché */ } finally { setBusy(false); } };
-  return (
-    <Card title="Sauvegardes PostgreSQL" actions={<button type="button" className="btn-primary" disabled={busy} onClick={run}><DatabaseBackup size={16} /> {busy ? 'Sauvegarde…' : 'Lancer une sauvegarde'}</button>}>
-      <InfoAlert>Sauvegardes au format pg_dump (personnalisé). Restauration : <code>pg_restore --clean --if-exists -d &lt;base&gt; fichier.dump</code>. Conservez une copie hors du serveur.</InfoAlert>
-      <Loadable state={state}>
-        {(d) => (
-          <div className="mt-3">
-            <DataTable searchable={false} rowKey="fichier" rows={d.data} empty="Aucune sauvegarde." columns={[
-              { key: 'fichier', header: 'Fichier' }, { key: 'date', header: 'Date', render: (b) => fmtDateTime(b.date) }, { key: 'taille', header: 'Taille', render: (b) => fmtTaille(b.tailleOctets) },
-              { key: 'dl', header: '', render: (b) => <button type="button" className="btn-ghost px-2" onClick={() => download(`/systeme/sauvegardes/${b.fichier}`, b.fichier).catch((e) => toast.error(errorMessage(e)))} aria-label="Télécharger"><Download size={16} /></button> },
-            ]} />
-            <p className="mt-2 text-xs text-slate-500">Répertoire : {d.repertoire}</p>
-          </div>
-        )}
-      </Loadable>
-    </Card>
-  );
-}
 
 const ETATS_MAIL = { EN_ATTENTE: ['En attente', COLORS.attention], ENVOYE: ['Envoyé', COLORS.succes], ECHEC: ['Échec', COLORS.danger], ANNULE: ['Annulé', COLORS.neutre] };
 
@@ -133,7 +112,16 @@ export default function Systeme() {
         )}
         {can('systeme.configurer') && <Parametres />}
         {can('systeme.configurer') && <Messagerie />}
-        {can('sauvegarde.creer') && <Sauvegardes />}
+        {can('sauvegarde.creer') && (
+          <Card title="Sauvegardes et maintenance">
+            <p className="text-sm text-slate-600">Les sauvegardes (programmation, chiffrement, vérification, tests de restauration), les restaurations et la maintenance ont leurs propres pages.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link to="/systeme/sauvegardes" className="btn-secondary"><DatabaseBackup size={16} /> Sauvegardes</Link>
+              <Link to="/restaurations" className="btn-secondary">Restaurations</Link>
+              {can('systeme.maintenir') && <Link to="/systeme/maintenance" className="btn-secondary">Maintenance</Link>}
+            </div>
+          </Card>
+        )}
       </div>
     </>
   );

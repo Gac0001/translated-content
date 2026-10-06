@@ -40,6 +40,13 @@ describe('Analyse d’une liste Word', () => {
   let dir;
   beforeAll(async () => { dir = await login('directeur'); });
 
+  test('section précédée du code organique (5.3.3.x)', async () => {
+    const buf = await docxListe(['5.3.3.2.2 Coop. Int.', ['1', 'TESTF FICTIF Zeta', '9900011', 'ATA1'], '5.3.3.3 Div. P&S', ['2', 'TESTG FICTIF Eta', '9900012', 'ATA2']]);
+    const L = (await analyser(dir, buf, 'liste.docx')).body.lignes;
+    expect(L[0].structure).toMatchObject({ type: 'BUREAU', nom: 'Bureau Coopération Internationale' });
+    expect(L[1].structure).toMatchObject({ type: 'DIVISION', nom: 'Division Programme et Suivi' });
+  });
+
   test('sections, structures (sans accents), postes proposés et anomalies', async () => {
     const buf = await docxListe([
       '1. Bureau Secrétariat de Direction',
@@ -62,7 +69,7 @@ describe('Analyse d’une liste Word', () => {
     expect(L[1]).toMatchObject({ role: 'CHEF_DIVISION', matricule: '990002' });
     expect(L[1].structure).toMatchObject({ type: 'DIVISION', nom: 'Division Études, Documentation et Information' });
     expect(L[1].anomalies.map((a) => a.message).join(' ')).toMatch(/déjà un responsable/); // Chef de Division de démonstration en poste
-    expect(L[2].structure.nom).toBe('Bureau Études, Analyses et Perspective');
+    expect(L[2].structure.nom).toBe('Bureau Études, Analyses et Prospective'); // « Perspective » de la liste reconnu
     expect(L[2].anomalies.some((a) => /Grade « ZZ9 » inconnu/.test(a.message))).toBe(true);
     expect(L[3].anomalies.some((a) => a.niveau === 'erreur' && /plusieurs fois/.test(a.message))).toBe(true);
     expect(L[4].structure).toBeNull();
@@ -150,7 +157,7 @@ describe('Exécution de l’import', () => {
     expect(hist[1]).toMatchObject({ est_active: true, bureau_id: str.id });
   });
 
-  test('le Bureau Secrétariat (délégation) importe les fiches sans pouvoir affecter', async () => {
+  test('le Bureau Secrétariat (désignation) importe les fiches sans pouvoir affecter', async () => {
     const cbs = api(await login('cb.secretariat'));
     const r = await cbs.post('/imports/personnel/executer', { date_affectation: '2026-03-23', lignes: [{ matricule: '9900401', nom: 'TESTM', structure_type: 'BUREAU', structure_id: str.id, role: 'AGENT' }] });
     expect(r.status).toBe(201);
