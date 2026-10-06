@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, useCallback, createContext, useContext, cloneElement, isValidElement } from 'react';
+import { Fragment, useEffect, useId, useMemo, useRef, useState, useCallback, createContext, useContext, cloneElement, isValidElement } from 'react';
 import { Link, useBlocker, useSearchParams } from 'react-router-dom';
 import { create } from 'zustand';
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, ChevronRight, Info, Loader2, Search, X, Inbox, XCircle } from 'lucide-react';
@@ -181,7 +181,9 @@ export function InfoAlert({ children, tone = 'info' }) {
   return <Alert tone={tone === 'warning' ? 'attention' : tone}>{children}</Alert>;
 }
 
-export function Empty({ message = 'Aucun élément à afficher.', action }) {
+/** État vide ; compact dans les cartes de tableau de bord. */
+export function Empty({ message = 'Aucun élément à afficher.', action, compact = false }) {
+  if (compact) return <p className="py-3 text-sm text-slate-500">{message}</p>;
   return <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-sm text-slate-500"><Inbox size={28} className="text-slate-300" aria-hidden />{message}{action}</div>;
 }
 
@@ -362,11 +364,13 @@ const cellule = (c, r) => (c.render ? c.render(r) : (r[c.key] ?? '—'));
  * - Tri : colonnes `sortable` (valeur brute) ou `sortValue` ; les valeurs vides sont toujours placées en dernier.
  * - Mobile (< md) : une carte par ligne ; la colonne `primary` (sinon la première) sert de titre, `mobile: false` la masque.
  * - Avec onRowClick, chaque ligne s’ouvre au clic, ou au clavier avec Entrée ou Espace.
+ * - rowClassName(row) : classes d’une ligne ; encadre={false} : sans bordure, pour un tableau placé dans une carte.
+ * - cartes="grille" : sur mobile, valeurs rangées sur trois colonnes (tableaux de chiffres, comme les rapports).
  * - `controle` / `onControle` ({ q, page, tri }) rendent la recherche, la page et le tri pilotables (ex. depuis l’URL).
  */
 export function DataTable({
-  columns, rows = [], searchable = true, toolbar, onRowClick, empty, emptyAction, pageSize = 25, rowKey = 'id', label,
-  loading = false, error = null, onRetry, controle, onControle, cards = true,
+  columns, rows = [], searchable = true, toolbar, onRowClick, empty, emptyAction, pageSize = 25, rowKey = 'id', label, rowClassName, encadre = true,
+  loading = false, error = null, onRetry, controle, onControle, cards = true, cartes = 'liste',
 }) {
   const [interne, setInterne] = useState({ q: '', page: 1, tri: '' });
   const vue = controle || interne;
@@ -421,7 +425,7 @@ export function DataTable({
   else if (!visible.length) corps = <Empty message={empty} action={emptyAction} />;
 
   return (
-    <div className="card overflow-hidden" aria-busy={loading || undefined}>
+    <div className={`${encadre ? 'card ' : ''}overflow-hidden`} aria-busy={loading || undefined}>
       {(searchable || toolbar || triables.length > 0) && (
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-3 no-print">
           {searchable && (
@@ -463,7 +467,7 @@ export function DataTable({
           {!corps && (
             <tbody>
               {visible.map((r, i) => (
-                <tr key={r[rowKey] ?? i} {...ligneProps(r)} className={onRowClick ? `cursor-pointer hover:bg-dep-50/60 ${focusLigne}` : undefined}>
+                <tr key={r[rowKey] ?? i} {...ligneProps(r)} className={[onRowClick && `cursor-pointer hover:bg-dep-50/60 ${focusLigne}`, rowClassName?.(r)].filter(Boolean).join(' ') || undefined}>
                   {columns.map((c) => <td key={c.key} className={`td ${c.className || ''}`}>{cellule(c, r)}</td>)}
                 </tr>
               ))}
@@ -480,14 +484,25 @@ export function DataTable({
                 <li key={r[rowKey] ?? i} {...ligneProps(r)} className={`p-3 ${onRowClick ? `cursor-pointer active:bg-dep-50 ${focusLigne}` : ''}`}>
                   <div className="font-medium text-slate-900">{cellule(principale, r)}</div>
                   {secondaires.length > 0 && (
-                    <dl className="mt-1.5 grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
-                      {secondaires.map((c) => (
-                        <div key={c.key} className="contents">
-                          <dt className="text-xs leading-5 text-slate-500">{c.header}</dt>
-                          <dd className="min-w-0 break-words">{cellule(c, r)}</dd>
-                        </div>
-                      ))}
-                    </dl>
+                    cartes === 'grille' ? (
+                      <dl className="mt-2 grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
+                        {secondaires.map((c) => (
+                          <div key={c.key} className="flex min-w-0 flex-col-reverse">
+                            <dt className="truncate text-xs text-slate-500">{c.header}</dt>
+                            <dd className="min-w-0 break-words">{cellule(c, r)}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    ) : (
+                      <dl className="mt-1.5 grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
+                        {secondaires.map((c) => (
+                          <div key={c.key} className="contents">
+                            <dt className="text-xs leading-5 text-slate-500">{c.header}</dt>
+                            <dd className="min-w-0 break-words">{cellule(c, r)}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    )
                   )}
                   {actionsCol.map((c) => <div key={c.key} className="mt-2">{cellule(c, r)}</div>)}
                 </li>
@@ -716,5 +731,75 @@ export function UnsavedChangesGuard({ when, message = 'Vos modifications n’ont
       </>}>
       <p className="text-sm text-slate-700">{message}</p>
     </Modal>
+  );
+}
+
+// ─── Tableaux de bord ───────────────────────────────────────────────────────
+/** Lien d’en-tête de carte vers la liste complète. */
+export function CardLink({ to, children = 'Voir tout' }) {
+  return <Link to={to} className="link inline-flex items-center gap-1 text-sm">{children}<ChevronRight size={14} aria-hidden /></Link>;
+}
+
+/**
+ * Petites valeurs chiffrées en grille : la valeur au-dessus, son libellé dessous.
+ * items : [[libellé, valeur, ton]] — ton 'danger' met en rouge une valeur non nulle (retards…).
+ */
+export function MiniStats({ items, cols = 2 }) {
+  return (
+    <dl className={`grid gap-3 ${cols === 4 ? 'grid-cols-2 sm:grid-cols-4' : cols === 3 ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2'}`}>
+      {items.map(([libelle, valeur, ton]) => (
+        <div key={libelle} className="flex flex-col-reverse rounded-md bg-slate-50 p-3">
+          <dt className="text-xs text-slate-600">{libelle}</dt>
+          <dd className={`text-xl font-semibold tabular-nums ${ton === 'danger' && Number(valeur) > 0 ? 'text-red-700' : 'text-slate-900'}`}>{valeur ?? '—'}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/**
+ * Barres horizontales d’une seule série en pourcentage (taux d’exécution…) : une seule teinte,
+ * piste d’un ton plus clair de la même gamme, valeur écrite au bout de chaque ligne.
+ * Le détail s’affiche au survol et au focus clavier ; il n’est jamais le seul accès à l’information.
+ * rows : [{ key, label, value (0–100 ou null), strong, indent, avant, apres, detail: [[libellé, valeur]] }]
+ */
+export function BarList({ rows, label, sansValeur = 'aucune activité' }) {
+  const [actif, setActif] = useState(null);
+  return (
+    <ul className="space-y-0.5" aria-label={label}>
+      {rows.map((r) => {
+        const vide = r.value === null || r.value === undefined;
+        const texte = vide ? sansValeur : `${r.value} %`;
+        const infoId = `barre-${String(r.key).replace(/\W/g, '')}`;
+        return (
+          <li key={r.key} tabIndex={r.detail ? 0 : undefined} aria-describedby={r.detail ? infoId : undefined}
+            onMouseEnter={() => setActif(r.key)} onMouseLeave={() => setActif(null)} onFocus={() => setActif(r.key)} onBlur={() => setActif(null)}
+            className={`relative grid grid-cols-1 items-center gap-1 rounded px-1.5 py-1.5 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] sm:gap-3`}>
+            {/* Le retrait ne touche que le libellé : toutes les barres partent de la même ligne de base. */}
+            <div className={`flex min-w-0 flex-wrap items-center gap-2 ${r.indent ? 'sm:pl-6' : ''}`}>
+              {r.avant}
+              <span className={`min-w-0 truncate text-sm ${r.strong ? 'font-semibold text-slate-900' : 'text-slate-700'}`}>{r.label}</span>
+              {r.apres}
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-3 flex-1 overflow-hidden bg-dep-100" aria-hidden>
+                {!vide && r.value > 0 && <div className="h-full rounded-r bg-dep-600" style={{ width: `${Math.min(100, r.value)}%` }} />}
+              </div>
+              <span className={`w-28 shrink-0 text-right text-xs tabular-nums ${vide ? 'text-slate-500' : 'font-medium text-slate-800'}`}>{texte}</span>
+            </div>
+            {r.detail && (
+              <div id={infoId} role="tooltip" className={actif === r.key
+                ? 'pointer-events-none absolute right-0 top-full z-20 mt-1 w-64 rounded-md border border-slate-200 bg-white p-2.5 text-xs shadow-lg'
+                : 'sr-only'}>
+                <div className="mb-1.5 text-slate-900"><b className="tabular-nums">{texte}</b> — {r.label}</div>
+                <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5">
+                  {r.detail.map(([k, v]) => <Fragment key={k}><dt className="text-slate-600">{k}</dt><dd className="text-right font-medium tabular-nums text-slate-900">{v}</dd></Fragment>)}
+                </dl>
+              </div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }

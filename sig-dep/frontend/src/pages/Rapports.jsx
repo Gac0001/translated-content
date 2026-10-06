@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useApi, Loadable, PageHeader, Card, Field, RangBadge, Badge, InfoAlert } from '../components/ui';
+import { useApi, Loadable, PageHeader, Card, Field, RangBadge, Badge, InfoAlert, BarList, DataTable } from '../components/ui';
 import { ExportButtons } from '../components/shared';
 import { fmtDate, fmtMontant } from '../lib/format';
 import { PERIMETRES, PRESENCES, STATUTS } from '../lib/labels';
@@ -29,21 +29,29 @@ export default function Rapports() {
         {(r) => (
           <div className="space-y-4">
             <InfoAlert>Période : <b>{r.periode.libelle}</b> (du {fmtDate(r.periode.du)} au {fmtDate(r.periode.au)}) · Périmètre : <b>{PERIMETRES[r.perimetre]}</b>. Les Divisions et le Bureau directement rattaché au Directeur sont présentés séparément.</InfoAlert>
+            <Card title="Taux d’exécution par structure">
+              <BarList label="Taux d’exécution par structure" rows={r.lignes.map((l) => ({
+                key: `${l.rang}${l.id}`, label: l.structure, value: l.tauxExecution, strong: l.rang === 'DIVISION', indent: l.niveau === '— Bureau',
+                avant: <RangBadge rang={l.rang} />, apres: l.niveau === 'Bureau rattaché au Directeur' && <Badge tone="ambre">Rattaché au Directeur</Badge>,
+                detail: [
+                  ['Tâches terminées', `${l.tachesTerminees} sur ${l.taches}`], ['Tâches en retard', l.tachesEnRetard],
+                  ['Instructions exécutées', `${l.instructionsExecutees} sur ${l.instructions}`], ['Documents validés', `${l.documentsValides} sur ${l.documents}`],
+                ],
+              }))} />
+              <p className="pt-2 text-xs text-slate-500">Taux d’exécution = tâches et instructions exécutées, validées ou clôturées ÷ total. Le détail chiffré figure dans le tableau ci-dessous.</p>
+            </Card>
             <Card title="Performance par structure" bodyClass="p-0">
-              <div className="overflow-x-auto">
-                <table className="min-w-full">
-                  <thead><tr>{['Structure', 'Agents', 'Tâches', 'Terminées', 'En retard', 'Instructions', 'Exécutées', 'Documents', 'Validés', 'Taux d’exécution'].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
-                  <tbody>
-                    {r.lignes.map((l) => (
-                      <tr key={`${l.rang}${l.id}`} className={l.rang === 'DIVISION' ? 'bg-indigo-50/40 font-medium' : ''}>
-                        <td className={`td ${l.niveau === '— Bureau' ? 'pl-8' : ''}`}><span className="flex flex-wrap items-center gap-2">{l.structure}<RangBadge rang={l.rang} />{l.niveau === 'Bureau rattaché au Directeur' && <Badge tone="ambre">Rattaché au Directeur</Badge>}</span></td>
-                        {['agents', 'taches', 'tachesTerminees', 'tachesEnRetard', 'instructions', 'instructionsExecutees', 'documents', 'documentsValides'].map((k) => <td key={k} className="td tabular-nums">{l[k]}</td>)}
-                        <td className="td tabular-nums">{l.tauxExecution === null ? '—' : `${l.tauxExecution} %`}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable encadre={false} searchable={false} cartes="grille" pageSize={100} label="Performance par structure" rows={r.lignes.map((l) => ({ ...l, cle: `${l.rang}${l.id}` }))} rowKey="cle"
+                rowClassName={(l) => (l.rang === 'DIVISION' ? 'bg-indigo-50/40 font-medium' : '')}
+                columns={[
+                  {
+                    key: 'structure', header: 'Structure', primary: true,
+                    render: (l) => <span className={`flex flex-wrap items-center gap-2 ${l.niveau === '— Bureau' ? 'md:pl-5' : ''}`}>{l.structure}<RangBadge rang={l.rang} />{l.niveau === 'Bureau rattaché au Directeur' && <Badge tone="ambre">Rattaché au Directeur</Badge>}</span>,
+                  },
+                  ...[['agents', 'Agents'], ['taches', 'Tâches'], ['tachesTerminees', 'Terminées'], ['tachesEnRetard', 'En retard'], ['instructions', 'Instructions'], ['instructionsExecutees', 'Exécutées'], ['documents', 'Documents'], ['documentsValides', 'Validés']]
+                    .map(([key, header]) => ({ key, header, className: 'tabular-nums', render: (l) => (key === 'tachesEnRetard' && l[key] > 0 ? <span className="font-semibold text-red-700">{l[key]}</span> : l[key]) })),
+                  { key: 'tauxExecution', header: 'Taux d’exécution', className: 'tabular-nums', render: (l) => (l.tauxExecution === null ? '—' : `${l.tauxExecution} %`) },
+                ]} />
             </Card>
             <div className="grid gap-4 md:grid-cols-3">
               <Card title="Présences (agent-jours)">
