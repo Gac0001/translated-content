@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, useCallback, createContext, useContext, cloneElement, isValidElement } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { create } from 'zustand';
-import { AlertTriangle, CheckCircle2, ChevronRight, Info, Loader2, Search, X, Inbox, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, ChevronRight, Info, Loader2, Search, X, Inbox, XCircle } from 'lucide-react';
 import api, { errorMessage } from '../../lib/api';
 import { STATUTS, PRIORITES, URGENCES, CONFIDENTIALITES, COLORS } from '../../lib/labels';
 import { IconButton } from './Button';
@@ -348,65 +348,159 @@ export function Tabs({ tabs, value, onChange, label = 'Onglets' }) {
   );
 }
 
-// ─── Tableau avec recherche ─────────────────────────────────────────────────
+// ─── Tableau avec recherche, tri et vue mobile ──────────────────────────────
+const collator = new Intl.Collator('fr', { numeric: true, sensitivity: 'base' });
+const vide = (x) => x === null || x === undefined || x === '';
+const triable = (c) => !!(c.sortable || c.sortValue);
+const valeurTri = (c, r) => (c.sortValue ? c.sortValue(r) : r[c.key]);
+const cellule = (c, r) => (c.render ? c.render(r) : (r[c.key] ?? '—'));
+
 /**
- * columns : [{ key, header, render?(row), className?, search?: (row) => string }]
- * Recherche plein texte côté client sur les colonnes, filtres fournis via `toolbar`.
- * Avec onRowClick, chaque ligne est atteignable au clavier (Tab) et s’ouvre avec Entrée ou Espace.
+ * columns : [{ key, header, render?(row), className?, search?(row), sortable?, sortValue?(row), primary?, mobile? }]
+ * - Recherche plein texte côté client, filtres fournis via `toolbar`.
+ * - Tri : colonnes `sortable` (valeur brute) ou `sortValue` ; les valeurs vides sont toujours placées en dernier.
+ * - Mobile (< md) : une carte par ligne ; la colonne `primary` (sinon la première) sert de titre, `mobile: false` la masque.
+ * - Avec onRowClick, chaque ligne s’ouvre au clic, ou au clavier avec Entrée ou Espace.
+ * - `controle` / `onControle` ({ q, page, tri }) rendent la recherche, la page et le tri pilotables (ex. depuis l’URL).
  */
-export function DataTable({ columns, rows = [], searchable = true, toolbar, onRowClick, empty, pageSize = 25, rowKey = 'id', label }) {
-  const [q, setQ] = useState('');
-  const [page, setPage] = useState(1);
+export function DataTable({
+  columns, rows = [], searchable = true, toolbar, onRowClick, empty, emptyAction, pageSize = 25, rowKey = 'id', label,
+  loading = false, error = null, onRetry, controle, onControle, cards = true,
+}) {
+  const [interne, setInterne] = useState({ q: '', page: 1, tri: '' });
+  const vue = controle || interne;
+  const maj = onControle || ((patch) => setInterne((s) => ({ ...s, page: 'page' in patch ? patch.page : 1, ...patch })));
+  const q = vue.q || '';
+  const tri = vue.tri || '';
+
   const filtered = useMemo(() => {
     if (!q.trim()) return rows;
     const n = q.trim().toLowerCase();
     return rows.filter((r) => columns.some((c) => {
       const v = c.search ? c.search(r) : r[c.key];
-      return v !== null && v !== undefined && String(v).toLowerCase().includes(n);
+      return !vide(v) && String(v).toLowerCase().includes(n);
     }));
   }, [rows, q, columns]);
-  useEffect(() => setPage(1), [q, rows]);
-  const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
-  const ouvrir = (e, r) => {
-    if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onRowClick(r); }
-  };
+
+  const desc = tri.startsWith('-');
+  const colTri = columns.find((c) => triable(c) && c.key === (desc ? tri.slice(1) : tri));
+  const sorted = useMemo(() => {
+    if (!colTri) return filtered;
+    return [...filtered].sort((x, y) => {
+      const a = valeurTri(colTri, x);
+      const b = valeurTri(colTri, y);
+      if (vide(a) || vide(b)) return vide(a) === vide(b) ? 0 : vide(a) ? 1 : -1;
+      const c = typeof a === 'number' && typeof b === 'number' ? a - b : collator.compare(String(a), String(b));
+      return desc ? -c : c;
+    });
+  }, [filtered, colTri, desc]);
+
+  const pages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const page = Math.min(Math.max(1, Number(vue.page) || 1), pages);
+  const visible = sorted.slice((page - 1) * pageSize, page * pageSize);
+  const premiere = sorted.length ? (page - 1) * pageSize + 1 : 0;
+
+  // Tri : sans tri → croissant → décroissant → sans tri.
+  const trier = (c) => maj({ tri: tri === c.key ? `-${c.key}` : tri === `-${c.key}` ? '' : c.key });
+  const triables = columns.filter(triable);
+  const principale = columns.find((c) => c.primary) || columns[0];
+  const secondaires = columns.filter((c) => c !== principale && c.mobile !== false && c.header);
+  const actionsCol = columns.filter((c) => !c.header && c.mobile !== false);
+
+  const ligneProps = (r) => (onRowClick ? {
+    tabIndex: 0,
+    onClick: () => onRowClick(r),
+    onKeyDown: (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onRowClick(r); } },
+  } : {});
+  const focusLigne = 'focus:bg-dep-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dep-400';
+
+  let corps;
+  if (error && !rows.length) corps = <div className="p-3"><ErrorAlert message={error} onRetry={onRetry} /></div>;
+  else if (loading && !rows.length) corps = <Spinner />;
+  else if (!visible.length) corps = <Empty message={empty} action={emptyAction} />;
+
   return (
-    <div className="card overflow-hidden">
-      {(searchable || toolbar) && (
+    <div className="card overflow-hidden" aria-busy={loading || undefined}>
+      {(searchable || toolbar || triables.length > 0) && (
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-3 no-print">
           {searchable && (
             <div className="relative w-full sm:w-72">
               <Search size={16} className="absolute left-2.5 top-2.5 text-slate-400" aria-hidden />
-              <input type="search" className="input pl-8" placeholder="Rechercher…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Rechercher dans le tableau" />
+              <input type="search" className="input pl-8" placeholder="Rechercher…" value={q} onChange={(e) => maj({ q: e.target.value })} aria-label="Rechercher dans le tableau" />
             </div>
           )}
           {toolbar}
-          <span className="ml-auto text-xs text-slate-500" aria-live="polite">{filtered.length} élément(s)</span>
+          {cards && triables.length > 0 && (
+            <select className="input w-auto md:hidden" aria-label="Trier par" value={tri} onChange={(e) => maj({ tri: e.target.value })}>
+              <option value="">Ordre par défaut</option>
+              {triables.flatMap((c) => [<option key={c.key} value={c.key}>{c.header} (croissant)</option>, <option key={`-${c.key}`} value={`-${c.key}`}>{c.header} (décroissant)</option>])}
+            </select>
+          )}
+          <span className="ml-auto text-xs text-slate-500" aria-live="polite">{loading && rows.length ? 'Mise à jour…' : `${sorted.length} élément(s)`}</span>
         </div>
       )}
-      <div className="overflow-x-auto">
+      {error && rows.length > 0 && <div className="border-b border-slate-100 p-3"><ErrorAlert message={error} onRetry={onRetry} /></div>}
+      <div className={`${cards ? 'hidden md:block' : ''} overflow-x-auto ${loading && rows.length ? 'opacity-60' : ''}`}>
         <table className="min-w-full" aria-label={label}>
-          <thead><tr>{columns.map((c) => <th key={c.key} scope="col" className={`th ${c.className || ''}`}>{c.header || <span className="sr-only">Actions</span>}</th>)}</tr></thead>
-          <tbody>
-            {visible.map((r, i) => (
-              <tr key={r[rowKey] ?? i}
-                {...(onRowClick ? {
-                  tabIndex: 0, onClick: () => onRowClick(r), onKeyDown: (e) => ouvrir(e, r),
-                  className: 'cursor-pointer hover:bg-dep-50/60 focus:bg-dep-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dep-400',
-                } : {})}>
-                {columns.map((c) => <td key={c.key} className={`td ${c.className || ''}`}>{c.render ? c.render(r) : (r[c.key] ?? '—')}</td>)}
-              </tr>
-            ))}
-          </tbody>
+          <thead>
+            <tr>
+              {columns.map((c) => {
+                const actif = colTri === c;
+                return (
+                  <th key={c.key} scope="col" className={`th ${c.className || ''}`} aria-sort={triable(c) ? (actif ? (desc ? 'descending' : 'ascending') : 'none') : undefined}>
+                    {triable(c) ? (
+                      <button type="button" onClick={() => trier(c)} className="-mx-1 inline-flex items-center gap-1 rounded px-1 text-left uppercase tracking-wide hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400">
+                        {c.header}
+                        {actif ? (desc ? <ArrowDown size={13} aria-hidden /> : <ArrowUp size={13} aria-hidden />) : <ArrowUpDown size={13} className="text-slate-400" aria-hidden />}
+                      </button>
+                    ) : (c.header || <span className="sr-only">Actions</span>)}
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          {!corps && (
+            <tbody>
+              {visible.map((r, i) => (
+                <tr key={r[rowKey] ?? i} {...ligneProps(r)} className={onRowClick ? `cursor-pointer hover:bg-dep-50/60 ${focusLigne}` : undefined}>
+                  {columns.map((c) => <td key={c.key} className={`td ${c.className || ''}`}>{cellule(c, r)}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          )}
         </table>
-        {!visible.length && <Empty message={empty} />}
+        {corps}
       </div>
+      {cards && (
+        <div className={`md:hidden ${loading && rows.length ? 'opacity-60' : ''}`}>
+          {corps || (
+            <ul className="divide-y divide-slate-100" aria-label={label}>
+              {visible.map((r, i) => (
+                <li key={r[rowKey] ?? i} {...ligneProps(r)} className={`p-3 ${onRowClick ? `cursor-pointer active:bg-dep-50 ${focusLigne}` : ''}`}>
+                  <div className="font-medium text-slate-900">{cellule(principale, r)}</div>
+                  {secondaires.length > 0 && (
+                    <dl className="mt-1.5 grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
+                      {secondaires.map((c) => (
+                        <div key={c.key} className="contents">
+                          <dt className="text-xs leading-5 text-slate-500">{c.header}</dt>
+                          <dd className="min-w-0 break-words">{cellule(c, r)}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                  {actionsCol.map((c) => <div key={c.key} className="mt-2">{cellule(c, r)}</div>)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       {pages > 1 && (
-        <nav className="flex items-center justify-end gap-2 border-t border-slate-100 p-2 text-sm no-print" aria-label="Pagination">
-          <button type="button" className="btn-ghost" disabled={page <= 1} onClick={() => setPage(page - 1)}>Précédent</button>
+        <nav className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 p-2 text-sm no-print" aria-label="Pagination">
+          <span className="mr-auto px-1 text-xs text-slate-500">{premiere}–{premiere + visible.length - 1} sur {sorted.length}</span>
+          <button type="button" className="btn-ghost" disabled={page <= 1} onClick={() => maj({ page: page - 1 })}>Précédent</button>
           <span className="text-slate-600" aria-live="polite">Page {page} / {pages}</span>
-          <button type="button" className="btn-ghost" disabled={page >= pages} onClick={() => setPage(page + 1)}>Suivant</button>
+          <button type="button" className="btn-ghost" disabled={page >= pages} onClick={() => maj({ page: page + 1 })}>Suivant</button>
         </nav>
       )}
     </div>
@@ -433,5 +527,66 @@ export function KeyValues({ items, cols = 2 }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+// ─── Pages de liste ─────────────────────────────────────────────────────────
+const enTexte = (x) => (x === undefined || x === null ? '' : String(x));
+
+/** « ?a=1&b=2 » à partir d’un objet, en ignorant les valeurs vides ; chaîne vide si rien. */
+export function queryString(obj) {
+  const s = new URLSearchParams(Object.entries(obj).filter(([, v]) => !vide(v)).map(([k, v]) => [k, String(v)])).toString();
+  return s ? `?${s}` : '';
+}
+
+/**
+ * État d’une liste conservé dans l’URL (filtres, onglet, recherche `q`, `page`, `tri`) :
+ * il est retrouvé au retour d’une fiche et peut être partagé. Les valeurs égales aux défauts ne sont pas écrites.
+ * Modifier autre chose que la page ramène à la première page.
+ */
+export function useListParams(defaults = {}) {
+  const [params, setParams] = useSearchParams();
+  const defRef = useRef(defaults);
+  defRef.current = defaults;
+  const defaut = (k) => (k === 'page' ? '1' : enTexte(defRef.current[k]));
+  const valeurs = { q: '', page: '1', tri: '', ...Object.fromEntries(Object.entries(defaults).map(([k, v]) => [k, enTexte(v)])), ...Object.fromEntries(params) };
+  const set = useCallback((patch) => setParams((prev) => {
+    const n = new URLSearchParams(prev);
+    const p = 'page' in patch ? patch : { ...patch, page: '1' };
+    for (const [k, v] of Object.entries(p)) {
+      if (enTexte(v) === defaut(k)) n.delete(k); else n.set(k, enTexte(v));
+    }
+    return n;
+  }, { replace: true }), [setParams]); // eslint-disable-line react-hooks/exhaustive-deps
+  return { valeurs, set, defaut };
+}
+
+/**
+ * Page de liste standard : en-tête, onglets, filtres, recherche, tri et tableau, état conservé dans l’URL.
+ * liste : retour de useListParams ; tabs : { key, label, items } ; filtres : [{ key, label, placeholder, options }].
+ */
+export function ListPage({
+  title, subtitle, breadcrumb, actions, liste, tabs, filtres = [], toolbar, state, rows, columns, onRowClick, empty, rowKey, pageSize,
+}) {
+  const { valeurs: v, set, defaut } = liste;
+  const cles = filtres.map((f) => f.key);
+  const actifs = cles.some((k) => v[k] !== defaut(k)) || !!v.q;
+  const effacer = () => set(Object.fromEntries([...cles, 'q'].map((k) => [k, defaut(k)])));
+  const bouton = <button type="button" className="btn-ghost btn-sm" onClick={effacer}><X size={14} aria-hidden /> Effacer les filtres</button>;
+  return (
+    <>
+      <PageHeader title={title} subtitle={subtitle} breadcrumb={breadcrumb} actions={actions} />
+      {tabs && <Tabs label={tabs.label} tabs={tabs.items} value={v[tabs.key]} onChange={(x) => set({ [tabs.key]: x })} />}
+      <DataTable
+        columns={columns} rows={rows ?? state.data?.data ?? []} label={title} rowKey={rowKey} pageSize={pageSize} onRowClick={onRowClick}
+        loading={state.loading} error={state.error} onRetry={state.reload}
+        controle={{ q: v.q, page: v.page, tri: v.tri }} onControle={set}
+        empty={actifs ? 'Aucun résultat pour ces critères.' : empty} emptyAction={actifs && bouton}
+        toolbar={<>
+          {filtres.map((f) => <Select key={f.key} label={f.label} placeholder={f.placeholder} value={v[f.key]} onChange={(x) => set({ [f.key]: x })} options={f.options} />)}
+          {toolbar}
+          {actifs && bouton}
+        </>} />
+    </>
   );
 }
