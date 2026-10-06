@@ -3,9 +3,10 @@ import { Link, useParams } from 'react-router-dom';
 import { Archive, CheckCheck, FolderInput, MessageSquarePlus, Pencil, Send, CheckCircle2, FileDown } from 'lucide-react';
 import api, { download, errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
-import { useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, UrgenceBadge, ConfidBadge, Modal, Field, runAction, useConfirm, Badge, toast, InfoAlert } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, UrgenceBadge, ConfidBadge, Modal, Field, runAction, useConfirm, Badge, toast, InfoAlert, Button, WorkflowPanel, DetailLayout } from '../../components/ui';
 import { Attachments, Timeline } from '../../components/shared';
 import { fmtDate, fmtDateTime } from '../../lib/format';
+import { circuitCourrier } from '../../lib/workflows';
 
 function TransmitModal({ id, onClose, onDone }) {
   const contacts = useApi('/courriers/contacts');
@@ -52,54 +53,66 @@ export default function CourrierDetail() {
         <>
           <PageHeader title={c.objet} subtitle={`${c.numero_enregistrement} · Courrier ${c.sens === 'ENTRANT' ? 'entrant' : 'sortant'}`} breadcrumb={[{ label: 'Courriers', to: '/courriers' }, { label: c.numero_enregistrement }]}
             actions={<>
-              {can('exports.generer') && <button type="button" className="btn-secondary" onClick={() => download(`/courriers/${id}/fiche`).catch((e) => toast.error(errorMessage(e)))}><FileDown size={16} /> Fiche PDF</button>}
-              {c.actions.modifier && <Link to={`/courriers/${id}/modifier`} className="btn-secondary"><Pencil size={16} /> Modifier</Link>}
-              {c.actions.accuserReception.map((tid) => <button key={tid} type="button" className="btn-success" onClick={() => recevoir(tid)}><CheckCheck size={16} /> Accuser réception</button>)}
-              {c.actions.transmettre && <button type="button" className="btn-primary" onClick={() => setTransmit(true)}><Send size={16} /> Transmettre</button>}
-              {c.actions.traiter && <button type="button" className="btn-secondary" onClick={() => simple('traiter', 'Courrier marqué comme traité.')}><CheckCircle2 size={16} /> Traité</button>}
-              {c.actions.classer && <button type="button" className="btn-secondary" onClick={classer}><FolderInput size={16} /> Classer</button>}
-              {c.actions.archiver && <button type="button" className="btn-secondary" onClick={() => simple('archiver', 'Courrier archivé.')}><Archive size={16} /> Archiver</button>}
+              {can('exports.generer') && <Button icon={FileDown} onClick={() => download(`/courriers/${id}/fiche`).catch((e) => toast.error(errorMessage(e)))}>Fiche PDF</Button>}
+              {c.actions.modifier && <Link to={`/courriers/${id}/modifier`} className="btn-secondary"><Pencil size={16} aria-hidden /> Modifier</Link>}
             </>} />
-          {c.actions.accuserReception.length > 0 && <div className="mb-3"><InfoAlert tone="warning">Ce courrier vous a été transmis : veuillez en accuser réception.</InfoAlert></div>}
-          <div className="grid gap-4 lg:grid-cols-3">
-            <Card title="Identification" className="lg:col-span-2">
-              <KeyValues items={[
-                ['N° d’enregistrement', c.numero_enregistrement], ['Référence externe', c.reference_externe], ['Date du courrier', fmtDate(c.date_courrier)], ['Enregistré le', fmtDate(c.date_enregistrement)],
-                ['Expéditeur', c.expediteur], ['Destinataire', c.destinataire], ['Degré d’urgence', <UrgenceBadge key="u" value={c.urgence} />], ['Confidentialité', <ConfidBadge key="c" value={c.confidentialite} />],
-                ['Statut', <StatusBadge key="s" value={c.statut} />], ['Détenteur actuel', c.detenteur_nom], ['Classement', c.classement],
-              ]} />
-              {c.resume && <div className="mt-4"><div className="text-xs font-medium uppercase text-slate-500">Résumé</div><p className="mt-1 whitespace-pre-line text-sm">{c.resume}</p></div>}
-            </Card>
-            <Card title="Pièces jointes"><Attachments type="COURRIER" id={id} canUpload={c.actions.transmettre || c.actions.modifier} /></Card>
-            <Card title="Circulation (transmissions)" className="lg:col-span-2" bodyClass="p-0">
-              <div className="overflow-x-auto">
-                <table className="min-w-full">
-                  <thead><tr><th className="th">Date et heure</th><th className="th">Émetteur</th><th className="th">Destinataire</th><th className="th">Réception</th><th className="th">Observations</th></tr></thead>
-                  <tbody>{c.transmissions.map((t) => (
-                    <tr key={t.id}>
-                      <td className="td whitespace-nowrap">{fmtDateTime(t.created_at)}</td><td className="td">{t.emetteur_nom}</td>
-                      <td className="td">{t.destinataire_nom}<div className="text-xs text-slate-500">{t.sens_hierarchique === 'ASCENDANT' ? '↑ vers le supérieur' : '↓ vers le subordonné'}</div></td>
-                      <td className="td">{t.etat_reception === 'RECU' ? <Badge tone="succes">Reçu le {fmtDateTime(t.recu_at)}</Badge> : <Badge tone="attention">En attente</Badge>}{t.observation_reception && <div className="text-xs text-slate-500">{t.observation_reception}</div>}</td>
-                      <td className="td text-sm">{t.observations}</td>
-                    </tr>
-                  ))}</tbody>
-                </table>
-                {!c.transmissions.length && <p className="p-4 text-sm text-slate-500">Aucune transmission.</p>}
-              </div>
-            </Card>
-            <Card title="Annotations">
-              <ul className="space-y-3">{c.annotations.map((a) => <li key={a.id} className="text-sm"><p className="whitespace-pre-line">{a.texte}</p><div className="text-xs text-slate-500">{a.auteur} · {fmtDateTime(a.created_at)}</div></li>)}</ul>
-              {!c.annotations.length && <p className="text-sm text-slate-500">Aucune annotation.</p>}
-              {c.actions.annoter && (
-                <div className="mt-3 space-y-2 border-t pt-3 no-print">
-                  <textarea className="input" rows={2} placeholder="Nouvelle annotation…" value={note} onChange={(e) => setNote(e.target.value)} />
-                  <button type="button" className="btn-secondary" disabled={note.trim().length < 2} onClick={annoter}><MessageSquarePlus size={16} /> Annoter</button>
+          <WorkflowPanel circuit={circuitCourrier(c)}
+            attente={c.statut === 'ARCHIVE' ? 'Circuit terminé : le courrier est archivé.' : c.detenteur_nom && `Courrier actuellement détenu par ${c.detenteur_nom}.`}
+            message={c.actions.accuserReception.length > 0 && <InfoAlert tone="warning">Ce courrier vous a été transmis : veuillez en accuser réception.</InfoAlert>}
+            actions={[
+              ...c.actions.accuserReception.map((tid) => <Button key={`ar${tid}`} variant="success" icon={CheckCheck} onClick={() => recevoir(tid)}>Accuser réception</Button>),
+              c.actions.transmettre && <Button key="tr" variant="primary" icon={Send} onClick={() => setTransmit(true)}>Transmettre</Button>,
+              c.actions.traiter && <Button key="tt" icon={CheckCircle2} onClick={() => simple('traiter', 'Courrier marqué comme traité.')}>Marquer comme traité</Button>,
+              c.actions.classer && <Button key="cl" icon={FolderInput} onClick={classer}>Classer</Button>,
+              c.actions.archiver && <Button key="aa" icon={Archive} onClick={() => simple('archiver', 'Courrier archivé.')}>Archiver</Button>,
+            ]} />
+          <DetailLayout
+            main={<>
+              <Card title="Identification">
+                <KeyValues items={[
+                  ['N° d’enregistrement', c.numero_enregistrement], ['Référence externe', c.reference_externe], ['Date du courrier', fmtDate(c.date_courrier)], ['Enregistré le', fmtDate(c.date_enregistrement)],
+                  ['Expéditeur', c.expediteur], ['Destinataire', c.destinataire],
+                ]} />
+                {c.resume && <div className="mt-4"><div className="text-xs font-medium uppercase text-slate-500">Résumé</div><p className="mt-1 whitespace-pre-line text-sm">{c.resume}</p></div>}
+              </Card>
+              <Card title="Circulation (transmissions)" bodyClass="p-0">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full" aria-label="Transmissions du courrier">
+                    <thead><tr>{['Date et heure', 'Émetteur', 'Destinataire', 'Réception', 'Observations'].map((h) => <th key={h} scope="col" className="th">{h}</th>)}</tr></thead>
+                    <tbody>{c.transmissions.map((t) => (
+                      <tr key={t.id}>
+                        <td className="td whitespace-nowrap">{fmtDateTime(t.created_at)}</td><td className="td">{t.emetteur_nom}</td>
+                        <td className="td">{t.destinataire_nom}<div className="text-xs text-slate-500">{t.sens_hierarchique === 'ASCENDANT' ? '↑ vers le supérieur' : '↓ vers le subordonné'}</div></td>
+                        <td className="td">{t.etat_reception === 'RECU' ? <Badge tone="succes">Reçu le {fmtDateTime(t.recu_at)}</Badge> : <Badge tone="attention">En attente</Badge>}{t.observation_reception && <div className="text-xs text-slate-500">{t.observation_reception}</div>}</td>
+                        <td className="td text-sm">{t.observations}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                  {!c.transmissions.length && <p className="p-4 text-sm text-slate-500">Aucune transmission.</p>}
                 </div>
-              )}
-            </Card>
-            {c.instructions.length > 0 && <Card title="Instructions liées" className="lg:col-span-3"><ul className="text-sm">{c.instructions.map((i) => <li key={i.id}><Link to={`/instructions/${i.id}`} className="text-dep-700 hover:underline">{i.reference} — {i.objet}</Link> <StatusBadge value={i.statut} /></li>)}</ul></Card>}
-            <Card title="Historique de circulation" className="lg:col-span-3"><Timeline items={c.historique} /></Card>
-          </div>
+              </Card>
+              {c.instructions.length > 0 && <Card title="Instructions liées"><ul className="space-y-1 text-sm">{c.instructions.map((i) => <li key={i.id} className="flex flex-wrap items-center gap-2"><Link to={`/instructions/${i.id}`} className="link">{i.reference} — {i.objet}</Link><StatusBadge value={i.statut} /></li>)}</ul></Card>}
+              <Card title="Historique de circulation"><Timeline items={c.historique} /></Card>
+            </>}
+            aside={<>
+              <Card title="Informations">
+                <KeyValues cols={1} items={[
+                  ['Statut', <StatusBadge key="s" value={c.statut} />], ['Degré d’urgence', <UrgenceBadge key="u" value={c.urgence} />], ['Confidentialité', <ConfidBadge key="c" value={c.confidentialite} />],
+                  ['Détenteur actuel', c.detenteur_nom], ['Classement', c.classement],
+                ]} />
+              </Card>
+              <Card title="Annotations">
+                <ul className="space-y-3">{c.annotations.map((a) => <li key={a.id} className="text-sm"><p className="whitespace-pre-line">{a.texte}</p><div className="text-xs text-slate-500">{a.auteur} · {fmtDateTime(a.created_at)}</div></li>)}</ul>
+                {!c.annotations.length && <p className="text-sm text-slate-500">Aucune annotation.</p>}
+                {c.actions.annoter && (
+                  <div className="mt-3 space-y-2 border-t pt-3 no-print">
+                    <textarea className="input" rows={2} placeholder="Nouvelle annotation…" aria-label="Nouvelle annotation" value={note} onChange={(e) => setNote(e.target.value)} />
+                    <Button icon={MessageSquarePlus} disabled={note.trim().length < 2} onClick={annoter}>Annoter</Button>
+                  </div>
+                )}
+              </Card>
+              <Card title="Pièces jointes"><Attachments type="COURRIER" id={id} canUpload={c.actions.transmettre || c.actions.modifier} /></Card>
+            </>} />
           {transmit && <TransmitModal id={id} onClose={() => setTransmit(false)} onDone={() => { setTransmit(false); state.reload(); }} />}
         </>
       )}

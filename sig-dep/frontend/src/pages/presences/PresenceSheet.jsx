@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { CheckCircle2, FilePlus2, Lock, Save, Send, Trash2 } from 'lucide-react';
 import api from '../../lib/api';
-import { useApi, Loadable, PageHeader, Card, StatusBadge, KeyValues, InfoAlert, Badge, runAction, useConfirm } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, StatusBadge, KeyValues, InfoAlert, Badge, runAction, useConfirm, Button, WorkflowPanel } from '../../components/ui';
 import { ExportButtons, Timeline } from '../../components/shared';
 import { fmtDate, fmtDateTime } from '../../lib/format';
 import { JOURS, PRESENCES } from '../../lib/labels';
+import { circuitPresence } from '../../lib/workflows';
 
 export default function PresenceSheet() {
   const { id } = useParams();
@@ -46,15 +47,20 @@ export default function PresenceSheet() {
             <PageHeader title={`Liste de présence — Semaine ${s.numero_semaine}`} subtitle={`${s.reference} · du ${fmtDate(s.semaine_debut)} au ${fmtDate(s.semaine_fin)}`} breadcrumb={[{ label: 'Présences', to: '/presences' }, { label: s.reference }]}
               actions={<>
                 <ExportButtons base={`/presences/${id}/export`} />
-                {edit && <button type="button" className="btn-primary" disabled={!dirty} onClick={save}><Save size={16} /> Enregistrer</button>}
-                {s.actions.verifier && <button type="button" className="btn-secondary" disabled={dirty} onClick={() => step('verifier', 'Liste vérifiée.')}><CheckCircle2 size={16} /> Vérifier</button>}
-                {s.actions.soumettre && <button type="button" className="btn-success" disabled={dirty} onClick={() => step('soumettre', 'Liste soumise au Directeur.', { title: 'Soumettre au Directeur', message: 'Après soumission, la liste sera verrouillée : aucune modification ne sera plus possible (seul un rectificatif le permettra).' })}><Send size={16} /> Soumettre au Directeur</button>}
-                {s.actions.verrouiller && <button type="button" className="btn-primary" onClick={() => step('verrouiller', 'Liste verrouillée.')}><Lock size={16} /> Réceptionner et verrouiller</button>}
-                {s.actions.rectifier && <button type="button" className="btn-secondary" onClick={rectif}><FilePlus2 size={16} /> Rectificatif</button>}
-                {s.actions.supprimer && <button type="button" className="btn-ghost text-red-700" onClick={remove} aria-label="Supprimer le brouillon" title="Supprimer le brouillon"><Trash2 size={16} aria-hidden /></button>}
+                {edit && <Button variant="primary" icon={Save} disabled={!dirty} onClick={save}>Enregistrer</Button>}
               </>} />
-            {dirty && <div className="mb-3"><InfoAlert tone="warning">Modifications non enregistrées. Enregistrez avant de vérifier ou de soumettre.</InfoAlert></div>}
-            {['SOUMISE', 'VERROUILLEE'].includes(s.statut) && <div className="mb-3"><InfoAlert>Liste {s.statut === 'SOUMISE' ? 'soumise (verrouillée en écriture)' : 'verrouillée'} : toute correction doit passer par un rectificatif.</InfoAlert></div>}
+            <WorkflowPanel circuit={circuitPresence(s)}
+              attente={s.statut === 'VERROUILLEE' ? 'Liste réceptionnée et verrouillée.' : s.statut === 'SOUMISE' ? 'Liste soumise : en attente de réception par le Directeur.' : null}
+              message={dirty
+                ? <InfoAlert tone="warning">Modifications non enregistrées. Enregistrez avant de vérifier ou de soumettre.</InfoAlert>
+                : ['SOUMISE', 'VERROUILLEE'].includes(s.statut) && <InfoAlert>Liste {s.statut === 'SOUMISE' ? 'soumise (verrouillée en écriture)' : 'verrouillée'} : toute correction doit passer par un rectificatif.</InfoAlert>}
+              actions={[
+                s.actions.verifier && <Button key="ve" icon={CheckCircle2} disabled={dirty} onClick={() => step('verifier', 'Liste vérifiée.')}>Vérifier</Button>,
+                s.actions.soumettre && <Button key="so" variant="success" icon={Send} disabled={dirty} onClick={() => step('soumettre', 'Liste soumise au Directeur.', { title: 'Soumettre au Directeur', message: 'Après soumission, la liste sera verrouillée : aucune modification ne sera plus possible (seul un rectificatif le permettra).' })}>Soumettre au Directeur</Button>,
+                s.actions.verrouiller && <Button key="vr" variant="primary" icon={Lock} onClick={() => step('verrouiller', 'Liste verrouillée.')}>Réceptionner et verrouiller</Button>,
+                s.actions.rectifier && <Button key="rc" icon={FilePlus2} onClick={rectif}>Établir un rectificatif</Button>,
+                s.actions.supprimer && <Button key="su" variant="ghost" icon={Trash2} className="text-red-700" onClick={remove}>Supprimer le brouillon</Button>,
+              ]} />
             <div className="grid gap-4 lg:grid-cols-4">
               <Card title="Informations" className="lg:col-span-3">
                 <KeyValues cols={3} items={[

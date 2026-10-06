@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, useCallback, createContext, useContext, cloneElement, isValidElement } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { create } from 'zustand';
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, ChevronRight, Info, Loader2, Search, X, Inbox, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, ChevronRight, Info, Loader2, Search, X, Inbox, XCircle } from 'lucide-react';
 import api, { errorMessage } from '../../lib/api';
 import { STATUTS, PRIORITES, URGENCES, CONFIDENTIALITES, COLORS } from '../../lib/labels';
 import { IconButton } from './Button';
@@ -519,7 +519,7 @@ export function Select({ value, onChange, options, placeholder = 'Tous', classNa
 
 export function KeyValues({ items, cols = 2 }) {
   return (
-    <dl className={`grid gap-x-6 gap-y-3 ${cols === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+    <dl className={`grid gap-x-6 gap-y-3 ${{ 1: '', 3: 'sm:grid-cols-3' }[cols] ?? 'sm:grid-cols-2'}`}>
       {items.filter(Boolean).map(([k, v], i) => (
         <div key={i} className="min-w-0">
           <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{k}</dt>
@@ -588,5 +588,100 @@ export function ListPage({
           {actifs && bouton}
         </>} />
     </>
+  );
+}
+
+// ─── Fiches et circuits ─────────────────────────────────────────────────────
+const TON_ALERTE = { attention: 'bg-amber-500 text-white', danger: 'bg-red-600 text-white' };
+const BARRE_ALERTE = { attention: 'bg-amber-500', danger: 'bg-red-600' };
+
+/**
+ * Frise des étapes d’un circuit (voir lib/workflows.js) : { etapes, courante, alerte, termine, sautees, details }.
+ * Une étape « sautée » précède l’étape en cours mais n’a pas eu lieu (le circuit le permet).
+ * Complète à partir de sm, réduite à « Étape n sur N » et une barre segmentée sur mobile.
+ */
+const LIBELLE_ETAT = { fait: ' : étape franchie', actif: ' : étape en cours', avenir: ' : à venir', saute: ' : étape non effectuée' };
+
+export function WorkflowStatus({ etapes, courante, alerte, termine = false, sautees = [], details = {} }) {
+  const etat = (i) => {
+    if (i < courante) return sautees.includes(i) ? 'saute' : 'fait';
+    if (i === courante) return termine ? 'fait' : 'actif';
+    return 'avenir';
+  };
+  const pastille = (e) => (e === 'fait' ? 'bg-dep-600 text-white'
+    : e === 'actif' ? (alerte ? TON_ALERTE[alerte.tone] : 'border-2 border-dep-600 bg-white text-dep-700')
+      : e === 'saute' ? 'border-2 border-dashed border-slate-300 bg-white text-slate-400'
+        : 'bg-slate-200 text-slate-600');
+  return (
+    <div>
+      <ol className="hidden sm:flex sm:items-start" aria-label="Étapes du circuit">
+        {etapes.map((l, i) => {
+          const e = etat(i);
+          return (
+            <li key={l} aria-current={i === courante ? 'step' : undefined} className="relative flex min-w-0 flex-1 flex-col items-center text-center">
+              {i > 0 && <span aria-hidden className={`absolute right-1/2 top-3 h-0.5 w-full -translate-y-1/2 ${i <= courante ? 'bg-dep-600' : 'bg-slate-200'}`} />}
+              <span aria-hidden className={`relative z-10 flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ring-4 ring-white ${pastille(e)}`}>
+                {e === 'fait' ? <Check size={14} /> : e === 'saute' ? '–' : i + 1}
+              </span>
+              <span className={`mt-1.5 px-1 text-xs leading-tight ${e === 'actif' ? 'font-semibold text-slate-900' : e === 'fait' ? 'text-slate-700' : e === 'saute' ? 'italic text-slate-500' : 'text-slate-500'}`}>
+                {l}<span className="sr-only">{LIBELLE_ETAT[e]}</span>
+              </span>
+              {e === 'saute' && <span className="px-1 text-xs italic leading-tight text-slate-500" aria-hidden>non effectuée</span>}
+              {i === courante && alerte && <Badge tone={alerte.tone} className="mt-1">{alerte.label}</Badge>}
+              {details[i] && <span className="mt-0.5 px-1 text-xs leading-tight text-slate-500">{details[i]}</span>}
+            </li>
+          );
+        })}
+      </ol>
+      <div className="sm:hidden">
+        <div className="flex items-baseline justify-between gap-2 text-sm">
+          <span className="font-semibold text-slate-900">{etapes[courante]}</span>
+          <span className="shrink-0 text-xs text-slate-500">Étape {courante + 1} sur {etapes.length}</span>
+        </div>
+        <div className="mt-2 flex gap-1" aria-hidden>
+          {etapes.map((l, i) => {
+            const e = etat(i);
+            return <span key={l} className={`h-1.5 flex-1 rounded-full ${e === 'fait' ? 'bg-dep-600' : e === 'actif' ? (alerte ? BARRE_ALERTE[alerte.tone] : 'bg-dep-300') : 'bg-slate-200'}`} />;
+          })}
+        </div>
+        {(alerte || details[courante]) && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            {alerte && <Badge tone={alerte.tone}>{alerte.label}</Badge>}
+            {details[courante]}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Encadré « Circuit de traitement » d’une fiche : frise, message éventuel, puis les actions possibles
+ * à l’étape en cours (tableau d’éléments ; les valeurs fausses sont ignorées) ou, à défaut, qui doit agir.
+ */
+export function WorkflowPanel({ circuit, actions = [], message, attente }) {
+  const liste = actions.filter(Boolean);
+  return (
+    <section className="card mb-4 p-4" aria-labelledby="circuit-titre">
+      <h2 id="circuit-titre" className="mb-3 text-sm font-semibold uppercase tracking-wide text-dep-800">Circuit de traitement</h2>
+      <WorkflowStatus {...circuit} />
+      {message && <div className="mt-4">{message}</div>}
+      {liste.length > 0 ? (
+        <div className="mt-4 flex flex-col gap-3 rounded-md border border-dep-200 bg-dep-50/60 p-3 no-print sm:flex-row sm:items-center">
+          <p className="text-sm font-medium text-dep-900">Actions possibles à cette étape</p>
+          <div className="flex flex-wrap gap-2 sm:ml-auto">{liste}</div>
+        </div>
+      ) : attente && <p className="mt-4 text-sm text-slate-600">{attente}</p>}
+    </section>
+  );
+}
+
+/** Mise en page d’une fiche : contenu principal (2/3) et colonne d’informations (1/3), empilés sur mobile. */
+export function DetailLayout({ main, aside }) {
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <div className="min-w-0 space-y-4 lg:col-span-2">{main}</div>
+      <div className="min-w-0 space-y-4">{aside}</div>
+    </div>
   );
 }
