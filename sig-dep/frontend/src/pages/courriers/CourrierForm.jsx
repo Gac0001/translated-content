@@ -5,7 +5,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Save } from 'lucide-react';
 import api from '../../lib/api';
-import { useApi, PageHeader, Card, Field, runAction } from '../../components/ui';
+import { useApi, PageHeader, Card, Field, runAction, UnsavedChangesGuard } from '../../components/ui';
+import { aujourdhui } from '../../lib/format';
 
 const schema = z.object({
   sens: z.enum(['ENTRANT', 'SORTANT']),
@@ -24,7 +25,7 @@ export default function CourrierForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const existing = useApi(id ? `/courriers/${id}` : null);
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(schema), defaultValues: { sens: 'ENTRANT', urgence: 'NORMAL', confidentialite: 'ORDINAIRE', date_courrier: new Date().toISOString().slice(0, 10), destinataire: 'Directeur de la Direction d’Études et Planification' } });
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting, dirtyFields, isSubmitSuccessful } } = useForm({ resolver: zodResolver(schema), defaultValues: { sens: 'ENTRANT', urgence: 'NORMAL', confidentialite: 'ORDINAIRE', date_courrier: aujourdhui(), destinataire: 'Directeur de la Direction d’Études et Planification' } });
   useEffect(() => { const c = existing.data; if (c) reset({ ...Object.fromEntries(Object.entries(c).map(([k, v]) => [k, v ?? ''])) }); }, [existing.data, reset]);
   const submit = async (v) => {
     const body = { ...v };
@@ -35,6 +36,7 @@ export default function CourrierForm() {
   const t = (n, l, req, ph) => <Field label={l} error={errors[n]?.message} required={req}><input className="input" placeholder={ph} {...register(n)} /></Field>;
   return (
     <>
+      <UnsavedChangesGuard when={Object.keys(dirtyFields).length > 0 && !isSubmitting && !isSubmitSuccessful} />
       <PageHeader title={id ? 'Modifier le courrier' : 'Enregistrer un courrier'} subtitle="Le numéro d’enregistrement est attribué automatiquement." breadcrumb={[{ label: 'Courriers', to: '/courriers' }, { label: id ? 'Modification' : 'Nouveau' }]} />
       <form onSubmit={handleSubmit(submit)} className="space-y-4" noValidate>
         <Card title="Identification">

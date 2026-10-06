@@ -133,16 +133,16 @@ export default function Login() {
         <ErrorAlert message={error} />
         <div>
           <label className="label" htmlFor="username">Nom d’utilisateur</label>
-          <input id="username" className="input" autoComplete="username" autoFocus {...register('username')} />
-          {errors.username && <p className="mt-1 text-xs text-red-700">{errors.username.message}</p>}
+          <input id="username" className="input" autoComplete="username" autoFocus aria-invalid={errors.username ? true : undefined} aria-describedby={errors.username ? 'username-erreur' : undefined} {...register('username')} />
+          {errors.username && <p id="username-erreur" className="mt-1 text-xs text-red-700">{errors.username.message}</p>}
         </div>
         <div>
           <label className="label" htmlFor="password">Mot de passe</label>
           <div className="relative">
-            <input id="password" type={show ? 'text' : 'password'} className="input pr-10" autoComplete="current-password" {...register('password')} />
-            <button type="button" className="absolute right-2 top-2 text-slate-500" onClick={() => setShow((v) => !v)} aria-label={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+            <input id="password" type={show ? 'text' : 'password'} className="input pr-10" autoComplete="current-password" aria-invalid={errors.password ? true : undefined} aria-describedby={errors.password ? 'password-erreur' : undefined} {...register('password')} />
+            <button type="button" className="absolute right-2 top-2 text-slate-500" onClick={() => setShow((v) => !v)} aria-pressed={show} aria-label={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
           </div>
-          {errors.password && <p className="mt-1 text-xs text-red-700">{errors.password.message}</p>}
+          {errors.password && <p id="password-erreur" className="mt-1 text-xs text-red-700">{errors.password.message}</p>}
         </div>
         <button type="submit" className="btn-primary w-full py-2.5" disabled={isSubmitting}>
           {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />} Se connecter

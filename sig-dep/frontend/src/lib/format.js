@@ -1,5 +1,13 @@
 const TZ = 'Africa/Kinshasa';
 
+/**
+ * Date du jour à Kinshasa (AAAA-MM-JJ), pour les champs de date.
+ * toISOString() donne la date UTC : entre minuit et 1 h à Kinshasa, ce serait encore la veille.
+ */
+export function aujourdhui() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+}
+
 export function fmtDate(d) {
   if (!d) return '—';
   const s = String(d);

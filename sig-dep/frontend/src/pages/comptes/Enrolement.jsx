@@ -7,14 +7,13 @@ import {
   ArrowLeft, ArrowRight, Check, FileCheck2, IdCard, ImagePlus, ListChecks, Lock, Search, UserPlus, UserSearch,
 } from 'lucide-react';
 import api, { errorMessage } from '../../lib/api';
-import { fmtDate, fmtDateTime } from '../../lib/format';
+import { aujourdhui, fmtDate, fmtDateTime } from '../../lib/format';
 import { useAuth } from '../../store/auth';
-import { useApi, runAction, PageHeader, Card, Field, InfoAlert, Loadable, Badge, KeyValues, Spinner, ErrorAlert } from '../../components/ui';
+import { useApi, runAction, PageHeader, Card, Field, InfoAlert, Loadable, Badge, KeyValues, Spinner, ErrorAlert, UnsavedChangesGuard } from '../../components/ui';
 import { COLORS } from '../../lib/labels';
 import TempPassword from './TempPassword';
 
-const today = () => new Date().toISOString().slice(0, 10);
-const date = (label) => z.string().min(1, `${label} requise`).refine((v) => v <= today(), `${label} ne peut pas être future`);
+const date = (label) => z.string().min(1, `${label} requise`).refine((v) => v <= aujourdhui(), `${label} ne peut pas être future`);
 
 const base = z.object({
   identite_confirmee: z.literal(true, { message: 'Confirmez l’identité de l’agent pour continuer.' }),
@@ -23,7 +22,7 @@ const base = z.object({
   date_affectation: z.string().optional(),
   affectation_confirmee: z.literal(true, { message: 'Confirmez l’affectation pour continuer.' }),
   sexe: z.enum(['M', 'F'], { message: 'Sexe requis' }),
-  date_naissance: date('Date de naissance'),
+  date_naissance: date('Date de naissance').refine((v) => v >= '1940-01-01', 'Date de naissance antérieure à 1940 : vérifiez la saisie'),
   lieu_naissance: z.string().trim().max(150).optional(),
   date_mise_en_service: date('Date de mise en service'),
   numero_carte_igap: z.string().trim().min(3, 'Numéro de carte IGAP requis').max(60),
@@ -33,8 +32,12 @@ const base = z.object({
   adresse: z.string().trim().max(300).optional(),
   username: z.string().trim().toLowerCase().min(3, 'Au moins 3 caractères').regex(/^[a-z0-9._-]+$/, 'Minuscules, chiffres, point ou tiret uniquement'),
 });
-const apresNaissance = (v) => !v.date_naissance || !v.date_mise_en_service || v.date_mise_en_service > v.date_naissance;
-const schema = base.refine(apresNaissance || !v.date_mise_en_service || v.date_mise_en_service > v.date_naissance, { path: ['date_mise_en_service'], message: 'Doit être postérieure à la date de naissance' });
+// Même règle que l’API : (mise en service − naissance) / 365,25 jours ≥ 18 ans.
+const AGE_MINIMUM = 18;
+const MSG_MISE_EN_SERVICE = 'Doit être postérieure aux 18 ans de l’agent';
+const majeurALaMiseEnService = (v) => !v.date_naissance || !v.date_mise_en_service
+  || (new Date(v.date_mise_en_service) - new Date(v.date_naissance)) / (365.25 * 86400000) >= AGE_MINIMUM;
+const schema = base.refine(majeurALaMiseEnService, { path: ['date_mise_en_service'], message: MSG_MISE_EN_SERVICE });
 
 /** Champs contrôlés à chaque étape (validation explicite, indépendante du reste du formulaire). */
 const CHAMPS_ETAPE = {
@@ -176,7 +179,7 @@ function Assistant({ agentId, etape, setEtape, onCreated, onAnnuler }) {
   const [photo, setPhoto] = useState(null);
   const [commission, setCommission] = useState(null);
   const [fileErr, setFileErr] = useState({});
-  const { register, handleSubmit, reset, watch, getValues, setError, clearErrors, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(schema) });
+  const { register, handleSubmit, reset, watch, getValues, setError, clearErrors, formState: { errors, isSubmitting, dirtyFields, isSubmitSuccessful } } = useForm({ resolver: zodResolver(schema) });
 
   useEffect(() => {
     if (!pre.data) return;
@@ -207,7 +210,9 @@ function Assistant({ agentId, etape, setEtape, onCreated, onAnnuler }) {
     const shape = Object.fromEntries(champs.map((c) => [c, true]));
     const r = base.pick(shape).safeParse(getValues());
     const issues = r.success ? [] : r.error.issues;
-    if (champs.includes('date_mise_en_service') && !issues.length && !apresNaissance(getValues())) issues.push({ path: ['date_mise_en_service'], message: 'Doit être postérieure à la date de naissance' });
+    // Contrôle croisé des deux dates dès qu’elles sont valides, même si d’autres champs de l’étape manquent.
+    const datesValides = !issues.some((i) => ['date_naissance', 'date_mise_en_service'].includes(i.path[0]));
+    if (champs.includes('date_mise_en_service') && datesValides && !majeurALaMiseEnService(getValues())) issues.push({ path: ['date_mise_en_service'], message: MSG_MISE_EN_SERVICE });
     issues.forEach((i) => setError(i.path[0], { type: 'manual', message: i.message }));
     return !issues.length;
   };
@@ -250,6 +255,7 @@ function Assistant({ agentId, etape, setEtape, onCreated, onAnnuler }) {
 
   return (
     <form onSubmit={etape === 4 ? handleSubmit(submit) : (e) => { e.preventDefault(); suivant(); }} noValidate className="space-y-4">
+      <UnsavedChangesGuard when={(Object.keys(dirtyFields).length > 0 || !!photo || !!commission) && !isSubmitting && !isSubmitSuccessful} message="L’enrôlement de cet agent n’est pas terminé : les informations saisies et les fichiers joints seront perdus." />
       {!pre.data.enrolable && <InfoAlert tone="warning">{pre.data.motif}</InfoAlert>}
 
       {etape === 1 && (
@@ -320,9 +326,9 @@ function Assistant({ agentId, etape, setEtape, onCreated, onAnnuler }) {
             <Field label="Sexe" required error={errors.sexe?.message}>
               <select className="input" {...register('sexe')}><option value="">— Choisir —</option><option value="M">Masculin</option><option value="F">Féminin</option></select>
             </Field>
-            {t('date_naissance', 'Date de naissance', true, { type: 'date', max: today() })}
+            {t('date_naissance', 'Date de naissance', true, { type: 'date', min: '1940-01-01', max: aujourdhui() })}
             {t('lieu_naissance', 'Lieu de naissance')}
-            {t('date_mise_en_service', 'Date de mise en service', true, { type: 'date', max: today() })}
+            {t('date_mise_en_service', 'Date de mise en service', true, { type: 'date', max: aujourdhui() })}
             {t('numero_carte_igap', 'Numéro de la carte IGAP', true)}
             <Field label="Fonction" required error={errors.fonction_id?.message} hint={`Fonctions correspondant au grade ${a.grade_code || '—'}.`}>
               <select className="input" {...register('fonction_id')} disabled={!fonctions.length}>

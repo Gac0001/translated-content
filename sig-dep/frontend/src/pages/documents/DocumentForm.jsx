@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { ArrowLeft, Save } from 'lucide-react';
 import api from '../../lib/api';
-import { useApi, PageHeader, Card, Field, runAction, Spinner, InfoAlert } from '../../components/ui';
+import { useApi, PageHeader, Card, Field, runAction, Spinner, InfoAlert, UnsavedChangesGuard } from '../../components/ui';
 import { DynamicField } from '../../components/shared';
 
 const schema = z.object({
@@ -22,7 +22,8 @@ export default function DocumentForm() {
   const existing = useApi(id ? `/documents/${id}` : null);
   const [typeCode, setTypeCode] = useState(null);
   const [contenu, setContenu] = useState({});
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(schema), defaultValues: { confidentialite: 'ORDINAIRE' } });
+  const [contenuModifie, setContenuModifie] = useState(false);
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting, dirtyFields, isSubmitSuccessful } } = useForm({ resolver: zodResolver(schema), defaultValues: { confidentialite: 'ORDINAIRE' } });
   useEffect(() => {
     const d = existing.data;
     if (d) { setTypeCode(d.type_document); setContenu(d.contenu || {}); reset({ titre: d.titre, confidentialite: d.confidentialite, commentaire: '' }); }
@@ -52,6 +53,7 @@ export default function DocumentForm() {
   }
   return (
     <>
+      <UnsavedChangesGuard when={(Object.keys(dirtyFields).length > 0 || contenuModifie) && !isSubmitting && !isSubmitSuccessful} />
       <PageHeader title={id ? `Modifier — ${type.libelle}` : `Nouveau — ${type.libelle}`} subtitle={id ? 'Chaque enregistrement crée une nouvelle version ; les versions antérieures sont conservées.' : type.description}
         breadcrumb={[{ label: 'Documents', to: '/documents' }, { label: id ? 'Modification' : 'Nouveau' }]}
         actions={!id && <button type="button" className="btn-ghost" onClick={() => setTypeCode(null)}><ArrowLeft size={16} /> Changer de modèle</button>} />
@@ -66,7 +68,7 @@ export default function DocumentForm() {
         {type.sections.map((s, i) => (
           <Card key={s.key} title={`${i + 1}. ${s.label}${s.required ? ' *' : ''}`}>
             {s.help && <p className="mb-2 text-xs text-slate-500">{s.help}</p>}
-            <DynamicField field={s} aria-label={s.label} value={contenu[s.key]} onChange={(v) => setContenu((c) => ({ ...c, [s.key]: v }))} />
+            <DynamicField field={s} aria-label={s.label} value={contenu[s.key]} onChange={(v) => { setContenu((c) => ({ ...c, [s.key]: v })); setContenuModifie(true); }} />
           </Card>
         ))}
         {id && <Card><Field label="Commentaire de version"><input className="input" placeholder="Ex. : prise en compte des observations du Chef de Bureau" {...register('commentaire')} /></Field></Card>}

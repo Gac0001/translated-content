@@ -7,6 +7,7 @@ import { ArrowRightLeft, Archive, Pencil, Upload, UserPlus, XCircle } from 'luci
 import api, { errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { useApi, Loadable, PageHeader, Modal, Field, runAction, toast, useConfirm, DropdownMenu } from '../../components/ui';
+import { aujourdhui } from '../../lib/format';
 import AgentView from './AgentView';
 
 const affSchema = z.object({
@@ -18,7 +19,7 @@ const affSchema = z.object({
 
 function AffectationModal({ agent, onClose, onDone }) {
   const cadre = useApi('/organisation/cadre');
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(affSchema), defaultValues: { date_debut: new Date().toISOString().slice(0, 10) } });
+  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(affSchema), defaultValues: { date_debut: aujourdhui() } });
   const structure = watch('structure');
   const [t, sid] = (structure || ':').split(':');
   const postes = (cadre.data?.postes || []).filter((p) => (t === 'BUREAU' ? p.bureau_id === Number(sid) : t === 'DIVISION' ? p.niveau === 'DIVISION' && p.division_id === Number(sid) : t === 'DIRECTION' ? p.niveau === 'DIRECTION' : false));
@@ -57,7 +58,7 @@ function AffectationModal({ agent, onClose, onDone }) {
 }
 
 function ClotureModal({ agent, onClose, onDone }) {
-  const { register, handleSubmit, formState: { isSubmitting } } = useForm({ defaultValues: { date_fin: new Date().toISOString().slice(0, 10) } });
+  const { register, handleSubmit, formState: { isSubmitting } } = useForm({ defaultValues: { date_fin: aujourdhui() } });
   const submit = async (v) => { await runAction(() => api.post(`/agents/${agent.id}/affectations/cloturer`, v), 'Affectation clôturée.'); onDone(); };
   return (
     <Modal open title="Clôturer l’affectation" onClose={onClose} footer={<><button type="button" className="btn-secondary" onClick={onClose}>Annuler</button><button form="clo" className="btn-danger" disabled={isSubmitting}>Clôturer</button></>}>

@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Save } from 'lucide-react';
 import api from '../../lib/api';
-import { useApi, PageHeader, Card, Field, runAction, Spinner } from '../../components/ui';
+import { useApi, PageHeader, Card, Field, runAction, Spinner, UnsavedChangesGuard } from '../../components/ui';
 
 const schema = z.object({
   matricule: z.string().trim().min(2, 'Matricule requis'),
@@ -27,7 +27,7 @@ export default function AgentForm() {
   const navigate = useNavigate();
   const cadre = useApi('/organisation/cadre');
   const existing = useApi(id ? `/agents/${id}` : null);
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(schema), defaultValues: { sexe: '', statut: 'ACTIF' } });
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting, dirtyFields, isSubmitSuccessful } } = useForm({ resolver: zodResolver(schema), defaultValues: { sexe: '', statut: 'ACTIF' } });
   useEffect(() => {
     const a = existing.data;
     if (a) reset({ matricule: a.matricule, nom: a.nom, postnom: a.postnom || '', prenom: a.prenom || '', sexe: a.sexe || '', date_naissance: a.date_naissance || '', grade_id: a.grade_id ? String(a.grade_id) : '', fonction_id: a.fonction_id ? String(a.fonction_id) : '', telephone: a.telephone || '', email: a.email || '', adresse: a.adresse || '', statut: a.statut === 'ARCHIVE' ? 'ACTIF' : a.statut });
@@ -41,6 +41,7 @@ export default function AgentForm() {
   const text = (name, label, props = {}) => <Field label={label} error={errors[name]?.message} required={props.required}><input className="input" {...register(name)} {...props} /></Field>;
   return (
     <>
+      <UnsavedChangesGuard when={Object.keys(dirtyFields).length > 0 && !isSubmitting && !isSubmitSuccessful} />
       <PageHeader title={id ? 'Modifier la fiche Agent' : 'Nouvel Agent'} breadcrumb={[{ label: 'Organisation' }, { label: 'Personnel', to: '/personnel' }, { label: id ? 'Modification' : 'Nouvel Agent' }]} />
       <form onSubmit={handleSubmit(submit)} className="space-y-4" noValidate>
         <Card title="Identité">

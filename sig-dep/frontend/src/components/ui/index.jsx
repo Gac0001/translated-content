@@ -1,8 +1,9 @@
 import { useEffect, useId, useMemo, useRef, useState, useCallback, createContext, useContext, cloneElement, isValidElement } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useBlocker, useSearchParams } from 'react-router-dom';
 import { create } from 'zustand';
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, ChevronRight, Info, Loader2, Search, X, Inbox, XCircle } from 'lucide-react';
 import api, { errorMessage } from '../../lib/api';
+import { useAuth } from '../../store/auth';
 import { STATUTS, PRIORITES, URGENCES, CONFIDENTIALITES, COLORS } from '../../lib/labels';
 import { IconButton } from './Button';
 import { useFocusTrap, useScrollLock } from './focus';
@@ -683,5 +684,37 @@ export function DetailLayout({ main, aside }) {
       <div className="min-w-0 space-y-4 lg:col-span-2">{main}</div>
       <div className="min-w-0 space-y-4">{aside}</div>
     </div>
+  );
+}
+
+// ─── Formulaires : saisie non enregistrée ───────────────────────────────────
+/**
+ * Avertit avant de quitter une page dont la saisie n’est pas enregistrée : navigation dans l’application
+ * (y compris le bouton Retour) par une fenêtre de confirmation, fermeture ou rechargement de l’onglet
+ * par l’avertissement du navigateur. La déconnexion (inactivité, session expirée) n’est jamais bloquée.
+ * when : vrai tant qu’il y a des modifications à perdre (faux pendant l’enregistrement).
+ */
+export function UnsavedChangesGuard({ when, message = 'Vos modifications n’ont pas été enregistrées. Si vous quittez cette page, elles seront perdues.' }) {
+  const actif = useRef(when);
+  actif.current = when;
+  const blocker = useBlocker(useCallback(({ currentLocation, nextLocation }) => actif.current
+    && currentLocation.pathname !== nextLocation.pathname
+    && nextLocation.pathname !== '/connexion' && !!useAuth.getState().user, []));
+  useEffect(() => {
+    if (!when) return undefined;
+    const avant = (e) => { if (!useAuth.getState().user) return; e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', avant);
+    return () => window.removeEventListener('beforeunload', avant);
+  }, [when]);
+  // Si la saisie redevient enregistrée pendant que la fenêtre est ouverte, la navigation reprend.
+  useEffect(() => { if (blocker.state === 'blocked' && !when) blocker.proceed(); }, [blocker, when]);
+  return (
+    <Modal open={blocker.state === 'blocked'} title="Quitter sans enregistrer ?" size="sm" onClose={() => blocker.reset?.()}
+      footer={<>
+        <button type="button" className="btn-secondary" data-autofocus onClick={() => blocker.reset?.()}>Rester sur la page</button>
+        <button type="button" className="btn-danger" onClick={() => blocker.proceed?.()}>Quitter sans enregistrer</button>
+      </>}>
+      <p className="text-sm text-slate-700">{message}</p>
+    </Modal>
   );
 }

@@ -36,8 +36,8 @@ export default function ChangePassword({ embarque = false, onDone }) {
       {[['currentPassword', 'Mot de passe actuel', 'current-password'], ['newPassword', 'Nouveau mot de passe', 'new-password'], ['confirm', 'Confirmation du nouveau mot de passe', 'new-password']].map(([k, l, ac]) => (
         <div key={k}>
           <label className="label" htmlFor={k}>{l}</label>
-          <input id={k} type="password" className="input" autoComplete={ac} {...register(k)} />
-          {errors[k] && <p className="mt-1 text-xs text-red-700">{errors[k].message}</p>}
+          <input id={k} type="password" className="input" autoComplete={ac} aria-invalid={errors[k] ? true : undefined} aria-describedby={errors[k] ? `${k}-erreur` : undefined} {...register(k)} />
+          {errors[k] && <p id={`${k}-erreur`} className="mt-1 text-xs text-red-700">{errors[k].message}</p>}
         </div>
       ))}
       <PasswordRules />

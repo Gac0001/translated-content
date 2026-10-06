@@ -6,7 +6,8 @@ import { z } from 'zod';
 import { Save, Send } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../store/auth';
-import { useApi, PageHeader, Card, Field, runAction, InfoAlert } from '../../components/ui';
+import { useApi, PageHeader, Card, Field, runAction, InfoAlert, UnsavedChangesGuard } from '../../components/ui';
+import { aujourdhui } from '../../lib/format';
 
 const schema = z.object({
   destinataire_user_id: z.string().min(1, 'Choisissez le destinataire'),
@@ -24,7 +25,7 @@ export default function InstructionForm() {
   const user = useAuth((s) => s.user);
   const dest = useApi('/instructions/destinataires');
   const parent = useApi(parentId ? `/instructions/${parentId}` : null);
-  const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(schema), defaultValues: { priorite: 'NORMALE' } });
+  const { register, handleSubmit, setValue, formState: { errors, isSubmitting, dirtyFields, isSubmitSuccessful } } = useForm({ resolver: zodResolver(schema), defaultValues: { priorite: 'NORMALE' } });
   useEffect(() => { if (parent.data) setValue('objet', parent.data.objet); }, [parent.data, setValue]);
   const send = (brouillon) => handleSubmit(async (v) => {
     const body = { ...v, destinataire_user_id: Number(v.destinataire_user_id), echeance: v.echeance || null, brouillon, parent_id: parentId ? Number(parentId) : null, courrier_id: courrierId ? Number(courrierId) : null };
@@ -34,6 +35,7 @@ export default function InstructionForm() {
   const list = dest.data?.data || [];
   return (
     <>
+      <UnsavedChangesGuard when={Object.keys(dirtyFields).length > 0 && !isSubmitting && !isSubmitSuccessful} />
       <PageHeader title={parentId ? 'Décliner l’instruction' : 'Nouvelle instruction'} breadcrumb={[{ label: 'Instructions', to: '/instructions' }, { label: 'Nouvelle' }]} />
       <div className="space-y-4">
         {user.primaryRole === 'SECRETAIRE_GENERAL' && <InfoAlert>Toute instruction du Secrétaire Général est obligatoirement adressée au Directeur de la DEP.</InfoAlert>}
@@ -50,7 +52,7 @@ export default function InstructionForm() {
               <Field label="Objet" error={errors.objet?.message} required className="sm:col-span-2"><input className="input" {...register('objet')} /></Field>
               <Field label="Contenu" error={errors.contenu?.message} required className="sm:col-span-2"><textarea className="input" rows={8} {...register('contenu')} /></Field>
               <Field label="Priorité" required><select className="input" {...register('priorite')}><option value="BASSE">Basse</option><option value="NORMALE">Normale</option><option value="HAUTE">Haute</option><option value="URGENTE">Urgente</option></select></Field>
-              <Field label="Échéance"><input type="date" className="input" min={new Date().toISOString().slice(0, 10)} {...register('echeance')} /></Field>
+              <Field label="Échéance"><input type="date" className="input" min={aujourdhui()} {...register('echeance')} /></Field>
             </div>
           </Card>
           <p className="text-sm text-slate-500">Les pièces jointes peuvent être ajoutées depuis la fiche de l’instruction.</p>

@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, FileSpreadsheet, Info, RotateCcw, Upload, XCircle } from 'lucide-react';
 import api, { download, errorMessage } from '../../lib/api';
-import { PageHeader, Card, InfoAlert, ErrorAlert, Field, Badge, Stat, toast } from '../../components/ui';
+import { PageHeader, Card, InfoAlert, ErrorAlert, Field, Badge, Stat, toast, UnsavedChangesGuard } from '../../components/ui';
+import { aujourdhui } from '../../lib/format';
 import { COLORS } from '../../lib/labels';
 
 const ROLES = { CHEF_DIVISION: 'Chef de Division', CHEF_BUREAU: 'Chef de Bureau', AGENT: 'Agent' };
@@ -31,7 +32,7 @@ export default function AgentImport() {
   const [erreur, setErreur] = useState(null);
   const [erreursServeur, setErreursServeur] = useState([]);
   const [rapport, setRapport] = useState(null);
-  const [dateAff, setDateAff] = useState(new Date().toISOString().slice(0, 10));
+  const [dateAff, setDateAff] = useState(aujourdhui);
   const [mode, setMode] = useState('ignorer');
 
   const analyser = async () => {
@@ -85,6 +86,7 @@ export default function AgentImport() {
 
   return (
     <>
+      <UnsavedChangesGuard when={!!analyse && !rapport && !busy} message="L’analyse et vos corrections ligne par ligne n’ont pas été importées. Si vous quittez cette page, elles seront perdues." />
       <PageHeader title="Importer une liste du personnel" subtitle="Word (.docx), Excel (.xlsx) ou CSV — par exemple la liste officielle des agents de la DEP." breadcrumb={[{ label: 'Organisation' }, { label: 'Personnel', to: '/personnel' }, { label: 'Import' }]}
         actions={<button type="button" className="btn-secondary" onClick={modele}><FileSpreadsheet size={16} /> Modèle Excel</button>} />
       <ol className="mb-5 flex flex-wrap gap-2 text-sm no-print">

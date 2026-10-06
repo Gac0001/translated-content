@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { CheckCircle2, FilePlus2, Lock, Save, Send, Trash2 } from 'lucide-react';
 import api from '../../lib/api';
-import { useApi, Loadable, PageHeader, Card, StatusBadge, KeyValues, InfoAlert, Badge, runAction, useConfirm, Button, WorkflowPanel } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, StatusBadge, KeyValues, InfoAlert, Badge, runAction, useConfirm, Button, WorkflowPanel, UnsavedChangesGuard } from '../../components/ui';
 import { ExportButtons, Timeline } from '../../components/shared';
 import { fmtDate, fmtDateTime } from '../../lib/format';
 import { JOURS, PRESENCES } from '../../lib/labels';
@@ -36,6 +36,7 @@ export default function PresenceSheet() {
   const remove = async () => {
     if (!(await confirm({ title: 'Supprimer le brouillon', message: 'Supprimer définitivement ce brouillon ?', danger: true }))) return;
     await runAction(() => api.delete(`/presences/${id}`), 'Brouillon supprimé.');
+    setDirty(false);
     navigate('/presences');
   };
   return (
@@ -49,6 +50,7 @@ export default function PresenceSheet() {
                 <ExportButtons base={`/presences/${id}/export`} />
                 {edit && <Button variant="primary" icon={Save} disabled={!dirty} onClick={save}>Enregistrer</Button>}
               </>} />
+            <UnsavedChangesGuard when={dirty} />
             <WorkflowPanel circuit={circuitPresence(s)}
               attente={s.statut === 'VERROUILLEE' ? 'Liste réceptionnée et verrouillée.' : s.statut === 'SOUMISE' ? 'Liste soumise : en attente de réception par le Directeur.' : null}
               message={dirty
