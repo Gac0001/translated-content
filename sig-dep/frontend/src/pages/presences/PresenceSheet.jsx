@@ -51,7 +51,7 @@ export default function PresenceSheet() {
                 {s.actions.soumettre && <button type="button" className="btn-success" disabled={dirty} onClick={() => step('soumettre', 'Liste soumise au Directeur.', { title: 'Soumettre au Directeur', message: 'Après soumission, la liste sera verrouillée : aucune modification ne sera plus possible (seul un rectificatif le permettra).' })}><Send size={16} /> Soumettre au Directeur</button>}
                 {s.actions.verrouiller && <button type="button" className="btn-primary" onClick={() => step('verrouiller', 'Liste verrouillée.')}><Lock size={16} /> Réceptionner et verrouiller</button>}
                 {s.actions.rectifier && <button type="button" className="btn-secondary" onClick={rectif}><FilePlus2 size={16} /> Rectificatif</button>}
-                {s.actions.supprimer && <button type="button" className="btn-ghost text-red-700" onClick={remove}><Trash2 size={16} /></button>}
+                {s.actions.supprimer && <button type="button" className="btn-ghost text-red-700" onClick={remove} aria-label="Supprimer le brouillon" title="Supprimer le brouillon"><Trash2 size={16} aria-hidden /></button>}
               </>} />
             {dirty && <div className="mb-3"><InfoAlert tone="warning">Modifications non enregistrées. Enregistrez avant de vérifier ou de soumettre.</InfoAlert></div>}
             {['SOUMISE', 'VERROUILLEE'].includes(s.statut) && <div className="mb-3"><InfoAlert>Liste {s.statut === 'SOUMISE' ? 'soumise (verrouillée en écriture)' : 'verrouillée'} : toute correction doit passer par un rectificatif.</InfoAlert></div>}
@@ -64,7 +64,7 @@ export default function PresenceSheet() {
                   ['Vérifiée le', fmtDateTime(s.verified_at)], ['Soumise le', fmtDateTime(s.submitted_at)], ['Verrouillée le', fmtDateTime(s.locked_at)],
                   s.est_rectificatif && ['Rectificatif de', s.original && <Link key="o" className="text-dep-700 hover:underline" to={`/presences/${s.original.id}`}>{s.original.reference}</Link>],
                   s.est_rectificatif && ['Motif', s.motif_rectification],
-                  s.rectificatifs.length > 0 && ['Rectificatifs', <span key="r" className="flex flex-wrap gap-1">{s.rectificatifs.map((r) => <Link key={r.id} to={`/presences/${r.id}`}><Badge className="bg-orange-50 text-orange-800 ring-orange-200">{r.reference}</Badge></Link>)}</span>],
+                  s.rectificatifs.length > 0 && ['Rectificatifs', <span key="r" className="flex flex-wrap gap-1">{s.rectificatifs.map((r) => <Link key={r.id} to={`/presences/${r.id}`}><Badge tone="orange">{r.reference}</Badge></Link>)}</span>],
                 ]} />
               </Card>
               <Card title="Totaux (agent-jours)">

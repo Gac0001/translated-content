@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { ArrowRightLeft, Archive, Pencil, Upload, UserPlus, XCircle } from 'lucide-react';
 import api, { errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
-import { useApi, Loadable, PageHeader, Modal, Field, runAction, toast, useConfirm } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Modal, Field, runAction, toast, useConfirm, DropdownMenu } from '../../components/ui';
 import AgentView from './AgentView';
 
 const affSchema = z.object({
@@ -93,15 +93,17 @@ export default function AgentDetail() {
     <Loadable state={state}>
       {(a) => (
         <>
-          <PageHeader title={[a.prenom, a.nom, a.postnom].filter(Boolean).join(' ')} subtitle={`Matricule ${a.matricule} · ${a.fonction || ''}`} breadcrumb={[{ label: 'Personnel', to: '/personnel' }, { label: a.nom }]}
+          <PageHeader title={[a.prenom, a.nom, a.postnom].filter(Boolean).join(' ')} subtitle={`Matricule ${a.matricule} · ${a.fonction || ''}`} breadcrumb={[{ label: 'Organisation' }, { label: 'Personnel', to: '/personnel' }, { label: a.nom }]}
             actions={<>
               {manage && !a.archived_at && <Link to={`/personnel/${id}/modifier`} className="btn-secondary"><Pencil size={16} /> Modifier</Link>}
               {can('affectations.gerer') && !a.est_autorite && !a.archived_at && <button type="button" className="btn-secondary" onClick={() => setModal('aff')}><ArrowRightLeft size={16} /> Affecter</button>}
-              {can('affectations.gerer') && a.affectation_id && <button type="button" className="btn-secondary" onClick={() => setModal('clo')}><XCircle size={16} /> Clôturer l’affectation</button>}
               {can('compte.enroler') && !a.user_id && a.liste_declarative && !a.archived_at && <Link to={`/comptes/enrolement?agent=${id}`} className="btn-primary"><UserPlus size={16} /> Enrôler (créer le compte)</Link>}
-              {can('personnel.gerer') && !a.archived_at && <button type="button" className="btn-ghost text-red-700" onClick={archive}><Archive size={16} /> Archiver</button>}
+              <DropdownMenu label="Plus d’actions" items={[
+                can('affectations.gerer') && a.affectation_id && { label: 'Clôturer l’affectation', icon: XCircle, onClick: () => setModal('clo') },
+                can('personnel.gerer') && !a.archived_at && { label: 'Archiver l’Agent', icon: Archive, danger: true, onClick: archive },
+              ]} />
             </>} />
-          <AgentView a={a} photoVersion={v} extraActions={manage && <label className="btn-ghost mt-2 cursor-pointer text-xs no-print"><Upload size={14} /> Photo<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => upload(e.target.files[0])} /></label>} />
+          <AgentView a={a} photoVersion={v} extraActions={manage && <label className="btn-ghost mt-2 cursor-pointer text-xs focus-within:ring-2 focus-within:ring-dep-400 no-print"><Upload size={14} /> Photo<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => upload(e.target.files[0])} /></label>} />
           {modal === 'aff' && <AffectationModal agent={a} onClose={() => setModal(null)} onDone={done} />}
           {modal === 'clo' && <ClotureModal agent={a} onClose={() => setModal(null)} onDone={done} />}
         </>

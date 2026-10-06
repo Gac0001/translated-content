@@ -66,7 +66,7 @@ export default function DocumentForm() {
         {type.sections.map((s, i) => (
           <Card key={s.key} title={`${i + 1}. ${s.label}${s.required ? ' *' : ''}`}>
             {s.help && <p className="mb-2 text-xs text-slate-500">{s.help}</p>}
-            <DynamicField field={s} value={contenu[s.key]} onChange={(v) => setContenu((c) => ({ ...c, [s.key]: v }))} />
+            <DynamicField field={s} aria-label={s.label} value={contenu[s.key]} onChange={(v) => setContenu((c) => ({ ...c, [s.key]: v }))} />
           </Card>
         ))}
         {id && <Card><Field label="Commentaire de version"><input className="input" placeholder="Ex. : prise en compte des observations du Chef de Bureau" {...register('commentaire')} /></Field></Card>}

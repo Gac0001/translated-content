@@ -16,7 +16,7 @@ export default function AgentsList() {
   const state = useApi(`/agents${qs ? `?${qs}` : ''}`);
   return (
     <>
-      <PageHeader title="Personnel" subtitle="Agents de votre périmètre administratif." breadcrumb={[{ label: 'Personnel' }]}
+      <PageHeader title="Personnel" subtitle="Agents de votre périmètre administratif." breadcrumb={[{ label: 'Organisation' }, { label: 'Personnel' }]}
         actions={<>
           <ExportButtons base="/agents/export" query={qs ? `?${qs}` : ''} print={false} />
           {can('personnel.gerer', 'personnel.suivre') && <Link to="/personnel/import" className="btn-secondary"><Upload size={16} /> Importer une liste</Link>}
@@ -33,10 +33,10 @@ export default function AgentsList() {
             { key: 'matricule', header: 'Matricule' },
             { key: 'nom', header: 'Nom, postnom et prénom', render: (a) => <span className="font-medium">{[a.nom, a.postnom, a.prenom].filter(Boolean).join(' ')}</span>, search: (a) => `${a.nom} ${a.postnom} ${a.prenom}` },
             { key: 'grade', header: 'Grade' },
-            { key: 'structure', header: 'Affectation', search: (a) => `${a.bureau_nom} ${a.division_nom}`, render: (a) => (a.bureau_nom ? <span>{a.bureau_nom}{a.est_secretariat_direction ? <Badge className="ml-1 bg-amber-50 text-amber-800 ring-amber-200">rattaché au Directeur</Badge> : <span className="block text-xs text-slate-500">{a.division_nom}</span>}</span> : a.niveau === 'DIVISION' ? a.division_nom : a.niveau === 'DIRECTION' ? 'Direction' : <span className="text-slate-400">Sans affectation</span>) },
+            { key: 'structure', header: 'Affectation', search: (a) => `${a.bureau_nom} ${a.division_nom}`, render: (a) => (a.bureau_nom ? <span>{a.bureau_nom}{a.est_secretariat_direction ? <Badge tone="ambre" className="ml-1">rattaché au Directeur</Badge> : <span className="block text-xs text-slate-500">{a.division_nom}</span>}</span> : a.niveau === 'DIVISION' ? a.division_nom : a.niveau === 'DIRECTION' ? 'Direction' : <span className="text-slate-500">Sans affectation</span>) },
             { key: 'poste', header: 'Poste organique' },
             { key: 'statut', header: 'Statut', render: (a) => <StatusBadge value={a.statut} /> },
-            { key: 'username', header: 'Compte', render: (a) => (a.username ? <span className="text-xs">{a.username}</span> : <span className="text-xs text-slate-400">aucun</span>) },
+            { key: 'username', header: 'Compte', render: (a) => (a.username ? <span className="text-xs">{a.username}</span> : <span className="text-xs text-slate-500">aucun</span>) },
           ]} />
       )}
     </>

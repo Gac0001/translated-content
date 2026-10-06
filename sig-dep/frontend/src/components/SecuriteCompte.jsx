@@ -80,7 +80,7 @@ export default function SecuriteCompte() {
   return (
     <Card title="Sécurité du compte">
       <KeyValues items={[
-        ['Double authentification', user.deuxFacteursActif ? <Badge key="a" className="bg-emerald-50 text-emerald-800 ring-emerald-200"><ShieldCheck size={12} /> Active</Badge> : 'Inactive'],
+        ['Double authentification', user.deuxFacteursActif ? <Badge key="a" tone="succes"><ShieldCheck size={12} /> Active</Badge> : 'Inactive'],
         ['Adresse de récupération', user.emailRecuperation ? `${user.emailRecuperation} — ${user.emailRecuperationVerifie ? 'vérifiée' : 'non vérifiée'}` : 'Aucune'],
       ]} />
       <div className="mt-4 flex flex-wrap gap-2">

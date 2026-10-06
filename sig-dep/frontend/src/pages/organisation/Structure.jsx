@@ -12,8 +12,8 @@ export default function Structure() {
         const rang = type === 'direction' ? 'DIRECTION' : type === 'division' ? 'DIVISION' : 'BUREAU';
         return (
           <>
-            <PageHeader title={st.nom} breadcrumb={[{ label: 'Organigramme', to: '/organigramme' }, { label: st.nom }]}
-              subtitle={<span className="flex flex-wrap items-center gap-2"><RangBadge rang={rang} />{st.badge && <Badge className="bg-amber-100 text-amber-900 ring-amber-300">{st.badge}</Badge>}</span>} />
+            <PageHeader title={st.nom} breadcrumb={[{ label: 'Organisation' }, { label: 'Organigramme', to: '/organigramme' }, { label: st.nom }]}
+              subtitle={<span className="flex flex-wrap items-center gap-2"><RangBadge rang={rang} />{st.badge && <Badge tone="ambre">{st.badge}</Badge>}</span>} />
             <div className="grid gap-4 lg:grid-cols-3">
               <Card title="Identification" className="lg:col-span-2">
                 <KeyValues items={[

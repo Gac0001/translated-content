@@ -17,8 +17,13 @@ const C = {
   gris: 'bg-slate-100 text-slate-700 ring-slate-200', bleu: 'bg-sky-50 text-sky-800 ring-sky-200', indigo: 'bg-indigo-50 text-indigo-800 ring-indigo-200',
   jaune: 'bg-amber-50 text-amber-800 ring-amber-200', vert: 'bg-emerald-50 text-emerald-800 ring-emerald-200', rouge: 'bg-red-50 text-red-800 ring-red-200',
   violet: 'bg-violet-50 text-violet-800 ring-violet-200', marine: 'bg-dep-50 text-dep-800 ring-dep-200', orange: 'bg-orange-50 text-orange-800 ring-orange-200',
+  ambre: 'bg-amber-100 text-amber-900 ring-amber-300',
 };
-export const COLORS = C;
+/**
+ * Tons des badges. Préférer les noms sémantiques pour exprimer un état :
+ * succes, attention, danger, info, neutre. `ambre` signale le rattachement direct au Directeur.
+ */
+export const COLORS = { ...C, succes: C.vert, attention: C.jaune, danger: C.rouge, info: C.bleu, neutre: C.gris };
 
 export const STATUTS = {
   // Instructions et tâches

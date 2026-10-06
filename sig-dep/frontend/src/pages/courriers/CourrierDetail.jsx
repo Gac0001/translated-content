@@ -79,7 +79,7 @@ export default function CourrierDetail() {
                     <tr key={t.id}>
                       <td className="td whitespace-nowrap">{fmtDateTime(t.created_at)}</td><td className="td">{t.emetteur_nom}</td>
                       <td className="td">{t.destinataire_nom}<div className="text-xs text-slate-500">{t.sens_hierarchique === 'ASCENDANT' ? '↑ vers le supérieur' : '↓ vers le subordonné'}</div></td>
-                      <td className="td">{t.etat_reception === 'RECU' ? <Badge className="bg-emerald-50 text-emerald-800 ring-emerald-200">Reçu le {fmtDateTime(t.recu_at)}</Badge> : <Badge className="bg-amber-50 text-amber-800 ring-amber-200">En attente</Badge>}{t.observation_reception && <div className="text-xs text-slate-500">{t.observation_reception}</div>}</td>
+                      <td className="td">{t.etat_reception === 'RECU' ? <Badge tone="succes">Reçu le {fmtDateTime(t.recu_at)}</Badge> : <Badge tone="attention">En attente</Badge>}{t.observation_reception && <div className="text-xs text-slate-500">{t.observation_reception}</div>}</td>
                       <td className="td text-sm">{t.observations}</td>
                     </tr>
                   ))}</tbody>

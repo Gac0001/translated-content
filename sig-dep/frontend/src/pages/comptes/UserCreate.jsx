@@ -42,7 +42,7 @@ export default function UserCreate() {
   const [created, setCreated] = useState(null);
   return (
     <>
-      <PageHeader title="Compte institutionnel" subtitle="Directeur de la DEP ou Secrétaire Général" breadcrumb={[{ label: 'Comptes', to: '/comptes' }, { label: 'Compte institutionnel' }]}
+      <PageHeader title="Compte institutionnel" subtitle="Directeur de la DEP ou Secrétaire Général" breadcrumb={[{ label: 'Administration' }, { label: 'Comptes', to: '/comptes' }, { label: 'Compte institutionnel' }]}
         actions={<Link to="/comptes/enrolement" className="btn-secondary"><UserPlus size={16} /> Enrôler un agent de la DEP</Link>} />
       <InitialAccount onCreated={setCreated} />
       <TempPassword data={created} onClose={() => { const id = created.id; setCreated(null); navigate(`/comptes/${id}`); }} />

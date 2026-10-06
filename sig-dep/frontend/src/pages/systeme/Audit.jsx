@@ -55,7 +55,7 @@ export default function Audit() {
                       <td className="td whitespace-nowrap text-xs">{fmtDateTime(l.created_at)}</td><td className="td">{l.username || '—'}</td><td className="td text-xs">{l.role}</td>
                       <td className="td text-xs">{l.ip}</td><td className="td"><code className="text-xs">{l.action}</code></td><td className="td text-xs">{l.module}</td>
                       <td className="td text-xs">{[l.entite, l.entite_id].filter(Boolean).join(' #')}</td>
-                      <td className="td">{l.resultat === 'SUCCES' ? <Badge className="bg-emerald-50 text-emerald-800 ring-emerald-200">Succès</Badge> : <Badge className="bg-red-50 text-red-800 ring-red-200">Échec</Badge>}</td>
+                      <td className="td">{l.resultat === 'SUCCES' ? <Badge tone="succes">Succès</Badge> : <Badge tone="danger">Échec</Badge>}</td>
                       <td className="td max-w-xs truncate text-xs">{l.message}</td>
                     </tr>
                   ))}

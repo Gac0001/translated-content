@@ -20,7 +20,7 @@ export default function Delegations() {
   };
   return (
     <>
-      <PageHeader title="Délégations du Directeur" breadcrumb={[{ label: 'Comptes', to: '/comptes' }, { label: 'Délégations' }]} />
+      <PageHeader title="Délégations du Directeur" breadcrumb={[{ label: 'Administration' }, { label: 'Délégations' }]} />
       <InfoAlert>Le Directeur peut autoriser le Chef du Bureau Secrétariat de Direction à effectuer certaines opérations administratives (préparer les comptes, suivre le personnel, préparer les présences, enregistrer les courriers, transmettre les dossiers). Ces délégations ne lui confèrent jamais le rang ni les pouvoirs d’un Chef de Division.</InfoAlert>
       <Loadable state={state}>
         {(d) => (
@@ -37,7 +37,7 @@ export default function Delegations() {
             <DataTable rows={d.data} columns={[
               { key: 'libelle', header: 'Opération' }, { key: 'username', header: 'Bénéficiaire' },
               { key: 'motif', header: 'Motif' }, { key: 'granted_at', header: 'Accordée le', render: (x) => `${fmtDateTime(x.granted_at)} par ${x.granted_by_username}` },
-              { key: 'etat', header: 'État', render: (x) => (x.revoked_at ? <Badge>Révoquée le {fmtDateTime(x.revoked_at)}</Badge> : <Badge className="bg-emerald-50 text-emerald-800 ring-emerald-200">Active</Badge>) },
+              { key: 'etat', header: 'État', render: (x) => (x.revoked_at ? <Badge>Révoquée le {fmtDateTime(x.revoked_at)}</Badge> : <Badge tone="succes">Active</Badge>) },
               { key: 'a', header: '', render: (x) => !x.revoked_at && <button type="button" className="text-red-600" onClick={() => revoke(x)} aria-label="Révoquer"><Trash2 size={16} /></button> },
             ]} />
           </div>

@@ -73,7 +73,7 @@ export default function Cadre() {
                     <ul className="list-disc space-y-1 pl-5 text-sm">{list((a) => a.cible_type === 'DIRECTION').map((a) => <li key={a.id}>{a.libelle}<Del a={a} /></li>)}</ul>
                   </Card>
                   {c.bureaux.filter((b) => b.parent_type === 'DIRECTION').map((b) => (
-                    <Card key={b.id} title={<span className="flex flex-wrap items-center gap-2">{b.nom} <RangBadge rang="BUREAU" /><Badge className="bg-amber-100 text-amber-900 ring-amber-300">Bureau directement rattaché au Directeur</Badge></span>}>
+                    <Card key={b.id} title={<span className="flex flex-wrap items-center gap-2">{b.nom} <RangBadge rang="BUREAU" /><Badge tone="ambre">Bureau directement rattaché au Directeur</Badge></span>}>
                       <p className="mb-2 text-sm text-slate-600">{b.missions}</p>
                       <ul className="list-disc space-y-1 pl-5 text-sm">{list((a) => a.bureau_id === b.id).map((a) => <li key={a.id}>{a.libelle}<Del a={a} /></li>)}</ul>
                     </Card>

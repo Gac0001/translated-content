@@ -36,7 +36,7 @@ export default function Rapports() {
                   <tbody>
                     {r.lignes.map((l) => (
                       <tr key={`${l.rang}${l.id}`} className={l.rang === 'DIVISION' ? 'bg-indigo-50/40 font-medium' : ''}>
-                        <td className={`td ${l.niveau === '— Bureau' ? 'pl-8' : ''}`}><span className="flex flex-wrap items-center gap-2">{l.structure}<RangBadge rang={l.rang} />{l.niveau === 'Bureau rattaché au Directeur' && <Badge className="bg-amber-50 text-amber-800 ring-amber-200">Rattaché au Directeur</Badge>}</span></td>
+                        <td className={`td ${l.niveau === '— Bureau' ? 'pl-8' : ''}`}><span className="flex flex-wrap items-center gap-2">{l.structure}<RangBadge rang={l.rang} />{l.niveau === 'Bureau rattaché au Directeur' && <Badge tone="ambre">Rattaché au Directeur</Badge>}</span></td>
                         {['agents', 'taches', 'tachesTerminees', 'tachesEnRetard', 'instructions', 'instructionsExecutees', 'documents', 'documentsValides'].map((k) => <td key={k} className="td tabular-nums">{l[k]}</td>)}
                         <td className="td tabular-nums">{l.tauxExecution === null ? '—' : `${l.tauxExecution} %`}</td>
                       </tr>

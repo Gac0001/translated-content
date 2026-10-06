@@ -5,11 +5,12 @@ import { fmtDateTime, nomComplet } from '../../lib/format';
 import { useAuth } from '../../store/auth';
 import { useApi, useConfirm, runAction, toast, PageHeader, Card, Stat, Loadable, InfoAlert, DataTable, Badge, Progress } from '../../components/ui';
 import { ExportButtons } from '../../components/shared';
+import { COLORS } from '../../lib/labels';
 
 const STATUT = {
-  NON_VALIDEE: ['Non validée', 'bg-slate-100 text-slate-700 ring-slate-200'],
-  VALIDEE: ['Validée', 'bg-emerald-50 text-emerald-800 ring-emerald-200'],
-  A_REVALIDER: ['À revalider', 'bg-amber-50 text-amber-800 ring-amber-200'],
+  NON_VALIDEE: ['Non validée', COLORS.neutre],
+  VALIDEE: ['Validée', COLORS.succes],
+  A_REVALIDER: ['À revalider', COLORS.attention],
 };
 const CHAMPS = { matricule: 'matricule', grade_id: 'grade', division_id: 'Division', bureau_id: 'Bureau' };
 
@@ -85,16 +86,16 @@ export default function ListeDeclarative() {
     { key: 'poste', header: 'Poste' },
     {
       key: 'ecart', header: 'Validation', render: (a) => (a.valide
-        ? <Badge className="bg-emerald-50 text-emerald-800 ring-emerald-200">Validé</Badge>
-        : a.ecart === 'MODIFIE' ? <Badge className="bg-amber-50 text-amber-800 ring-amber-200" title={`Modifié : ${(a.champsModifies || []).map((c) => CHAMPS[c]).join(', ')}`}>Modifié ({(a.champsModifies || []).map((c) => CHAMPS[c]).join(', ')})</Badge>
-          : a.ecart === 'AJOUTE' ? <Badge className="bg-amber-50 text-amber-800 ring-amber-200">Ajouté</Badge>
+        ? <Badge tone="succes">Validé</Badge>
+        : a.ecart === 'MODIFIE' ? <Badge tone="attention" title={`Modifié : ${(a.champsModifies || []).map((c) => CHAMPS[c]).join(', ')}`}>Modifié ({(a.champsModifies || []).map((c) => CHAMPS[c]).join(', ')})</Badge>
+          : a.ecart === 'AJOUTE' ? <Badge tone="attention">Ajouté</Badge>
             : <Badge>En attente</Badge>),
     },
     {
       key: 'compte', header: 'Compte', render: (a) => (a.user_id
         ? <span className="inline-flex items-center gap-1 text-emerald-800"><UserCheck size={15} /> {a.username}</span>
         : a.est_secretariat_direction && a.enrolement_autorise_at
-          ? <span className="inline-flex flex-wrap items-center gap-1"><Badge className="bg-sky-50 text-sky-800 ring-sky-200">Autorisé pour l’Admin</Badge>
+          ? <span className="inline-flex flex-wrap items-center gap-1"><Badge tone="info">Autorisé pour l’Admin</Badge>
             {d?.actions.valider && <button type="button" className="text-xs text-slate-500 underline" onClick={(e) => { e.stopPropagation(); autorisation(a, false); }}>Retirer</button>}</span>
           : a.est_secretariat_direction && d?.actions.valider && a.valide
             ? <button type="button" className="btn-secondary px-2 py-1 text-xs" onClick={(e) => { e.stopPropagation(); autorisation(a, true); }}><ShieldCheck size={14} /> Autoriser l’enrôlement par l’Admin</button>
@@ -102,7 +103,7 @@ export default function ListeDeclarative() {
     },
     ...(d?.actions.gerer ? [{
       key: 'act', header: '', className: 'text-right', render: (a) => !a.user_id && (
-        <button type="button" className="btn-ghost text-red-700" onClick={() => inscription(a, 'retirer')} title="Retirer de la liste"><MinusCircle size={16} /></button>
+        <button type="button" className="btn-ghost text-red-700" onClick={() => inscription(a, 'retirer')} title="Retirer de la liste" aria-label={`Retirer ${nomComplet(a)} de la liste`}><MinusCircle size={16} aria-hidden /></button>
       ),
     }] : []),
   ];
@@ -110,7 +111,7 @@ export default function ListeDeclarative() {
   return (
     <>
       <PageHeader title="Liste déclarative des agents" subtitle="Agents affectés à la Direction d’Études et Planification, validés par le Directeur avant la création de leurs comptes."
-        breadcrumb={[{ label: 'Liste déclarative' }]}
+        breadcrumb={[{ label: 'Administration' }, { label: 'Liste déclarative' }]}
         actions={d && <>
           {d.actions.valider && d.statut !== 'VALIDEE' && <button type="button" className="btn-success" onClick={valider} disabled={!d.agents.length}><BadgeCheck size={16} /> Valider la liste</button>}
           {can('personnel.gerer', 'personnel.suivre') && <Link to="/personnel/import" className="btn-secondary"><ListChecks size={16} /> Importer</Link>}

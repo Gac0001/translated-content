@@ -29,7 +29,7 @@ export default function AgentView({ a, photoVersion, extraActions }) {
         <KeyValues cols={1} items={[
           ['Direction', a.direction],
           ['Division', a.division || (a.niveau ? 'Aucune' : '—')],
-          ['Bureau', a.bureau_nom ? <span key="b">{a.bureau_nom} {a.rattachement && <Badge className="mt-1 bg-amber-100 text-amber-900 ring-amber-300">{a.rattachement}</Badge>}</span> : '—'],
+          ['Bureau', a.bureau_nom ? <span key="b">{a.bureau_nom} {a.rattachement && <Badge tone="ambre" className="mt-1">{a.rattachement}</Badge>}</span> : '—'],
           ['Rang de la structure', rang ? <RangBadge key="r" rang={rang} /> : '—'],
           ['Poste organique', a.poste],
           ['Date d’affectation', fmtDate(a.date_affectation)],
@@ -54,7 +54,7 @@ export default function AgentView({ a, photoVersion, extraActions }) {
                   <td className="td">{h.bureau_nom ? `${h.bureau_nom}${h.est_secretariat_direction ? ' (rattaché au Directeur)' : h.division_nom ? ` — ${h.division_nom}` : ''}` : h.division_nom || 'Direction'}</td>
                   <td className="td">{h.poste || '—'}</td>
                   <td className="td text-xs">{h.motif}{h.motif_cloture ? <div className="text-slate-500">Clôture : {h.motif_cloture}</div> : null}</td>
-                  <td className="td">{h.est_active ? <Badge className="bg-emerald-50 text-emerald-800 ring-emerald-200">Active</Badge> : <Badge>Clôturée</Badge>}</td>
+                  <td className="td">{h.est_active ? <Badge tone="succes">Active</Badge> : <Badge>Clôturée</Badge>}</td>
                 </tr>
               ))}
             </tbody>

@@ -38,7 +38,7 @@ function PerformanceBars({ perf }) {
           <div className="flex min-w-0 items-center gap-2">
             <RangBadge rang={r.rang} />
             <span className={`truncate text-sm ${r.rang === 'DIVISION' ? 'font-semibold' : ''}`} title={r.nom}>{r.nom}</span>
-            {r.direct && <Badge className="bg-amber-50 text-amber-800 ring-amber-200">Rattaché au Directeur</Badge>}
+            {r.direct && <Badge tone="ambre">Rattaché au Directeur</Badge>}
           </div>
           <div className="flex items-center gap-2" title={`${r.nom} — tâches : ${r.detail.taches}, instructions : ${r.detail.instructions}, en retard : ${r.detail.tachesEnRetard + r.detail.instructionsEnRetard}`}>
             <div className="h-3 flex-1 overflow-hidden rounded bg-slate-100">
@@ -250,7 +250,7 @@ function ChefBureauPanel({ d }) {
       {d.bureau && (
         <div className="card flex flex-wrap items-center gap-2 p-3 text-sm">
           <b>{d.bureau.nom}</b><RangBadge rang="BUREAU" />
-          <Badge className={d.bureau.estSecretariatDirection ? 'bg-amber-50 text-amber-800 ring-amber-200' : 'bg-slate-100 text-slate-700 ring-slate-200'}>{d.bureau.rattachement}</Badge>
+          <Badge tone={d.bureau.estSecretariatDirection ? 'ambre' : 'neutre'}>{d.bureau.rattachement}</Badge>
           <span className="text-slate-600">· Supérieur direct : {d.bureau.superieurDirect}</span>
         </div>
       )}

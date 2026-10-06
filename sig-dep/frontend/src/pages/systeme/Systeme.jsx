@@ -5,6 +5,7 @@ import api, { download, errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { useApi, Loadable, PageHeader, Card, KeyValues, runAction, toast, DataTable, InfoAlert, Badge, Field } from '../../components/ui';
 import { fmtDateTime, fmtTaille } from '../../lib/format';
+import { COLORS } from '../../lib/labels';
 
 function Parametres() {
   const state = useApi('/systeme/parametres');
@@ -18,8 +19,8 @@ function Parametres() {
             {d.data.map((p) => (
               <div key={p.cle} className="grid items-end gap-2 sm:grid-cols-[1fr_2fr_auto]">
                 <div className="text-sm"><div className="font-medium">{p.libelle}</div><code className="text-xs text-slate-500">{p.cle}</code></div>
-                <input className="input" disabled={p.cle === 'direction_nom'} value={edits[p.cle] ?? p.valeur ?? ''} onChange={(e) => setEdits((x) => ({ ...x, [p.cle]: e.target.value }))} />
-                <button type="button" className="btn-secondary" disabled={edits[p.cle] === undefined || edits[p.cle] === p.valeur} onClick={() => save(p.cle)}><Save size={16} /></button>
+                <input className="input" aria-label={p.libelle} disabled={p.cle === 'direction_nom'} value={edits[p.cle] ?? p.valeur ?? ''} onChange={(e) => setEdits((x) => ({ ...x, [p.cle]: e.target.value }))} />
+                <button type="button" className="btn-secondary" disabled={edits[p.cle] === undefined || edits[p.cle] === p.valeur} onClick={() => save(p.cle)} aria-label={`Enregistrer : ${p.libelle}`} title="Enregistrer"><Save size={16} aria-hidden /></button>
               </div>
             ))}
             <p className="text-xs text-slate-500">L’appellation officielle « Direction d’Études et Planification » n’est pas modifiable.</p>
@@ -52,7 +53,7 @@ function Sauvegardes() {
   );
 }
 
-const ETATS_MAIL = { EN_ATTENTE: ['En attente', 'bg-amber-50 text-amber-800 ring-amber-200'], ENVOYE: ['Envoyé', 'bg-emerald-50 text-emerald-800 ring-emerald-200'], ECHEC: ['Échec', 'bg-red-50 text-red-800 ring-red-200'], ANNULE: ['Annulé', 'bg-slate-100 text-slate-700 ring-slate-200'] };
+const ETATS_MAIL = { EN_ATTENTE: ['En attente', COLORS.attention], ENVOYE: ['Envoyé', COLORS.succes], ECHEC: ['Échec', COLORS.danger], ANNULE: ['Annulé', COLORS.neutre] };
 
 function Messagerie() {
   const state = useApi('/systeme/messagerie');
@@ -77,7 +78,7 @@ function Messagerie() {
             {!m.configuration.active && <InfoAlert tone="warning">La messagerie est désactivée. Renseignez le serveur SMTP dans <code>backend/.env</code> (variables <code>SMTP_*</code>, <code>MAIL_FROM</code>, <code>APP_URL</code>) puis <code>MAIL_ENABLED=true</code>, et redémarrez l’API.</InfoAlert>}
             <div className="grid gap-4 lg:grid-cols-2">
               <KeyValues items={[
-                ['État', m.configuration.active ? <Badge key="a" className="bg-emerald-50 text-emerald-800 ring-emerald-200">Activée</Badge> : <Badge key="a">Désactivée</Badge>],
+                ['État', m.configuration.active ? <Badge key="a" tone="succes">Activée</Badge> : <Badge key="a">Désactivée</Badge>],
                 ['Transport', m.configuration.transport], ['Serveur', m.configuration.serveur], ['Sécurité', m.configuration.securite],
                 ['Authentification', m.configuration.authentification ? 'Oui' : 'Non'], ['Expéditeur', m.configuration.expediteur],
                 ['Liens vers', m.configuration.adresseApplication], ['Tentatives maximales', m.configuration.tentativesMax],

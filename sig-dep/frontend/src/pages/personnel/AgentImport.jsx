@@ -3,21 +3,22 @@ import { Link } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, FileSpreadsheet, Info, RotateCcw, Upload, XCircle } from 'lucide-react';
 import api, { download, errorMessage } from '../../lib/api';
 import { PageHeader, Card, InfoAlert, ErrorAlert, Field, Badge, Stat, toast } from '../../components/ui';
+import { COLORS } from '../../lib/labels';
 
 const ROLES = { CHEF_DIVISION: 'Chef de Division', CHEF_BUREAU: 'Chef de Bureau', AGENT: 'Agent' };
 const NIVEAUX = {
-  erreur: ['bg-red-50 text-red-800 ring-red-200', XCircle],
-  avertissement: ['bg-amber-50 text-amber-800 ring-amber-200', AlertTriangle],
-  info: ['bg-sky-50 text-sky-800 ring-sky-200', Info],
+  erreur: [COLORS.danger, XCircle],
+  avertissement: [COLORS.attention, AlertTriangle],
+  info: [COLORS.info, Info],
 };
 
 function Anomalies({ list: all }) {
   // Les informations (normalisation, sexe manquant) sont résumées en tête de tableau.
   const list = all.filter((a) => a.niveau !== 'info');
-  if (!list.length) return <Badge className="bg-emerald-50 text-emerald-800 ring-emerald-200"><CheckCircle2 size={12} /> Conforme</Badge>;
+  if (!list.length) return <Badge tone="succes"><CheckCircle2 size={12} /> Conforme</Badge>;
   return (
     <ul className="space-y-1">
-      {list.map((a, i) => { const [cls, Icon] = NIVEAUX[a.niveau]; return <li key={i}><span className={`inline-flex items-start gap-1 rounded px-1.5 py-0.5 text-[11px] ring-1 ring-inset ${cls}`}><Icon size={12} className="mt-0.5 shrink-0" />{a.message}</span></li>; })}
+      {list.map((a, i) => { const [cls, Icon] = NIVEAUX[a.niveau]; return <li key={i}><span className={`inline-flex items-start gap-1 rounded px-1.5 py-0.5 text-xs ring-1 ring-inset ${cls}`}><Icon size={12} className="mt-0.5 shrink-0" />{a.message}</span></li>; })}
     </ul>
   );
 }
@@ -84,7 +85,7 @@ export default function AgentImport() {
 
   return (
     <>
-      <PageHeader title="Importer une liste du personnel" subtitle="Word (.docx), Excel (.xlsx) ou CSV — par exemple la liste officielle des agents de la DEP." breadcrumb={[{ label: 'Personnel', to: '/personnel' }, { label: 'Import' }]}
+      <PageHeader title="Importer une liste du personnel" subtitle="Word (.docx), Excel (.xlsx) ou CSV — par exemple la liste officielle des agents de la DEP." breadcrumb={[{ label: 'Organisation' }, { label: 'Personnel', to: '/personnel' }, { label: 'Import' }]}
         actions={<button type="button" className="btn-secondary" onClick={modele}><FileSpreadsheet size={16} /> Modèle Excel</button>} />
       <ol className="mb-5 flex flex-wrap gap-2 text-sm no-print">
         {['1. Fichier', '2. Vérification', '3. Rapport'].map((e, i) => {
@@ -102,11 +103,11 @@ export default function AgentImport() {
               La structure est lue sur les lignes de section (« 1. Bureau Secrétariat de Direction », « 2.1. Bureau … ») ou dans une colonne « Structure ».
               L’analyse n’enregistre rien : vous vérifiez et corrigez chaque ligne avant l’import.
             </InfoAlert>
-            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 p-8 text-center hover:border-dep-400 hover:bg-dep-50/40">
-              <Upload size={28} className="text-dep-600" />
+            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 p-8 text-center hover:border-dep-400 hover:bg-dep-50/40 focus-within:ring-2 focus-within:ring-dep-400">
+              <Upload size={28} className="text-dep-600" aria-hidden />
               <span className="font-medium">{fichier ? fichier.name : 'Choisir un fichier'}</span>
               <span className="text-xs text-slate-500">.docx, .xlsx ou .csv — 5 Mo au maximum. Le fichier n’est pas conservé sur le serveur.</span>
-              <input type="file" className="hidden" accept=".docx,.xlsx,.csv" onChange={(e) => setFichier(e.target.files[0] || null)} />
+              <input type="file" className="sr-only" accept=".docx,.xlsx,.csv" onChange={(e) => setFichier(e.target.files[0] || null)} />
             </label>
             <button type="button" className="btn-primary" disabled={!fichier || busy} onClick={analyser}>{busy ? 'Analyse…' : 'Analyser le fichier'}</button>
           </div>

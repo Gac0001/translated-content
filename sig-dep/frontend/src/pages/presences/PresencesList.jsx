@@ -19,7 +19,7 @@ export default function PresencesList() {
         <DataTable rows={state.data?.data || []} onRowClick={(s) => navigate(`/presences/${s.id}`)}
           toolbar={<Select value={statut} onChange={setStatut} placeholder="Tous statuts" options={[['BROUILLON', 'Brouillon'], ['VERIFIEE', 'Vérifiée'], ['SOUMISE', 'Soumise'], ['VERROUILLEE', 'Verrouillée']]} />}
           columns={[
-            { key: 'reference', header: 'Référence', render: (s) => <span className="font-medium">{s.reference}{s.est_rectificatif && <Badge className="ml-1 bg-orange-50 text-orange-800 ring-orange-200">Rectificatif</Badge>}</span> },
+            { key: 'reference', header: 'Référence', render: (s) => <span className="font-medium">{s.reference}{s.est_rectificatif && <Badge tone="orange" className="ml-1">Rectificatif</Badge>}</span> },
             { key: 'semaine', header: 'Semaine', render: (s) => `S${s.numero_semaine} · ${fmtDate(s.semaine_debut)} → ${fmtDate(s.semaine_fin)}`, search: (s) => `${s.numero_semaine}` },
             { key: 'structure', header: 'Structure', render: (s) => (s.structure_type === 'DIRECTION' ? 'Direction (toutes structures)' : <span>{s.bureau_nom}<span className="block text-xs text-slate-500">{s.est_secretariat_direction ? 'Bureau rattaché au Directeur' : s.division_nom}</span></span>), search: (s) => `${s.bureau_nom} ${s.division_nom}` },
             { key: 'nb_agents', header: 'Agents' },

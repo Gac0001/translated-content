@@ -33,11 +33,11 @@ export default function UsersList() {
           </>}
           columns={[
             { key: 'username', header: 'Utilisateur', render: (u) => <span className="font-medium">{u.username}</span> },
-            { key: 'nom', header: 'Titulaire', render: (u) => [u.prenom, u.nom].filter(Boolean).join(' ') || <span className="text-slate-400">Compte technique</span>, search: (u) => `${u.prenom} ${u.nom}` },
+            { key: 'nom', header: 'Titulaire', render: (u) => [u.prenom, u.nom].filter(Boolean).join(' ') || <span className="text-slate-500">Compte technique</span>, search: (u) => `${u.prenom} ${u.nom}` },
             { key: 'roles', header: 'Rôle(s)', render: (u) => <div className="flex flex-wrap gap-1">{u.roles.map((r) => <Badge key={r}>{ROLES[r]}</Badge>)}</div>, search: (u) => u.roles.map((r) => ROLES[r]).join(' ') },
             { key: 'structure', header: 'Structure', render: (u) => u.bureau_nom || u.division_nom || '—', search: (u) => `${u.bureau_nom} ${u.division_nom}` },
-            { key: 'statut', header: 'Statut', render: (u) => <div className="flex flex-wrap gap-1"><StatusBadge value={u.statut} />{u.must_change_password && <Badge className="bg-sky-50 text-sky-800 ring-sky-200">Changement de MDP requis</Badge>}{u.inactif && <Badge className="bg-amber-50 text-amber-800 ring-amber-200">Inactif</Badge>}</div> },
-            { key: 'totp_actif', header: '2FA', render: (u) => (u.totp_actif ? <Badge className="bg-emerald-50 text-emerald-800 ring-emerald-200">Active</Badge> : <span className="text-xs text-slate-400">—</span>) },
+            { key: 'statut', header: 'Statut', render: (u) => <div className="flex flex-wrap gap-1"><StatusBadge value={u.statut} />{u.must_change_password && <Badge tone="info">Changement de MDP requis</Badge>}{u.inactif && <Badge tone="attention">Inactif</Badge>}</div> },
+            { key: 'totp_actif', header: '2FA', render: (u) => (u.totp_actif ? <Badge tone="succes">Active</Badge> : <span className="text-xs text-slate-400">—</span>) },
             { key: 'last_login_at', header: 'Dernière connexion', render: (u) => fmtDateTime(u.last_login_at) },
           ]} />
       )}

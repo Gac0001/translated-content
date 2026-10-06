@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Ban, KeyRound, LogOut, Power, RefreshCcw, ShieldCheck, Unlock } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../store/auth';
-import { useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, Badge, Modal, runAction, useConfirm, DataTable } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, Badge, Modal, runAction, useConfirm, DataTable, Button, IconButton, DropdownMenu } from '../../components/ui';
 import { fmtDateTime } from '../../lib/format';
 import { ROLES } from '../../lib/labels';
 import TempPassword from './TempPassword';
@@ -68,17 +68,18 @@ export default function UserDetail() {
     <Loadable state={state}>
       {(u) => (
         <>
-          <PageHeader title={u.username} subtitle={[u.prenom, u.nom, u.postnom].filter(Boolean).join(' ')} breadcrumb={[{ label: 'Comptes', to: '/comptes' }, { label: u.username }]}
+          <PageHeader title={u.username} subtitle={[u.prenom, u.nom, u.postnom].filter(Boolean).join(' ')} breadcrumb={[{ label: 'Administration' }, { label: 'Comptes', to: '/comptes' }, { label: u.username }]}
             actions={<>
-              {u.statut === 'DESACTIVE'
-                ? can('compte.activer') && <button type="button" className="btn-secondary" onClick={() => act('activer', 'Compte activé.')}><Power size={16} /> Activer</button>
-                : can('compte.desactiver') && <button type="button" className="btn-secondary" onClick={() => act('desactiver', 'Compte désactivé.', { title: 'Désactiver le compte', message: 'Le compte sera désactivé et toutes ses sessions révoquées.', danger: true })}><Power size={16} /> Désactiver</button>}
-              {u.statut === 'ACTIF' && can('compte.desactiver') && <button type="button" className="btn-secondary" onClick={() => setBloquerOpen(true)}><Ban size={16} /> Bloquer temporairement</button>}
-              {can('compte.reinitialiser_mot_de_passe') && !u.must_change_password && <button type="button" className="btn-secondary" onClick={() => act('imposer-changement', 'Changement de mot de passe imposé.', { title: 'Imposer un changement de mot de passe', message: 'Le titulaire devra choisir un nouveau mot de passe avant toute autre opération. Aucun mot de passe ne vous est communiqué.' })}><RefreshCcw size={16} /> Imposer un changement</button>}
-              {u.statut === 'VERROUILLE' && can('compte.deverrouiller') && <button type="button" className="btn-secondary" onClick={() => act('deverrouiller', 'Compte déverrouillé.')}><Unlock size={16} /> Déverrouiller</button>}
-              {can('compte.reinitialiser_mot_de_passe') && <button type="button" className="btn-secondary" onClick={() => act('reinitialiser-mot-de-passe', 'Mot de passe réinitialisé.', { title: 'Réinitialiser le mot de passe', message: 'Un mot de passe temporaire sera généré ; les sessions seront révoquées.' })}><KeyRound size={16} /> Réinitialiser le mot de passe</button>}
-              {can('session.revoquer') && <button type="button" className="btn-secondary" onClick={() => act('revoquer-sessions', 'Sessions révoquées.', { title: 'Révoquer les sessions', message: 'L’utilisateur sera déconnecté de tous ses appareils.' })}><LogOut size={16} /> Révoquer les sessions</button>}
-              {can('role.attribuer') && <button type="button" className="btn-primary" onClick={() => setRolesOpen(true)}><ShieldCheck size={16} /> Rôles</button>}
+              {u.statut === 'VERROUILLE' && can('compte.deverrouiller') && <Button icon={Unlock} onClick={() => act('deverrouiller', 'Compte déverrouillé.')}>Déverrouiller</Button>}
+              <DropdownMenu label="Actions du compte" width="w-72" items={[
+                u.statut === 'DESACTIVE' && can('compte.activer') && { label: 'Activer le compte', icon: Power, onClick: () => act('activer', 'Compte activé.') },
+                u.statut !== 'DESACTIVE' && can('compte.desactiver') && { label: 'Désactiver le compte', icon: Power, danger: true, onClick: () => act('desactiver', 'Compte désactivé.', { title: 'Désactiver le compte', message: 'Le compte sera désactivé et toutes ses sessions révoquées.', danger: true }) },
+                u.statut === 'ACTIF' && can('compte.desactiver') && { label: 'Bloquer temporairement', icon: Ban, danger: true, onClick: () => setBloquerOpen(true) },
+                can('compte.reinitialiser_mot_de_passe') && !u.must_change_password && { label: 'Imposer un changement de mot de passe', icon: RefreshCcw, onClick: () => act('imposer-changement', 'Changement de mot de passe imposé.', { title: 'Imposer un changement de mot de passe', message: 'Le titulaire devra choisir un nouveau mot de passe avant toute autre opération. Aucun mot de passe ne vous est communiqué.' }) },
+                can('compte.reinitialiser_mot_de_passe') && { label: 'Réinitialiser le mot de passe', icon: KeyRound, onClick: () => act('reinitialiser-mot-de-passe', 'Mot de passe réinitialisé.', { title: 'Réinitialiser le mot de passe', message: 'Un mot de passe temporaire sera généré ; les sessions seront révoquées.' }) },
+                can('session.revoquer') && { label: 'Révoquer toutes les sessions', icon: LogOut, onClick: () => act('revoquer-sessions', 'Sessions révoquées.', { title: 'Révoquer les sessions', message: 'L’utilisateur sera déconnecté de tous ses appareils.' }) },
+              ]} />
+              {can('role.attribuer') && <Button variant="primary" icon={ShieldCheck} onClick={() => setRolesOpen(true)}>Rôles</Button>}
             </>} />
           <div className="grid gap-4 lg:grid-cols-3">
             <Card title="Compte" className="lg:col-span-2">
@@ -101,11 +102,11 @@ export default function UserDetail() {
               <DataTable searchable={false} rows={u.sessions} empty="Aucune session active." columns={[
                 { key: 'created_at', header: 'Dernier renouvellement', render: (s) => fmtDateTime(s.created_at) }, { key: 'ip', header: 'Adresse IP' },
                 { key: 'user_agent', header: 'Navigateur', render: (s) => <span className="text-xs">{s.user_agent}</span> }, { key: 'expires_at', header: 'Expire le', render: (s) => fmtDateTime(s.expires_at) },
-                ...(can('session.revoquer') ? [{ key: 'act', header: '', render: (s) => <button type="button" className="btn-ghost text-red-700" title="Fermer cette session" onClick={() => fermerSession(s)}><LogOut size={16} /></button> }] : []),
+                ...(can('session.revoquer') ? [{ key: 'act', header: '', render: (s) => <IconButton label={`Fermer la session ouverte depuis ${s.ip || 'une adresse inconnue'}`} icon={LogOut} className="text-red-700" onClick={() => fermerSession(s)} /> }] : []),
               ]} />
             </Card>
             <Card title="Historique des connexions" className="lg:col-span-3" bodyClass="p-0">
-              <DataTable searchable={false} rows={u.connexions} columns={[{ key: 'created_at', header: 'Date et heure', render: (c) => fmtDateTime(c.created_at) }, { key: 'succes', header: 'Résultat', render: (c) => (c.succes ? <Badge className="bg-emerald-50 text-emerald-800 ring-emerald-200">Réussie</Badge> : <Badge className="bg-red-50 text-red-800 ring-red-200">Échec</Badge>) }, { key: 'motif', header: 'Détail' }, { key: 'ip', header: 'Adresse IP' }]} />
+              <DataTable searchable={false} rows={u.connexions} columns={[{ key: 'created_at', header: 'Date et heure', render: (c) => fmtDateTime(c.created_at) }, { key: 'succes', header: 'Résultat', render: (c) => (c.succes ? <Badge tone="succes">Réussie</Badge> : <Badge tone="danger">Échec</Badge>) }, { key: 'motif', header: 'Détail' }, { key: 'ip', header: 'Adresse IP' }]} />
             </Card>
           </div>
           {bloquerOpen && <BloquerModal user={u} onClose={() => setBloquerOpen(false)} onDone={() => { setBloquerOpen(false); state.reload(); }} />}

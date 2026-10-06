@@ -49,7 +49,7 @@ function BureauNode({ b, defaultOpen = false }) {
           <div className="flex flex-wrap items-center gap-2">
             <Link to={`/structures/bureau/${b.id}`} className="font-semibold text-slate-900 hover:underline">{b.nom}</Link>
             <RangBadge rang={b.rangOrganique} />
-            {b.badge && <Badge className="bg-amber-100 text-amber-900 ring-amber-300">{b.badge}</Badge>}
+            {b.badge && <Badge tone="ambre">{b.badge}</Badge>}
           </div>
           <div className="mt-1 text-xs text-slate-500">Rattachement : {b.rattachement.libelle} · Supérieur direct : {b.rattachement.superieurDirect === 'DIRECTEUR' ? 'Directeur' : 'Chef de Division'} · Périmètre d’accès : Bureau</div>
           <div className="mt-1.5"><Person p={b.responsable} titre="Chef de Bureau" /></div>

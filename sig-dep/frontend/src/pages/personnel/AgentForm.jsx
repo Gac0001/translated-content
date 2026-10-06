@@ -41,7 +41,7 @@ export default function AgentForm() {
   const text = (name, label, props = {}) => <Field label={label} error={errors[name]?.message} required={props.required}><input className="input" {...register(name)} {...props} /></Field>;
   return (
     <>
-      <PageHeader title={id ? 'Modifier la fiche Agent' : 'Nouvel Agent'} breadcrumb={[{ label: 'Personnel', to: '/personnel' }, { label: id ? 'Modification' : 'Nouvel Agent' }]} />
+      <PageHeader title={id ? 'Modifier la fiche Agent' : 'Nouvel Agent'} breadcrumb={[{ label: 'Organisation' }, { label: 'Personnel', to: '/personnel' }, { label: id ? 'Modification' : 'Nouvel Agent' }]} />
       <form onSubmit={handleSubmit(submit)} className="space-y-4" noValidate>
         <Card title="Identité">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
