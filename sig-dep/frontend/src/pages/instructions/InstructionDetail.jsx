@@ -8,8 +8,9 @@ import { Attachments, Timeline } from '../../components/shared';
 import { fmtDate, fmtDateTime } from '../../lib/format';
 import { ROLES } from '../../lib/labels';
 import { AvancementModal, TextModal } from './WorkflowActions';
+import { BoutonsTraitement, ModalesTraitement, AlertesTraitement, CarteProlongations } from './Traitement';
 
-const ACTIVE = ['TRANSMISE', 'RECUE', 'EN_COURS', 'A_CORRIGER', 'EN_RETARD'];
+const ACTIVE = ['TRANSMISE', 'RECUE', 'EN_COURS', 'RAPPORT_INTERMEDIAIRE', 'A_CORRIGER', 'EN_RETARD'];
 
 export default function InstructionDetail() {
   const { id } = useParams();
@@ -39,7 +40,10 @@ export default function InstructionDetail() {
                   <button type="button" className="btn-secondary" onClick={() => setModal('retour')}><Undo2 size={16} /> Retourner</button>
                 </>}
                 {estEmetteur && i.statut === 'VALIDEE' && <button type="button" className="btn-primary" onClick={() => post('cloturer', {}, 'Instruction clôturée.')}><Lock size={16} /> Clôturer</button>}
+                <BoutonsTraitement a={i.actions} setModal={setModal} />
               </>} />
+            {i.exceptionnelle && <div className="mb-3"><InfoAlert tone="warning"><b>Instruction exceptionnelle du Directeur</b>, adressée hors de la chaîne hiérarchique{i.copie_nom ? `, copie à ${i.copie_nom} (supérieur immédiat)` : ''}. Justification : {i.justification_exception}</InfoAlert></div>}
+            <AlertesTraitement item={i} />
             {estDestinataire && i.statut === 'A_CORRIGER' && <div className="mb-3"><InfoAlert tone="warning">L’émetteur a retourné cette instruction : {i.observations}</InfoAlert></div>}
             <div className="grid gap-4 lg:grid-cols-3">
               <Card title="Instruction" className="lg:col-span-2">
@@ -47,6 +51,8 @@ export default function InstructionDetail() {
                   ['Émetteur', `${i.emetteur_nom} — ${ROLES[i.emetteur_role]}`], ['Destinataire', `${i.destinataire_nom} — ${ROLES[i.destinataire_role]}`],
                   ['Priorité', <PrioriteBadge key="p" value={i.priorite} />], ['Statut', <StatusBadge key="s" value={i.statut} />],
                   ['Date d’émission', fmtDateTime(i.date_emission)], ['Échéance', fmtDate(i.echeance)],
+                  i.echeance_initiale && ['Échéance initiale', fmtDate(i.echeance_initiale)],
+                  i.copie_nom && ['Copie', i.copie_nom],
                   ['Avancement', <Progress key="a" value={i.avancement} />], ['Date de clôture', fmtDateTime(i.date_cloture)],
                   i.parent && ['Instruction d’origine', <Link key="o" className="text-dep-700 hover:underline" to={`/instructions/${i.parent.id}`}>{i.parent.reference}</Link>],
                 ]} />
@@ -56,7 +62,8 @@ export default function InstructionDetail() {
               <Card title="Réponse / compte rendu">
                 {i.reponse ? <><p className="whitespace-pre-line text-sm">{i.reponse}</p><p className="mt-2 text-xs text-slate-500">Reçu le {fmtDateTime(i.date_reponse)}</p></> : <p className="text-sm text-slate-500">Aucun compte rendu pour l’instant.</p>}
               </Card>
-              <Card title="Pièces jointes"><Attachments type="INSTRUCTION" id={id} canUpload={(estEmetteur || estDestinataire) && i.statut !== 'CLOTUREE'} /></Card>
+              <Card title="Pièces jointes"><Attachments type="INSTRUCTION" id={id} preuve={estDestinataire} canUpload={(estEmetteur || estDestinataire) && !['CLOTUREE', 'ANNULEE'].includes(i.statut)} /></Card>
+              <CarteProlongations items={i.prolongations} echeanceInitiale={i.echeance_initiale} />
               {(i.sousInstructions.length > 0 || i.taches.length > 0) && (
                 <Card title="Déclinaisons" className="lg:col-span-2">
                   <ul className="space-y-2 text-sm">
@@ -69,6 +76,7 @@ export default function InstructionDetail() {
             </div>
             {modal === 'avancement' && <AvancementModal current={i.avancement} onClose={() => setModal(null)} onSave={(b) => post('avancement', b, 'Avancement mis à jour.')} />}
             {modal === 'compte-rendu' && <TextModal title="Rendre compte de l’exécution" label="Compte rendu adressé à l’émetteur" confirmLabel="Transmettre le compte rendu" onClose={() => setModal(null)} onSave={(t) => post('rendre-compte', { reponse: t }, 'Compte rendu transmis.')} />}
+            <ModalesTraitement modal={modal} setModal={setModal} post={post} item={i} />
             {modal === 'retour' && <TextModal title="Retourner pour correction" label="Observations" confirmLabel="Retourner" danger onClose={() => setModal(null)} onSave={(t) => post('retourner', { observations: t }, 'Instruction retournée.')} />}
           </>
         );

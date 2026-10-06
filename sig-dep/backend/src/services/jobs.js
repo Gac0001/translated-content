@@ -18,7 +18,7 @@ const { alerter } = require('./alertes');
 const { politique } = require('./politique');
 const { revokeAllForUser } = require('./tokens');
 
-const ACTIVE = ['TRANSMISE', 'RECUE', 'EN_COURS', 'A_CORRIGER'];
+const ACTIVE = ['TRANSMISE', 'RECUE', 'EN_COURS', 'RAPPORT_INTERMEDIAIRE', 'A_CORRIGER'];
 
 async function markOverdue() {
   for (const [table, entity, userCol, supCol, lien, label] of [

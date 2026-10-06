@@ -127,7 +127,7 @@ exports.chargerActivites = async function chargerActivites(knex) {
     { auteur: 'ag.sev2', type: 'COMPTE_RENDU', titre: 'Compte rendu de la mission de suivi à Matadi', statut: 'VALIDE', niveau: 'DIRECTION', detenteur: 'directeur',
       contenu: { date: day(-9), lieu: 'Matadi, Kongo-Central', participants: ['Équipe du Bureau Suivi-Évaluation', 'Représentants provinciaux'], ordre_du_jour: ['Visite des sites', 'Réunion de restitution'], deroulement: 'La mission a visité trois sites du projet et tenu une réunion de restitution avec les autorités provinciales.', decisions: ['Accélérer les travaux du lot 2', 'Produire un rapport trimestriel'] },
       visas: [visa('cb.sev', 'CHEF_BUREAU', 'Chef de Bureau', 'VISA', -5), visa('cd.ps', 'CHEF_DIVISION', 'Chef de Division', 'VALIDATION_DIVISION', -4), visa('directeur', 'DIRECTEUR', 'Directeur', 'SIGNATURE', -3)] },
-    { auteur: 'ag.eap2', type: 'NOTE_TECHNIQUE', titre: 'Note technique sur la couverture réseau en zones rurales', statut: 'EN_EXAMEN', niveau: 'BUREAU', detenteur: 'cb.eap',
+    { auteur: 'ag.eap2', type: 'NOTE_TECHNIQUE', titre: 'Note technique sur la couverture réseau en zones rurales', statut: 'EN_RELECTURE', niveau: 'BUREAU', detenteur: 'cb.eap',
       contenu: { destinataire: 'Monsieur le Directeur', contexte: 'La couverture réseau demeure faible dans les zones rurales.', analyse: 'Les données des opérateurs montrent une couverture 4G inférieure à 30 % hors des chefs-lieux.', propositions: ['Mutualiser les infrastructures passives', 'Mobiliser le fonds de service universel'] }, visas: [] },
     { auteur: 'ag.str1', type: 'PLAN_ACTIONS', titre: 'Plan d’actions 2027 de la DEP (projet)', statut: 'BROUILLON', niveau: 'AUTEUR', detenteur: 'ag.str1',
       contenu: { periode: 'Année 2027', objectif_general: 'Renforcer la planification et le suivi-évaluation du secteur.', actions: [{ action: 'Actualiser le plan stratégique', responsable: 'Bureau Planification Stratégique', echeance: day(90), indicateur: 'Plan adopté', budget: 25000, statut: 'À lancer' }] }, visas: [] },
@@ -141,9 +141,9 @@ exports.chargerActivites = async function chargerActivites(knex) {
     }).returning('*');
     await knex('document_versions').insert({ document_id: row.id, numero: 1, titre: row.titre, contenu: JSON.stringify(d.contenu), commentaire: 'Version initiale', created_by: a.id, created_at: ts(-8) });
     await hist('DOCUMENT', row.id, a.id, 'CREATION', 'BROUILLON', 'Version 1', ts(-8));
-    if (d.statut !== 'BROUILLON') await hist('DOCUMENT', row.id, a.id, 'TRANSMISSION', 'EN_EXAMEN', 'Transmis au Chef de Bureau', ts(-6));
+    if (d.statut !== 'BROUILLON') await hist('DOCUMENT', row.id, a.id, 'TRANSMISSION', 'EN_RELECTURE', 'Transmis au Chef de Bureau', ts(-6));
     if (d.statut === 'VALIDE') await hist('DOCUMENT', row.id, U('directeur').id, 'VALIDATION', 'VALIDE', 'Validé et signé par le Directeur', ts(-3));
-    if (d.statut === 'EN_EXAMEN') await notif(U(d.detenteur).id, 'DOCUMENT_A_EXAMINER', `Document à examiner : ${d.titre}`, `/documents/${row.id}`, a.id);
+    if (d.statut === 'EN_RELECTURE') await notif(U(d.detenteur).id, 'DOCUMENT_A_EXAMINER', `Document à examiner : ${d.titre}`, `/documents/${row.id}`, a.id);
   }
 
   // ─── Présences de la semaine précédente (verrouillées) ───────────────────

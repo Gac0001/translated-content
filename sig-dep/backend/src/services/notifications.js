@@ -23,6 +23,7 @@ const TYPES = {
   ACTE: 'Acte administratif',
   CARTE: 'Carte de service',
   CONNEXION: 'Nouvelle connexion',
+  DEMANDE_INFO: 'Demande d’information',
 };
 
 /**

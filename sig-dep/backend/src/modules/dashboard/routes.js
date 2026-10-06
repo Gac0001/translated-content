@@ -125,7 +125,7 @@ async function directeurDashboard(ctx) {
     db('tasks as t').join('users as u', 'u.id', 't.agent_user_id').leftJoin('agents as a', 'a.id', 'u.agent_id').leftJoin('bureaux as b', 'b.id', 't.bureau_id')
       .where('t.statut', 'EN_RETARD').orderBy('t.echeance').limit(15).select('t.id', 't.reference', 't.titre', 't.echeance', 'b.nom as bureau', nomSql('a')),
     db('instructions').where('statut', 'EN_RETARD').orderBy('echeance').limit(10).select('id', 'reference', 'objet', 'echeance', 'destinataire_role'),
-    db('documents').where({ detenteur_user_id: ctx.userId }).whereIn('statut', ['EN_EXAMEN']).whereNot('auteur_user_id', ctx.userId).orderBy('updated_at', 'desc').select('id', 'reference', 'titre', 'type_document', 'updated_at'),
+    db('documents').where({ detenteur_user_id: ctx.userId }).whereIn('statut', ['EN_RELECTURE']).whereNot('auteur_user_id', ctx.userId).orderBy('updated_at', 'desc').select('id', 'reference', 'titre', 'type_document', 'updated_at'),
     db('presence_sheets as s').leftJoin('bureaux as b', 'b.id', 's.bureau_id').where('s.statut', 'SOUMISE').select('s.id', 's.reference', 's.submitted_at', 'b.nom as bureau'),
     db('courrier_transmissions as t').join('courriers as c', 'c.id', 't.courrier_id').where({ 't.to_user_id': ctx.userId, 't.etat_reception': 'EN_ATTENTE' }).select('c.id', 'c.numero_enregistrement', 'c.objet', 'c.urgence', 't.created_at'),
     statutsCount('courriers'),
@@ -157,7 +157,7 @@ async function chefDivisionDashboard(ctx) {
   const div = await db('divisions').where({ id: ctx.divisionId }).first();
   const [perf, docs, tasks, instr, pres, pipAVerifier] = await Promise.all([
     performanceParStructure({ divisionId: ctx.divisionId }),
-    db('documents').where({ detenteur_user_id: ctx.userId }).whereIn('statut', ['EN_EXAMEN', 'VALIDE_DIVISION']).whereNot('auteur_user_id', ctx.userId).select('id', 'reference', 'titre', 'statut', 'updated_at'),
+    db('documents').where({ detenteur_user_id: ctx.userId }).whereIn('statut', ['EN_RELECTURE', 'VISE']).whereNot('auteur_user_id', ctx.userId).select('id', 'reference', 'titre', 'statut', 'updated_at'),
     statutsCount('tasks', (q) => q.where('division_id', ctx.divisionId)),
     scopeInstructions(db('instructions as i'), ctx).where('i.destinataire_user_id', ctx.userId).whereNotIn('i.statut', ['CLOTUREE']).select('i.id', 'i.reference', 'i.objet', 'i.statut', 'i.echeance', 'i.avancement').orderBy('i.created_at', 'desc').limit(10),
     scopePresences(db('presence_sheets as s'), ctx).orderBy('s.semaine_debut', 'desc').limit(8).leftJoin('bureaux as b', 'b.id', 's.bureau_id').select('s.id', 's.reference', 's.statut', 'b.nom as bureau'),
@@ -183,7 +183,7 @@ async function chefBureauDashboard(ctx) {
     statutsCount('tasks', (q) => q.where('bureau_id', ctx.bureauId)),
     db('tasks as t').join('users as u', 'u.id', 't.agent_user_id').leftJoin('agents as a', 'a.id', 'u.agent_id').where('t.bureau_id', ctx.bureauId)
       .whereNotIn('t.statut', ['CLOTUREE']).orderBy('t.echeance').limit(15).select('t.id', 't.reference', 't.titre', 't.statut', 't.avancement', 't.echeance', nomSql('a')),
-    db('documents').where({ detenteur_user_id: ctx.userId, statut: 'EN_EXAMEN' }).whereNot('auteur_user_id', ctx.userId).select('id', 'reference', 'titre', 'updated_at'),
+    db('documents').where({ detenteur_user_id: ctx.userId, statut: 'EN_RELECTURE' }).whereNot('auteur_user_id', ctx.userId).select('id', 'reference', 'titre', 'updated_at'),
     db('presence_sheets').where({ bureau_id: ctx.bureauId }).orderBy('semaine_debut', 'desc').limit(6).select('id', 'reference', 'statut', 'semaine_debut'),
     db('instructions').where({ destinataire_user_id: ctx.userId }).whereNotIn('statut', ['CLOTUREE']).orderBy('created_at', 'desc').limit(10).select('id', 'reference', 'objet', 'statut', 'echeance', 'avancement'),
   ]);
@@ -239,7 +239,7 @@ router.get('/', async (req, res) => {
 router.get('/compteurs', async (req, res) => {
   const ctx = req.ctx;
   const [docs, instr, taches, courriers, pip, pres] = await Promise.all([
-    ctx.can('documents.consulter') ? scopeDocuments(db('documents as d'), ctx).where('d.detenteur_user_id', ctx.userId).whereIn('d.statut', ['EN_EXAMEN', 'VALIDE_DIVISION', 'A_CORRIGER']).count('* as n').first() : { n: 0 },
+    ctx.can('documents.consulter') ? scopeDocuments(db('documents as d'), ctx).where('d.detenteur_user_id', ctx.userId).whereIn('d.statut', ['EN_RELECTURE', 'VISE', 'A_CORRIGER']).count('* as n').first() : { n: 0 },
     ctx.can('instructions.consulter') ? scopeInstructions(db('instructions as i'), ctx).where('i.destinataire_user_id', ctx.userId).whereIn('i.statut', ['TRANSMISE', 'A_CORRIGER']).count('* as n').first() : { n: 0 },
     ctx.can('taches.consulter') ? scopeTasks(db('tasks as t'), ctx).where((w) => w.where((x) => x.where('t.agent_user_id', ctx.userId).whereIn('t.statut', ['TRANSMISE', 'A_CORRIGER'])).orWhere((x) => x.where('t.assigne_par_user_id', ctx.userId).where('t.statut', 'EXECUTEE'))).count('* as n').first() : { n: 0 },
     ctx.can('courriers.consulter') ? scopeCourriers(db('courriers as c'), ctx).whereExists(db('courrier_transmissions as t').whereRaw('t.courrier_id = c.id').where({ 't.to_user_id': ctx.userId, 't.etat_reception': 'EN_ATTENTE' })).count('* as n').first() : { n: 0 },
@@ -247,7 +247,17 @@ router.get('/compteurs', async (req, res) => {
     ctx.can('presences.verrouiller') ? db('presence_sheets').where('statut', 'SOUMISE').count('* as n').first() : { n: 0 },
   ]);
   const alertes = ctx.can('securite.superviser') ? await db('alertes_securite').whereNull('acquittee_at').whereIn('gravite', ['ATTENTION', 'CRITIQUE']).count('* as n').first() : { n: 0 };
-  res.json({ documents: Number(docs.n), instructions: Number(instr.n), taches: Number(taches.n), courriers: Number(courriers.n), pip: Number(pip.n), presences: Number(pres.n), alertes: Number(alertes.n) });
+  // Décisions attendues de l’émetteur : blocages signalés et demandes de prolongation
+  const attente = async (table, type, col) => Number((await db(`${table} as x`).where(`x.${col}`, ctx.userId).where((w) => w.where('x.statut', 'BLOQUEE')
+    .orWhereExists(db('prolongations as p').whereRaw('p.entity_id = x.id').where({ 'p.entity_type': type, 'p.statut': 'DEMANDEE' }))).count('* as n').first()).n);
+  const [instrAttente, tachesAttente] = await Promise.all([attente('instructions', 'INSTRUCTION', 'emetteur_user_id'), attente('tasks', 'TASK', 'assigne_par_user_id')]);
+  let demandesInfo = 0;
+  if (ctx.can('demandes_info.repondre')) demandesInfo = Number((await db('demandes_information').where('statut', 'ENVOYEE').count('* as n').first()).n);
+  else if (ctx.can('demandes_info.emettre')) demandesInfo = Number((await db('demandes_information').where({ statut: 'REPONDUE', emetteur_user_id: ctx.userId }).count('* as n').first()).n);
+  res.json({
+    documents: Number(docs.n), instructions: Number(instr.n) + instrAttente, taches: Number(taches.n) + tachesAttente, courriers: Number(courriers.n),
+    pip: Number(pip.n), presences: Number(pres.n), alertes: Number(alertes.n), demandesInfo,
+  });
 });
 
 module.exports = router;

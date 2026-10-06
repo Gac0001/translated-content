@@ -1,5 +1,16 @@
 # Journal des versions — SIG-DEP
 
+## 1.13.0
+
+### Lot 8A — Compléments des circuits de traitement (cahier des charges, §§ 13, 14, 25 et annexe 2)
+- **Instructions et tâches** : nouveaux statuts `Bloquée` (blocage motivé signalé par l’exécutant, levé par l’exécutant ou l’émetteur), `Rapport intermédiaire` (compte rendu d’étape) et `Annulée` (par l’émetteur, avec motif).
+- **Prolongation motivée** : demande de l’exécutant (une seule en attente), décision de l’émetteur (accord à la date demandée ou à une autre date, refus motivé) ou prolongation directe ; échéance initiale conservée, retard levé, historique des prolongations.
+- **Instruction exceptionnelle du Directeur** à tout agent de la DEP, hors chaîne hiérarchique : justification obligatoire (10 caractères au moins), copie automatique et notification au supérieur immédiat du destinataire, mention dans la fiche, le PDF et le journal d’audit. Les Agents peuvent désormais exécuter une instruction qui leur est adressée.
+- **Tâches** : sous-tâches (un niveau, échéance bornée par la tâche parente, qui n’est rendue qu’une fois ses sous-tâches exécutées), dépendances (contrôle des cycles) et **preuves d’exécution** jointes.
+- **Documents** : circuit de l’annexe 2 — `En relecture` → `Visé` → `Validé` → `Publié` → `Archivé`. Le visa revient au Chef de Division, ou au Chef du Bureau Secrétariat de Direction pour son Bureau ; le document ne monte au Directeur qu’une fois visé. **Publication** par le Directeur : toute la Direction ou structures choisies, et le Secrétaire Général s’il le décide ; les destinataires sont notifiés et voient le document publié. Les documents existants sont convertis (« En examen » → « En relecture », « Validé (Division) » → « Visé ») ; l’historique conserve les anciens libellés.
+- **Demandes d’information** du Secrétaire Général au Directeur : question, priorité, échéance, réponse avec pièces jointes, relance, clôture ; aucune tâche interne créée.
+- Compteurs du menu : blocages et demandes de prolongation à décider, demandes d’information en attente.
+
 ## 1.12.3
 
 ### Carte de service

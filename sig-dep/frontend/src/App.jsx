@@ -27,6 +27,8 @@ const UserCreate = p(() => import('./pages/comptes/UserCreate'));
 const Roles = p(() => import('./pages/comptes/Roles'));
 const Designations = p(() => import('./pages/comptes/Designations'));
 const ActesList = p(() => import('./pages/actes/ActesList'));
+const DemandesList = p(() => import('./pages/demandes/DemandesList'));
+const DemandeDetail = p(() => import('./pages/demandes/DemandeDetail'));
 const ActeForm = p(() => import('./pages/actes/ActeForm'));
 const ActeDetail = p(() => import('./pages/actes/ActeDetail'));
 const ListeDeclarative = p(() => import('./pages/comptes/ListeDeclarative'));
@@ -122,6 +124,8 @@ export default function App() {
             <Route path="roles" element={G(['role.attribuer'], <Roles />)} />
             <Route path="designations" element={G(['designations.gerer'], <Designations />)} />
             <Route path="delegations" element={<Navigate to="/designations" replace />} />
+            <Route path="demandes-information" element={G(['demandes_info.emettre', 'demandes_info.repondre'], <DemandesList />)} />
+            <Route path="demandes-information/:id" element={G(['demandes_info.emettre', 'demandes_info.repondre'], <DemandeDetail />)} />
             <Route path="actes" element={<ActesList />} />
             <Route path="actes/nouveau" element={G(['actes.preparer', 'actes.enregistrer_direction'], <ActeForm />)} />
             <Route path="actes/:id" element={<ActeDetail />} />

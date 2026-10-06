@@ -36,6 +36,7 @@ const EMAIL_TYPES = {
   ACTE: 'Acte administratif (intérim, désignation…)',
   CARTE: 'Carte de service',
   CONNEXION: 'Connexion depuis un nouvel appareil',
+  DEMANDE_INFO: 'Demande d’information du Secrétaire Général ou réponse du Directeur',
 };
 
 const RETRY_MINUTES = [1, 5, 15, 60, 240];

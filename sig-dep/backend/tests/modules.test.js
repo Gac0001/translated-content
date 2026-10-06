@@ -105,29 +105,43 @@ describe('Documents de service', () => {
     await ag.post(`/documents/${doc.body.id}/transmettre`, {});
     const t2 = await cb.post(`/documents/${doc.body.id}/transmettre`, { commentaire: 'Vu' });
     expect(t2.body.niveau_actuel).toBe('DIVISION');
-    expect((await cd.post(`/documents/${doc.body.id}/valider-division`, {})).body.statut).toBe('VALIDE_DIVISION');
+    // Le Chef de Division doit viser avant de transmettre au Directeur
+    expect((await cd.post(`/documents/${doc.body.id}/transmettre`, {})).status).toBe(403);
+    expect((await cd.post(`/documents/${doc.body.id}/viser`, {})).body.statut).toBe('VISE');
     const t3 = await cd.post(`/documents/${doc.body.id}/transmettre`, {});
     expect(t3.body.niveau_actuel).toBe('DIRECTION');
     const v = await dir.post(`/documents/${doc.body.id}/valider`, {});
     expect(v.body.statut).toBe('VALIDE');
-    expect(v.body.visas.map((x) => x.type)).toEqual(['VISA', 'VALIDATION_DIVISION', 'SIGNATURE']);
+    expect(v.body.visas.map((x) => x.type)).toEqual(['RELECTURE', 'VISA', 'SIGNATURE']);
     const versions = await db('document_versions').where({ document_id: doc.body.id });
     expect(versions).toHaveLength(3);
     await expect(db('document_versions').where({ document_id: doc.body.id }).del()).rejects.toThrow(/APPEND_ONLY/);
     const sg = api(await login('sg'));
     expect((await sg.get(`/documents/${doc.body.id}`)).status).toBe(200);
+    // Publication par le Directeur, diffusée à la Division du rédacteur
+    const autre = api(await login('ag.secretariat1'));
+    expect((await autre.get(`/documents/${doc.body.id}`)).status).toBe(403);
+    expect((await cd.post(`/documents/${doc.body.id}/publier`, { diffusion: 'DIRECTION' })).status).toBe(403);
+    expect((await dir.post(`/documents/${doc.body.id}/publier`, { diffusion: 'STRUCTURES' })).status).toBe(400);
+    const divId = (await db('documents').where({ id: doc.body.id }).first()).division_id;
+    const pub = await dir.post(`/documents/${doc.body.id}/publier`, { diffusion: 'STRUCTURES', divisions: [divId], sg: true });
+    expect(pub.body).toMatchObject({ statut: 'PUBLIE', diffusion: 'STRUCTURES', diffusion_sg: true });
+    expect((await api(await login('ag.sev2')).get(`/documents/${doc.body.id}`)).status).toBe(200);
+    expect((await autre.get(`/documents/${doc.body.id}`)).status).toBe(403);
+    expect(await db('notifications').where({ user_id: await userId('sg'), lien: `/documents/${doc.body.id}` }).first()).toBeTruthy();
     for (const f of ['pdf', 'docx', 'xlsx']) expect((await dir.get(`/documents/${doc.body.id}/export/${f}`)).status).toBe(200);
     expect((await dir.post(`/documents/${doc.body.id}/archiver`)).body.statut).toBe('ARCHIVE');
   });
 
-  test('document du Bureau Secrétariat : validé par le Directeur sans passer par une Division', async () => {
+  test('document du Bureau Secrétariat : visé par son Chef, validé par le Directeur sans passer par une Division', async () => {
     const ag = api(await login('ag.secretariat2'));
     const doc = await ag.post('/documents', { type_document: 'COMMUNIQUE_SERVICE', titre: 'Horaires', contenu: { destinataires: 'Tout le personnel', objet: 'Horaires', message: 'Arrivée à 8 h' } });
     await ag.post(`/documents/${doc.body.id}/transmettre`, {});
     const cbs = api(await login('cb.secretariat'));
     const d = await cbs.get(`/documents/${doc.body.id}`);
-    expect(d.body.actions.validerDivision).toBe(false);
-    expect((await cbs.post(`/documents/${doc.body.id}/valider-division`, {})).status).toBe(403);
+    // Le visa revient au Chef du Bureau Secrétariat (aucune Division)
+    expect(d.body.actions).toMatchObject({ viser: true, transmettre: false });
+    expect((await cbs.post(`/documents/${doc.body.id}/viser`, {})).body.statut).toBe('VISE');
     const t = await cbs.post(`/documents/${doc.body.id}/transmettre`, {});
     expect(t.body.niveau_actuel).toBe('DIRECTION');
     expect(t.body.detenteur_user_id).toBe(await userId('directeur'));

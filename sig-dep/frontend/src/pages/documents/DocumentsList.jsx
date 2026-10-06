@@ -26,7 +26,7 @@ export default function DocumentsList() {
         <DataTable rows={state.data?.data || []} onRowClick={(d) => navigate(`/documents/${d.id}`)}
           toolbar={<>
             <Select value={type} onChange={setType} placeholder="Tous types" options={(types.data?.data || []).map((t) => [t.code, t.libelle])} />
-            <Select value={statut} onChange={setStatut} placeholder="Tous statuts" options={['BROUILLON', 'EN_EXAMEN', 'A_CORRIGER', 'VALIDE_DIVISION', 'VALIDE', 'REJETE', 'ARCHIVE'].map((s) => [s, STATUTS[s][0]])} />
+            <Select value={statut} onChange={setStatut} placeholder="Tous statuts" options={['BROUILLON', 'EN_RELECTURE', 'A_CORRIGER', 'VISE', 'VALIDE', 'PUBLIE', 'REJETE', 'ARCHIVE'].map((s) => [s, STATUTS[s][0]])} />
           </>}
           columns={[
             { key: 'reference', header: 'Référence', render: (d) => <span className="whitespace-nowrap font-medium">{d.reference}</span> },

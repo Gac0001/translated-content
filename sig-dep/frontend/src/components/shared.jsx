@@ -47,7 +47,8 @@ export function ExportButtons({ base, formats = ['pdf', 'xlsx'], print = true, q
 }
 
 // ─── Pièces jointes ─────────────────────────────────────────────────────────
-export function Attachments({ type, id, canUpload = true }) {
+/** Pièces jointes d’un élément ; avec `preuve`, l’envoi marque les fichiers comme preuves d’exécution. */
+export function Attachments({ type, id, canUpload = true, preuve = false }) {
   const state = useApi(`/attachments/${type}/${id}`);
   const user = useAuth((s) => s.user);
   const confirm = useConfirm();
@@ -59,7 +60,7 @@ export function Attachments({ type, id, canUpload = true }) {
     [...files].forEach((f) => fd.append('fichiers', f));
     setBusy(true);
     try {
-      await api.post(`/attachments/${type}/${id}`, fd);
+      await api.post(`/attachments/${type}/${id}${preuve ? '?categorie=PREUVE' : ''}`, fd);
       toast.success('Pièce(s) jointe(s) ajoutée(s).');
       state.reload();
     } catch (e) { toast.error(errorMessage(e)); } finally { setBusy(false); if (ref.current) ref.current.value = ''; }
@@ -76,6 +77,7 @@ export function Attachments({ type, id, canUpload = true }) {
           <li key={a.id} className="flex items-center gap-2 py-2 text-sm">
             <Paperclip size={15} className="shrink-0 text-slate-400" />
             <button type="button" className="min-w-0 flex-1 truncate text-left text-dep-700 hover:underline" onClick={() => download(`/attachments/fichier/${a.id}`, a.original_name).catch((e) => toast.error(errorMessage(e)))}>{a.original_name}</button>
+            {a.categorie === 'PREUVE' && <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-800 ring-1 ring-emerald-200">Preuve</span>}
             <span className="hidden text-xs text-slate-500 sm:inline">{fmtTaille(a.size_bytes)} · {fmtDate(a.created_at)} · {a.username}</span>
             <button type="button" className="rounded p-1 text-slate-500 hover:bg-slate-100" onClick={() => download(`/attachments/fichier/${a.id}`, a.original_name)} aria-label="Télécharger"><Download size={15} /></button>
             {a.uploaded_by === user.id && canUpload && <button type="button" className="rounded p-1 text-red-600 hover:bg-red-50" onClick={() => remove(a)} aria-label="Retirer"><Trash2 size={15} /></button>}
@@ -85,7 +87,7 @@ export function Attachments({ type, id, canUpload = true }) {
       {!rows.length && !state.loading && <p className="py-2 text-sm text-slate-500">Aucune pièce jointe.</p>}
       {canUpload && (
         <label className={`btn-secondary mt-2 cursor-pointer ${busy ? 'opacity-50' : ''}`}>
-          <Upload size={16} /> {busy ? 'Envoi…' : 'Joindre des fichiers'}
+          <Upload size={16} /> {busy ? 'Envoi…' : preuve ? 'Joindre une preuve d’exécution' : 'Joindre des fichiers'}
           <input ref={ref} type="file" multiple className="hidden" disabled={busy} onChange={(e) => upload(e.target.files)} accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.txt,.csv,.zip" />
         </label>
       )}

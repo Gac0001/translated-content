@@ -11,7 +11,7 @@ import { Progression } from './comptes/ListeDeclarative';
 import { EtatBadge } from './systeme/Sante';
 
 const sum = (obj = {}, keys) => keys.reduce((s, k) => s + (obj[k] || 0), 0);
-const ACTIVE = ['TRANSMISE', 'RECUE', 'EN_COURS', 'A_CORRIGER', 'EN_RETARD'];
+const ACTIVE = ['TRANSMISE', 'RECUE', 'EN_COURS', 'BLOQUEE', 'RAPPORT_INTERMEDIAIRE', 'A_CORRIGER', 'EN_RETARD'];
 
 function MiniList({ rows = [], to, render, empty = 'Rien à signaler.' }) {
   if (!rows.length) return <Empty message={empty} />;
@@ -367,7 +367,7 @@ function AgentPanel({ d }) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Tâches en cours" value={d.taches.filter((t) => ACTIVE.includes(t.statut)).length} icon={ListTodo} to="/taches" />
         <Stat label="En retard" value={d.taches.filter((t) => t.statut === 'EN_RETARD').length} icon={Clock} tone="rouge" />
-        <Stat label="Documents en cours" value={d.documents.filter((x) => ['BROUILLON', 'A_CORRIGER', 'EN_EXAMEN'].includes(x.statut)).length} icon={FileText} tone="violet" to="/documents" />
+        <Stat label="Documents en cours" value={d.documents.filter((x) => ['BROUILLON', 'A_CORRIGER', 'EN_RELECTURE', 'VISE'].includes(x.statut)).length} icon={FileText} tone="violet" to="/documents" />
         <Stat label="Notifications non lues" value={d.notificationsNonLues} icon={Bell} tone="jaune" to="/notifications" />
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-3">

@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-do
 import { fmtDate } from '../../lib/format';
 import {
   LayoutDashboard, Network, BookOpen, Users, UserCog, CalendarCheck, Mail, Send, ListTodo, FileText, FolderKanban,
-  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2, Landmark, IdCard,
+  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2, Landmark, IdCard, MessageCircleQuestion,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth, useCompteurs } from '../../store/auth';
@@ -23,6 +23,7 @@ const MENU = [
   { to: '/ma-carte', label: 'Ma carte de service', icon: IdCard, agent: true },
   { section: 'Activités' },
   { to: '/instructions', label: 'Instructions', icon: Send, perms: ['instructions.consulter'], counter: 'instructions' },
+  { to: '/demandes-information', label: 'Demandes d’information', icon: MessageCircleQuestion, perms: ['demandes_info.emettre', 'demandes_info.repondre'], counter: 'demandesInfo' },
   { to: '/taches', label: 'Tâches', icon: ListTodo, perms: ['taches.consulter'], counter: 'taches' },
   { to: '/presences', label: 'Présences', icon: CalendarCheck, perms: ['presences.consulter', 'presences.preparer_direction'], counter: 'presences' },
   { to: '/courriers', label: 'Courriers', icon: Mail, perms: ['courriers.consulter'], counter: 'courriers' },

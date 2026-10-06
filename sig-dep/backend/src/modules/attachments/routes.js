@@ -12,7 +12,7 @@ const { notFound, badRequest, forbidden } = require('../../utils/errors');
 
 const router = express.Router();
 const upload = makeUpload();
-const TYPES = ['COURRIER', 'INSTRUCTION', 'TASK', 'DOCUMENT', 'PIP', 'ACTE'];
+const TYPES = ['COURRIER', 'INSTRUCTION', 'TASK', 'DOCUMENT', 'PIP', 'ACTE', 'DEMANDE_INFO'];
 const entityParams = z.object({ type: z.enum(TYPES), id: z.coerce.number().int().positive() });
 
 // Déclarée avant « /:type/:id », qui l’intercepterait sinon (« fichier » n’est pas un type d’élément).
@@ -34,7 +34,7 @@ router.get('/:type/:id', validate({ params: entityParams }), async (req, res) =>
   if (req.ctx.accesSupport) await audit(req, { action: 'ACCES_SUPPORT', module: 'pieces_jointes', entite: req.valid.params.type.toLowerCase(), entiteId: req.valid.params.id, message: `Consultation de la liste des pièces — accès de support n° ${req.ctx.accesSupport.id}` });
   const rows = await db('attachments as a').leftJoin('users as u', 'u.id', 'a.uploaded_by')
     .where({ entity_type: req.valid.params.type, entity_id: req.valid.params.id }).whereNull('a.deleted_at')
-    .select('a.id', 'a.original_name', 'a.mime_type', 'a.size_bytes', 'a.created_at', 'a.uploaded_by', 'u.username').orderBy('a.created_at');
+    .select('a.id', 'a.original_name', 'a.mime_type', 'a.size_bytes', 'a.categorie', 'a.created_at', 'a.uploaded_by', 'u.username').orderBy('a.created_at');
   res.json({ data: rows });
 });
 
@@ -46,13 +46,16 @@ router.post('/:type/:id', validate({ params: entityParams }), async (req, res, n
     if (err) return next(err);
     try {
       if (!req.files || !req.files.length) throw badRequest('Aucun fichier transmis.');
+      // Preuve d’exécution : déposée par l’exécutant d’une tâche ou d’une instruction
+      const categorie = req.query.categorie === 'PREUVE' ? 'PREUVE' : null;
+      if (categorie && !['TASK', 'INSTRUCTION'].includes(req.valid.params.type)) throw badRequest('Une preuve d’exécution se joint à une tâche ou à une instruction.');
       const rows = [];
       for (const f of req.files) {
         const [row] = await db('attachments').insert({
           entity_type: req.valid.params.type, entity_id: req.valid.params.id,
           original_name: Buffer.from(f.originalname, 'latin1').toString('utf8').slice(0, 255),
-          stored_name: f.filename, mime_type: f.mimetype, size_bytes: f.size, sha256: await sha256File(f.path), uploaded_by: req.ctx.userId,
-        }).returning(['id', 'original_name', 'mime_type', 'size_bytes', 'created_at']);
+          stored_name: f.filename, mime_type: f.mimetype, size_bytes: f.size, sha256: await sha256File(f.path), uploaded_by: req.ctx.userId, categorie,
+        }).returning(['id', 'original_name', 'mime_type', 'size_bytes', 'categorie', 'created_at']);
         rows.push(row);
       }
       await audit(req, { action: 'CREATION', module: 'pieces_jointes', entite: req.valid.params.type.toLowerCase(), entiteId: req.valid.params.id, apres: rows.map((r) => r.original_name) });

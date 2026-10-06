@@ -3,8 +3,12 @@
  * Documents de service : rédaction guidée, versionnement (aucune version supprimée),
  * commentaires, circuit de validation hiérarchique, visas et signature, archivage, exports.
  *
- * Circuit : Auteur → Chef de Bureau → Chef de Division → Directeur
- *           (Bureau Secrétariat de Direction : Auteur → Chef de Bureau → Directeur)
+ * Circuit (annexe 2) : brouillon → en relecture → à corriger → visé → validé → publié → archivé.
+ *   Auteur → Chef de Bureau (relecture) → Chef de Division (visa) → Directeur (validation, publication)
+ *   Bureau Secrétariat de Direction : Auteur → Chef du Bureau (visa) → Directeur
+ * Le visa revient au supérieur hiérarchique de l’auteur placé juste sous le Directeur.
+ * La publication diffuse le document validé à toute la Direction ou aux structures choisies,
+ * et au Secrétaire Général si le Directeur le décide.
  */
 const express = require('express');
 const { z } = require('zod');
@@ -26,7 +30,7 @@ const { ROLE_LIBELLES } = require('../../constants');
 
 const router = express.Router();
 const idParam = z.object({ id: z.coerce.number().int().positive() });
-const STATUT_LIBELLES = { BROUILLON: 'Brouillon', EN_EXAMEN: 'En examen', A_CORRIGER: 'À corriger', VALIDE_DIVISION: 'Validé (Division)', VALIDE: 'Validé', REJETE: 'Rejeté', ARCHIVE: 'Archivé' };
+const STATUT_LIBELLES = { BROUILLON: 'Brouillon', EN_RELECTURE: 'En relecture', A_CORRIGER: 'À corriger', VISE: 'Visé', VALIDE: 'Validé', PUBLIE: 'Publié', REJETE: 'Rejeté', ARCHIVE: 'Archivé' };
 const NIVEAU = { AGENT: 'AUTEUR', CHEF_BUREAU: 'BUREAU', CHEF_DIVISION: 'DIVISION', DIRECTEUR: 'DIRECTION' };
 
 router.get('/types', (req, res) => res.json({ data: TYPES }));
@@ -51,7 +55,7 @@ router.get('/', requirePerm('documents.consulter'), validate({ query: listQuery 
   if (type) query.where('d.type_document', type);
   if (statut) query.where('d.statut', statut); else if (boite !== 'mes') query.whereNot('d.statut', 'ARCHIVE');
   if (boite === 'mes') query.where('d.auteur_user_id', req.ctx.userId);
-  if (boite === 'a_examiner') query.where('d.detenteur_user_id', req.ctx.userId).whereIn('d.statut', ['EN_EXAMEN', 'VALIDE_DIVISION']).whereNot('d.auteur_user_id', req.ctx.userId);
+  if (boite === 'a_examiner') query.where('d.detenteur_user_id', req.ctx.userId).whereIn('d.statut', ['EN_RELECTURE', 'VISE']).whereNot('d.auteur_user_id', req.ctx.userId);
   if (q) query.where((w) => w.whereILike('d.titre', `%${q}%`).orWhereILike('d.reference', `%${q}%`));
   const rows = await query.limit(500);
   res.json({ data: rows.map((r) => ({ ...r, contenu: undefined, type_libelle: BY_CODE[r.type_document]?.libelle })) });
@@ -60,31 +64,46 @@ router.get('/', requirePerm('documents.consulter'), validate({ query: listQuery 
 async function detail(ctx, id) {
   await loadEntity(ctx, 'DOCUMENT', id);
   const d = await baseQuery().where('d.id', id).first();
-  const [versions, commentaires, historique, pieces] = await Promise.all([
+  const [versions, commentaires, historique, pieces, diffusions] = await Promise.all([
     db('document_versions as v').leftJoin('users as u', 'u.id', 'v.created_by').leftJoin('agents as a', 'a.id', 'u.agent_id').where('v.document_id', id).orderBy('v.numero', 'desc')
       .select('v.id', 'v.numero', 'v.titre', 'v.commentaire', 'v.created_at', db.raw(`concat_ws(' ', a.prenom, a.nom) as auteur`)),
     db('document_comments as c').join('users as u', 'u.id', 'c.user_id').leftJoin('agents as a', 'a.id', 'u.agent_id').where('c.document_id', id).orderBy('c.created_at')
       .select('c.*', db.raw(`concat_ws(' ', a.prenom, a.nom) as auteur`)),
     getHistory('DOCUMENT', id),
     db('attachments').where({ entity_type: 'DOCUMENT', entity_id: id }).whereNull('deleted_at'),
+    db('document_diffusions as x').leftJoin('divisions as dv', 'dv.id', 'x.division_id').leftJoin('bureaux as b', 'b.id', 'x.bureau_id')
+      .where('x.document_id', id).select('x.division_id', 'x.bureau_id', db.raw('coalesce(dv.nom, b.nom) as nom')),
   ]);
-  return { ...d, type: BY_CODE[d.type_document], versions, commentaires, historique, pieces };
+  return { ...d, type: BY_CODE[d.type_document], versions, commentaires, historique, pieces, diffusions };
+}
+
+/**
+ * Niveau du visa : le responsable placé juste sous le Directeur, c’est-à-dire le Chef de Division
+ * (titulaire ou intérimaire) ou le Chef du Bureau Secrétariat de Direction.
+ */
+function niveauVisa(ctx) {
+  if (!ctx.can('documents.viser')) return false;
+  return (ctx.primaryRole === 'CHEF_DIVISION' && ctx.perimetre === 'DIVISION') || (ctx.primaryRole === 'CHEF_BUREAU' && !!ctx.inSecretariat);
 }
 
 function actionsFor(ctx, d) {
   const auteur = d.auteur_user_id === ctx.userId;
   const detenteur = d.detenteur_user_id === ctx.userId;
   const readOnly = ctx.perimetre === 'SUPERVISION_GLOBALE';
+  const viseur = niveauVisa(ctx);
   return {
     modifier: !readOnly && auteur && ['BROUILLON', 'A_CORRIGER'].includes(d.statut),
     transmettre: !readOnly && ((auteur && ['BROUILLON', 'A_CORRIGER'].includes(d.statut) && ctx.primaryRole !== 'DIRECTEUR')
-      || (detenteur && !auteur && d.statut === 'EN_EXAMEN' && ctx.can('documents.examiner') && ctx.primaryRole !== 'DIRECTEUR')
-      || (detenteur && d.statut === 'VALIDE_DIVISION' && ctx.can('division.valider'))),
-    retourner: !readOnly && detenteur && !auteur && ['EN_EXAMEN', 'VALIDE_DIVISION'].includes(d.statut) && ctx.can('documents.examiner'),
-    validerDivision: !readOnly && detenteur && d.statut === 'EN_EXAMEN' && d.niveau_actuel === 'DIVISION' && ctx.can('division.valider') && ctx.perimetre === 'DIVISION',
-    valider: !readOnly && ctx.can('documents.valider_final') && ((detenteur && d.statut === 'EN_EXAMEN' && d.niveau_actuel === 'DIRECTION') || (auteur && d.statut === 'BROUILLON')),
-    rejeter: !readOnly && ctx.can('documents.valider_final') && detenteur && d.statut === 'EN_EXAMEN' && d.niveau_actuel === 'DIRECTION' && !auteur,
-    archiver: !readOnly && ctx.can('documents.archiver') && ['VALIDE', 'REJETE'].includes(d.statut),
+      // Relecture par un Chef de Bureau rattaché à une Division : transmission au Chef de Division
+      || (detenteur && !auteur && d.statut === 'EN_RELECTURE' && ctx.can('documents.examiner') && ctx.primaryRole !== 'DIRECTEUR' && !viseur)
+      // Au niveau du visa, le document ne monte au Directeur qu’une fois visé
+      || (detenteur && !auteur && d.statut === 'VISE' && viseur)),
+    retourner: !readOnly && detenteur && !auteur && ['EN_RELECTURE', 'VISE'].includes(d.statut) && ctx.can('documents.examiner'),
+    viser: !readOnly && detenteur && !auteur && d.statut === 'EN_RELECTURE' && viseur,
+    valider: !readOnly && ctx.can('documents.valider_final') && ((detenteur && d.statut === 'EN_RELECTURE' && d.niveau_actuel === 'DIRECTION') || (auteur && d.statut === 'BROUILLON')),
+    rejeter: !readOnly && ctx.can('documents.valider_final') && detenteur && d.statut === 'EN_RELECTURE' && d.niveau_actuel === 'DIRECTION' && !auteur,
+    publier: !readOnly && ctx.can('documents.publier') && d.statut === 'VALIDE',
+    archiver: !readOnly && ctx.can('documents.archiver') && ['VALIDE', 'PUBLIE', 'REJETE'].includes(d.statut),
     commenter: !readOnly && (auteur || detenteur || ctx.can('documents.examiner')),
   };
 }
@@ -156,7 +175,7 @@ function visa(ctx, type) {
 async function move(req, d, patch, action, commentaire, notifyTo, notifType, titre) {
   const [u] = await db('documents').where({ id: d.id }).update({ ...patch, updated_at: db.fn.now() }).returning('*');
   await addHistory('DOCUMENT', d.id, req.ctx.userId, { action, ancien: d.statut, nouveau: u.statut, commentaire });
-  const auditAction = { VALIDATION: 'VALIDATION', VALIDATION_DIVISION: 'VALIDATION', TRANSMISSION: 'TRANSMISSION', ARCHIVAGE: 'ARCHIVAGE' }[action] || 'MODIFICATION';
+  const auditAction = { VALIDATION: 'VALIDATION', VISA: 'VALIDATION', PUBLICATION: 'VALIDATION', TRANSMISSION: 'TRANSMISSION', ARCHIVAGE: 'ARCHIVAGE' }[action] || 'MODIFICATION';
   await audit(req, { action: auditAction, module: 'documents', entite: 'document', entiteId: d.id, avant: { statut: d.statut, detenteur: d.detenteur_user_id }, apres: { statut: u.statut, detenteur: u.detenteur_user_id }, message: action });
   if (notifyTo) await notify(notifyTo, { type: notifType, titre: `${titre} : ${d.titre}`, message: commentaire || d.reference, lien: `/documents/${d.id}`, expediteur: req.ctx.userId, confidentiel: d.confidentialite !== 'ORDINAIRE' });
   return u;
@@ -174,8 +193,8 @@ router.post('/:id/transmettre', requirePerm('documents.rediger', 'documents.exam
   if (!sup) throw badRequest('Aucun supérieur hiérarchique direct actif n’a été trouvé pour la transmission.');
   if (sup.primaryRole === 'SECRETAIRE_GENERAL') throw badRequest('Les documents de service sont validés par le Directeur.');
   const visas = [...(d.visas || [])];
-  if (d.auteur_user_id !== req.ctx.userId && d.statut === 'EN_EXAMEN') visas.push(visa(req.ctx, 'VISA'));
-  const u = await move(req, d, { statut: 'EN_EXAMEN', niveau_actuel: NIVEAU[sup.primaryRole], detenteur_user_id: sup.userId, visas: JSON.stringify(visas) }, 'TRANSMISSION',
+  if (d.auteur_user_id !== req.ctx.userId && d.statut === 'EN_RELECTURE') visas.push(visa(req.ctx, 'RELECTURE'));
+  const u = await move(req, d, { statut: 'EN_RELECTURE', niveau_actuel: NIVEAU[sup.primaryRole], detenteur_user_id: sup.userId, visas: JSON.stringify(visas) }, 'TRANSMISSION',
     `Transmis à ${sup.nomComplet} (${sup.roleLibelle})${req.valid.body.commentaire ? ` — ${req.valid.body.commentaire}` : ''}`, sup.userId, 'DOCUMENT_A_EXAMINER', 'Document à examiner');
   res.json(u);
 });
@@ -187,12 +206,15 @@ router.post('/:id/retourner', requirePerm('documents.examiner'), validate({ para
   res.json(await move(req, d, { statut: 'A_CORRIGER', niveau_actuel: 'AUTEUR', detenteur_user_id: d.auteur_user_id }, 'RETOUR_CORRECTION', req.valid.body.commentaire, d.auteur_user_id, 'DOCUMENT_RETOURNE', 'Document retourné pour correction'));
 });
 
-router.post('/:id/valider-division', requirePerm('division.valider'), validate({ params: idParam, body: z.object({ commentaire: z.string().trim().max(2000).optional() }) }), async (req, res) => {
+async function viser(req, res) {
   const d = await loadEntity(req.ctx, 'DOCUMENT', req.valid.params.id);
-  if (!actionsFor(req.ctx, d).validerDivision) throw forbidden('Validation au niveau de la Division réservée au Chef de Division détenteur du document.');
-  const visas = [...(d.visas || []), visa(req.ctx, 'VALIDATION_DIVISION')];
-  res.json(await move(req, d, { statut: 'VALIDE_DIVISION', visas: JSON.stringify(visas) }, 'VALIDATION_DIVISION', req.valid.body.commentaire || 'Validé au niveau de la Division', d.auteur_user_id, 'DOCUMENT_VALIDE', 'Document validé au niveau de la Division'));
-});
+  if (!actionsFor(req.ctx, d).viser) throw forbidden('Le visa revient au Chef de Division, ou au Chef du Bureau Secrétariat de Direction, détenteur du document.');
+  const visas = [...(d.visas || []), visa(req.ctx, 'VISA')];
+  res.json(await move(req, d, { statut: 'VISE', visas: JSON.stringify(visas) }, 'VISA', req.valid.body.commentaire || 'Document visé', d.auteur_user_id, 'DOCUMENT_VALIDE', 'Document visé'));
+}
+const visaSchema = { params: idParam, body: z.object({ commentaire: z.string().trim().max(2000).optional() }) };
+router.post('/:id/viser', requirePerm('documents.viser'), validate(visaSchema), viser);
+router.post('/:id/valider-division', requirePerm('documents.viser'), validate(visaSchema), viser); // ancienne adresse
 
 router.post('/:id/valider', requirePerm('documents.valider_final'), validate({ params: idParam, body: z.object({ commentaire: z.string().trim().max(2000).optional() }) }), async (req, res) => {
   const d = await loadEntity(req.ctx, 'DOCUMENT', req.valid.params.id);
@@ -210,9 +232,51 @@ router.post('/:id/rejeter', requirePerm('documents.valider_final'), validate({ p
   res.json(await move(req, d, { statut: 'REJETE' }, 'REJET', req.valid.body.commentaire, d.auteur_user_id, 'DOCUMENT_RETOURNE', 'Document rejeté'));
 });
 
+/** Comptes concernés par une diffusion : agents affectés aux structures choisies (ou à toute la Direction). */
+async function destinatairesDiffusion(diffusion, divisions, bureaux) {
+  const q = db('users as u').join('affectations as a', function j() { this.on('a.agent_id', 'u.agent_id').andOn('a.est_active', db.raw('true')); })
+    .where('u.statut', 'ACTIF');
+  if (diffusion === 'STRUCTURES') q.where((w) => { w.whereIn('a.division_id', divisions.length ? divisions : [-1]).orWhereIn('a.bureau_id', bureaux.length ? bureaux : [-1]); });
+  return q.distinct().pluck('u.id');
+}
+
+router.post('/:id/publier', requirePerm('documents.publier'), validate({ params: idParam, body: z.object({
+  diffusion: z.enum(['DIRECTION', 'STRUCTURES']),
+  divisions: z.array(z.coerce.number().int().positive()).max(20).optional().default([]),
+  bureaux: z.array(z.coerce.number().int().positive()).max(30).optional().default([]),
+  sg: z.boolean().optional().default(false),
+  commentaire: z.string().trim().max(2000).optional(),
+}) }), async (req, res) => {
+  const d = await loadEntity(req.ctx, 'DOCUMENT', req.valid.params.id);
+  if (!actionsFor(req.ctx, d).publier) throw badRequest('Seul un document validé peut être publié, par le Directeur.');
+  const b = req.valid.body;
+  const divisions = [...new Set(b.divisions)];
+  const bureaux = [...new Set(b.bureaux)];
+  if (b.diffusion === 'STRUCTURES') {
+    if (!divisions.length && !bureaux.length) throw badRequest('Choisissez au moins une structure destinataire.');
+    if ((await db('divisions').whereIn('id', divisions).count('* as n').first()).n != divisions.length
+      || (await db('bureaux').whereIn('id', bureaux).count('* as n').first()).n != bureaux.length) throw badRequest('Structure inconnue.');
+  }
+  const noms = b.diffusion === 'DIRECTION' ? ['toute la Direction'] : [
+    ...await db('divisions').whereIn('id', divisions).pluck('nom'), ...await db('bureaux').whereIn('id', bureaux).pluck('nom')];
+  const libelle = `Diffusion : ${noms.join(', ')}${b.sg ? ' ; Secrétaire Général' : ''}${b.commentaire ? ` — ${b.commentaire}` : ''}`;
+  await db.transaction(async (trx) => {
+    await trx('document_diffusions').where({ document_id: d.id }).del();
+    if (b.diffusion === 'STRUCTURES') {
+      await trx('document_diffusions').insert([...divisions.map((x) => ({ document_id: d.id, division_id: x })), ...bureaux.map((x) => ({ document_id: d.id, bureau_id: x }))]);
+    }
+  });
+  const u = await move(req, d, { statut: 'PUBLIE', diffusion: b.diffusion, diffusion_sg: b.sg, publie_par: req.ctx.userId, publie_at: db.fn.now() }, 'PUBLICATION', libelle, null);
+  const dest = new Set(await destinatairesDiffusion(b.diffusion, divisions, bureaux));
+  if (b.sg) (await db('users as u').join('user_roles as ur', 'ur.user_id', 'u.id').join('roles as r', 'r.id', 'ur.role_id').where('r.code', 'SECRETAIRE_GENERAL').where('u.statut', 'ACTIF').pluck('u.id')).forEach((x) => dest.add(x));
+  dest.delete(req.ctx.userId);
+  if (dest.size) await notify([...dest], { type: 'DOCUMENT_VALIDE', titre: `Document publié : ${d.titre}`, message: d.reference, lien: `/documents/${d.id}`, expediteur: req.ctx.userId, confidentiel: d.confidentialite !== 'ORDINAIRE' });
+  res.json(u);
+});
+
 router.post('/:id/archiver', requirePerm('documents.archiver'), validate({ params: idParam }), async (req, res) => {
   const d = await loadEntity(req.ctx, 'DOCUMENT', req.valid.params.id);
-  if (!['VALIDE', 'REJETE'].includes(d.statut)) throw badRequest('Seul un document validé ou rejeté peut être archivé.');
+  if (!['VALIDE', 'PUBLIE', 'REJETE'].includes(d.statut)) throw badRequest('Seul un document validé, publié ou rejeté peut être archivé.');
   res.json(await move(req, d, { statut: 'ARCHIVE', archived_at: db.fn.now() }, 'ARCHIVAGE', 'Document archivé', null));
 });
 
@@ -240,6 +304,7 @@ router.get('/:id/export/:format', requirePerm('exports.generer'), validate({ par
   await audit(req, { action: 'EXPORT', module: 'documents', entite: 'document', entiteId: d.id, message: req.valid.params.format.toUpperCase() });
   const fname = `${d.reference.replace(/\//g, '-')}`;
   const visas = (d.visas || []).map((v) => ({ ...v, libelle: v.type === 'VALIDATION_DIVISION' ? 'Chef de Division' : v.libelle }));
+  if (d.publie_at) meta.push(['Publication', `${pdf.fmtDateTime(d.publie_at)} — ${d.diffusion === 'DIRECTION' ? 'toute la Direction' : d.diffusions.map((x) => x.nom).join(', ')}${d.diffusion_sg ? ' ; Secrétaire Général' : ''}`]);
   if (req.valid.params.format === 'docx') {
     const buf = await buildDocx({ titre: `${t.libelle.toUpperCase()} — ${d.titre}`, reference: d.reference, meta, sections: t.sections.map((s) => ({ label: s.label, type: s.type, columns: s.columns, value: s.type === 'date' ? pdf.fmtDate(d.contenu[s.key]) : d.contenu[s.key] })), visas });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');

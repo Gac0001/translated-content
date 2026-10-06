@@ -24,9 +24,11 @@ export const STATUTS = {
   // Instructions et tâches
   BROUILLON: ['Brouillon', C.gris], TRANSMISE: ['Transmise', C.bleu], RECUE: ['Reçue', C.indigo], EN_COURS: ['En cours', C.jaune],
   A_CORRIGER: ['À corriger', C.orange], EXECUTEE: ['Exécutée', C.violet], VALIDEE: ['Validée', C.vert], CLOTUREE: ['Clôturée', C.marine], EN_RETARD: ['En retard', C.rouge],
+  BLOQUEE: ['Bloquée', C.rouge], RAPPORT_INTERMEDIAIRE: ['Rapport intermédiaire', C.indigo], ANNULEE: ['Annulée', C.gris],
   // Présences
   VERIFIEE: ['Vérifiée', C.indigo], SOUMISE: ['Soumise', C.violet], VERROUILLEE: ['Verrouillée', C.marine],
   // Documents
+  EN_RELECTURE: ['En relecture', C.jaune], VISE: ['Visé', C.indigo], PUBLIE: ['Publié', C.marine],
   EN_EXAMEN: ['En examen', C.jaune], VALIDE_DIVISION: ['Validé (Division)', C.indigo], VALIDE: ['Validé', C.vert], SOUMIS: ['Soumis', C.bleu], REFUSE: ['Refusé', C.rouge], REVOQUE: ['Révoqué', C.orange], EXPIRE: ['Expiré', C.gris], REMPLACE: ['Remplacé', C.marine], REJETE: ['Rejeté', C.rouge], ARCHIVE: ['Archivé', C.gris],
   // PIP
   EN_VERIFICATION: ['En vérification', C.jaune], VERIFIE: ['Vérifiée', C.indigo],
@@ -38,6 +40,8 @@ export const STATUTS = {
   CONGE: ['En congé', C.jaune], DETACHE: ['Détaché', C.indigo], SUSPENDU: ['Suspendu', C.rouge], RETRAITE: ['Retraité', C.gris],
   // Réception
   EN_ATTENTE: ['En attente', C.jaune], RECU: ['Reçu', C.vert],
+  // Demandes d’information
+  ENVOYEE: ['En attente de réponse', C.jaune], REPONDUE: ['Répondue', C.vert], CLOSE: ['Close', C.gris],
 };
 
 export const PRIORITES = { BASSE: ['Basse', C.gris], NORMALE: ['Normale', C.bleu], HAUTE: ['Haute', C.orange], URGENTE: ['Urgente', C.rouge] };
@@ -59,12 +63,17 @@ export const ACTIONS_HISTO = {
   VERROUILLAGE_AUTO: 'Verrouillage automatique', CREATION_RECTIFICATIF: 'Création du rectificatif', RECTIFICATIF: 'Rectificatif établi',
   SELECTION_AGENTS: 'Sélection des Agents', ENREGISTREMENT: 'Enregistrement', ANNOTATION: 'Annotation', ACCUSE_RECEPTION: 'Accusé de réception',
   TRAITEMENT: 'Traitement', CLASSEMENT: 'Classement',
+  BLOCAGE: 'Blocage signalé', DEBLOCAGE: 'Blocage levé', RAPPORT_INTERMEDIAIRE: 'Rapport intermédiaire', ANNULATION: 'Annulation',
+  DEMANDE_PROLONGATION: 'Demande de prolongation', PROLONGATION_ACCORDEE: 'Prolongation accordée', PROLONGATION_REFUSEE: 'Prolongation refusée',
+  PROLONGATION: 'Délai prolongé', SOUS_TACHE: 'Sous-tâche créée', DEPENDANCE: 'Dépendance ajoutée', DEPENDANCE_RETIREE: 'Dépendance retirée',
+  VISA: 'Visa', PUBLICATION: 'Publication', ENVOI: 'Envoi', REPONSE: 'Réponse', COMPLEMENT_REPONSE: 'Complément de réponse', RELANCE: 'Relance',
 };
 
 export const NOTIF_TYPES = {
   INSTRUCTION: 'Instruction', TACHE: 'Tâche', COURRIER: 'Courrier', DOCUMENT_RETOURNE: 'Document retourné', DOCUMENT_VALIDE: 'Document validé',
   DOCUMENT_A_EXAMINER: 'Document à examiner', ECHEANCE: 'Échéance proche', RETARD: 'Retard', COMPTE_CREE: 'Compte', MDP_REINITIALISE: 'Mot de passe',
   AFFECTATION: 'Affectation', PRESENCE: 'Présences', PIP: 'PIP', INSTRUCTION_REPONSE: 'Compte rendu', SECURITE: 'Sécurité', SYSTEME: 'Annonce', ACTE: 'Acte administratif', CARTE: 'Carte de service', CONNEXION: 'Nouvelle connexion',
+  DEMANDE_INFO: 'Demande d’information',
 };
 
 export const DELEGATIONS = {
