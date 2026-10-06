@@ -85,7 +85,7 @@ export default function UserDetail() {
             <Card title="Compte" className="lg:col-span-2">
               <KeyValues items={[
                 ['Statut', <StatusBadge key="s" value={u.statut} />], ['Rôle(s)', <div key="r" className="flex flex-wrap gap-1">{u.roles.map((r) => <Badge key={r}>{ROLES[r]}</Badge>)}</div>],
-                ['Titulaire', u.agent_id ? <Link key="a" className="text-dep-700 hover:underline" to={`/personnel/${u.agent_id}`}>{[u.prenom, u.nom].join(' ')} ({u.matricule})</Link> : 'Compte technique'],
+                ['Titulaire', u.agent_id ? <Link key="a" className="link" to={`/personnel/${u.agent_id}`}>{[u.prenom, u.nom].join(' ')} ({u.matricule})</Link> : 'Compte technique'],
                 ['Structure', u.bureau_nom ? `${u.bureau_nom}${u.est_secretariat_direction ? ' (Bureau directement rattaché au Directeur)' : ''}` : u.division_nom || (u.niveau === 'DIRECTION' ? 'Direction' : '—')],
                 ['Changement de mot de passe requis', u.must_change_password ? 'Oui' : 'Non'], ['Tentatives échouées', u.failed_attempts],
                 ['Verrouillé jusqu’au', fmtDateTime(u.locked_until)], u.motif_blocage && ['Motif du blocage', u.motif_blocage], ['Dernière connexion', fmtDateTime(u.last_login_at)],
@@ -99,14 +99,14 @@ export default function UserDetail() {
               {u.delegations.length ? <ul className="space-y-2 text-sm">{u.delegations.map((d) => <li key={d.id}><b>{d.libelle}</b><div className="text-xs text-slate-500">Accordée par {d.granted_by} le {fmtDateTime(d.granted_at)}</div></li>)}</ul> : <p className="text-sm text-slate-500">Aucune.</p>}
             </Card>
             <Card title="Sessions actives" className="lg:col-span-3" bodyClass="p-0">
-              <DataTable searchable={false} rows={u.sessions} empty="Aucune session active." columns={[
+              <DataTable encadre={false} searchable={false} label="Sessions actives" rows={u.sessions} empty="Aucune session active." columns={[
                 { key: 'created_at', header: 'Dernier renouvellement', render: (s) => fmtDateTime(s.created_at) }, { key: 'ip', header: 'Adresse IP' },
                 { key: 'user_agent', header: 'Navigateur', render: (s) => <span className="text-xs">{s.user_agent}</span> }, { key: 'expires_at', header: 'Expire le', render: (s) => fmtDateTime(s.expires_at) },
                 ...(can('session.revoquer') ? [{ key: 'act', header: '', render: (s) => <IconButton label={`Fermer la session ouverte depuis ${s.ip || 'une adresse inconnue'}`} icon={LogOut} className="text-red-700" onClick={() => fermerSession(s)} /> }] : []),
               ]} />
             </Card>
             <Card title="Historique des connexions" className="lg:col-span-3" bodyClass="p-0">
-              <DataTable searchable={false} rows={u.connexions} columns={[{ key: 'created_at', header: 'Date et heure', render: (c) => fmtDateTime(c.created_at) }, { key: 'succes', header: 'Résultat', render: (c) => (c.succes ? <Badge tone="succes">Réussie</Badge> : <Badge tone="danger">Échec</Badge>) }, { key: 'motif', header: 'Détail' }, { key: 'ip', header: 'Adresse IP' }]} />
+              <DataTable encadre={false} searchable={false} label="Historique des connexions" rows={u.connexions} columns={[{ key: 'created_at', header: 'Date et heure', render: (c) => fmtDateTime(c.created_at) }, { key: 'succes', header: 'Résultat', render: (c) => (c.succes ? <Badge tone="succes">Réussie</Badge> : <Badge tone="danger">Échec</Badge>) }, { key: 'motif', header: 'Détail' }, { key: 'ip', header: 'Adresse IP' }]} />
             </Card>
           </div>
           {bloquerOpen && <BloquerModal user={u} onClose={() => setBloquerOpen(false)} onDone={() => { setBloquerOpen(false); state.reload(); }} />}

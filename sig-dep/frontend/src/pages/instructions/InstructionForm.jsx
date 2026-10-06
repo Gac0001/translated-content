@@ -55,7 +55,7 @@ export default function InstructionForm() {
               <Field label="Échéance"><input type="date" className="input" min={aujourdhui()} {...register('echeance')} /></Field>
             </div>
           </Card>
-          <p className="text-sm text-slate-500">Les pièces jointes peuvent être ajoutées depuis la fiche de l’instruction.</p>
+          <p className="text-sm text-slate-600">Les pièces jointes peuvent être ajoutées depuis la fiche de l’instruction.</p>
           <div className="flex flex-wrap gap-2">
             <button type="button" className="btn-primary" disabled={isSubmitting} onClick={send(false)}><Send size={16} /> Transmettre</button>
             <button type="button" className="btn-secondary" disabled={isSubmitting} onClick={send(true)}><Save size={16} /> Enregistrer comme brouillon</button>

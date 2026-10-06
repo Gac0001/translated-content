@@ -66,7 +66,7 @@ function Stepper({ etape }) {
         return (
           <li key={l} className="flex items-center gap-1.5" aria-current={actif ? 'step' : undefined}>
             <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${fait ? 'bg-emerald-600 text-white' : actif ? 'bg-dep-700 text-white' : 'bg-slate-200 text-slate-600'}`}>{fait ? <Check size={14} /> : i + 1}</span>
-            <span className={actif ? 'font-semibold text-dep-800' : fait ? 'text-slate-700' : 'text-slate-500'}>{l}</span>
+            <span className={actif ? 'font-semibold text-dep-800' : fait ? 'text-slate-700' : 'text-slate-600'}>{l}</span>
             {i < ETAPES.length - 1 && <span className="mx-1 hidden h-px w-6 bg-slate-300 sm:inline-block" />}
           </li>
         );
@@ -398,7 +398,7 @@ export default function Enrolement() {
             {d.statutListe === 'A_REVALIDER' && <InfoAlert tone="warning">La liste déclarative a changé depuis sa dernière validation : les agents ajoutés ou modifiés seront enrôlables après sa revalidation par le Directeur.</InfoAlert>}
             {d.portee === 'SECRETARIAT_AUTORISE' && <InfoAlert>En tant qu’Admin Système, vous enrôlez uniquement les agents du Bureau Secrétariat de Direction que le Directeur a autorisés nominativement ({d.resume.enrolables} en attente). Une fois enrôlés, ce sont eux qui créent les comptes des agents des Divisions.</InfoAlert>}
             {d.portee === 'HORS_SECRETARIAT' && <InfoAlert>En tant que membre du Bureau Secrétariat de Direction, vous enrôlez les agents des Divisions et des autres Bureaux. Les comptes du Secrétariat sont créés par l’Admin.</InfoAlert>}
-            <p className="text-xs text-slate-500">{d.resume.enrolables} agent(s) enrôlable(s) · {d.resume.avecCompte} compte(s) déjà créé(s){d.validation ? ` · liste validée le ${fmtDateTime(d.validation.valide_at)}` : ''}</p>
+            <p className="text-xs text-slate-600">{d.resume.enrolables} agent(s) enrôlable(s) · {d.resume.avecCompte} compte(s) déjà créé(s){d.validation ? ` · liste validée le ${fmtDateTime(d.validation.valide_at)}` : ''}</p>
             <Stepper etape={agentId ? etape : 0} />
             {agentId
               ? <Assistant key={agentId} agentId={agentId} etape={etape} setEtape={setEtape} onCreated={setCreated} onAnnuler={() => select(null)} />

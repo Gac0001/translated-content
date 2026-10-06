@@ -81,6 +81,8 @@ export async function runAction(fn, successMessage) {
     return r;
   } catch (e) {
     toast.error(errorMessage(e));
+    // L’appelant interrompt son traitement ; l’erreur ayant été affichée, elle est marquée comme signalée.
+    if (e && typeof e === 'object') e.dejaSignale = true;
     throw e;
   }
 }
@@ -91,15 +93,15 @@ export function PageHeader({ title, subtitle, breadcrumb = [], actions }) {
     <div className="mb-5">
       {breadcrumb.length > 0 && (
         <nav className="mb-2 no-print" aria-label="Fil d’Ariane">
-          <ol className="flex flex-wrap items-center gap-1 text-xs text-slate-500">
-            <li><Link to="/" className="link text-slate-500 hover:text-dep-700">Accueil</Link></li>
+          <ol className="flex flex-wrap items-center gap-1 text-xs text-slate-600">
+            <li><Link to="/" className="rounded-sm text-slate-600 hover:text-dep-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400">Accueil</Link></li>
             {breadcrumb.map((b, i) => {
               const dernier = i === breadcrumb.length - 1;
               return (
                 <li key={i} className="flex items-center gap-1">
                   <ChevronRight size={12} aria-hidden />
                   {b.to && !dernier
-                    ? <Link to={b.to} className="link text-slate-500 hover:text-dep-700">{b.label}</Link>
+                    ? <Link to={b.to} className="rounded-sm text-slate-600 hover:text-dep-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400">{b.label}</Link>
                     : <span className={dernier ? 'text-slate-700' : ''} aria-current={dernier ? 'page' : undefined}>{b.label}</span>}
                 </li>
               );
@@ -211,7 +213,7 @@ export const ConfidBadge = ({ value }) => mapBadge(CONFIDENTIALITES, value);
 
 /** Badge du rang organique — jamais d’icône de Division pour un Bureau. */
 export function RangBadge({ rang }) {
-  const map = { DIRECTION: ['Rang : Direction', 'bg-dep-700 text-white ring-dep-700'], DIVISION: ['Rang : Division', 'bg-indigo-600 text-white ring-indigo-600'], BUREAU: ['Rang : Bureau', 'bg-teal-600 text-white ring-teal-600'] };
+  const map = { DIRECTION: ['Rang : Direction', 'bg-dep-700 text-white ring-dep-700'], DIVISION: ['Rang : Division', 'bg-indigo-600 text-white ring-indigo-600'], BUREAU: ['Rang : Bureau', 'bg-teal-700 text-white ring-teal-700'] };
   const v = map[rang];
   return v ? <Badge className={v[1]}>{v[0]}</Badge> : null;
 }
@@ -352,6 +354,40 @@ export function Tabs({ tabs, value, onChange, label = 'Onglets' }) {
 }
 
 // ─── Tableau avec recherche, tri et vue mobile ──────────────────────────────
+/**
+ * Conteneur à défilement horizontal. Lorsqu’il déborde réellement, il devient atteignable au clavier
+ * (Tab puis flèches) et porte un nom ; sinon il n’ajoute aucun arrêt de tabulation.
+ */
+export function ZoneDefilante({ label, className = '', children }) {
+  const ref = useRef(null);
+  const [deborde, setDeborde] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const mesurer = () => setDeborde(el.scrollWidth > el.clientWidth + 1);
+    mesurer();
+    const ro = new ResizeObserver(mesurer);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div ref={ref} className={`overflow-x-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dep-400 ${className}`}
+      {...(deborde ? { tabIndex: 0, role: 'region', 'aria-label': `${label || 'Tableau'} (défilement horizontal)` } : {})}>
+      {children}
+    </div>
+  );
+}
+
+/** Squelette de chargement d’un tableau (l’animation respecte la réduction des animations). */
+function Squelette() {
+  return (
+    <div className="space-y-3 p-4" role="status">
+      {[92, 84, 76, 88, 70].map((w) => <div key={w} className="h-4 rounded bg-slate-200 motion-safe:animate-pulse" style={{ width: `${w}%` }} />)}
+      <span className="sr-only">Chargement…</span>
+    </div>
+  );
+}
+
 const collator = new Intl.Collator('fr', { numeric: true, sensitivity: 'base' });
 const vide = (x) => x === null || x === undefined || x === '';
 const triable = (c) => !!(c.sortable || c.sortValue);
@@ -421,7 +457,7 @@ export function DataTable({
 
   let corps;
   if (error && !rows.length) corps = <div className="p-3"><ErrorAlert message={error} onRetry={onRetry} /></div>;
-  else if (loading && !rows.length) corps = <Spinner />;
+  else if (loading && !rows.length) corps = <Squelette />;
   else if (!visible.length) corps = <Empty message={empty} action={emptyAction} />;
 
   return (
@@ -445,7 +481,7 @@ export function DataTable({
         </div>
       )}
       {error && rows.length > 0 && <div className="border-b border-slate-100 p-3"><ErrorAlert message={error} onRetry={onRetry} /></div>}
-      <div className={`${cards ? 'hidden md:block' : ''} overflow-x-auto ${loading && rows.length ? 'opacity-60' : ''}`}>
+      <ZoneDefilante label={label} className={`${cards ? 'hidden md:block' : ''} ${loading && rows.length ? 'opacity-60' : ''}`}>
         <table className="min-w-full" aria-label={label}>
           <thead>
             <tr>
@@ -475,7 +511,7 @@ export function DataTable({
           )}
         </table>
         {corps}
-      </div>
+      </ZoneDefilante>
       {cards && (
         <div className={`md:hidden ${loading && rows.length ? 'opacity-60' : ''}`}>
           {corps || (
@@ -737,7 +773,7 @@ export function UnsavedChangesGuard({ when, message = 'Vos modifications n’ont
 // ─── Tableaux de bord ───────────────────────────────────────────────────────
 /** Lien d’en-tête de carte vers la liste complète. */
 export function CardLink({ to, children = 'Voir tout' }) {
-  return <Link to={to} className="link inline-flex items-center gap-1 text-sm">{children}<ChevronRight size={14} aria-hidden /></Link>;
+  return <Link to={to} className="link inline-flex items-center gap-1 text-sm no-underline hover:underline">{children}<ChevronRight size={14} aria-hidden /></Link>;
 }
 
 /**

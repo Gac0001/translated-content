@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { FileDown, FileSpreadsheet, FileText, Link2 } from 'lucide-react';
 import api, { download, errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
-import { useApi, Loadable, PageHeader, Card, Select, Badge, Modal, toast } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, Select, Badge, Modal, toast, ZoneDefilante } from '../../components/ui';
 import { fmtDateTime } from '../../lib/format';
 
 export default function Audit() {
@@ -46,12 +46,12 @@ export default function Audit() {
               <input type="date" className="input w-auto" value={f.au} onChange={(e) => up('au')(e.target.value)} aria-label="Au" />
               <span className="ml-auto text-xs text-slate-500">{d.total} entrée(s)</span>
             </div>
-            <div className="overflow-x-auto">
+            <ZoneDefilante label="Journal d’audit">
               <table className="min-w-full">
-                <thead><tr>{['Date et heure', 'Utilisateur', 'Rôle', 'Adresse IP', 'Action', 'Module', 'Élément', 'Résultat', 'Message'].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
+                <thead><tr>{['Date et heure', 'Utilisateur', 'Rôle', 'Adresse IP', 'Action', 'Module', 'Élément', 'Résultat', 'Message'].map((h) => <th key={h} scope="col" className="th">{h}</th>)}</tr></thead>
                 <tbody>
                   {d.data.map((l) => (
-                    <tr key={l.id} className="cursor-pointer hover:bg-slate-50" onClick={() => setDetail(l)}>
+                    <tr key={l.id} tabIndex={0} className="cursor-pointer hover:bg-slate-50 focus:bg-dep-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dep-400" onClick={() => setDetail(l)} onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); setDetail(l); } }}>
                       <td className="td whitespace-nowrap text-xs">{fmtDateTime(l.created_at)}</td><td className="td">{l.username || '—'}</td><td className="td text-xs">{l.role}</td>
                       <td className="td text-xs">{l.ip}</td><td className="td"><code className="text-xs">{l.action}</code></td><td className="td text-xs">{l.module}</td>
                       <td className="td text-xs">{[l.entite, l.entite_id].filter(Boolean).join(' #')}</td>
@@ -61,7 +61,7 @@ export default function Audit() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </ZoneDefilante>
             <div className="flex items-center justify-end gap-2 border-t p-2 text-sm">
               <button type="button" className="btn-ghost" disabled={f.page <= 1} onClick={() => setF((x) => ({ ...x, page: x.page - 1 }))}>Précédent</button>
               <span>Page {d.page} / {Math.max(1, Math.ceil(d.total / d.limit))}</span>

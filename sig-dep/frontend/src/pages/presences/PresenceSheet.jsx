@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { CheckCircle2, FilePlus2, Lock, Save, Send, Trash2 } from 'lucide-react';
 import api from '../../lib/api';
-import { useApi, Loadable, PageHeader, Card, StatusBadge, KeyValues, InfoAlert, Badge, runAction, useConfirm, Button, WorkflowPanel, UnsavedChangesGuard } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, StatusBadge, KeyValues, InfoAlert, Badge, runAction, useConfirm, Button, WorkflowPanel, UnsavedChangesGuard, ZoneDefilante } from '../../components/ui';
 import { ExportButtons, Timeline } from '../../components/shared';
 import { fmtDate, fmtDateTime } from '../../lib/format';
 import { JOURS, PRESENCES } from '../../lib/labels';
@@ -70,7 +70,7 @@ export default function PresenceSheet() {
                   ['Structure', s.structure_type === 'DIRECTION' ? 'Direction (toutes structures)' : `${s.bureau_nom}${s.est_secretariat_direction ? ' — Bureau directement rattaché au Directeur' : s.division_nom ? ` — ${s.division_nom}` : ''}`],
                   ['Établie par', s.createur],
                   ['Vérifiée le', fmtDateTime(s.verified_at)], ['Soumise le', fmtDateTime(s.submitted_at)], ['Verrouillée le', fmtDateTime(s.locked_at)],
-                  s.est_rectificatif && ['Rectificatif de', s.original && <Link key="o" className="text-dep-700 hover:underline" to={`/presences/${s.original.id}`}>{s.original.reference}</Link>],
+                  s.est_rectificatif && ['Rectificatif de', s.original && <Link key="o" className="link" to={`/presences/${s.original.id}`}>{s.original.reference}</Link>],
                   s.est_rectificatif && ['Motif', s.motif_rectification],
                   s.rectificatifs.length > 0 && ['Rectificatifs', <span key="r" className="flex flex-wrap gap-1">{s.rectificatifs.map((r) => <Link key={r.id} to={`/presences/${r.id}`}><Badge tone="orange">{r.reference}</Badge></Link>)}</span>],
                 ]} />
@@ -80,7 +80,7 @@ export default function PresenceSheet() {
               </Card>
             </div>
             <Card className="mt-4" bodyClass="p-0">
-              <div className="overflow-x-auto">
+              <ZoneDefilante label="Grille des présences">
                 <table className="min-w-full">
                   <thead><tr><th className="th">N°</th><th className="th">Agent</th>{JOURS.map((j) => <th key={j} className="th text-center capitalize">{j}</th>)}<th className="th">Observation</th></tr></thead>
                   <tbody>
@@ -102,7 +102,7 @@ export default function PresenceSheet() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </ZoneDefilante>
               <p className="border-t px-3 py-2 text-xs text-slate-500">Légende : P = Présent · A = Absent · R = Retard · C = Congé · M = Mission · MA = Maladie</p>
             </Card>
             <Card title="Historique" className="mt-4 no-print"><Timeline items={s.historique} /></Card>

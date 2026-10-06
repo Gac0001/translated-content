@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Archive, CheckCheck, FolderInput, MessageSquarePlus, Pencil, Send, CheckCircle2, FileDown } from 'lucide-react';
 import api, { download, errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
-import { useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, UrgenceBadge, ConfidBadge, Modal, Field, runAction, useConfirm, Badge, toast, InfoAlert, Button, WorkflowPanel, DetailLayout } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, UrgenceBadge, ConfidBadge, Modal, Field, runAction, useConfirm, Badge, toast, InfoAlert, Button, WorkflowPanel, DetailLayout, ZoneDefilante } from '../../components/ui';
 import { Attachments, Timeline } from '../../components/shared';
 import { fmtDate, fmtDateTime } from '../../lib/format';
 import { circuitCourrier } from '../../lib/workflows';
@@ -76,7 +76,7 @@ export default function CourrierDetail() {
                 {c.resume && <div className="mt-4"><div className="text-xs font-medium uppercase text-slate-500">Résumé</div><p className="mt-1 whitespace-pre-line text-sm">{c.resume}</p></div>}
               </Card>
               <Card title="Circulation (transmissions)" bodyClass="p-0">
-                <div className="overflow-x-auto">
+                <ZoneDefilante label="Transmissions du courrier">
                   <table className="min-w-full" aria-label="Transmissions du courrier">
                     <thead><tr>{['Date et heure', 'Émetteur', 'Destinataire', 'Réception', 'Observations'].map((h) => <th key={h} scope="col" className="th">{h}</th>)}</tr></thead>
                     <tbody>{c.transmissions.map((t) => (
@@ -89,7 +89,7 @@ export default function CourrierDetail() {
                     ))}</tbody>
                   </table>
                   {!c.transmissions.length && <p className="p-4 text-sm text-slate-500">Aucune transmission.</p>}
-                </div>
+                </ZoneDefilante>
               </Card>
               {c.instructions.length > 0 && <Card title="Instructions liées"><ul className="space-y-1 text-sm">{c.instructions.map((i) => <li key={i.id} className="flex flex-wrap items-center gap-2"><Link to={`/instructions/${i.id}`} className="link">{i.reference} — {i.objet}</Link><StatusBadge value={i.statut} /></li>)}</ul></Card>}
               <Card title="Historique de circulation"><Timeline items={c.historique} /></Card>

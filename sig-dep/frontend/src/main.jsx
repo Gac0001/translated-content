@@ -17,6 +17,10 @@ import './index.css';
 // y compris le bouton Retour du navigateur). Les routes restent déclarées dans App.
 const router = createBrowserRouter([{ path: '*', element: <App /> }]);
 
+// Une erreur d’API déjà affichée à l’utilisateur (runAction) remonte jusqu’au formulaire qui l’a déclenchée
+// pour l’interrompre ; elle ne doit pas être signalée une seconde fois comme « non interceptée ».
+window.addEventListener('unhandledrejection', (e) => { if (e.reason?.dejaSignale) e.preventDefault(); });
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <RouterProvider router={router} />

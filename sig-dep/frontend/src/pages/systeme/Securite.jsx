@@ -75,7 +75,7 @@ function Connexions() {
               </div>
             </Card>
             <Card title="Adresses IP avec le plus d’échecs" className="lg:col-span-2" bodyClass="p-0">
-              <DataTable searchable={false} rows={d.ipsSuspectes} rowKey="ip" empty="Aucun échec sur la période." columns={[
+              <DataTable encadre={false} searchable={false} label="Adresses IP avec le plus d’échecs" rows={d.ipsSuspectes} rowKey="ip" empty="Aucun échec sur la période." columns={[
                 { key: 'ip', header: 'Adresse IP', render: (r) => <code className="text-xs">{r.ip || '—'}</code> },
                 { key: 'echecs', header: 'Échecs' }, { key: 'comptes', header: 'Comptes visés' },
                 { key: 'derniere', header: 'Dernier échec', render: (r) => fmtDateTime(r.derniere) },
@@ -116,7 +116,7 @@ function Sessions() {
       {(d) => (
         <DataTable rows={d.data} rowKey="family_id" empty="Aucune session active."
           columns={[
-            { key: 'username', header: 'Utilisateur', render: (s) => <Link to={`/comptes/${s.user_id}`} className="font-medium text-dep-800 hover:underline">{s.username}</Link> },
+            { key: 'username', header: 'Utilisateur', render: (s) => <Link to={`/comptes/${s.user_id}`} className="font-medium link">{s.username}</Link> },
             { key: 'roles', header: 'Rôle', render: (s) => s.roles.map((r) => ROLES[r]).join(', '), search: (s) => s.roles.join(' ') },
             { key: 'ip', header: 'Adresse IP', render: (s) => <code className="text-xs">{s.ip}</code> },
             { key: 'user_agent', header: 'Navigateur', render: (s) => <span className="text-xs">{navigateur(s.user_agent)}</span> },

@@ -44,7 +44,7 @@ export function Progression({ p }) {
           </div>
           <p className="mt-1 text-xs text-slate-600">{e.detail}</p>
           {e.pct !== undefined && <div className="mt-2"><Progress value={e.pct} /></div>}
-          {e.action && <Link to={e.action.to} className="mt-2 inline-block text-xs font-medium text-dep-700 hover:underline">{e.action.label} →</Link>}
+          {e.action && <Link to={e.action.to} className="mt-2 inline-block text-xs font-medium link">{e.action.label} →</Link>}
         </li>
       ))}
     </ol>
@@ -79,7 +79,7 @@ export default function ListeDeclarative() {
   };
 
   const columns = [
-    { key: 'nom', header: 'Agent', search: (a) => `${nomComplet(a)} ${a.matricule}`, render: (a) => <Link to={`/personnel/${a.agent_id}`} className="font-medium text-dep-800 hover:underline" onClick={(e) => e.stopPropagation()}>{[a.nom, a.postnom, a.prenom].filter(Boolean).join(' ')}</Link> },
+    { key: 'nom', header: 'Agent', search: (a) => `${nomComplet(a)} ${a.matricule}`, render: (a) => <Link to={`/personnel/${a.agent_id}`} className="font-medium link" onClick={(e) => e.stopPropagation()}>{[a.nom, a.postnom, a.prenom].filter(Boolean).join(' ')}</Link> },
     { key: 'matricule', header: 'Matricule', className: 'whitespace-nowrap' },
     { key: 'grade_code', header: 'Grade', render: (a) => a.grade_code || <span className="text-amber-700">À renseigner</span> },
     { key: 'structure', header: 'Structure', search: (a) => `${a.bureau_nom || ''} ${a.division_nom || ''}`, render: structure },

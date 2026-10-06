@@ -23,7 +23,7 @@
   .btn-ghost { @apply btn text-slate-600 hover:bg-slate-100 focus-visible:ring-dep-400; }
   .btn-sm { @apply px-2.5 py-1.5 text-xs; }
   .btn-icon { @apply px-2 py-2; }
-  .link { @apply rounded-sm text-dep-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400; }
+  .link { @apply rounded-sm text-dep-700 underline decoration-dep-300 underline-offset-2 hover:decoration-current focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400; }
   .th { @apply px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 bg-slate-50 border-b border-slate-200; }
   .td { @apply px-3 py-2.5 text-sm border-b border-slate-100 align-top; }
   .tricolore { background: linear-gradient(to bottom, #007fff 0 60%, #f7d618 60% 80%, #ce1021 80% 100%); }
@@ -32,7 +32,8 @@
 @media print {
   .no-print { display: none !important; }
   body { background: #fff; }
-  .card { box-shadow: none; border-color: #ccc; }
+  .card { box-shadow: none; border-color: #ccc; break-inside: avoid; }
+  h1, h2 { break-after: avoid; }
   main { padding: 0 !important; }
   .print-only { display: block !important; }
 }

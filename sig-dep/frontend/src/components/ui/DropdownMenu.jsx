@@ -10,7 +10,7 @@ import { VARIANTES } from './Button';
  */
 export function DropdownMenu({
   label, icon: Icon, items, header, align = 'right', variant = 'secondary', width = 'w-56',
-  trigger, triggerClassName, triggerLabel, busy = false,
+  trigger, triggerClassName, triggerLabel, menuLabel, busy = false,
 }) {
   const [open, setOpen] = useState(false);
   const box = useRef(null);
@@ -51,7 +51,7 @@ export function DropdownMenu({
       {open && (
         <div onKeyDown={onKeyDown} className={`absolute z-40 mt-1 ${width} max-w-[calc(100vw-2rem)] rounded-md border border-slate-200 bg-white py-1 shadow-lg ${align === 'right' ? 'right-0' : 'left-0'}`}>
           {header}
-          <div id={id} ref={menu} role="menu" aria-label={triggerLabel || label}>
+          <div id={id} ref={menu} role="menu" aria-label={menuLabel || triggerLabel || label}>
             {liste.map((it, i) => {
               const contenu = <>{it.icon && <it.icon size={16} aria-hidden className="shrink-0" />}<span>{it.label}</span></>;
               return it.to && !it.disabled

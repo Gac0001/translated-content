@@ -53,7 +53,7 @@ export default function CourrierForm() {
             <Field label="Résumé" className="sm:col-span-2 lg:col-span-3"><textarea className="input" rows={4} {...register('resume')} /></Field>
           </div>
         </Card>
-        <p className="text-sm text-slate-500">Les pièces jointes (courrier numérisé) s’ajoutent depuis la fiche du courrier après l’enregistrement.</p>
+        <p className="text-sm text-slate-600">Les pièces jointes (courrier numérisé) s’ajoutent depuis la fiche du courrier après l’enregistrement.</p>
         <div className="flex gap-2"><button className="btn-primary" disabled={isSubmitting}><Save size={16} /> Enregistrer</button><button type="button" className="btn-secondary" onClick={() => navigate(-1)}>Annuler</button></div>
       </form>
     </>

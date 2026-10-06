@@ -158,7 +158,7 @@ export default function AppLayout() {
       </a>
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 lg:block no-print">{aside}</aside>
       {open && <Tiroir onClose={() => setOpen(false)}>{aside}</Tiroir>}
-      <div className="flex min-w-0 flex-1 flex-col lg:pl-64">
+      <div className="flex min-w-0 flex-1 flex-col lg:pl-64 print:pl-0">
         <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur no-print">
           <div className="h-1 tricolore" />
           <div className="flex items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4">
@@ -171,14 +171,16 @@ export default function AppLayout() {
             <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1">
               <div className="mr-2 hidden min-w-0 flex-1 justify-end md:flex"><GlobalSearch /></div>
               <IconButton label="Rechercher" icon={Search} size={20} className="text-slate-600 md:hidden" onClick={() => setRecherche(true)} />
-              <Link to="/notifications" className="relative rounded-md p-2 text-slate-600 hover:bg-slate-100" aria-label={`Notifications (${nonLues} non lues)`}>
+              <Link to="/notifications" className="relative rounded-md p-2 text-slate-600 hover:bg-slate-100">
                 <Bell size={20} aria-hidden />
-                {nonLues > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-rdc-rouge px-1 text-center text-xs font-semibold text-white" aria-hidden>{nonLues > 99 ? '99+' : nonLues}</span>}
+                <span className="sr-only">Notifications</span>
+                {nonLues > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-rdc-rouge px-1 text-center text-xs font-semibold text-white">{nonLues > 99 ? '99+' : nonLues}<span className="sr-only"> non lues</span></span>}
               </Link>
-              <DropdownMenu width="w-64" triggerLabel={`Menu de ${nom}`}
+              <DropdownMenu width="w-64" menuLabel="Menu utilisateur"
                 triggerClassName="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400"
                 trigger={<>
                   <UserCircle size={26} className="text-dep-700" aria-hidden />
+                  <span className="sr-only md:hidden">Menu de {nom}</span>
                   <span className="hidden text-left md:block">
                     <span className="block max-w-[200px] truncate text-sm font-medium leading-tight">{nom}</span>
                     <span className="block max-w-[220px] truncate text-xs leading-tight text-slate-500">{ROLES[user.primaryRole] || '—'} · {structure}</span>

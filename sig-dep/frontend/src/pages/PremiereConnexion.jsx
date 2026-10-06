@@ -154,7 +154,7 @@ export default function PremiereConnexion() {
   return (
     <div className="min-h-screen bg-slate-100">
       <div className="h-1.5 tricolore" />
-      <div className="mx-auto max-w-3xl p-4 sm:p-8">
+      <main className="mx-auto max-w-3xl p-4 sm:p-8">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h1 className="text-xl font-semibold">Sécurisation de votre compte</h1>
@@ -179,7 +179,7 @@ export default function PremiereConnexion() {
           {courante === 'EMAIL_RECUPERATION' && <EmailRecuperation onDone={suite} />}
           {courante === 'REGLES' && <Regles onDone={suite} />}
         </section>
-      </div>
+      </main>
     </div>
   );
 }

@@ -56,7 +56,7 @@ export default function PipForm() {
                   <button type="button" onClick={() => setStep(i)} className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm ${i === step ? 'bg-dep-50 font-medium text-dep-800' : 'hover:bg-slate-50'}`}>
                     <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs ${total && ok === total ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'}`}>{x.numero}</span>
                     <span className="flex-1 truncate">{x.label}</span>
-                    {total > 0 && <span className="text-xs text-slate-500">{ok}/{total}</span>}
+                    {total > 0 && <span className="text-xs text-slate-600">{ok}/{total}<span className="sr-only"> rubriques obligatoires renseignées</span></span>}
                   </button>
                 </li>
               );

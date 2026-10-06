@@ -47,9 +47,9 @@ export default function ChangePassword({ embarque = false, onDone }) {
   if (embarque) return content;
   if (user?.mustChangePassword) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
+      <main className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
         <div className="w-full max-w-lg"><h1 className="mb-4 text-xl font-semibold">Changement obligatoire du mot de passe</h1>{content}</div>
-      </div>
+      </main>
     );
   }
   return <><PageHeader title="Changer le mot de passe" breadcrumb={[{ label: 'Mot de passe' }]} />{content}</>;

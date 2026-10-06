@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { FileCheck2 } from 'lucide-react';
 import { download } from '../../lib/api';
-import { Card, KeyValues, StatusBadge, Badge, RangBadge, toast } from '../../components/ui';
+import { Card, KeyValues, StatusBadge, Badge, RangBadge, toast, ZoneDefilante } from '../../components/ui';
 import { fmtDate } from '../../lib/format';
 import AgentPhoto from './AgentPhoto';
 
@@ -18,7 +18,7 @@ export default function AgentView({ a, photoVersion, extraActions }) {
               ['Nom', a.nom], ['Postnom', a.postnom], ['Prénom', a.prenom], ['Sexe', a.sexe === 'F' ? 'Féminin' : a.sexe === 'M' ? 'Masculin' : 'Non renseigné'],
               ['Matricule', a.matricule], ['Date de naissance', fmtDate(a.date_naissance)], a.lieu_naissance && ['Lieu de naissance', a.lieu_naissance], ['Grade', a.grade], ['Fonction', a.fonction],
               ['Date de mise en service', fmtDate(a.date_mise_en_service)], ['N° carte IGAP', a.numero_carte_igap],
-              a.commission_attachment_id && ['Commission d’affectation', <button key="c" type="button" className="inline-flex items-center gap-1 text-dep-700 hover:underline" onClick={() => download(`/agents/${a.id}/commission`, 'commission.pdf').catch(() => toast.error('Téléchargement impossible.'))}><FileCheck2 size={14} /> Télécharger</button>],
+              a.commission_attachment_id && ['Commission d’affectation', <button key="c" type="button" className="inline-flex items-center gap-1 link" onClick={() => download(`/agents/${a.id}/commission`, 'commission.pdf').catch(() => toast.error('Téléchargement impossible.'))}><FileCheck2 size={14} /> Télécharger</button>],
               ['Liste déclarative', a.liste_declarative ? (a.enrole_at ? `Inscrit — enrôlé le ${fmtDate(a.enrole_at)}` : 'Inscrit — non enrôlé') : 'Non inscrit'],
               ['Téléphone', a.telephone], ['Adresse électronique', a.email], ['Adresse', a.adresse], ['Statut', <StatusBadge key="s" value={a.statut} />],
             ]} />
@@ -33,7 +33,7 @@ export default function AgentView({ a, photoVersion, extraActions }) {
           ['Rang de la structure', rang ? <RangBadge key="r" rang={rang} /> : '—'],
           ['Poste organique', a.poste],
           ['Date d’affectation', fmtDate(a.date_affectation)],
-          ['Supérieur hiérarchique', a.superieur ? (a.superieur.agent ? <span key="sup">{a.superieur.titre} — <Link className="text-dep-700 hover:underline" to={`/personnel/${a.superieur.agent.id}`}>{a.superieur.agent.nomComplet}</Link></span> : `${a.superieur.titre} (poste vacant)`) : '—'],
+          ['Supérieur hiérarchique', a.superieur ? (a.superieur.agent ? <span key="sup">{a.superieur.titre} — <Link className="link" to={`/personnel/${a.superieur.agent.id}`}>{a.superieur.agent.nomComplet}</Link></span> : `${a.superieur.titre} (poste vacant)`) : '—'],
           ['Compte', a.username ? `${a.username} (${a.roles.map((r) => r.libelle).join(', ')})` : 'Aucun compte'],
         ]} />
       </Card>
@@ -44,7 +44,7 @@ export default function AgentView({ a, photoVersion, extraActions }) {
         {a.responsabilites_poste.length ? <ul className="list-disc space-y-1 pl-5 text-sm">{a.responsabilites_poste.map((x) => <li key={x.id}>{x.libelle}</li>)}</ul> : <p className="text-sm text-slate-500">—</p>}
       </Card>
       <Card title="Historique des affectations" className="lg:col-span-3" bodyClass="p-0">
-        <div className="overflow-x-auto">
+        <ZoneDefilante label="Historique des affectations">
           <table className="min-w-full">
             <thead><tr><th className="th">Période</th><th className="th">Structure</th><th className="th">Poste</th><th className="th">Motif</th><th className="th">État</th></tr></thead>
             <tbody>
@@ -60,7 +60,7 @@ export default function AgentView({ a, photoVersion, extraActions }) {
             </tbody>
           </table>
           {!a.historique_affectations.length && <p className="p-4 text-sm text-slate-500">Aucune affectation.</p>}
-        </div>
+        </ZoneDefilante>
       </Card>
     </div>
   );

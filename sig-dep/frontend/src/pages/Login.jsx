@@ -43,8 +43,8 @@ function SecondFacteur({ defi, onSession, onAnnuler }) {
         {busy ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />} Valider
       </button>
       <div className="flex flex-wrap justify-between gap-2 text-sm">
-        <button type="button" className="text-dep-700 hover:underline" onClick={onAnnuler}><ArrowLeft size={14} className="inline" /> Retour</button>
-        <button type="button" className="text-dep-700 hover:underline" onClick={() => { setSecours((v) => !v); setCode(''); }}>{secours ? 'Utiliser l’application' : 'Téléphone indisponible ? Code de secours'}</button>
+        <button type="button" className="link" onClick={onAnnuler}><ArrowLeft size={14} className="inline" /> Retour</button>
+        <button type="button" className="link" onClick={() => { setSecours((v) => !v); setCode(''); }}>{secours ? 'Utiliser l’application' : 'Téléphone indisponible ? Code de secours'}</button>
       </div>
     </form>
   );
@@ -90,7 +90,7 @@ function Recuperation({ onFin }) {
           <button className="btn-primary w-full" disabled={f.code.length !== 6 || !f.nouveauMotDePasse}>Réinitialiser le mot de passe</button>
         </>
       )}
-      <button type="button" className="text-sm text-dep-700 hover:underline" onClick={() => onFin(null)}><ArrowLeft size={14} className="inline" /> Retour à la connexion</button>
+      <button type="button" className="text-sm link" onClick={() => onFin(null)}><ArrowLeft size={14} className="inline" /> Retour à la connexion</button>
     </form>
   );
 }
@@ -147,7 +147,7 @@ export default function Login() {
         <button type="submit" className="btn-primary w-full py-2.5" disabled={isSubmitting}>
           {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />} Se connecter
         </button>
-        <div className="text-center"><button type="button" className="text-sm text-dep-700 hover:underline" onClick={() => { setRecup(true); setError(null); }}>Mot de passe oublié ?</button></div>
+        <div className="text-center"><button type="button" className="text-sm link" onClick={() => { setRecup(true); setError(null); }}>Mot de passe oublié ?</button></div>
         <p className="text-center text-xs text-slate-500">Accès réservé au personnel autorisé. Toutes les opérations sont journalisées.</p>
       </form>
     );
@@ -156,17 +156,17 @@ export default function Login() {
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-br from-dep-800 via-dep-700 to-dep-900">
       <div className="h-1.5 tricolore" />
-      <div className="flex flex-1 items-center justify-center p-4">
+      <main className="flex flex-1 items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <div className="mb-6 text-center text-white">
+          <header className="mb-6 text-center text-white">
             <div className="text-xs uppercase tracking-[0.2em] text-dep-200">République Démocratique du Congo</div>
             <div className="mt-1 text-sm text-dep-100">{SG_NOM}</div>
             <h1 className="mt-3 text-2xl font-semibold text-white">{DEP_NOM}</h1>
             <div className="mt-1 text-sm text-dep-200">SIG-DEP — Système Intégré de Gestion</div>
-          </div>
+          </header>
           {contenu}
         </div>
-      </div>
+      </main>
     </div>
   );
 }
