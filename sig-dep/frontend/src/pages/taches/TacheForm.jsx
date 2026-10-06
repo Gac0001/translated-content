@@ -5,7 +5,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Send } from 'lucide-react';
 import api from '../../lib/api';
-import { useApi, PageHeader, Card, Field, runAction, InfoAlert } from '../../components/ui';
+import { useApi, PageHeader, Card, Field, runAction, InfoAlert, UnsavedChangesGuard } from '../../components/ui';
+import { aujourdhui } from '../../lib/format';
 import { useAuth } from '../../store/auth';
 
 const TERMINES = ['VALIDEE', 'CLOTUREE', 'ANNULEE'];
@@ -31,13 +32,14 @@ export default function TacheForm() {
   const mesTaches = useApi('/taches');
   const [dependDe, setDependDe] = useState([]);
   const candidates = (mesTaches.data?.data || []).filter((t) => t.assigne_par_user_id === user.id && !TERMINES.includes(t.statut) && String(t.id) !== parentId);
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(schema), defaultValues: { priorite: 'NORMALE', date_debut: new Date().toISOString().slice(0, 10) } });
+  const { register, handleSubmit, formState: { errors, isSubmitting, dirtyFields, isSubmitSuccessful } } = useForm({ resolver: zodResolver(schema), defaultValues: { priorite: 'NORMALE', date_debut: aujourdhui() } });
   const submit = async (v) => {
     const r = await runAction(() => api.post('/taches', { ...v, agent_user_id: Number(v.agent_user_id), date_debut: v.date_debut || null, echeance: v.echeance || null, instruction_id: instructionId ? Number(instructionId) : (parent.data?.instruction_id || null), parent_task_id: parentId ? Number(parentId) : null, depend_de: dependDe }), parentId ? 'Sous-tâche attribuée.' : 'Tâche attribuée.');
     navigate(`/taches/${r.data.id}`);
   };
   return (
     <>
+      <UnsavedChangesGuard when={(Object.keys(dirtyFields).length > 0 || dependDe.length > 0) && !isSubmitting && !isSubmitSuccessful} />
       <PageHeader title={parentId ? 'Attribuer une sous-tâche' : 'Attribuer une tâche'} breadcrumb={[{ label: 'Tâches', to: '/taches' }, { label: 'Nouvelle' }]} />
       <form onSubmit={handleSubmit(submit)} className="space-y-4" noValidate>
         {ins.data && <InfoAlert>Tâche liée à l’instruction <b>{ins.data.reference}</b> — {ins.data.objet}</InfoAlert>}

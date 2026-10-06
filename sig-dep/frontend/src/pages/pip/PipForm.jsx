@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Save } from 'lucide-react';
 import api from '../../lib/api';
-import { useApi, PageHeader, Card, Field, runAction, Spinner, InfoAlert } from '../../components/ui';
+import { useApi, PageHeader, Card, Field, runAction, Spinner, InfoAlert, UnsavedChangesGuard } from '../../components/ui';
 import { DynamicField } from '../../components/shared';
 import { fmtMontant } from '../../lib/format';
 
@@ -20,6 +20,7 @@ export default function PipForm() {
   const [data, setData] = useState({});
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [modifie, setModifie] = useState(false);
   useEffect(() => { if (existing.data) setData(existing.data.donnees || {}); }, [existing.data]);
   const sections = modele.data?.sections || [];
   useEffect(() => {
@@ -29,7 +30,7 @@ export default function PipForm() {
       setData(init);
     }
   }, [sections, id, data.identification]);
-  const set = (sk, fk, v) => setData((d) => ({ ...d, [sk]: { ...(d[sk] || {}), [fk]: v } }));
+  const set = (sk, fk, v) => { setData((d) => ({ ...d, [sk]: { ...(d[sk] || {}), [fk]: v } })); setModifie(true); };
   const cout = useMemo(() => (data.cout?.couts || []).reduce((s, r) => s + (Number(r.total) || (Number(r.annee1) || 0) + (Number(r.annee2) || 0) + (Number(r.annee3) || 0)), 0), [data]);
   const completude = (s) => { const req = s.fields.filter((f) => f.required); const ok = req.filter((f) => isFilled(data[s.key]?.[f.key])).length; return [ok, req.length]; };
   const save = async () => {
@@ -43,6 +44,7 @@ export default function PipForm() {
   const s = sections[step];
   return (
     <>
+      <UnsavedChangesGuard when={modifie && !saving} />
       <PageHeader title={id ? 'Modifier la fiche PIP' : 'Nouvelle fiche de projet PIP'} subtitle="Formulaire guidé conforme au modèle de fiche projet du Ministère du Plan." breadcrumb={[{ label: 'Projets PIP', to: '/pip' }, { label: id ? 'Modification' : 'Nouvelle fiche' }]} />
       <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
         <nav className="card h-max p-2 lg:sticky lg:top-20" aria-label="Sections de la fiche">
@@ -52,9 +54,9 @@ export default function PipForm() {
               return (
                 <li key={x.key}>
                   <button type="button" onClick={() => setStep(i)} className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm ${i === step ? 'bg-dep-50 font-medium text-dep-800' : 'hover:bg-slate-50'}`}>
-                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] ${total && ok === total ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'}`}>{x.numero}</span>
+                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs ${total && ok === total ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'}`}>{x.numero}</span>
                     <span className="flex-1 truncate">{x.label}</span>
-                    {total > 0 && <span className="text-[11px] text-slate-500">{ok}/{total}</span>}
+                    {total > 0 && <span className="text-xs text-slate-600">{ok}/{total}<span className="sr-only"> rubriques obligatoires renseignées</span></span>}
                   </button>
                 </li>
               );

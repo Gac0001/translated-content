@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { CheckCircle2, FilePlus2, Lock, Save, Send, Trash2 } from 'lucide-react';
 import api from '../../lib/api';
-import { useApi, Loadable, PageHeader, Card, StatusBadge, KeyValues, InfoAlert, Badge, runAction, useConfirm } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, StatusBadge, KeyValues, InfoAlert, Badge, runAction, useConfirm, Button, WorkflowPanel, UnsavedChangesGuard, ZoneDefilante } from '../../components/ui';
 import { ExportButtons, Timeline } from '../../components/shared';
 import { fmtDate, fmtDateTime } from '../../lib/format';
 import { JOURS, PRESENCES } from '../../lib/labels';
+import { circuitPresence } from '../../lib/workflows';
 
 export default function PresenceSheet() {
   const { id } = useParams();
@@ -35,6 +36,7 @@ export default function PresenceSheet() {
   const remove = async () => {
     if (!(await confirm({ title: 'Supprimer le brouillon', message: 'Supprimer définitivement ce brouillon ?', danger: true }))) return;
     await runAction(() => api.delete(`/presences/${id}`), 'Brouillon supprimé.');
+    setDirty(false);
     navigate('/presences');
   };
   return (
@@ -46,15 +48,21 @@ export default function PresenceSheet() {
             <PageHeader title={`Liste de présence — Semaine ${s.numero_semaine}`} subtitle={`${s.reference} · du ${fmtDate(s.semaine_debut)} au ${fmtDate(s.semaine_fin)}`} breadcrumb={[{ label: 'Présences', to: '/presences' }, { label: s.reference }]}
               actions={<>
                 <ExportButtons base={`/presences/${id}/export`} />
-                {edit && <button type="button" className="btn-primary" disabled={!dirty} onClick={save}><Save size={16} /> Enregistrer</button>}
-                {s.actions.verifier && <button type="button" className="btn-secondary" disabled={dirty} onClick={() => step('verifier', 'Liste vérifiée.')}><CheckCircle2 size={16} /> Vérifier</button>}
-                {s.actions.soumettre && <button type="button" className="btn-success" disabled={dirty} onClick={() => step('soumettre', 'Liste soumise au Directeur.', { title: 'Soumettre au Directeur', message: 'Après soumission, la liste sera verrouillée : aucune modification ne sera plus possible (seul un rectificatif le permettra).' })}><Send size={16} /> Soumettre au Directeur</button>}
-                {s.actions.verrouiller && <button type="button" className="btn-primary" onClick={() => step('verrouiller', 'Liste verrouillée.')}><Lock size={16} /> Réceptionner et verrouiller</button>}
-                {s.actions.rectifier && <button type="button" className="btn-secondary" onClick={rectif}><FilePlus2 size={16} /> Rectificatif</button>}
-                {s.actions.supprimer && <button type="button" className="btn-ghost text-red-700" onClick={remove}><Trash2 size={16} /></button>}
+                {edit && <Button variant="primary" icon={Save} disabled={!dirty} onClick={save}>Enregistrer</Button>}
               </>} />
-            {dirty && <div className="mb-3"><InfoAlert tone="warning">Modifications non enregistrées. Enregistrez avant de vérifier ou de soumettre.</InfoAlert></div>}
-            {['SOUMISE', 'VERROUILLEE'].includes(s.statut) && <div className="mb-3"><InfoAlert>Liste {s.statut === 'SOUMISE' ? 'soumise (verrouillée en écriture)' : 'verrouillée'} : toute correction doit passer par un rectificatif.</InfoAlert></div>}
+            <UnsavedChangesGuard when={dirty} />
+            <WorkflowPanel circuit={circuitPresence(s)}
+              attente={s.statut === 'VERROUILLEE' ? 'Liste réceptionnée et verrouillée.' : s.statut === 'SOUMISE' ? 'Liste soumise : en attente de réception par le Directeur.' : null}
+              message={dirty
+                ? <InfoAlert tone="warning">Modifications non enregistrées. Enregistrez avant de vérifier ou de soumettre.</InfoAlert>
+                : ['SOUMISE', 'VERROUILLEE'].includes(s.statut) && <InfoAlert>Liste {s.statut === 'SOUMISE' ? 'soumise (verrouillée en écriture)' : 'verrouillée'} : toute correction doit passer par un rectificatif.</InfoAlert>}
+              actions={[
+                s.actions.verifier && <Button key="ve" icon={CheckCircle2} disabled={dirty} onClick={() => step('verifier', 'Liste vérifiée.')}>Vérifier</Button>,
+                s.actions.soumettre && <Button key="so" variant="success" icon={Send} disabled={dirty} onClick={() => step('soumettre', 'Liste soumise au Directeur.', { title: 'Soumettre au Directeur', message: 'Après soumission, la liste sera verrouillée : aucune modification ne sera plus possible (seul un rectificatif le permettra).' })}>Soumettre au Directeur</Button>,
+                s.actions.verrouiller && <Button key="vr" variant="primary" icon={Lock} onClick={() => step('verrouiller', 'Liste verrouillée.')}>Réceptionner et verrouiller</Button>,
+                s.actions.rectifier && <Button key="rc" icon={FilePlus2} onClick={rectif}>Établir un rectificatif</Button>,
+                s.actions.supprimer && <Button key="su" variant="ghost" icon={Trash2} className="text-red-700" onClick={remove}>Supprimer le brouillon</Button>,
+              ]} />
             <div className="grid gap-4 lg:grid-cols-4">
               <Card title="Informations" className="lg:col-span-3">
                 <KeyValues cols={3} items={[
@@ -62,9 +70,9 @@ export default function PresenceSheet() {
                   ['Structure', s.structure_type === 'DIRECTION' ? 'Direction (toutes structures)' : `${s.bureau_nom}${s.est_secretariat_direction ? ' — Bureau directement rattaché au Directeur' : s.division_nom ? ` — ${s.division_nom}` : ''}`],
                   ['Établie par', s.createur],
                   ['Vérifiée le', fmtDateTime(s.verified_at)], ['Soumise le', fmtDateTime(s.submitted_at)], ['Verrouillée le', fmtDateTime(s.locked_at)],
-                  s.est_rectificatif && ['Rectificatif de', s.original && <Link key="o" className="text-dep-700 hover:underline" to={`/presences/${s.original.id}`}>{s.original.reference}</Link>],
+                  s.est_rectificatif && ['Rectificatif de', s.original && <Link key="o" className="link" to={`/presences/${s.original.id}`}>{s.original.reference}</Link>],
                   s.est_rectificatif && ['Motif', s.motif_rectification],
-                  s.rectificatifs.length > 0 && ['Rectificatifs', <span key="r" className="flex flex-wrap gap-1">{s.rectificatifs.map((r) => <Link key={r.id} to={`/presences/${r.id}`}><Badge className="bg-orange-50 text-orange-800 ring-orange-200">{r.reference}</Badge></Link>)}</span>],
+                  s.rectificatifs.length > 0 && ['Rectificatifs', <span key="r" className="flex flex-wrap gap-1">{s.rectificatifs.map((r) => <Link key={r.id} to={`/presences/${r.id}`}><Badge tone="orange">{r.reference}</Badge></Link>)}</span>],
                 ]} />
               </Card>
               <Card title="Totaux (agent-jours)">
@@ -72,7 +80,7 @@ export default function PresenceSheet() {
               </Card>
             </div>
             <Card className="mt-4" bodyClass="p-0">
-              <div className="overflow-x-auto">
+              <ZoneDefilante label="Grille des présences">
                 <table className="min-w-full">
                   <thead><tr><th className="th">N°</th><th className="th">Agent</th>{JOURS.map((j) => <th key={j} className="th text-center capitalize">{j}</th>)}<th className="th">Observation</th></tr></thead>
                   <tbody>
@@ -94,7 +102,7 @@ export default function PresenceSheet() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </ZoneDefilante>
               <p className="border-t px-3 py-2 text-xs text-slate-500">Légende : P = Présent · A = Absent · R = Retard · C = Congé · M = Mission · MA = Maladie</p>
             </Card>
             <Card title="Historique" className="mt-4 no-print"><Timeline items={s.historique} /></Card>

@@ -10,6 +10,7 @@ const COOKIE_NAME = 'sigdep_rt';
 function sha256(v) { return crypto.createHash('sha256').update(v).digest('hex'); }
 
 function signAccess(user) {
+  // La version intégrée au JWT permet de rendre immédiatement inutilisables les jetons révoqués.
   return jwt.sign({ sub: String(user.id), tv: user.token_version, u: user.username }, config.jwt.accessSecret, {
     expiresIn: config.jwt.accessTtl, issuer: 'sig-dep',
   });
@@ -31,6 +32,7 @@ async function issueRefresh(userId, req, familyId = crypto.randomUUID(), trx = d
 
 function cookieOptions(expires = null) {
   return {
+    // Le JavaScript ne peut pas lire le jeton ; son chemin et SameSite limitent aussi son exposition.
     httpOnly: true,
     secure: config.cookieSecure,
     sameSite: 'strict',
@@ -44,6 +46,7 @@ function setRefreshCookie(res, raw, expires = null) { res.cookie(COOKIE_NAME, ra
 function clearRefreshCookie(res) { res.clearCookie(COOKIE_NAME, cookieOptions()); }
 
 async function revokeAllForUser(userId, reason, trx = db) {
+  // La révocation des refresh tokens ferme les sessions longues ; l’incrément invalide les JWT déjà émis.
   await trx('refresh_tokens').where({ user_id: userId }).whereNull('revoked_at').update({ revoked_at: trx.fn.now(), revoked_reason: reason });
   await trx('users').where({ id: userId }).increment('token_version', 1);
 }

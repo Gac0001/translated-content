@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { UserPlus } from 'lucide-react';
 import api from '../../lib/api';
-import { PageHeader, Card, Field, InfoAlert, runAction } from '../../components/ui';
+import { PageHeader, Card, Field, InfoAlert, runAction, UnsavedChangesGuard } from '../../components/ui';
 import TempPassword from './TempPassword';
 
 const username = z.string().trim().toLowerCase().min(3, 'Au moins 3 caractères').regex(/^[a-z0-9._-]+$/, 'Minuscules, chiffres, point ou tiret uniquement');
@@ -17,11 +17,12 @@ const initSchema = z.object({
 });
 
 function InitialAccount({ onCreated }) {
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(initSchema), defaultValues: { type: 'DIRECTEUR', sexe: '' } });
+  const { register, handleSubmit, formState: { errors, isSubmitting, dirtyFields, isSubmitSuccessful } } = useForm({ resolver: zodResolver(initSchema), defaultValues: { type: 'DIRECTEUR', sexe: '' } });
   const submit = async (v) => { const r = await runAction(() => api.post('/users/initial', v)); onCreated(r.data); };
   const t = (n, l, req) => <Field label={l} error={errors[n]?.message} required={req}><input className="input" {...register(n)} /></Field>;
   return (
     <form onSubmit={handleSubmit(submit)} className="space-y-4">
+      <UnsavedChangesGuard when={Object.keys(dirtyFields).length > 0 && !isSubmitting && !isSubmitSuccessful} />
       <InfoAlert>Commencez par le compte du Directeur : il valide ensuite la liste déclarative des agents de la Direction. Les comptes des agents sont créés par enrôlement, à partir de cette liste validée (l’Admin enrôle d’abord le Bureau Secrétariat de Direction, qui enrôle ensuite les agents des Divisions).</InfoAlert>
       <Card title="Compte institutionnel initial">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -42,7 +43,7 @@ export default function UserCreate() {
   const [created, setCreated] = useState(null);
   return (
     <>
-      <PageHeader title="Compte institutionnel" subtitle="Directeur de la DEP ou Secrétaire Général" breadcrumb={[{ label: 'Comptes', to: '/comptes' }, { label: 'Compte institutionnel' }]}
+      <PageHeader title="Compte institutionnel" subtitle="Directeur de la DEP ou Secrétaire Général" breadcrumb={[{ label: 'Administration' }, { label: 'Comptes', to: '/comptes' }, { label: 'Compte institutionnel' }]}
         actions={<Link to="/comptes/enrolement" className="btn-secondary"><UserPlus size={16} /> Enrôler un agent de la DEP</Link>} />
       <InitialAccount onCreated={setCreated} />
       <TempPassword data={created} onClose={() => { const id = created.id; setCreated(null); navigate(`/comptes/${id}`); }} />

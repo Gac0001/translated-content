@@ -4,7 +4,7 @@ import {
   AlertTriangle, Clock, Building2, Bell, DatabaseZap, UserX, CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '../store/auth';
-import { useApi, Loadable, PageHeader, Card, Stat, StatusBadge, Progress, Empty, Badge, RangBadge, InfoAlert } from '../components/ui';
+import { useApi, Loadable, PageHeader, Card, Stat, StatusBadge, Progress, Empty, Badge, RangBadge, InfoAlert, BarList, MiniStats, CardLink, DataTable } from '../components/ui';
 import { fmtDate, fmtDateTime, fmtMontant, isOverdue } from '../lib/format';
 import { DEP_NOM, ROLES, STATUTS, PERIMETRES, NOTIF_TYPES, DELEGATIONS } from '../lib/labels';
 import { Progression } from './comptes/ListeDeclarative';
@@ -14,7 +14,7 @@ const sum = (obj = {}, keys) => keys.reduce((s, k) => s + (obj[k] || 0), 0);
 const ACTIVE = ['TRANSMISE', 'RECUE', 'EN_COURS', 'BLOQUEE', 'RAPPORT_INTERMEDIAIRE', 'A_CORRIGER', 'EN_RETARD'];
 
 function MiniList({ rows = [], to, render, empty = 'Rien à signaler.' }) {
-  if (!rows.length) return <Empty message={empty} />;
+  if (!rows.length) return <Empty compact message={empty} />;
   return (
     <ul className="divide-y divide-slate-100">
       {rows.map((r) => (
@@ -33,24 +33,14 @@ function PerformanceBars({ perf }) {
   }
   for (const b of perf.bureauxRattachesDirection) rows.push({ key: `b${b.id}`, nom: b.nom, rang: 'BUREAU', v: b.tauxExecution, detail: b, direct: true });
   return (
-    <div className="space-y-2.5">
-      {rows.map((r) => (
-        <div key={r.key} className={`grid grid-cols-1 items-center gap-1 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] sm:gap-3 ${r.indent ? 'sm:pl-5' : ''}`}>
-          <div className="flex min-w-0 items-center gap-2">
-            <RangBadge rang={r.rang} />
-            <span className={`truncate text-sm ${r.rang === 'DIVISION' ? 'font-semibold' : ''}`} title={r.nom}>{r.nom}</span>
-            {r.direct && <Badge className="bg-amber-50 text-amber-800 ring-amber-200">Rattaché au Directeur</Badge>}
-          </div>
-          <div className="flex items-center gap-2" title={`${r.nom} — tâches : ${r.detail.taches}, instructions : ${r.detail.instructions}, en retard : ${r.detail.tachesEnRetard + r.detail.instructionsEnRetard}`}>
-            <div className="h-3 flex-1 overflow-hidden rounded bg-slate-100">
-              {r.v !== null && <div className="h-full rounded-r bg-dep-600" style={{ width: `${Math.max(r.v, 1)}%` }} />}
-            </div>
-            <span className="w-24 text-right text-xs tabular-nums text-slate-700">{r.v === null ? 'aucune activité' : `${r.v} % exécuté`}</span>
-          </div>
-        </div>
-      ))}
-      <p className="pt-1 text-xs text-slate-500">Taux d’exécution = tâches et instructions exécutées, validées ou clôturées ÷ total. Les Divisions et le Bureau directement rattaché au Directeur sont présentés séparément.</p>
-    </div>
+    <>
+      <BarList label="Taux d’exécution par structure" rows={rows.map((r) => ({
+        key: r.key, label: r.nom, value: r.v, strong: r.rang === 'DIVISION', indent: r.indent,
+        avant: <RangBadge rang={r.rang} />, apres: r.direct && <Badge tone="ambre">Rattaché au Directeur</Badge>,
+        detail: [['Tâches', r.detail.taches], ['Instructions', r.detail.instructions], ['En retard', r.detail.tachesEnRetard + r.detail.instructionsEnRetard]],
+      }))} />
+      <p className="pt-2 text-xs text-slate-500">Taux d’exécution = tâches et instructions exécutées, validées ou clôturées ÷ total. Les Divisions et le Bureau directement rattaché au Directeur sont présentés séparément.</p>
+    </>
   );
 }
 
@@ -69,8 +59,8 @@ function MiseEnService({ p }) {
   const restant = p.secretariat.total - p.secretariat.avecCompte + p.autres.total - p.autres.avecCompte;
   if (p.statutListe === 'VALIDEE' && restant === 0 && p.directeur) return null;
   const actions = <>
-    {can('liste.consulter') && <Link to="/liste-declarative" className="text-sm text-dep-700 hover:underline">Liste déclarative</Link>}
-    {can('compte.enroler') && <Link to="/comptes/enrolement" className="text-sm text-dep-700 hover:underline">Enrôlement</Link>}
+    {can('liste.consulter') && <CardLink to="/liste-declarative">Liste déclarative</CardLink>}
+    {can('compte.enroler') && <CardLink to="/comptes/enrolement">Enrôlement</CardLink>}
   </>;
   return (
     <Card title="Mise en service des comptes" actions={actions}>
@@ -119,7 +109,7 @@ function AdminPanel({ a }) {
         <Stat label="Sessions actives" value={a.securite.sessionsActives} icon={Activity} hint={`${a.securite.utilisateursConnectes} utilisateur(s)`} to="/securite" />
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        <Card title="Santé du système" actions={<Link to="/systeme/sante" className="text-sm text-dep-700 hover:underline">Détails</Link>}>
+        <Card title="Santé du système" actions={<CardLink to="/systeme/sante">Détails</CardLink>}>
           {s ? (
             <>
               <div className="mb-3 flex items-center gap-2"><EtatBadge statut={s.global} /><span className="text-xs text-slate-500">vérifié le {fmtDateTime(s.verifieAt)}</span></div>
@@ -131,7 +121,7 @@ function AdminPanel({ a }) {
             </>
           ) : <p className="text-sm text-slate-500">Aucun contrôle encore réalisé. <Link to="/systeme/sante" className="text-dep-700 underline">Vérifier maintenant</Link></p>}
         </Card>
-        <Card title="Sécurité" actions={<Link to="/securite" className="text-sm text-dep-700 hover:underline">Ouvrir</Link>}>
+        <Card title="Sécurité" actions={<CardLink to="/securite">Ouvrir</CardLink>}>
           <ul className="space-y-2 text-sm">
             <li className="flex justify-between"><span>Alertes critiques ouvertes</span><b className={a.securite.alertes.CRITIQUE ? 'text-red-700' : ''}>{a.securite.alertes.CRITIQUE}</b></li>
             <li className="flex justify-between"><span>Alertes à surveiller</span><b className={a.securite.alertes.ATTENTION ? 'text-amber-700' : ''}>{a.securite.alertes.ATTENTION}</b></li>
@@ -143,11 +133,11 @@ function AdminPanel({ a }) {
           {a.securite.comptesVerrouilles.length > 0 && (
             <div className="mt-3 border-t pt-2 text-sm">
               <div className="mb-1 font-medium text-red-700">Comptes verrouillés</div>
-              {a.securite.comptesVerrouilles.map((u) => <Link key={u.id} to={`/comptes/${u.id}`} className="block text-dep-700 hover:underline">{u.username} — jusqu’au {fmtDateTime(u.locked_until)}</Link>)}
+              {a.securite.comptesVerrouilles.map((u) => <Link key={u.id} to={`/comptes/${u.id}`} className="link block">{u.username} — jusqu’au {fmtDateTime(u.locked_until)}</Link>)}
             </div>
           )}
         </Card>
-        <Card title="Sauvegardes et stockage" actions={<Link to="/systeme" className="text-sm text-dep-700 hover:underline">Sauvegardes</Link>}>
+        <Card title="Sauvegardes et stockage" actions={<CardLink to="/systeme">Sauvegardes</CardLink>}>
           <ul className="space-y-2 text-sm">
             <li className="flex justify-between gap-2"><span>Dernière sauvegarde réussie</span><b className={`text-right ${heuresSauvegarde === null || heuresSauvegarde > 48 ? 'text-amber-700' : ''}`}>{sv.derniereReussie ? `${fmtDateTime(sv.derniereReussie.date)} (il y a ${heuresSauvegarde} h)` : 'aucune'}</b></li>
             <li className="flex justify-between"><span>Sauvegardes échouées (30 j)</span><b className={sv.echecs30j ? 'text-red-700' : ''}>{sv.echecs30j}</b></li>
@@ -163,16 +153,16 @@ function AdminPanel({ a }) {
         </Card>
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        <Card title={`Erreurs techniques ouvertes (${a.erreurs.ouvertes})`} actions={<Link to="/systeme/erreurs" className="text-sm text-dep-700 hover:underline">Journal technique</Link>}>
+        <Card title={`Erreurs techniques ouvertes (${a.erreurs.ouvertes})`} actions={<CardLink to="/systeme/erreurs">Journal technique</CardLink>}>
           {a.erreurs.recentes.length ? (
             <ul className="space-y-2 text-xs">
               {a.erreurs.recentes.map((e) => (
-                <li key={e.id}><code className="text-[11px]">{e.methode} {e.route}</code> <Badge>{e.occurrences}×</Badge><div className="truncate text-slate-600">{e.message}</div><div className="text-slate-400">{fmtDateTime(e.derniere_at)}</div></li>
+                <li key={e.id}><code className="text-xs">{e.methode} {e.route}</code> <Badge>{e.occurrences}×</Badge><div className="truncate text-slate-600">{e.message}</div><div className="text-slate-500">{fmtDateTime(e.derniere_at)}</div></li>
               ))}
             </ul>
           ) : <p className="flex items-center gap-2 text-sm text-emerald-700"><CheckCircle2 size={16} /> Aucune erreur technique ouverte.</p>}
         </Card>
-        <Card title="Dernières opérations sensibles" actions={<Link to="/audit" className="text-sm text-dep-700 hover:underline">Journal d’audit</Link>}>
+        <Card title="Dernières opérations sensibles" actions={<CardLink to="/audit">Journal d’audit</CardLink>}>
           {a.operationsSensibles.length ? (
             <ul className="space-y-1.5 text-xs">
               {a.operationsSensibles.map((l) => (
@@ -219,12 +209,11 @@ function SGPanel({ d }) {
           )} />
         </Card>
         <Card title="Activités consolidées de la DEP">
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            {[['Instructions en cours', sum(s.instructions, ACTIVE)], ['Instructions en retard', s.instructions.EN_RETARD || 0], ['Tâches en cours', sum(s.taches, ACTIVE)], ['Tâches en retard', s.taches.EN_RETARD || 0],
-              ['Tâches exécutées', sum(s.taches, ['EXECUTEE', 'VALIDEE', 'CLOTUREE'])], ['Courriers en circulation', s.courriers.EN_CIRCULATION || 0]].map(([k, v]) => (
-              <div key={k} className="rounded-md bg-slate-50 p-3"><div className="text-xl font-semibold tabular-nums">{v}</div><div className="text-xs text-slate-600">{k}</div></div>
-            ))}
-          </div>
+          <MiniStats items={[
+            ['Instructions en cours', sum(s.instructions, ACTIVE)], ['Instructions en retard', s.instructions.EN_RETARD || 0, 'danger'],
+            ['Tâches en cours', sum(s.taches, ACTIVE)], ['Tâches en retard', s.taches.EN_RETARD || 0, 'danger'],
+            ['Tâches exécutées', sum(s.taches, ['EXECUTEE', 'VALIDEE', 'CLOTUREE'])], ['Courriers en circulation', s.courriers.EN_CIRCULATION || 0],
+          ]} />
           <div className="mt-3 border-t pt-3 text-sm">
             <div className="mb-1 font-medium">Projets PIP</div>
             {d.pip.length ? d.pip.map((p) => <div key={p.statut} className="flex justify-between"><span>{STATUTS[p.statut]?.[0] || p.statut} ({p.nombre})</span><span className="tabular-nums">{fmtMontant(p.cout)}</span></div>) : <span className="text-slate-500">Aucun projet soumis.</span>}
@@ -243,28 +232,28 @@ function DirecteurPanel({ d }) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Documents à valider" value={d.documentsAValider.length} icon={FileText} tone={d.documentsAValider.length ? 'jaune' : 'gris'} to="/documents" />
         <Stat label="Travaux en retard" value={retard} icon={AlertTriangle} tone={retard ? 'rouge' : 'gris'} to="/taches?statut=EN_RETARD" />
-        <Stat label="Présences soumises" value={d.presencesSoumises.length} hint={d.presencesSemaine ? `Taux de présence : ${d.presencesSemaine.tauxPresence ?? '—'} %` : null} icon={CalendarCheck} tone="violet" to="/presences" />
-        <Stat label="Courriers à réceptionner" value={d.courriersARecevoir.length} icon={Mail} tone={d.courriersARecevoir.length ? 'jaune' : 'gris'} to="/courriers" />
+        <Stat label="Présences soumises" value={d.presencesSoumises.length} hint={d.presencesSemaine ? `Taux de présence : ${d.presencesSemaine.tauxPresence ?? '—'} %` : null} icon={CalendarCheck} tone="violet" to="/presences?statut=SOUMISE" />
+        <Stat label="Courriers à réceptionner" value={d.courriersARecevoir.length} icon={Mail} tone={d.courriersARecevoir.length ? 'jaune' : 'gris'} to="/courriers?onglet=recevoir" />
       </div>
       {d.decisions && <PilotageCard d={d} />}
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        <Card title="Documents à valider">
+        <Card title="Documents à valider" actions={<CardLink to="/documents" />}>
           <MiniList rows={d.documentsAValider} to="/documents" empty="Aucun document en attente." render={(x) => <div className="text-sm"><div className="truncate font-medium">{x.titre}</div><div className="text-xs text-slate-500">{x.reference} · {fmtDateTime(x.updated_at)}</div></div>} />
         </Card>
-        <Card title="Tâches en retard">
+        <Card title="Tâches en retard" actions={<CardLink to="/taches?statut=EN_RETARD" />}>
           <MiniList rows={d.tachesEnRetard} to="/taches" empty="Aucune tâche en retard." render={(t) => <div className="text-sm"><div className="truncate font-medium">{t.titre}</div><div className="text-xs text-red-700">{t.nom} · {t.bureau} · échéance {fmtDate(t.echeance)}</div></div>} />
         </Card>
-        <Card title="Instructions du Secrétaire Général">
+        <Card title="Instructions du Secrétaire Général" actions={<CardLink to="/instructions?boite=recues" />}>
           <MiniList rows={d.instructionsRecues} to="/instructions" empty="Aucune instruction reçue." render={(i) => <div className="space-y-1 text-sm"><div className="flex justify-between gap-2"><span className="truncate">{i.objet}</span><StatusBadge value={i.statut} /></div><Progress value={i.avancement} /></div>} />
         </Card>
-        <Card title="Présences soumises">
+        <Card title="Présences soumises" actions={<CardLink to="/presences?statut=SOUMISE" />}>
           <MiniList rows={d.presencesSoumises} to="/presences" empty="Aucune liste en attente." render={(p) => <div className="text-sm"><div className="font-medium">{p.bureau || 'Direction (toutes structures)'}</div><div className="text-xs text-slate-500">{p.reference} · soumise le {fmtDateTime(p.submitted_at)}</div></div>} />
         </Card>
-        <Card title="Courriers">
+        <Card title="Courriers" actions={<CardLink to="/courriers?onglet=recevoir">À réceptionner</CardLink>}>
           <MiniList rows={d.courriersARecevoir} to="/courriers" empty="Aucun courrier à réceptionner." render={(c) => <div className="text-sm"><div className="truncate font-medium">{c.objet}</div><div className="text-xs text-slate-500">{c.numero_enregistrement} · {fmtDateTime(c.created_at)}</div></div>} />
           <div className="mt-2 flex flex-wrap gap-2 border-t pt-2 text-xs">{Object.entries(d.courriers).map(([k, v]) => <Badge key={k}>{STATUTS[k]?.[0] || k} : {v}</Badge>)}</div>
         </Card>
-        <Card title="Projets PIP à valider">
+        <Card title="Projets PIP à valider" actions={<CardLink to="/pip?statut=VERIFIE" />}>
           <MiniList rows={d.pipAValider} to="/pip" empty="Aucune fiche à valider." render={(p) => <div className="text-sm"><div className="truncate font-medium">{p.intitule}</div><div className="text-xs text-slate-500">{p.code} · {fmtMontant(p.cout_total, p.devise)}</div></div>} />
           <div className="mt-2 flex flex-wrap gap-2 border-t pt-2 text-xs">{Object.entries(d.pip).map(([k, v]) => <Badge key={k}>{STATUTS[k]?.[0] || k} : {v}</Badge>)}</div>
         </Card>
@@ -280,14 +269,14 @@ function PilotageCard({ d }) {
   const heure = (x) => new Date(x).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Kinshasa' });
   return (
     <div className="mt-4 grid gap-4 lg:grid-cols-3">
-      <Card title="Décisions à suivre" actions={<Link to="/decisions" className="text-xs text-dep-700 hover:underline">Registre</Link>}>
+      <Card title="Décisions à suivre" actions={<CardLink to="/decisions">Registre</CardLink>}>
         <div className="mb-2 flex gap-2 text-xs"><Badge>{d.decisions.ouvertes} ouverte(s)</Badge>{d.decisions.enRetard > 0 && <Badge className="bg-red-50 text-red-800 ring-red-200">{d.decisions.enRetard} en retard</Badge>}</div>
         <MiniList rows={d.decisions.liste} to="/decisions" empty="Aucune décision ouverte." render={(x) => <div className="text-sm"><div className="truncate font-medium">{x.libelle}</div><div className={`text-xs ${x.en_retard ? 'text-red-700' : 'text-slate-500'}`}>{x.responsable_nom} · {x.echeance ? `échéance ${fmtDate(x.echeance)}` : 'sans échéance'}</div></div>} />
       </Card>
-      <Card title="Agenda du jour" actions={<Link to="/agenda" className="text-xs text-dep-700 hover:underline">Agenda</Link>}>
+      <Card title="Agenda du jour" actions={<CardLink to="/agenda">Agenda</CardLink>}>
         <MiniList rows={d.agendaDuJour} to={(e) => (e.reunion_id ? `/reunions/${e.reunion_id}` : '/agenda')} empty="Aucun rendez-vous aujourd’hui." render={(e) => <div className="flex gap-3 text-sm"><span className="w-12 shrink-0 font-semibold tabular-nums text-dep-800">{heure(e.debut)}</span><div className="min-w-0"><div className="truncate font-medium">{e.titre}</div><div className="text-xs text-slate-500">{e.lieu || '—'}</div></div></div>} />
       </Card>
-      <Card title="Demandes du Secrétaire Général" actions={<Link to="/demandes-information" className="text-xs text-dep-700 hover:underline">Toutes</Link>}>
+      <Card title="Demandes du Secrétaire Général" actions={<CardLink to="/demandes-information">Toutes</CardLink>}>
         <MiniList rows={d.demandesInfo} to="/demandes-information" empty="Aucune demande en attente." render={(x) => <div className="text-sm"><div className="truncate font-medium">{x.objet}</div><div className="text-xs text-slate-500">{x.reference}{x.echeance ? ` · réponse attendue le ${fmtDate(x.echeance)}` : ''}</div></div>} />
       </Card>
     </div>
@@ -298,7 +287,7 @@ function PilotageCard({ d }) {
 function EffectifCard({ e }) {
   const t = e.totaux;
   return (
-    <Card title="Effectif organique et effectif réel" className="mt-4" actions={<Link to="/cadre-organique#effectif" className="text-sm text-dep-700 hover:underline">Détail</Link>}>
+    <Card title="Effectif organique et effectif réel" className="mt-4" actions={<CardLink to="/cadre-organique#effectif">Détail</CardLink>}>
       <div className="grid gap-4 md:grid-cols-3">
         <div className="text-sm">
           <div className="text-2xl font-semibold">{t.reel} <span className="text-base font-normal text-slate-500">/ {t.prevu} prévus</span></div>
@@ -328,9 +317,14 @@ function ChefDivisionPanel({ d }) {
         <Stat label="Fiches PIP à vérifier" value={d.pipAVerifier.length} icon={FolderKanban} tone="violet" to="/pip" />
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Card title="Bureaux rattachés à la Division">
-          <div className="overflow-x-auto"><table className="min-w-full"><thead><tr><th className="th">Bureau</th><th className="th">Agents</th><th className="th">Tâches</th><th className="th">En retard</th><th className="th">Exécution</th></tr></thead>
-            <tbody>{d.bureaux.map((b) => <tr key={b.id}><td className="td"><Link className="text-dep-700 hover:underline" to={`/structures/bureau/${b.id}`}>{b.nom}</Link></td><td className="td">{b.agents}</td><td className="td">{b.taches}</td><td className="td">{b.tachesEnRetard}</td><td className="td">{b.tauxExecution === null ? '—' : `${b.tauxExecution} %`}</td></tr>)}</tbody></table></div>
+        <Card title="Bureaux rattachés à la Division" bodyClass="p-0">
+          <DataTable encadre={false} searchable={false} label="Bureaux rattachés à la Division" rows={d.bureaux} empty="Aucun Bureau rattaché." columns={[
+            { key: 'nom', header: 'Bureau', primary: true, render: (b) => <Link className="link" to={`/structures/bureau/${b.id}`}>{b.nom}</Link> },
+            { key: 'agents', header: 'Agents', className: 'tabular-nums' },
+            { key: 'taches', header: 'Tâches', className: 'tabular-nums' },
+            { key: 'tachesEnRetard', header: 'En retard', className: 'tabular-nums', render: (b) => (b.tachesEnRetard > 0 ? <span className="font-semibold text-red-700">{b.tachesEnRetard}</span> : 0) },
+            { key: 'tauxExecution', header: 'Exécution', className: 'tabular-nums', render: (b) => (b.tauxExecution === null ? '—' : `${b.tauxExecution} %`) },
+          ]} />
         </Card>
         <Card title="Documents à examiner">
           <MiniList rows={d.documentsAExaminer} to="/documents" empty="Aucun document à examiner." render={(x) => <div className="flex justify-between gap-2 text-sm"><span className="truncate">{x.titre}</span><StatusBadge value={x.statut} /></div>} />
@@ -352,7 +346,7 @@ function ChefBureauPanel({ d }) {
       {d.bureau && (
         <div className="card flex flex-wrap items-center gap-2 p-3 text-sm">
           <b>{d.bureau.nom}</b><RangBadge rang="BUREAU" />
-          <Badge className={d.bureau.estSecretariatDirection ? 'bg-amber-50 text-amber-800 ring-amber-200' : 'bg-slate-100 text-slate-700 ring-slate-200'}>{d.bureau.rattachement}</Badge>
+          <Badge tone={d.bureau.estSecretariatDirection ? 'ambre' : 'neutre'}>{d.bureau.rattachement}</Badge>
           <span className="text-slate-600">· Supérieur direct : {d.bureau.superieurDirect}</span>
         </div>
       )}
@@ -365,12 +359,12 @@ function ChefBureauPanel({ d }) {
       {d.delegations?.length > 0 && <div className="mt-4"><InfoAlert>Opérations exercées par désignation du Directeur : {d.delegations.map((x) => DELEGATIONS[x] || x).join(', ')}. Ces désignations, fondées sur un acte, ne modifient pas le rang du Bureau.</InfoAlert></div>}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card title="Agents du Bureau" actions={<Link to="/taches/nouvelle" className="btn-primary py-1.5"><ListTodo size={14} /> Attribuer une tâche</Link>}>
-          <ul className="divide-y divide-slate-100">{d.agents.map((a) => <li key={a.id} className="flex items-center justify-between py-2 text-sm"><Link to={`/personnel/${a.id}`} className="text-dep-700 hover:underline">{a.nom}</Link><span className="text-xs text-slate-500">{a.poste} · {a.taches_en_cours} tâche(s) en cours</span></li>)}</ul>
+          <ul className="divide-y divide-slate-100">{d.agents.map((a) => <li key={a.id} className="flex flex-col gap-0.5 py-2 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3"><Link to={`/personnel/${a.id}`} className="link">{a.nom}</Link><span className="text-xs text-slate-500 sm:text-right">{a.poste} · {a.taches_en_cours} tâche(s) en cours</span></li>)}</ul>
         </Card>
         <Card title="Tâches et échéances">
           <MiniList rows={d.tachesEnCours} to="/taches" empty="Aucune tâche." render={(t) => <div className="space-y-1 text-sm"><div className="flex justify-between gap-2"><span className="truncate">{t.titre} <span className="text-xs text-slate-500">— {t.nom}</span></span><StatusBadge value={t.statut} /></div><div className="flex items-center gap-3"><div className="flex-1"><Progress value={t.avancement} /></div><span className={`text-xs ${isOverdue(t.echeance, t.statut) ? 'text-red-700' : 'text-slate-500'}`}>{fmtDate(t.echeance)}</span></div></div>} />
         </Card>
-        <Card title="Présences du Bureau" actions={<Link to="/presences/nouvelle" className="text-sm text-dep-700 hover:underline">Nouvelle liste</Link>}>
+        <Card title="Présences du Bureau" actions={<CardLink to="/presences/nouvelle">Nouvelle liste</CardLink>}>
           <MiniList rows={d.presences} to="/presences" empty="Aucune liste." render={(p) => <div className="flex justify-between gap-2 text-sm"><span>Semaine du {fmtDate(p.semaine_debut)}</span><StatusBadge value={p.statut} /></div>} />
         </Card>
         <Card title="Instructions reçues">
@@ -394,7 +388,7 @@ function AgentPanel({ d }) {
         <Card title="Mes tâches" className="lg:col-span-2">
           <MiniList rows={d.taches} to="/taches" empty="Aucune tâche attribuée." render={(t) => <div className="space-y-1 text-sm"><div className="flex justify-between gap-2"><span className="truncate font-medium">{t.titre}</span><StatusBadge value={t.statut} /></div><div className="flex items-center gap-3"><div className="flex-1"><Progress value={t.avancement} /></div><span className={`text-xs ${isOverdue(t.echeance, t.statut) ? 'text-red-700' : 'text-slate-500'}`}>Échéance {fmtDate(t.echeance)}</span></div></div>} />
         </Card>
-        <Card title="Mon profil" actions={<Link to="/profil" className="text-sm text-dep-700 hover:underline">Voir</Link>}>
+        <Card title="Mon profil" actions={<CardLink to="/profil">Voir le profil</CardLink>}>
           <dl className="space-y-2 text-sm">
             <div><dt className="text-xs text-slate-500">Nom</dt><dd className="font-medium">{d.profil.nom}</dd></div>
             <div><dt className="text-xs text-slate-500">Matricule</dt><dd>{d.profil.matricule || '—'}</dd></div>

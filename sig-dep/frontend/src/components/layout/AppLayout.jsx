@@ -1,15 +1,16 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import { fmtDate } from '../../lib/format';
 import {
   LayoutDashboard, Network, BookOpen, Users, UserCog, CalendarCheck, Mail, Send, ListTodo, FileText, FolderKanban,
-  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2, Landmark, IdCard, MessageCircleQuestion, CalendarDays, Gavel, Presentation, Target,
+  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2, Landmark, IdCard, MessageCircleQuestion,
+  Search, CalendarDays, Gavel, Presentation, Target,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth, useCompteurs } from '../../store/auth';
 import { DEP_NOM, SG_NOM, ROLES, PERIMETRES } from '../../lib/labels';
 import { useInactivity } from '../../lib/inactivity';
-import { Modal } from '../ui';
+import { Modal, Spinner, IconButton, DropdownMenu, useFocusTrap, useScrollLock } from '../ui';
 import GlobalSearch from './GlobalSearch';
 
 const MENU = [
@@ -56,25 +57,55 @@ const MENU = [
   { to: '/systeme/reinitialisation', label: 'Réinitialisation', icon: DatabaseZap, perms: ['systeme.maintenir'] },
 ];
 
+/** Regroupe le menu par section, en ne gardant que les entrées autorisées (« agent » : réservé aux titulaires d’une fiche Agent). */
+function groupes(user) {
+  const res = [];
+  for (const m of MENU) {
+    if (m.section) res.push({ section: m.section, items: [] });
+    else if (m.agent ? !!user.agent : !m.perms || m.perms.some((p) => user.permissions.includes(p))) res[res.length - 1].items.push(m);
+  }
+  return res.filter((g) => g.items.length);
+}
+
 function Sidebar({ onNavigate }) {
   const { user } = useAuth();
   const { compteurs } = useCompteurs();
-  const items = MENU.filter((m) => m.section || (m.agent ? !!user.agent : !m.perms || m.perms.some((p) => user.permissions.includes(p))));
-  // Retire les titres de section sans éléments
-  const visible = items.filter((m, i) => !m.section || (items[i + 1] && !items[i + 1].section));
   return (
     <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Menu principal">
-      {visible.map((m, i) => (m.section ? (
-        <div key={i} className="mt-4 px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-dep-200/70 first:mt-0">{m.section}</div>
-      ) : (
-        <NavLink key={m.to} to={m.to} end={m.end} onClick={onNavigate}
-          className={({ isActive }) => `flex items-center gap-2.5 rounded-md px-3 py-2 text-sm ${isActive ? 'bg-white/15 font-medium text-white' : 'text-dep-100 hover:bg-white/10 hover:text-white'}`}>
-          <m.icon size={17} />
-          <span className="flex-1">{m.label}</span>
-          {m.counter && compteurs[m.counter] > 0 && <span className="rounded-full bg-rdc-jaune px-1.5 text-xs font-semibold text-dep-900">{compteurs[m.counter]}</span>}
-        </NavLink>
-      )))}
+      {groupes(user).map((g) => (
+        <div key={g.section} className="mt-4 first:mt-0">
+          <h2 id={`menu-${g.section}`} className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-dep-200">{g.section}</h2>
+          <ul aria-labelledby={`menu-${g.section}`} className="space-y-0.5">
+            {g.items.map((m) => (
+              <li key={m.to}>
+                <NavLink to={m.to} end={m.end} onClick={onNavigate}
+                  className={({ isActive }) => `flex items-center gap-2.5 rounded-md px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-rdc-jaune ${isActive ? 'bg-white/15 font-medium text-white' : 'text-dep-100 hover:bg-white/10 hover:text-white'}`}>
+                  <m.icon size={17} aria-hidden />
+                  <span className="flex-1">{m.label}</span>
+                  {m.counter && compteurs[m.counter] > 0 && (
+                    <span className="rounded-full bg-rdc-jaune px-1.5 text-xs font-semibold text-dep-900">{compteurs[m.counter]}<span className="sr-only"> à traiter</span></span>
+                  )}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </nav>
+  );
+}
+
+/** Menu latéral en tiroir (mobile) : focus piégé, Échap pour fermer. */
+function Tiroir({ onClose, children }) {
+  const ref = useRef(null);
+  useFocusTrap(ref, true, onClose);
+  useScrollLock();
+  return (
+    <div ref={ref} className="fixed inset-0 z-40 lg:hidden no-print" role="dialog" aria-modal="true" aria-label="Menu principal" tabIndex={-1}>
+      <div className="absolute inset-0 bg-slate-900/50" onClick={onClose} aria-hidden />
+      <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col">{children}</div>
+      <IconButton label="Fermer le menu" icon={X} size={20} data-autofocus className="absolute right-3 top-3 bg-white/90 text-slate-700 hover:bg-white" onClick={onClose} />
+    </div>
   );
 }
 
@@ -82,9 +113,11 @@ export default function AppLayout() {
   const { user, clear } = useAuth();
   const { nonLues, setNonLues, setCompteurs } = useCompteurs();
   const [open, setOpen] = useState(false);
-  const [menuUser, setMenuUser] = useState(false);
+  const [recherche, setRecherche] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const main = useRef(null);
+  const pageCourante = useRef(location.pathname);
 
   useEffect(() => {
     let alive = true;
@@ -99,7 +132,17 @@ export default function AppLayout() {
     return () => { alive = false; clearInterval(t); };
   }, [location.pathname, setNonLues, setCompteurs]);
 
-  useEffect(() => { setMenuUser(false); }, [location.pathname]);
+  // Changement de page : retour en haut et focus sur le contenu, sauf si la nouvelle page a déjà placé
+  // le focus sur un de ses champs. Un élément masqué appartient à l’ancienne page (chargement en cours).
+  useEffect(() => {
+    setRecherche(false);
+    if (pageCourante.current === location.pathname) return;
+    pageCourante.current = location.pathname;
+    window.scrollTo(0, 0);
+    const a = document.activeElement;
+    const placeParLaPage = a && a !== main.current && main.current?.contains(a) && a.getClientRects().length > 0;
+    if (!placeParLaPage) main.current?.focus({ preventScroll: true });
+  }, [location.pathname]);
 
   const logout = async (raison) => {
     try { await api.post('/auth/logout'); } catch { /* ignore */ }
@@ -121,67 +164,67 @@ export default function AppLayout() {
   const structure = user.affectation?.bureauNom || user.affectation?.divisionNom || (user.primaryRole === 'DIRECTEUR' ? DEP_NOM : user.primaryRole === 'SECRETAIRE_GENERAL' ? SG_NOM : 'Administration technique');
 
   const aside = (
-    <div className="flex h-full flex-col bg-dep-800 text-white">
+    <div className="flex h-full w-full flex-col bg-dep-800 text-white">
       <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4">
-        <div className="flex h-10 w-10 shrink-0 flex-col overflow-hidden rounded-md bg-white">
-          <div className="flex flex-1 items-center justify-center text-[11px] font-bold text-dep-800">DEP</div>
-          <div className="h-1.5 tricolore" />
-        </div>
+        <img src="/favicon.jpg" alt="Ministère de l’Économie Numérique" className="h-10 w-[5.75rem] shrink-0 rounded-md bg-white object-contain" />
         <div className="min-w-0">
           <div className="text-sm font-semibold leading-tight">SIG-DEP</div>
-          <div className="text-[11px] leading-tight text-dep-200">{DEP_NOM}</div>
+          <div className="text-xs leading-tight text-dep-200">{DEP_NOM}</div>
         </div>
       </div>
       <Sidebar onNavigate={() => setOpen(false)} />
-      <div className="border-t border-white/10 px-4 py-3 text-[11px] leading-snug text-dep-200">{SG_NOM}<br />République Démocratique du Congo</div>
+      <div className="border-t border-white/10 px-4 py-3 text-xs leading-snug text-dep-200">{SG_NOM}<br />République Démocratique du Congo</div>
     </div>
   );
 
   return (
     <div className="flex min-h-screen">
+      <a href="#contenu" onClick={(e) => { e.preventDefault(); main.current?.focus(); }}
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70] focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-dep-800 focus:shadow-lg">
+        Aller au contenu
+      </a>
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 lg:block no-print">{aside}</aside>
-      {open && (
-        <div className="fixed inset-0 z-40 lg:hidden no-print">
-          <div className="absolute inset-0 bg-slate-900/50" onClick={() => setOpen(false)} />
-          <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw]">{aside}</div>
-          <button type="button" className="absolute right-3 top-3 rounded bg-white/90 p-1" onClick={() => setOpen(false)} aria-label="Fermer le menu"><X size={20} /></button>
-        </div>
-      )}
-      <div className="flex min-w-0 flex-1 flex-col lg:pl-64">
+      {open && <Tiroir onClose={() => setOpen(false)}>{aside}</Tiroir>}
+      <div className="flex min-w-0 flex-1 flex-col lg:pl-64 print:pl-0">
         <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur no-print">
           <div className="h-1 tricolore" />
-          <div className="flex items-center gap-3 px-4 py-2.5">
-            <button type="button" className="rounded p-1.5 hover:bg-slate-100 lg:hidden" onClick={() => setOpen(true)} aria-label="Ouvrir le menu"><Menu size={22} /></button>
+          <div className="flex items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4">
+            <IconButton label="Ouvrir le menu" icon={Menu} size={22} className="p-1.5 lg:hidden" aria-expanded={open} onClick={() => setOpen(true)} />
+            <div className="min-w-0 sm:hidden"><div className="text-sm font-semibold text-dep-800">SIG-DEP</div></div>
             <div className="hidden min-w-0 sm:block">
               <div className="truncate text-xs uppercase tracking-wide text-slate-500">République Démocratique du Congo — {SG_NOM}</div>
               <div className="truncate text-sm font-semibold text-dep-800">{DEP_NOM} (DEP)</div>
             </div>
             <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1">
               <div className="mr-2 hidden min-w-0 flex-1 justify-end md:flex"><GlobalSearch /></div>
-              <Link to="/notifications" className="relative rounded-md p-2 text-slate-600 hover:bg-slate-100" aria-label={`Notifications (${nonLues} non lues)`}>
-                <Bell size={20} />
-                {nonLues > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-rdc-rouge px-1 text-center text-[11px] font-semibold text-white">{nonLues > 99 ? '99+' : nonLues}</span>}
+              <IconButton label="Rechercher" icon={Search} size={20} className="text-slate-600 md:hidden" onClick={() => setRecherche(true)} />
+              <Link to="/notifications" className="relative rounded-md p-2 text-slate-600 hover:bg-slate-100">
+                <Bell size={20} aria-hidden />
+                <span className="sr-only">Notifications</span>
+                {nonLues > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-rdc-rouge px-1 text-center text-xs font-semibold text-white">{nonLues > 99 ? '99+' : nonLues}<span className="sr-only"> non lues</span></span>}
               </Link>
-              <div className="relative">
-                <button type="button" onClick={() => setMenuUser((v) => !v)} className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-100" aria-haspopup="menu" aria-expanded={menuUser}>
-                  <UserCircle size={26} className="text-dep-700" />
-                  <div className="hidden text-left md:block">
-                    <div className="max-w-[200px] truncate text-sm font-medium leading-tight">{nom}</div>
-                    <div className="max-w-[220px] truncate text-xs leading-tight text-slate-500">{ROLES[user.primaryRole] || '—'} · {structure}</div>
-                  </div>
-                </button>
-                {menuUser && (
-                  <div className="absolute right-0 mt-1 w-64 rounded-md border bg-white py-1 shadow-lg" role="menu">
-                    <div className="border-b px-3 py-2 text-xs text-slate-500">
-                      Périmètre : <b className="text-slate-700">{PERIMETRES[user.perimetre]}</b>
-                      <div>Rôle(s) : {user.roles.map((r) => ROLES[r]).join(', ')}</div>
-                    </div>
-                    {user.agent && <Link to="/profil" className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50" role="menuitem"><UserCircle size={16} /> Mon profil</Link>}
-                    <Link to="/mot-de-passe" className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50" role="menuitem"><KeyRound size={16} /> Changer le mot de passe</Link>
-                    <button type="button" onClick={() => logout()} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50" role="menuitem"><LogOut size={16} /> Se déconnecter</button>
+              <DropdownMenu width="w-64" menuLabel="Menu utilisateur"
+                triggerClassName="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400"
+                trigger={<>
+                  <UserCircle size={26} className="text-dep-700" aria-hidden />
+                  <span className="sr-only md:hidden">Menu de {nom}</span>
+                  <span className="hidden text-left md:block">
+                    <span className="block max-w-[200px] truncate text-sm font-medium leading-tight">{nom}</span>
+                    <span className="block max-w-[220px] truncate text-xs leading-tight text-slate-500">{ROLES[user.primaryRole] || '—'} · {structure}</span>
+                  </span>
+                </>}
+                header={(
+                  <div className="border-b px-3 py-2 text-xs text-slate-600">
+                    <div className="font-medium text-slate-800 md:hidden">{nom}</div>
+                    Périmètre : <b className="text-slate-800">{PERIMETRES[user.perimetre]}</b>
+                    <div>Rôle(s) : {user.roles.map((r) => ROLES[r]).join(', ')}</div>
                   </div>
                 )}
-              </div>
+                items={[
+                  user.agent && { label: 'Mon profil', icon: UserCircle, to: '/profil' },
+                  { label: 'Changer le mot de passe', icon: KeyRound, to: '/mot-de-passe' },
+                  { label: 'Se déconnecter', icon: LogOut, danger: true, onClick: () => logout() },
+                ]} />
             </div>
           </div>
         </header>
@@ -208,11 +251,15 @@ export default function AppLayout() {
             <Link to={`/actes/${x.acteId}`} className="ml-auto underline">Voir l’acte</Link>
           </div>
         ))}
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 sm:px-6">
-          <Outlet />
+        <main id="contenu" ref={main} tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 focus:outline-none sm:px-6">
+          {/* Le menu et l’en-tête restent affichés pendant le chargement d’une page. */}
+          <Suspense fallback={<Spinner />}><Outlet /></Suspense>
         </main>
+        <Modal open={recherche} title="Recherche" placement="top" onClose={() => setRecherche(false)}>
+          <GlobalSearch panel onNavigate={() => setRecherche(false)} />
+        </Modal>
         <Modal open={remaining !== null} title="Session inactive" onClose={prolonger}
-          footer={<><button type="button" className="btn-secondary" onClick={() => logout()}>Se déconnecter</button><button type="button" className="btn-primary" onClick={prolonger}>Rester connecté</button></>}>
+          footer={<><button type="button" className="btn-secondary" onClick={() => logout()}>Se déconnecter</button><button type="button" className="btn-primary" data-autofocus onClick={prolonger}>Rester connecté</button></>}>
           <p className="text-sm">Aucune activité n’a été détectée. Par sécurité, vous serez déconnecté dans <b className="tabular-nums">{remaining}</b> seconde(s).</p>
         </Modal>
         <footer className="border-t border-slate-200 bg-white px-6 py-3 text-center text-xs text-slate-500 no-print">

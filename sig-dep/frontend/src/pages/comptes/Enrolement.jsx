@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -7,13 +7,13 @@ import {
   ArrowLeft, ArrowRight, Check, FileCheck2, IdCard, ImagePlus, ListChecks, Lock, Search, UserPlus, UserSearch,
 } from 'lucide-react';
 import api, { errorMessage } from '../../lib/api';
-import { fmtDate, fmtDateTime } from '../../lib/format';
+import { aujourdhui, fmtDate, fmtDateTime } from '../../lib/format';
 import { useAuth } from '../../store/auth';
-import { useApi, runAction, PageHeader, Card, Field, InfoAlert, Loadable, Badge, KeyValues, Spinner, ErrorAlert } from '../../components/ui';
+import { useApi, runAction, PageHeader, Card, Field, InfoAlert, Loadable, Badge, KeyValues, Spinner, ErrorAlert, UnsavedChangesGuard } from '../../components/ui';
+import { COLORS } from '../../lib/labels';
 import TempPassword from './TempPassword';
 
-const today = () => new Date().toISOString().slice(0, 10);
-const date = (label) => z.string().min(1, `${label} requise`).refine((v) => v <= today(), `${label} ne peut pas être future`);
+const date = (label) => z.string().min(1, `${label} requise`).refine((v) => v <= aujourdhui(), `${label} ne peut pas être future`);
 
 const base = z.object({
   identite_confirmee: z.literal(true, { message: 'Confirmez l’identité de l’agent pour continuer.' }),
@@ -22,7 +22,7 @@ const base = z.object({
   date_affectation: z.string().optional(),
   affectation_confirmee: z.literal(true, { message: 'Confirmez l’affectation pour continuer.' }),
   sexe: z.enum(['M', 'F'], { message: 'Sexe requis' }),
-  date_naissance: date('Date de naissance'),
+  date_naissance: date('Date de naissance').refine((v) => v >= '1940-01-01', 'Date de naissance antérieure à 1940 : vérifiez la saisie'),
   lieu_naissance: z.string().trim().max(150).optional(),
   date_mise_en_service: date('Date de mise en service'),
   numero_carte_igap: z.string().trim().min(3, 'Numéro de carte IGAP requis').max(60),
@@ -32,8 +32,12 @@ const base = z.object({
   adresse: z.string().trim().max(300).optional(),
   username: z.string().trim().toLowerCase().min(3, 'Au moins 3 caractères').regex(/^[a-z0-9._-]+$/, 'Minuscules, chiffres, point ou tiret uniquement'),
 });
-const apresNaissance = (v) => !v.date_naissance || !v.date_mise_en_service || v.date_mise_en_service > v.date_naissance;
-const schema = base.refine(apresNaissance || !v.date_mise_en_service || v.date_mise_en_service > v.date_naissance, { path: ['date_mise_en_service'], message: 'Doit être postérieure à la date de naissance' });
+// Même règle que l’API : (mise en service − naissance) / 365,25 jours ≥ 18 ans.
+const AGE_MINIMUM = 18;
+const MSG_MISE_EN_SERVICE = 'Doit être postérieure aux 18 ans de l’agent';
+const majeurALaMiseEnService = (v) => !v.date_naissance || !v.date_mise_en_service
+  || (new Date(v.date_mise_en_service) - new Date(v.date_naissance)) / (365.25 * 86400000) >= AGE_MINIMUM;
+const schema = base.refine(majeurALaMiseEnService, { path: ['date_mise_en_service'], message: MSG_MISE_EN_SERVICE });
 
 /** Champs contrôlés à chaque étape (validation explicite, indépendante du reste du formulaire). */
 const CHAMPS_ETAPE = {
@@ -45,12 +49,12 @@ const CHAMPS_ETAPE = {
 const ROLE_LIB = { AGENT: 'Agent', CHEF_BUREAU: 'Chef de Bureau', CHEF_DIVISION: 'Chef de Division' };
 const ETAPES = ['Identification', 'Fiche de la liste', 'Affectation', 'Informations complémentaires', 'Récapitulatif'];
 const STATUTS = {
-  ENROLABLE: ['Enrôlable', 'bg-emerald-50 text-emerald-800 ring-emerald-200'],
-  COMPTE_EXISTANT: ['Compte existant', 'bg-slate-100 text-slate-700 ring-slate-200'],
-  NON_INSCRIT: ['Absent de la liste', 'bg-red-50 text-red-800 ring-red-200'],
-  A_REVALIDER: ['Liste à revalider', 'bg-amber-50 text-amber-800 ring-amber-200'],
-  LISTE_NON_VALIDEE: ['Liste non validée', 'bg-amber-50 text-amber-800 ring-amber-200'],
-  HORS_PORTEE: ['Hors de votre portée', 'bg-slate-100 text-slate-700 ring-slate-200'],
+  ENROLABLE: ['Enrôlable', COLORS.succes],
+  COMPTE_EXISTANT: ['Compte existant', COLORS.neutre],
+  NON_INSCRIT: ['Absent de la liste', COLORS.danger],
+  A_REVALIDER: ['Liste à revalider', COLORS.attention],
+  LISTE_NON_VALIDEE: ['Liste non validée', COLORS.attention],
+  HORS_PORTEE: ['Hors de votre portée', COLORS.neutre],
 };
 const nomListe = (a) => [a.nom, a.postnom, a.prenom].filter(Boolean).join(' ');
 
@@ -62,7 +66,7 @@ function Stepper({ etape }) {
         return (
           <li key={l} className="flex items-center gap-1.5" aria-current={actif ? 'step' : undefined}>
             <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${fait ? 'bg-emerald-600 text-white' : actif ? 'bg-dep-700 text-white' : 'bg-slate-200 text-slate-600'}`}>{fait ? <Check size={14} /> : i + 1}</span>
-            <span className={actif ? 'font-semibold text-dep-800' : fait ? 'text-slate-700' : 'text-slate-500'}>{l}</span>
+            <span className={actif ? 'font-semibold text-dep-800' : fait ? 'text-slate-700' : 'text-slate-600'}>{l}</span>
             {i < ETAPES.length - 1 && <span className="mx-1 hidden h-px w-6 bg-slate-300 sm:inline-block" />}
           </li>
         );
@@ -74,17 +78,18 @@ function Stepper({ etape }) {
 /** Choix d’un fichier avec aperçu (photo) ou nom (commission). */
 function FileInput({ label, accept, file, onChange, error, preview, hint, icon: Icon }) {
   const [url, setUrl] = useState(null);
+  const id = useId();
   useEffect(() => {
     if (!preview || !file) { setUrl(null); return undefined; }
     const u = URL.createObjectURL(file); setUrl(u);
     return () => URL.revokeObjectURL(u);
   }, [file, preview]);
   return (
-    <Field label={label} required error={error} hint={hint}>
-      <label className={`flex cursor-pointer items-center gap-3 rounded-md border border-dashed p-3 text-sm hover:bg-slate-50 ${error ? 'border-red-400' : 'border-slate-300'}`}>
+    <Field label={label} required error={error} hint={hint} id={id}>
+      <label className={`flex cursor-pointer items-center gap-3 rounded-md border border-dashed p-3 text-sm hover:bg-slate-50 focus-within:ring-2 focus-within:ring-dep-400 ${error ? 'border-red-400' : 'border-slate-300'}`}>
         {url ? <img src={url} alt="Aperçu" className="h-16 w-16 rounded object-cover" /> : <Icon size={22} className="shrink-0 text-slate-400" />}
         <span className="min-w-0 flex-1 truncate">{file ? file.name : 'Choisir un fichier…'}</span>
-        <input type="file" className="sr-only" accept={accept} onChange={(e) => onChange(e.target.files?.[0] || null)} />
+        <input id={id} type="file" className="sr-only" accept={accept} aria-invalid={error ? true : undefined} onChange={(e) => onChange(e.target.files?.[0] || null)} />
       </label>
     </Field>
   );
@@ -174,7 +179,7 @@ function Assistant({ agentId, etape, setEtape, onCreated, onAnnuler }) {
   const [photo, setPhoto] = useState(null);
   const [commission, setCommission] = useState(null);
   const [fileErr, setFileErr] = useState({});
-  const { register, handleSubmit, reset, watch, getValues, setError, clearErrors, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(schema) });
+  const { register, handleSubmit, reset, watch, getValues, setError, clearErrors, formState: { errors, isSubmitting, dirtyFields, isSubmitSuccessful } } = useForm({ resolver: zodResolver(schema) });
 
   useEffect(() => {
     if (!pre.data) return;
@@ -205,7 +210,9 @@ function Assistant({ agentId, etape, setEtape, onCreated, onAnnuler }) {
     const shape = Object.fromEntries(champs.map((c) => [c, true]));
     const r = base.pick(shape).safeParse(getValues());
     const issues = r.success ? [] : r.error.issues;
-    if (champs.includes('date_mise_en_service') && !issues.length && !apresNaissance(getValues())) issues.push({ path: ['date_mise_en_service'], message: 'Doit être postérieure à la date de naissance' });
+    // Contrôle croisé des deux dates dès qu’elles sont valides, même si d’autres champs de l’étape manquent.
+    const datesValides = !issues.some((i) => ['date_naissance', 'date_mise_en_service'].includes(i.path[0]));
+    if (champs.includes('date_mise_en_service') && datesValides && !majeurALaMiseEnService(getValues())) issues.push({ path: ['date_mise_en_service'], message: MSG_MISE_EN_SERVICE });
     issues.forEach((i) => setError(i.path[0], { type: 'manual', message: i.message }));
     return !issues.length;
   };
@@ -248,10 +255,11 @@ function Assistant({ agentId, etape, setEtape, onCreated, onAnnuler }) {
 
   return (
     <form onSubmit={etape === 4 ? handleSubmit(submit) : (e) => { e.preventDefault(); suivant(); }} noValidate className="space-y-4">
+      <UnsavedChangesGuard when={(Object.keys(dirtyFields).length > 0 || !!photo || !!commission) && !isSubmitting && !isSubmitSuccessful} message="L’enrôlement de cet agent n’est pas terminé : les informations saisies et les fichiers joints seront perdus." />
       {!pre.data.enrolable && <InfoAlert tone="warning">{pre.data.motif}</InfoAlert>}
 
       {etape === 1 && (
-        <Card title="Fiche générée depuis la liste déclarative" actions={<Badge className="bg-slate-100 text-slate-700 ring-slate-200"><Lock size={12} /> Données de la liste validée</Badge>}>
+        <Card title="Fiche générée depuis la liste déclarative" actions={<Badge tone="neutre"><Lock size={12} /> Données de la liste validée</Badge>}>
           <KeyValues cols={3} items={[
             ['Nom', a.nom], ['Postnom', a.postnom], ['Prénom', a.prenom], ['Matricule', a.matricule],
             ['Grade', a.grade_libelle ? `${a.grade_libelle} (${a.grade_code})` : null], ['Sexe', a.sexe === 'F' ? 'Féminin' : a.sexe === 'M' ? 'Masculin' : 'À renseigner'],
@@ -318,9 +326,9 @@ function Assistant({ agentId, etape, setEtape, onCreated, onAnnuler }) {
             <Field label="Sexe" required error={errors.sexe?.message}>
               <select className="input" {...register('sexe')}><option value="">— Choisir —</option><option value="M">Masculin</option><option value="F">Féminin</option></select>
             </Field>
-            {t('date_naissance', 'Date de naissance', true, { type: 'date', max: today() })}
+            {t('date_naissance', 'Date de naissance', true, { type: 'date', min: '1940-01-01', max: aujourdhui() })}
             {t('lieu_naissance', 'Lieu de naissance')}
-            {t('date_mise_en_service', 'Date de mise en service', true, { type: 'date', max: today() })}
+            {t('date_mise_en_service', 'Date de mise en service', true, { type: 'date', max: aujourdhui() })}
             {t('numero_carte_igap', 'Numéro de la carte IGAP', true)}
             <Field label="Fonction" required error={errors.fonction_id?.message} hint={`Fonctions correspondant au grade ${a.grade_code || '—'}.`}>
               <select className="input" {...register('fonction_id')} disabled={!fonctions.length}>
@@ -381,7 +389,7 @@ export default function Enrolement() {
   return (
     <>
       <PageHeader title="Enrôlement des agents" subtitle="Création des comptes à partir de la liste déclarative validée par le Directeur."
-        breadcrumb={[{ label: 'Enrôlement' }]}
+        breadcrumb={[{ label: 'Administration' }, { label: 'Enrôlement des agents' }]}
         actions={can('liste.consulter') && <Link to="/liste-declarative" className="btn-secondary"><ListChecks size={16} /> Liste déclarative</Link>} />
       <Loadable state={state}>
         {(d) => (
@@ -390,7 +398,7 @@ export default function Enrolement() {
             {d.statutListe === 'A_REVALIDER' && <InfoAlert tone="warning">La liste déclarative a changé depuis sa dernière validation : les agents ajoutés ou modifiés seront enrôlables après sa revalidation par le Directeur.</InfoAlert>}
             {d.portee === 'SECRETARIAT_AUTORISE' && <InfoAlert>En tant qu’Admin Système, vous enrôlez uniquement les agents du Bureau Secrétariat de Direction que le Directeur a autorisés nominativement ({d.resume.enrolables} en attente). Une fois enrôlés, ce sont eux qui créent les comptes des agents des Divisions.</InfoAlert>}
             {d.portee === 'HORS_SECRETARIAT' && <InfoAlert>En tant que membre du Bureau Secrétariat de Direction, vous enrôlez les agents des Divisions et des autres Bureaux. Les comptes du Secrétariat sont créés par l’Admin.</InfoAlert>}
-            <p className="text-xs text-slate-500">{d.resume.enrolables} agent(s) enrôlable(s) · {d.resume.avecCompte} compte(s) déjà créé(s){d.validation ? ` · liste validée le ${fmtDateTime(d.validation.valide_at)}` : ''}</p>
+            <p className="text-xs text-slate-600">{d.resume.enrolables} agent(s) enrôlable(s) · {d.resume.avecCompte} compte(s) déjà créé(s){d.validation ? ` · liste validée le ${fmtDateTime(d.validation.valide_at)}` : ''}</p>
             <Stepper etape={agentId ? etape : 0} />
             {agentId
               ? <Assistant key={agentId} agentId={agentId} etape={etape} setEtape={setEtape} onCreated={setCreated} onAnnuler={() => select(null)} />

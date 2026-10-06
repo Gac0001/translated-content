@@ -1,47 +1,40 @@
-import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { useAuth, useCompteurs } from '../../store/auth';
-import { useApi, PageHeader, DataTable, StatusBadge, UrgenceBadge, ConfidBadge, Select, Spinner, ErrorAlert, Tabs } from '../../components/ui';
+import { useApi, useListParams, queryString, ListPage, StatusBadge, UrgenceBadge, ConfidBadge } from '../../components/ui';
 import { ExportButtons } from '../../components/shared';
 import { fmtDate } from '../../lib/format';
+import { CONFIDENTIALITES, STATUTS, URGENCES } from '../../lib/labels';
 
 export default function CourriersList() {
   const can = useAuth((s) => s.can);
   const { compteurs } = useCompteurs();
   const navigate = useNavigate();
-  const [tab, setTab] = useState('tous');
-  const [statut, setStatut] = useState('');
-  const [urgence, setUrgence] = useState('');
-  const params = { sens: tab === 'ENTRANT' || tab === 'SORTANT' ? tab : '', a_recevoir: tab === 'recevoir' ? 'true' : '', statut, urgence };
-  const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString();
-  const state = useApi(`/courriers${qs ? `?${qs}` : ''}`);
+  const liste = useListParams({ onglet: 'tous', statut: '', urgence: '' });
+  const v = liste.valeurs;
+  const query = queryString({ sens: v.onglet === 'ENTRANT' || v.onglet === 'SORTANT' ? v.onglet : '', a_recevoir: v.onglet === 'recevoir' ? 'true' : '', statut: v.statut, urgence: v.urgence });
+  const state = useApi(`/courriers${query}`);
   return (
-    <>
-      <PageHeader title="Courriers" subtitle="Registre des courriers entrants et sortants et suivi de leur circulation." breadcrumb={[{ label: 'Courriers' }]}
-        actions={<>
-          <ExportButtons base="/courriers/export" query={qs ? `?${qs}` : ''} print={false} />
-          {can('courriers.enregistrer') && <Link to="/courriers/nouveau" className="btn-primary"><Plus size={16} /> Enregistrer un courrier</Link>}
-        </>} />
-      <Tabs value={tab} onChange={setTab} tabs={[{ value: 'tous', label: 'Tous' }, { value: 'recevoir', label: 'À réceptionner', count: compteurs.courriers }, { value: 'ENTRANT', label: 'Entrants' }, { value: 'SORTANT', label: 'Sortants' }]} />
-      <ErrorAlert message={state.error} />
-      {state.loading && !state.data ? <Spinner /> : (
-        <DataTable rows={state.data?.data || []} onRowClick={(c) => navigate(`/courriers/${c.id}`)}
-          toolbar={<>
-            <Select value={statut} onChange={setStatut} placeholder="Statuts actifs" options={[['ENREGISTRE', 'Enregistré'], ['EN_CIRCULATION', 'En circulation'], ['TRAITE', 'Traité'], ['CLASSE', 'Classé'], ['ARCHIVE', 'Archivé']]} />
-            <Select value={urgence} onChange={setUrgence} placeholder="Toute urgence" options={[['NORMAL', 'Normal'], ['URGENT', 'Urgent'], ['TRES_URGENT', 'Très urgent']]} />
-          </>}
-          columns={[
-            { key: 'numero_enregistrement', header: 'N° d’enregistrement', render: (c) => <span className="whitespace-nowrap font-medium">{c.numero_enregistrement}</span> },
-            { key: 'date_courrier', header: 'Date', render: (c) => fmtDate(c.date_courrier) },
-            { key: 'expediteur', header: 'Expéditeur → Destinataire', render: (c) => <span>{c.expediteur}<span className="block text-xs text-slate-500">→ {c.destinataire}</span></span>, search: (c) => `${c.expediteur} ${c.destinataire}` },
-            { key: 'objet', header: 'Objet' },
-            { key: 'urgence', header: 'Urgence', render: (c) => <UrgenceBadge value={c.urgence} /> },
-            { key: 'confidentialite', header: 'Confidentialité', render: (c) => <ConfidBadge value={c.confidentialite} /> },
-            { key: 'statut', header: 'Statut', render: (c) => <StatusBadge value={c.statut} /> },
-            { key: 'detenteur_nom', header: 'Détenteur' },
-          ]} />
-      )}
-    </>
+    <ListPage title="Courriers" subtitle="Registre des courriers entrants et sortants et suivi de leur circulation." breadcrumb={[{ label: 'Courriers' }]}
+      liste={liste} state={state} onRowClick={(c) => navigate(`/courriers/${c.id}`)}
+      actions={<>
+        <ExportButtons base="/courriers/export" query={query} print={false} />
+        {can('courriers.enregistrer') && <Link to="/courriers/nouveau" className="btn-primary"><Plus size={16} aria-hidden /> Enregistrer un courrier</Link>}
+      </>}
+      tabs={{ key: 'onglet', label: 'Courriers', items: [{ value: 'tous', label: 'Tous' }, { value: 'recevoir', label: 'À réceptionner', count: compteurs.courriers }, { value: 'ENTRANT', label: 'Entrants' }, { value: 'SORTANT', label: 'Sortants' }] }}
+      filtres={[
+        { key: 'statut', label: 'Statut', placeholder: 'Statuts actifs', options: [['ENREGISTRE', 'Enregistré'], ['EN_CIRCULATION', 'En circulation'], ['TRAITE', 'Traité'], ['CLASSE', 'Classé'], ['ARCHIVE', 'Archivé']] },
+        { key: 'urgence', label: 'Degré d’urgence', placeholder: 'Toute urgence', options: [['NORMAL', 'Normal'], ['URGENT', 'Urgent'], ['TRES_URGENT', 'Très urgent']] },
+      ]}
+      columns={[
+        { key: 'numero_enregistrement', header: 'N° d’enregistrement', sortable: true, render: (c) => <span className="whitespace-nowrap font-medium">{c.numero_enregistrement}</span> },
+        { key: 'date_courrier', header: 'Date', sortable: true, render: (c) => fmtDate(c.date_courrier) },
+        { key: 'expediteur', header: 'Expéditeur → Destinataire', sortable: true, search: (c) => `${c.expediteur} ${c.destinataire}`, render: (c) => <span>{c.expediteur}<span className="block text-xs text-slate-500">→ {c.destinataire}</span></span> },
+        { key: 'objet', header: 'Objet', primary: true, sortable: true },
+        { key: 'urgence', header: 'Urgence', sortValue: (c) => Object.keys(URGENCES).indexOf(c.urgence), render: (c) => <UrgenceBadge value={c.urgence} /> },
+        { key: 'confidentialite', header: 'Confidentialité', sortValue: (c) => Object.keys(CONFIDENTIALITES).indexOf(c.confidentialite), render: (c) => <ConfidBadge value={c.confidentialite} /> },
+        { key: 'statut', header: 'Statut', sortValue: (c) => STATUTS[c.statut]?.[0], render: (c) => <StatusBadge value={c.statut} /> },
+        { key: 'detenteur_nom', header: 'Détenteur', sortable: true },
+      ]} />
   );
 }

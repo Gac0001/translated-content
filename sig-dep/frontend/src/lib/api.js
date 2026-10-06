@@ -12,6 +12,7 @@ api.interceptors.request.use((cfg) => {
 let refreshing = null;
 
 export async function refreshSession() {
+  // Les réponses 401 simultanées partagent un seul renouvellement de session.
   if (!refreshing) {
     refreshing = axios.post(`${api.defaults.baseURL}/auth/refresh`, {}, { withCredentials: true })
       .then((r) => { useAuth.getState().setSession(r.data.accessToken, r.data.user); return r.data; })
@@ -30,6 +31,7 @@ api.interceptors.response.use(
       try { const j = JSON.parse(await response.data.text()); response.data = j; code = j.error?.code; } catch { /* ignore */ }
     }
     if (response.status === 401 && ['TOKEN_EXPIRE', 'SESSION_REVOQUEE', 'TOKEN_INVALIDE'].includes(code) && !config._retry && !config.url.includes('/auth/')) {
+      // Une requête métier n’est rejouée qu’une fois, après renouvellement du jeton d’accès.
       config._retry = true;
       try {
         await refreshSession();

@@ -1,38 +1,44 @@
 import { useState } from 'react';
 import { Ban, CalendarClock, CalendarPlus, FileClock, OctagonPause, PlayCircle } from 'lucide-react';
-import { Modal, Field, Card, InfoAlert, Badge } from '../../components/ui';
+import { Modal, Field, Card, InfoAlert, Badge, Button } from '../../components/ui';
 import { COLORS } from '../../lib/labels';
-import { fmtDate, fmtDateTime } from '../../lib/format';
+import { aujourdhui, fmtDate, fmtDateTime } from '../../lib/format';
 import { TextModal } from './WorkflowActions';
 
 /**
  * Étapes communes aux instructions et aux tâches : blocage, rapport intermédiaire, annulation,
  * prolongation (demande de l’exécutant, décision ou prolongation directe de l’émetteur).
  */
-const demain = () => {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
+/** Lendemain d’une date AAAA-MM-JJ (calcul à midi : insensible au fuseau horaire). */
+const lendemain = (jour) => {
+  const d = new Date(`${jour}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
   return d.toISOString().slice(0, 10);
 };
+/** Demain à Kinshasa. */
+const demain = () => lendemain(aujourdhui());
+
+/** Boutons des étapes de traitement, pour le panneau du circuit (valeurs fausses ignorées par WorkflowPanel). */
+export function boutonsTraitement(a, setModal) {
+  return [
+    a.rapportIntermediaire && <Button key="rapport" icon={FileClock} onClick={() => setModal('rapport')}>Rapport intermédiaire</Button>,
+    a.bloquer && <Button key="bloquer" icon={OctagonPause} className="text-red-700" onClick={() => setModal('bloquer')}>Signaler un blocage</Button>,
+    a.debloquer && <Button key="debloquer" icon={PlayCircle} onClick={() => setModal('debloquer')}>Lever le blocage</Button>,
+    a.demanderProlongation && <Button key="prolongation" icon={CalendarClock} onClick={() => setModal('prolongation')}>Demander une prolongation</Button>,
+    a.deciderProlongation && <Button key="decision" variant="primary" icon={CalendarClock} onClick={() => setModal('decision')}>Décider de la prolongation</Button>,
+    a.prolonger && <Button key="prolonger" icon={CalendarPlus} onClick={() => setModal('prolonger')}>Prolonger le délai</Button>,
+    a.annuler && <Button key="annuler" icon={Ban} className="text-red-700" onClick={() => setModal('annuler')}>Annuler</Button>,
+  ];
+}
 
 export function BoutonsTraitement({ a, setModal }) {
-  return (
-    <>
-      {a.rapportIntermediaire && <button type="button" className="btn-secondary" onClick={() => setModal('rapport')}><FileClock size={16} /> Rapport intermédiaire</button>}
-      {a.bloquer && <button type="button" className="btn-secondary text-red-700" onClick={() => setModal('bloquer')}><OctagonPause size={16} /> Signaler un blocage</button>}
-      {a.debloquer && <button type="button" className="btn-secondary" onClick={() => setModal('debloquer')}><PlayCircle size={16} /> Lever le blocage</button>}
-      {a.demanderProlongation && <button type="button" className="btn-secondary" onClick={() => setModal('prolongation')}><CalendarClock size={16} /> Demander une prolongation</button>}
-      {a.deciderProlongation && <button type="button" className="btn-primary" onClick={() => setModal('decision')}><CalendarClock size={16} /> Décider de la prolongation</button>}
-      {a.prolonger && <button type="button" className="btn-secondary" onClick={() => setModal('prolonger')}><CalendarPlus size={16} /> Prolonger le délai</button>}
-      {a.annuler && <button type="button" className="btn-secondary text-red-700" onClick={() => setModal('annuler')}><Ban size={16} /> Annuler</button>}
-    </>
-  );
+  return <>{boutonsTraitement(a, setModal)}</>;
 }
 
 function DateMotifModal({ title, label, echeance, onClose, onSave, confirmLabel }) {
   const [date, setDate] = useState('');
   const [motif, setMotif] = useState('');
-  const min = echeance && echeance >= demain() ? (() => { const d = new Date(`${echeance}T00:00:00`); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); })() : demain();
+  const min = echeance && echeance >= demain() ? lendemain(echeance) : demain();
   return (
     <Modal open title={title} onClose={onClose} footer={<><button type="button" className="btn-secondary" onClick={onClose}>Annuler</button><button type="button" className="btn-primary" disabled={!date || motif.trim().length < 3} onClick={() => onSave({ echeance: date, motif })}>{confirmLabel}</button></>}>
       {echeance && <p className="mb-3 text-sm text-slate-600">Échéance actuelle : <b>{fmtDate(echeance)}</b></p>}
@@ -89,10 +95,10 @@ export function ModalesTraitement({ modal, setModal, post, item }) {
 }
 
 /** Bandeaux d’état : blocage, annulation, demande de prolongation en attente. */
-export function AlertesTraitement({ item }) {
+export function AlertesTraitement({ item, className = 'mb-3' }) {
   const demande = (item.prolongations || []).find((p) => p.statut === 'DEMANDEE');
   return (
-    <div className="mb-3 space-y-2 empty:hidden">
+    <div className={`space-y-2 empty:hidden ${className}`}>
       {item.statut === 'BLOQUEE' && <InfoAlert tone="warning"><b>Blocage signalé</b> le {fmtDateTime(item.bloquee_at)} : {item.motif_blocage}</InfoAlert>}
       {item.statut === 'ANNULEE' && <InfoAlert tone="warning"><b>Annulée</b> le {fmtDateTime(item.annulee_at)} : {item.motif_annulation}</InfoAlert>}
       {demande && <InfoAlert>Prolongation demandée jusqu’au <b>{fmtDate(demande.echeance_demandee)}</b> par {demande.demandeur_nom} : {demande.motif}</InfoAlert>}

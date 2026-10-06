@@ -81,9 +81,21 @@ function RequireAuth({ children }) {
   const { user, ready } = useAuth();
   const location = useLocation();
   if (!ready) return <div className="flex min-h-screen items-center justify-center"><Spinner label="Ouverture de la session…" /></div>;
-  if (!user) return <Navigate to="/connexion" replace state={{ from: location.pathname }} />;
+  if (!user) return <Navigate to="/connexion" replace state={{ from: `${location.pathname}${location.search}` }} />;
   if (user.exigences?.length && location.pathname !== '/premiere-connexion') return <Navigate to="/premiere-connexion" replace />;
   return children;
+}
+
+/**
+ * Page de connexion : une fois connecté, retour à la page demandée au départ.
+ * La redirection se fait ici, car la navigation du routeur est asynchrone : sans cela,
+ * la page de connexion renverrait vers l’accueil avant que Login n’ait pu naviguer.
+ */
+function ConnexionRoute() {
+  const user = useAuth((s) => s.user);
+  const location = useLocation();
+  if (user && !user.exigences?.length) return <Navigate to={location.state?.from || '/'} replace />;
+  return <Login />;
 }
 
 /** Garde d’affichage (le backend reste la seule barrière de sécurité). */
@@ -96,8 +108,9 @@ function Guard({ perms, children }) {
 const G = (perms, el) => <Guard perms={perms}>{el}</Guard>;
 
 export default function App() {
-  const { setReady, user } = useAuth();
+  const setReady = useAuth((s) => s.setReady);
   useEffect(() => {
+    // Attend la restauration de session avant d’afficher une redirection vers la connexion.
     refreshSession().catch(() => {}).finally(() => setReady());
   }, [setReady]);
 
@@ -105,7 +118,7 @@ export default function App() {
     <ConfirmProvider>
       <Suspense fallback={<Spinner />}>
         <Routes>
-          <Route path="/connexion" element={user && !user.exigences?.length ? <Navigate to="/" replace /> : <Login />} />
+          <Route path="/connexion" element={<ConnexionRoute />} />
           <Route path="/maintenance" element={<MaintenancePublique />} />
           {/* Vérification publique des cartes de service (sans connexion) */}
           <Route path="/verification" element={<VerificationCarte />} />

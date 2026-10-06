@@ -22,7 +22,7 @@ export default function Profil() {
       <PageHeader title="Mon profil" subtitle="Votre affectation ne peut être modifiée que par l’autorité compétente." breadcrumb={[{ label: 'Mon profil' }]} />
       {user.agent && (
         <Loadable state={state}>
-          {(a) => <AgentView a={a} photoVersion={v} extraActions={<label className="btn-ghost mt-2 cursor-pointer text-xs"><Upload size={14} /> Changer la photo<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => upload(e.target.files[0])} /></label>} />}
+          {(a) => <AgentView a={a} photoVersion={v} extraActions={<label className="btn-ghost mt-2 cursor-pointer text-xs focus-within:ring-2 focus-within:ring-dep-400"><Upload size={14} /> Changer la photo<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => upload(e.target.files[0])} /></label>} />}
         </Loadable>
       )}
       <div className="mt-4 space-y-4"><SecuriteCompte /><SessionsCompte /><NotificationPreferences /></div>

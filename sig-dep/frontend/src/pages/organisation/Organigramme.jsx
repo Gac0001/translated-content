@@ -33,7 +33,7 @@ function Person({ p, titre }) {
   return (
     <div className="flex items-center gap-2 text-sm">
       <User size={14} className="shrink-0 text-slate-400" />
-      <span><span className="text-xs text-slate-500">{titre} : </span><Link to={`/personnel/${p.agentId}`} className="font-medium text-dep-800 hover:underline">{p.nomComplet}</Link></span>
+      <span><span className="text-xs text-slate-500">{titre} : </span><Link to={`/personnel/${p.agentId}`} className="font-medium link">{p.nomComplet}</Link></span>
     </div>
   );
 }
@@ -56,7 +56,7 @@ function BureauNode({ b, defaultOpen = false }) {
           <div className="flex flex-wrap items-center gap-2">
             <Link to={`/structures/bureau/${b.id}`} className="font-semibold text-slate-900 hover:underline">{b.codeOrganique && <span className="mr-1.5 font-mono text-xs font-normal text-slate-500">{b.codeOrganique}</span>}{b.nom}</Link>
             <RangBadge rang={b.rangOrganique} />
-            {b.badge && <Badge className="bg-amber-100 text-amber-900 ring-amber-300">{b.badge}</Badge>}
+            {b.badge && <Badge tone="ambre">{b.badge}</Badge>}
           </div>
           <div className="mt-1 text-xs text-slate-500">Rattachement : {b.rattachement.libelle} · Supérieur direct : {b.rattachement.superieurDirect === 'DIRECTEUR' ? 'Directeur' : 'Chef de Division'} · Périmètre d’accès : Bureau</div>
           <div className="mt-1.5"><Person p={b.responsable} titre="Chef de Bureau" /><Interim i={b.interim} /></div>
@@ -71,7 +71,7 @@ function BureauNode({ b, defaultOpen = false }) {
           {b.agents.length > 0 && (
             <div className="mt-3">
               <div className="mb-1 text-xs font-semibold uppercase text-slate-500">Agents du Bureau</div>
-              <ul className="grid gap-1 sm:grid-cols-2">{b.agents.map((a) => <li key={a.agentId} className="text-sm"><Link to={`/personnel/${a.agentId}`} className="text-dep-700 hover:underline">{a.nomComplet}</Link> <span className="text-xs text-slate-500">— {a.fonction || a.poste}</span></li>)}</ul>
+              <ul className="grid gap-1 sm:grid-cols-2">{b.agents.map((a) => <li key={a.agentId} className="text-sm"><Link to={`/personnel/${a.agentId}`} className="link">{a.nomComplet}</Link> <span className="text-xs text-slate-500">— {a.fonction || a.poste}</span></li>)}</ul>
             </div>
           )}
         </div>
