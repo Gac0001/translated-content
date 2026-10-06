@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "sig-dep/frontend/src/components/ui/index.jsx"
+        ],
+        "createdAt": "2026-10-06T19:28:00.335Z",
+        "reason": "Claude: tonalité neutre de Stat (text-slate-700 sur bg-slate-100), gris sur gris neutre, contraste ~10:1, code antérieur à la refonte"
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "sig-dep/frontend/src/index.css"
+        ],
+        "createdAt": "2026-10-06T19:54:44.985Z",
+        "reason": "Claude: .btn-secondary (slate-700 sur blanc) et .btn-ghost (slate-600, survol slate-100) : gris sur fond blanc ou gris neutre, contraste suffisant, classes existantes"
+      }
+    ]
+  }
+}
