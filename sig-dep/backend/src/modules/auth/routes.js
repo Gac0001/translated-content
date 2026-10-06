@@ -263,8 +263,11 @@ router.get('/me', authenticate, async (req, res) => {
 router.get('/sessions', authenticate, async (req, res) => {
   const raw = req.cookies && req.cookies[tokens.COOKIE_NAME];
   const courant = raw ? await db('refresh_tokens').where({ token_hash: tokens.sha256(raw) }).first('family_id') : null;
-  const rows = await db('refresh_tokens').where({ user_id: req.ctx.userId }).whereNull('revoked_at').where('expires_at', '>', db.fn.now())
+  const actifs = await db('refresh_tokens').where({ user_id: req.ctx.userId }).whereNull('revoked_at').where('expires_at', '>', db.fn.now())
     .select('family_id', 'ip', 'user_agent', 'created_at', 'expires_at').orderBy('created_at', 'desc');
+  // Une famille (un appareil) peut compter plusieurs jetons non révoqués (renouvellements simultanés) :
+  // une seule ligne par famille, la plus récente.
+  const rows = [...new Map(actifs.reverse().map((r) => [r.family_id, r])).values()].reverse();
   const ouvertures = await db('refresh_tokens').where({ user_id: req.ctx.userId }).whereIn('family_id', rows.map((r) => r.family_id))
     .groupBy('family_id').select('family_id', db.raw('min(created_at) as ouverte_at'));
   res.json({

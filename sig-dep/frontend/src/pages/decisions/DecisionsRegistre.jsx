@@ -56,7 +56,7 @@ export default function DecisionsRegistre() {
       <Loadable state={state}>
         {(d) => (
           <>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid gap-3 sm:grid-cols-3">
               <Stat label="Ouvertes" value={d.stats.ouvertes} icon={Gavel} tone="jaune" />
               <Stat label="En retard" value={d.stats.enRetard} icon={Gavel} tone={d.stats.enRetard ? 'rouge' : 'gris'} />
               <Stat label="Exécutées" value={d.stats.executees} icon={Gavel} tone="vert" />
