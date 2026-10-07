@@ -26,6 +26,8 @@ Général au Numérique (RDC). Interface et documentation **en français** ; ré
 | Recharger la démonstration complète | `npm run demo:reset` (exige `DEMO_MODE=true` dans `backend/.env`) |
 | Tests | `npm test` (base `sig_dep_test`, recréée à chaque lancement) |
 | Construire l’interface | `npm run build` (frontend) |
+| Analyse statique de l’interface | `npm run lint` (frontend) — aucune erreur tolérée |
+| Tests de non-régression de l’interface | `npm run test:e2e` (frontend ; API en mode démonstration démarrée, `LOGIN_RATE_LIMIT_MAX` relevé ; sous Windows, une fois : `npx playwright install chromium`) |
 
 ## Règles impératives
 
@@ -54,10 +56,25 @@ Général au Numérique (RDC). Interface et documentation **en français** ; ré
 6. **Consulter avant d’améliorer** : présenter à l’utilisateur toute amélioration ou tout nouveau
    lot (contenu, rôles, choix) et attendre son accord avant de l’implémenter.
 
+## Refonte de l’interface (en cours)
+
+Plan validé par l’utilisateur, par étapes livrées séparément : 0 filet de sécurité → 1 fondations
+(jetons, formats, badges, boutons) → 2 nouveaux composants → 3 migration des modules récents vers les
+composants communs (Planification, Données, Réunions/Décisions/Agenda, Actes/Cartes, Système) →
+4 navigation → 5 tableaux de bord « À traiter » → 6 accessibilité et responsive → 7 performance.
+Style retenu : **« Bleu État »** conforme à la charte graphique du Gouvernement — menu en bleu
+institutionnel `#17418a` (actif `#115780`, repère jaune du drapeau `#fff24b`), tricolore officiel
+`#0095c9` / `#fff24b` / `#db3832`, en-têtes de tableaux en majuscules, densité soutenue ; **titres en
+Cooper Hewitt** (police de la charte, embarquée), texte courant et tableaux en Source Sans 3.
+Ne jamais casser : renouvellement de session et redirections 401/403/503, première connexion,
+double authentification, inactivité, routeur « données » (protection des saisies), convention
+`dejaSignale` de `runAction`, téléchargements, impression, droits renvoyés par l’API (`actions` /
+`droits`), rang Bureau du BSD, cartes de service et vérification publique.
+
 ## Vérifier avant de publier
 
 1. `npm test` (backend) — tous les tests passent ; ajouter des tests pour toute fonctionnalité.
-2. `npm run build` (frontend) — sans erreur.
+2. `npm run lint` et `npm run build` (frontend) — sans erreur ; `npm run test:e2e` pour toute modification de l’interface.
 3. Essai dans le navigateur des écrans modifiés (comptes de démonstration, mot de passe `Demo@2026`).
 4. Mettre à jour `CHANGELOG.md`, `README.md` et la version (`backend/package.json`,
    `frontend/package.json` et les deux `package-lock.json`).
