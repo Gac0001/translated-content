@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileSpreadsheet, Plus, Upload } from 'lucide-react';
 import api, { download, errorMessage } from '../../lib/api';
-import { useApi, Loadable, PageHeader, Tabs, DataTable, StatusBadge, Card, Modal, Field, InfoAlert, Select, Badge, runAction, toast } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Tabs, useOnglet, DataTable, StatusBadge, Card, Modal, Field, InfoAlert, Select, Badge, runAction, toast } from '../../components/ui';
 import { fmtDate } from '../../lib/format';
 import Indicateurs from './Indicateurs';
 import Tableaux from './Tableaux';
@@ -281,16 +281,17 @@ function Referentiel({ referentiel, reload }) {
   );
 }
 
+const ONGLETS = [{ value: 'annuaire', label: 'Annuaire des acteurs' }, { value: 'campagnes', label: 'Campagnes' }, { value: 'questionnaires', label: 'Questionnaires' }, { value: 'indicateurs', label: 'Indicateurs' }, { value: 'tableaux', label: 'Tableaux croisés' }, { value: 'bulletins', label: 'Bulletins' }, { value: 'referentiel', label: 'Référentiel' }];
+
 /** Données sectorielles : annuaire des acteurs, questionnaires, campagnes de collecte, référentiel. */
 export default function Donnees() {
   const ref = useApi('/donnees/referentiel');
-  const [onglet, setOnglet] = useState(() => { try { return sessionStorage.getItem('donnees.onglet') || 'annuaire'; } catch { return 'annuaire'; } });
-  const choisir = (o) => { setOnglet(o); try { sessionStorage.setItem('donnees.onglet', o); } catch { /* stockage indisponible */ } };
+  const [onglet, choisir] = useOnglet('annuaire', { valeurs: ONGLETS.map((t) => t.value) });
   return (
     <>
       <PageHeader title="Données sectorielles" subtitle="Annuaire des acteurs du numérique, collecte et contrôle de la qualité des données, indicateurs, tableaux croisés et bulletins internes."
         breadcrumb={[{ label: 'Données sectorielles' }]} />
-      <Tabs value={onglet} onChange={choisir} tabs={[{ value: 'annuaire', label: 'Annuaire des acteurs' }, { value: 'campagnes', label: 'Campagnes' }, { value: 'questionnaires', label: 'Questionnaires' }, { value: 'indicateurs', label: 'Indicateurs' }, { value: 'tableaux', label: 'Tableaux croisés' }, { value: 'bulletins', label: 'Bulletins' }, { value: 'referentiel', label: 'Référentiel' }]} />
+      <Tabs value={onglet} onChange={choisir} tabs={ONGLETS} />
       <Loadable state={ref}>
         {(r) => (
           <>

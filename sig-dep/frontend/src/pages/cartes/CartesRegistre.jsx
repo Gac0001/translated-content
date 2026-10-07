@@ -4,7 +4,7 @@ import { IdCard, Printer, Upload, Trash2 } from 'lucide-react';
 import api, { errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { fmtDate, fmtDateTime } from '../../lib/format';
-import { useApi, Loadable, PageHeader, Card, Tabs, DataTable, Badge, InfoAlert, Field, Select, runAction, toast, useConfirm } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, Tabs, useOnglet, DataTable, Badge, InfoAlert, Field, Select, runAction, toast, useConfirm } from '../../components/ui';
 import { ETATS_CARTE, MOTIFS_EMISSION } from './libelles';
 
 const Etat = ({ s }) => <Badge className={ETATS_CARTE[s][1]}>{ETATS_CARTE[s][0]}</Badge>;
@@ -169,7 +169,7 @@ export default function CartesRegistre() {
     { value: 'verifications', label: 'Vérifications publiques' },
     can('cartes.valider') && { value: 'signature', label: 'Ma signature' },
   ].filter(Boolean);
-  const [tab, setTab] = useState('registre');
+  const [tab, setTab] = useOnglet('registre', { valeurs: onglets.map((t) => t.value) });
   return (
     <>
       <PageHeader title="Cartes de service" subtitle="Préparation par le Bureau Secrétariat de Direction, validation par le Directeur, impression, remise et suivi. Validité : 5 ans."

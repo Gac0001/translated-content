@@ -1,16 +1,19 @@
 import { Fragment, useEffect, useId, useMemo, useRef, useState, useCallback, createContext, useContext, cloneElement, isValidElement } from 'react';
 import { Link, useBlocker, useSearchParams } from 'react-router-dom';
 import { create } from 'zustand';
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, ChevronRight, Info, Loader2, Search, X, Inbox, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, ChevronRight, Info, Loader2, MoreHorizontal, Search, X, Inbox, XCircle } from 'lucide-react';
 import api, { errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { STATUTS, STATUTS_FEMININ, PRIORITES, URGENCES, CONFIDENTIALITES, COLORS } from '../../lib/labels';
 import { IconButton } from './Button';
+import { DropdownMenu } from './DropdownMenu';
 import { useFocusTrap, useScrollLock } from './focus';
 
 export { Button, IconButton } from './Button';
 export { DropdownMenu } from './DropdownMenu';
 export { useFocusTrap, useScrollLock } from './focus';
+export { NumberInput, MoneyInput, EditableGrid, FormSection, FormModal, ActionBar, signalerErreur } from './saisie';
+export { SimpleTable, EmptyState, KpiTile, WorkQueue, FilterBar } from './affichage';
 
 // ─── Données ────────────────────────────────────────────────────────────────
 export function useApi(url, deps = []) {
@@ -113,8 +116,15 @@ export function useTitreDocument(titre) {
   }, [titre]);
 }
 
-export function PageHeader({ title, subtitle, breadcrumb = [], actions }) {
+/**
+ * En-tête de page : fil d’Ariane, titre (repris dans l’onglet du navigateur), sous-titre, actions.
+ * actions : boutons toujours visibles (l’action principale) ;
+ * menu : actions secondaires [{ label, icon, onClick, to, danger, disabled }] — boutons sur ordinateur,
+ * regroupées sous « Actions » sur téléphone pour ne pas encombrer l’en-tête.
+ */
+export function PageHeader({ title, subtitle, breadcrumb = [], actions, menu = [] }) {
   useTitreDocument(typeof title === 'string' ? title : null);
+  const secondaires = menu.filter(Boolean);
   return (
     <div className="mb-5">
       {breadcrumb.length > 0 && (
@@ -140,7 +150,25 @@ export function PageHeader({ title, subtitle, breadcrumb = [], actions }) {
           <h1 className="break-words text-xl font-bold leading-tight sm:text-[26px]">{title}</h1>
           {subtitle && <div className="mt-1 text-sm text-slate-600">{subtitle}</div>}
         </div>
-        {actions && <div className="flex flex-wrap items-center gap-2 no-print">{actions}</div>}
+        {(actions || secondaires.length > 0) && (
+          <div className="flex flex-wrap items-center gap-2 no-print">
+            {secondaires.length > 0 && (
+              <>
+                <div className="hidden flex-wrap items-center gap-2 sm:flex">
+                  {secondaires.map((it) => {
+                    const contenu = <>{it.icon && <it.icon size={16} aria-hidden />}{it.label}</>;
+                    const cls = it.danger ? 'btn-danger' : 'btn-secondary';
+                    return it.to && !it.disabled
+                      ? <Link key={it.label} to={it.to} className={cls}>{contenu}</Link>
+                      : <button key={it.label} type="button" className={cls} disabled={it.disabled} onClick={it.onClick}>{contenu}</button>;
+                  })}
+                </div>
+                <div className="sm:hidden"><DropdownMenu label="Actions" icon={MoreHorizontal} items={secondaires} align="left" /></div>
+              </>
+            )}
+            {actions}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -358,10 +386,34 @@ export function Field({ label, error, children, hint, required, className = '', 
   );
 }
 
-/** Onglets : flèches gauche / droite, Début / Fin. */
-export function Tabs({ tabs, value, onChange, label = 'Onglets' }) {
+/**
+ * Onglet courant conservé dans l’URL (`?onglet=…`) : il est retrouvé au retour d’une fiche, au
+ * rechargement et dans un lien partagé. Changer d’onglet efface les autres paramètres (filtres,
+ * recherche, page), propres à l’onglet quitté, sauf ceux de `garder`.
+ * Renvoie [onglet, choisir] ; une valeur inconnue de l’URL ramène au défaut.
+ */
+export function useOnglet(defaut, { cle = 'onglet', valeurs, garder = [] } = {}) {
+  const [params, setParams] = useSearchParams();
+  const brut = params.get(cle);
+  const onglet = brut && (!valeurs || valeurs.includes(brut)) ? brut : defaut;
+  const choisir = (v) => setParams((prev) => {
+    const n = new URLSearchParams();
+    for (const k of garder) if (prev.has(k)) n.set(k, prev.get(k));
+    if (v !== defaut) n.set(cle, v);
+    return n;
+  }, { replace: true });
+  return [onglet, choisir];
+}
+
+/**
+ * Onglets : flèches gauche / droite, Début / Fin. Sur téléphone, au-delà de `compact` onglets
+ * (4 par défaut), la barre est remplacée par une liste déroulante (pas de défilement caché).
+ * tabs : [{ value, label, count? }].
+ */
+export function Tabs({ tabs, value, onChange, label = 'Onglets', compact = 4 }) {
   const refs = useRef({});
   const actif = tabs.some((t) => t.value === value) ? value : tabs[0]?.value;
+  const replie = tabs.length > compact;
   const onKeyDown = (e, i) => {
     const cible = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
     if (cible === undefined) return;
@@ -371,7 +423,15 @@ export function Tabs({ tabs, value, onChange, label = 'Onglets' }) {
     refs.current[t.value]?.focus();
   };
   return (
-    <div className="mb-4 flex gap-1 overflow-x-auto border-b border-slate-200 no-print" role="tablist" aria-label={label}>
+    <>
+      {replie && (
+        <div className="mb-4 sm:hidden no-print">
+          <select className="input font-semibold text-dep-700" value={actif} onChange={(e) => onChange(e.target.value)} aria-label={label}>
+            {tabs.map((t) => <option key={t.value} value={t.value}>{t.label}{t.count ? ` (${t.count})` : ''}</option>)}
+          </select>
+        </div>
+      )}
+    <div className={`mb-4 gap-1 overflow-x-auto border-b border-slate-200 no-print ${replie ? 'hidden sm:flex' : 'flex'}`} role="tablist" aria-label={label}>
       {tabs.map((t, i) => (
         <button key={t.value} ref={(n) => { refs.current[t.value] = n; }} type="button" role="tab" aria-selected={actif === t.value} tabIndex={actif === t.value ? 0 : -1}
           onClick={() => onChange(t.value)} onKeyDown={(e) => onKeyDown(e, i)}
@@ -380,6 +440,7 @@ export function Tabs({ tabs, value, onChange, label = 'Onglets' }) {
         </button>
       ))}
     </div>
+    </>
   );
 }
 

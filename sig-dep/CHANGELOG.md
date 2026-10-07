@@ -1,5 +1,16 @@
 # Journal des versions — SIG-DEP
 
+## 1.22.0
+
+### Refonte de l’interface — étape 2 : nouveaux composants communs
+- **Saisie chiffrée** : `NumberInput` et `MoneyInput` (format français, séparateurs de milliers, virgule décimale, clavier numérique sur téléphone, bornes et décimales contrôlées) ; `EditableGrid`, grille de saisie lignes × colonnes (crédits, plafonds, cibles) avec totaux, alerte par cellule (dépassement de plafond) et passage à la ligne suivante par Entrée ou les flèches.
+- **Formulaires** : `FormModal` (Entrée enregistre, bouton bloqué pendant l’enregistrement, confirmation avant d’abandonner une saisie modifiée, erreur affichée une seule fois), `FormSection` (sections titrées, groupes accessibles), `ActionBar` (barre d’enregistrement collée en bas de l’écran, état de la saisie, protection contre la perte des modifications).
+- **Affichage** : `SimpleTable` (tableaux de chiffres au style commun, lignes de total, première colonne fixe), `EmptyState` (état vide explicatif avec action), `KpiTile` (indicateur clé : évolution favorable ou défavorable, cible et progression), `WorkQueue` (file « À traiter » des tableaux de bord, échéances dépassées en rouge), `FilterBar` (filtres hors tableau avec « Effacer les filtres »).
+- **Onglets dans l’adresse** (`useOnglet`) : l’onglet choisi est retrouvé au retour d’une fiche, au rechargement et dans un lien partagé — Planification, Données sectorielles, Cadre organique, Réunions, Cartes de service, Sécurité, Gouvernance, Sauvegardes, Maintenance. Sur téléphone, au-delà de quatre onglets, une liste déroulante remplace la barre.
+- **En-tête de page** : actions secondaires (`menu`) en boutons sur ordinateur, regroupées sous « Actions » sur téléphone.
+- **Catalogue des composants** (`/composants`, données fictives, sans appel à l’API) : référence pour les écrans à venir et la formation.
+- Tests de l’interface : 30 réussis (dont 4 nouveaux sur les composants et les onglets).
+
 ## 1.21.0
 
 ### Refonte de l’interface — étape 1 : fondations (style « Bleu État »)

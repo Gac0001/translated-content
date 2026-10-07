@@ -5,7 +5,7 @@ import api from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { fmtDateTime } from '../../lib/format';
 import { COLORS, ROLES } from '../../lib/labels';
-import { useApi, Loadable, PageHeader, Card, Tabs, DataTable, Badge, InfoAlert, runAction, useConfirm, Select, Stat, runCritique } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, Tabs, useOnglet, DataTable, Badge, InfoAlert, runAction, useConfirm, Select, Stat, runCritique } from '../../components/ui';
 
 const GRAVITE = {
   CRITIQUE: ['Critique', COLORS.danger],
@@ -211,7 +211,7 @@ export default function Securite() {
     can('systeme.consulter', 'securite.superviser') && { value: 'politique', label: 'Politique' },
     can('securite.superviser') && { value: 'verification', label: 'Vérification' },
   ].filter(Boolean);
-  const [tab, setTab] = useState(tabs[0]?.value);
+  const [tab, setTab] = useOnglet(tabs[0]?.value, { valeurs: tabs.map((t) => t.value) });
   return (
     <>
       <PageHeader title="Sécurité" subtitle="Surveillance des accès, sessions, politique des mots de passe et contrôles de sécurité." breadcrumb={[{ label: 'Administration' }, { label: 'Sécurité' }]}

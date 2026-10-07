@@ -109,6 +109,10 @@ ouvrant une session par rôle. Sous Windows, installez une fois le navigateur de
 `npx playwright install chromium`. Les captures de chaque écran (`frontend/e2e/captures/`, non versionnées)
 servent de comparaison avant / après pendant la refonte de l’interface.
 
+Les composants communs de l’interface (saisie de montants, grilles chiffrées, fenêtres de formulaire,
+tableaux, indicateurs, files « À traiter »…) sont présentés avec des données fictives sur la page
+**Catalogue des composants** (`/composants`, accessible à tout compte connecté, sans lien dans le menu).
+
 ### Démonstration et formation (`DEMO_MODE=true`)
 
 Ajouter `DEMO_MODE=true` dans `backend/.env` (jamais en production : l’API refuse de démarrer), puis

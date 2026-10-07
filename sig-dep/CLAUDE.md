@@ -58,7 +58,7 @@ Général au Numérique (RDC). Interface et documentation **en français** ; ré
 
 ## Refonte de l’interface (en cours)
 
-Plan validé par l’utilisateur, par étapes livrées séparément (0 et 1 livrées en 1.20.1 et 1.21.0) : 0 filet de sécurité → 1 fondations
+Plan validé par l’utilisateur, par étapes livrées séparément (0, 1 et 2 livrées en 1.20.1, 1.21.0 et 1.22.0) : 0 filet de sécurité → 1 fondations
 (jetons, formats, badges, boutons) → 2 nouveaux composants → 3 migration des modules récents vers les
 composants communs (Planification, Données, Réunions/Décisions/Agenda, Actes/Cartes, Système) →
 4 navigation → 5 tableaux de bord « À traiter » → 6 accessibilité et responsive → 7 performance.
@@ -66,6 +66,12 @@ Style retenu : **« Bleu État »** conforme à la charte graphique du Gouvernem
 institutionnel `#17418a` (actif `#115780`, repère jaune du drapeau `#fff24b`), tricolore officiel
 `#0095c9` / `#fff24b` / `#db3832`, en-têtes de tableaux en majuscules, densité soutenue ; **titres en
 Cooper Hewitt** (police de la charte, embarquée ; classe `font-display`), texte courant et tableaux en Source Sans 3.
+Composants à employer pour tout écran nouveau ou repris (catalogue vivant : page `/composants`) :
+`NumberInput` / `MoneyInput` pour les nombres et montants, `EditableGrid` pour les grilles chiffrées,
+`FormModal` + `FormSection` pour les fenêtres de saisie, `ActionBar` pour les formulaires de page,
+`SimpleTable` pour les tableaux sans recherche (jamais de `<table>` brute), `EmptyState`, `KpiTile`,
+`WorkQueue`, `FilterBar`, onglets par `useOnglet` (dans l’adresse), actions secondaires par `menu` de
+`PageHeader` ; formats par `lib/format.js` uniquement.
 Ne jamais casser : renouvellement de session et redirections 401/403/503, première connexion,
 double authentification, inactivité, routeur « données » (protection des saisies), convention
 `dejaSignale` de `runAction`, téléchargements, impression, droits renvoyés par l’API (`actions` /

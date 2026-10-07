@@ -68,6 +68,7 @@ const PipList = p(() => import('./pages/pip/PipList'));
 const PipForm = p(() => import('./pages/pip/PipForm'));
 const PipDetail = p(() => import('./pages/pip/PipDetail'));
 const Notifications = p(() => import('./pages/Notifications'));
+const Composants = p(() => import('./pages/Composants'));
 const Audit = p(() => import('./pages/systeme/Audit'));
 const Systeme = p(() => import('./pages/systeme/Systeme'));
 const Securite = p(() => import('./pages/systeme/Securite'));
@@ -198,6 +199,7 @@ export default function App() {
             <Route path="pip/:id" element={G(['pip.consulter'], <PipDetail />)} />
             <Route path="pip/:id/modifier" element={G(['pip.rediger'], <PipForm />)} />
             <Route path="notifications" element={<Notifications />} />
+            <Route path="composants" element={<Composants />} />
             <Route path="audit" element={G(['audit.consulter'], <Audit />)} />
             <Route path="rapports" element={G(['rapports.consulter'], <Rapports />)} />
             <Route path="systeme" element={G(['systeme.consulter', 'systeme.configurer'], <Systeme />)} />

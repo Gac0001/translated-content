@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle2, Power, Send, XCircle } from 'lucide-react'
 import api from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { fmtDateTime } from '../../lib/format';
-import { useApi, Loadable, PageHeader, Card, Tabs, DataTable, Badge, InfoAlert, runAction, useConfirm, runCritique } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, Tabs, useOnglet, DataTable, Badge, InfoAlert, runAction, useConfirm, runCritique } from '../../components/ui';
 
 function ModeMaintenance() {
   const state = useApi('/maintenance');
@@ -114,7 +114,7 @@ function Environnement() {
 }
 
 export default function Maintenance() {
-  const [tab, setTab] = useState('mode');
+  const [tab, setTab] = useOnglet('mode', { valeurs: ['mode', 'annonces', 'migrations', 'env'] });
   return (
     <>
       <PageHeader title="Maintenance" subtitle="Mode maintenance, annonces aux utilisateurs, migrations de la base et paramètres d’environnement." breadcrumb={[{ label: 'Administration' }, { label: 'Maintenance' }]} />

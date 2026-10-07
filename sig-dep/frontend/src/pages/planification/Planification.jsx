@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FileSpreadsheet, Plus, Upload } from 'lucide-react';
 import api, { download, errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
-import { useApi, Loadable, PageHeader, Tabs, DataTable, StatusBadge, Card, Modal, Field, InfoAlert, Stat, Progress, runAction, toast, Empty } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Tabs, useOnglet, DataTable, StatusBadge, Card, Modal, Field, InfoAlert, Stat, Progress, runAction, toast, Empty } from '../../components/ui';
 
 import Performance from './Performance';
 import Credits from './Credits';
@@ -194,10 +194,12 @@ function Referentiel({ referentiel, reload }) {
   );
 }
 
+const ONGLETS = [{ value: 'ptba', label: 'PTBA' }, { value: 'execution', label: 'Exécution' }, { value: 'performance', label: 'Performance' }, { value: 'credits', label: 'Crédits' }, { value: 'documents', label: 'CBMT · PAP · RAP · CDMT' }, { value: 'banque', label: 'Banque des projets' }, { value: 'risques', label: 'Risques' }, { value: 'referentiel', label: 'Référentiel' }];
+
 /** Planification : PTBA, exécution, performance, crédits, PAP/RAP/CDMT, banque des projets, risques, référentiel. */
 export default function Planification() {
   const ref = useApi('/planification/referentiel');
-  const [onglet, setOnglet] = useState('ptba');
+  const [onglet, setOnglet] = useOnglet('ptba', { valeurs: ONGLETS.map((t) => t.value) });
   const [annee, setAnnee] = useState(null);
   useEffect(() => { if (ref.data && !annee) setAnnee(ref.data.exercices[0]?.annee || new Date().getFullYear()); }, [ref.data, annee]);
   return (
@@ -205,7 +207,7 @@ export default function Planification() {
       <PageHeader title="Planification" subtitle="PTBA des services du Ministère, cadre de performance, crédits, documents de programmation (PAP, RAP, CDMT), banque des projets et risques."
         breadcrumb={[{ label: 'Planification' }]}
         actions={ref.data?.exercices.length > 0 && <select className="input w-32" value={annee || ''} onChange={(e) => setAnnee(Number(e.target.value))} aria-label="Exercice">{ref.data.exercices.map((e) => <option key={e.id} value={e.annee}>{e.annee}</option>)}</select>} />
-      <Tabs value={onglet} onChange={setOnglet} tabs={[{ value: 'ptba', label: 'PTBA' }, { value: 'execution', label: 'Exécution' }, { value: 'performance', label: 'Performance' }, { value: 'credits', label: 'Crédits' }, { value: 'documents', label: 'CBMT · PAP · RAP · CDMT' }, { value: 'banque', label: 'Banque des projets' }, { value: 'risques', label: 'Risques' }, { value: 'referentiel', label: 'Référentiel' }]} />
+      <Tabs value={onglet} onChange={setOnglet} tabs={ONGLETS} />
       <Loadable state={ref}>
         {(r) => (
           <>

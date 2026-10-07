@@ -3,7 +3,7 @@ import { KeyRound, Lock, LockOpen } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { fmtDateTime } from '../../lib/format';
-import { useApi, Loadable, PageHeader, Card, Tabs, DataTable, Badge, Modal, Field, InfoAlert, runAction } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, Tabs, useOnglet, DataTable, Badge, Modal, Field, InfoAlert, runAction } from '../../components/ui';
 
 const ETATS = {
   EN_ATTENTE: ['En attente du Directeur', 'bg-amber-50 text-amber-800 ring-amber-200'],
@@ -192,7 +192,7 @@ export default function Gouvernance() {
     (can('acces_support.demander') || can('acces_support.valider')) && { value: 'support', label: 'Accès de support' },
     (can('urgence.activer') || can('urgence.desactiver')) && { value: 'urgence', label: 'Compte d’urgence' },
   ].filter(Boolean);
-  const [tab, setTab] = useState(onglets[0]?.value);
+  const [tab, setTab] = useOnglet(onglets[0]?.value, { valeurs: onglets.map((t) => t.value) });
   return (
     <>
       <PageHeader title="Gouvernance" subtitle="Contrôle des pouvoirs techniques : aucune opération critique, aucun accès aux pièces et aucun compte d’urgence sans décision du Directeur ou du Secrétaire Général."

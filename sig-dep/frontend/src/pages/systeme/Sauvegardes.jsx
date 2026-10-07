@@ -4,7 +4,7 @@ import { DatabaseBackup, Download, FlaskConical, History, Lock, LockOpen, Save, 
 import api, { download, errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { fmtDateTime, fmtTaille } from '../../lib/format';
-import { useApi, Loadable, PageHeader, Card, DataTable, Badge, Stat, InfoAlert, runAction, toast, useConfirm, Tabs, Modal } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, DataTable, Badge, Stat, InfoAlert, runAction, toast, useConfirm, Tabs, useOnglet, Modal } from '../../components/ui';
 
 const ORIGINES = { MANUELLE: 'Manuelle', PROGRAMMEE: 'Programmée', AVANT_REINITIALISATION: 'Avant réinitialisation', AVANT_RESTAURATION: 'Avant restauration', AVANT_MIGRATION: 'Avant migration' };
 const PALIERS = { QUOTIDIENNE: 'Quotidienne', HEBDOMADAIRE: 'Hebdomadaire', MENSUELLE: 'Mensuelle' };
@@ -63,7 +63,7 @@ export default function Sauvegardes() {
   const state = useApi('/sauvegardes');
   const can = useAuth((s) => s.can);
   const confirm = useConfirm();
-  const [tab, setTab] = useState('sauvegardes');
+  const [tab, setTab] = useOnglet('sauvegardes', { valeurs: ['sauvegardes', 'verifications', 'registre', 'planification'] });
   const [busy, setBusy] = useState(null);
   const [demande, setDemande] = useState(null);
   const agir = async (cle, fn, msg) => { setBusy(cle); try { const r = await runAction(fn, msg); state.reload(); return r; } catch { return null; } finally { setBusy(null); } };

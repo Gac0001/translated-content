@@ -1,14 +1,13 @@
-import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import { useApi, Loadable, PageHeader, DataTable, StatusBadge, Badge, Tabs } from '../../components/ui';
+import { useApi, Loadable, PageHeader, DataTable, StatusBadge, Badge, Tabs, useOnglet } from '../../components/ui';
 import { fmtDateTime } from '../../lib/format';
 
 export const NIVEAUX_REUNION = { DIRECTION: 'Direction', DIVISION: 'Division', BUREAU: 'Bureau' };
 
 /** Réunions auxquelles on prend part et réunions de son périmètre. */
 export default function ReunionsList() {
-  const [periode, setPeriode] = useState('a_venir');
+  const [periode, setPeriode] = useOnglet('a_venir', { cle: 'periode', valeurs: ['a_venir', 'passees', 'toutes'] });
   const state = useApi(`/reunions?periode=${periode}`, [periode]);
   const navigate = useNavigate();
   return (
