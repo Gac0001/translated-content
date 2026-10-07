@@ -153,9 +153,10 @@ export default function AppLayout() {
   const { remaining, prolonger } = useInactivity(() => logout('inactivite'), user.sessionInactiviteMinutes);
   // Bandeau « maintenance active » (visible des Admins Système, seuls à garder l’accès)
   const [maintenanceActive, setMaintenanceActive] = useState(null);
+  const [modeDemo, setModeDemo] = useState(false);
   useEffect(() => {
     let vivant = true;
-    const lire = () => api.get('/statut-public').then((r) => vivant && setMaintenanceActive(r.data.maintenance.active ? r.data.maintenance : null)).catch(() => {});
+    const lire = () => api.get('/statut-public').then((r) => { if (!vivant) return; setMaintenanceActive(r.data.maintenance.active ? r.data.maintenance : null); setModeDemo(!!r.data.demo); }).catch(() => {});
     lire();
     const t = setInterval(lire, 60000);
     return () => { vivant = false; clearInterval(t); };
@@ -234,6 +235,9 @@ export default function AppLayout() {
           <div className="text-xs uppercase">{SG_NOM}</div>
           <div className="text-sm font-bold uppercase text-dep-800">{DEP_NOM} (DEP)</div>
         </div>
+        {modeDemo && (
+          <div className="bg-amber-300 px-4 py-1 text-center text-xs font-semibold uppercase tracking-wide text-amber-950 no-print" role="status">Environnement de démonstration et de formation — données fictives</div>
+        )}
         {maintenanceActive && (
           <div className="flex flex-wrap items-center gap-2 bg-amber-100 px-4 py-2 text-sm text-amber-900 no-print" role="status">
             <Wrench size={16} /> <b>Mode maintenance actif</b> — seuls les Admins Système accèdent à l’application. {maintenanceActive.message}

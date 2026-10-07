@@ -1,0 +1,6 @@
+# Fins de ligne : scripts Unix en LF quel que soit le poste (Windows compris)
+*.sh text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.json text eol=lf
+*.md text eol=lf

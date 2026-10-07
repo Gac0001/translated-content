@@ -24,14 +24,35 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
-if (!config.isTest) app.use(morgan(config.isProd ? 'combined' : 'dev'));
+if (!config.isTest && !process.env.SIG_DEP_SILENCIEUX) app.use(morgan(config.isProd ? 'combined' : 'dev'));
 
 app.get('/api/health', (req, res) => res.json({ statut: 'ok', application: 'SIG-DEP', direction: DEP_NOM }));
 // Statut public (page de connexion, page de maintenance) : aucun détail technique
 app.get('/api/statut-public', async (req, res) => {
   const m = await require('./services/maintenance').etat();
-  res.json({ maintenance: { active: m.active, message: m.active ? m.message : '', fin: m.active ? m.fin : '' } });
+  res.json({ maintenance: { active: m.active, message: m.active ? m.message : '', fin: m.active ? m.fin : '' }, demo: config.demo });
 });
+
+// Mode démonstration (DEMO_MODE=true, jamais en production) : comptes et code de double authentification
+if (config.demo) {
+  app.get('/api/demo', async (req, res) => {
+    const demo = require('./services/demo');
+    const db = require('./db/knex');
+    const { loadAllNodes } = require('./services/hierarchy');
+    const ordre = ['DIRECTEUR', 'CHEF_DIVISION', 'CHEF_BUREAU', 'AGENT'];
+    const nodes = (await loadAllNodes()).filter((n) => n.node && ordre.includes(n.primaryRole)).sort((a, b) => ordre.indexOf(a.primaryRole) - ordre.indexOf(b.primaryRole) || String(a.structure).localeCompare(String(b.structure)));
+    const autres = await db('users as u').join('user_roles as ur', 'ur.user_id', 'u.id').join('roles as r', 'r.id', 'ur.role_id').leftJoin('agents as a', 'a.id', 'u.agent_id')
+      .whereIn('r.code', ['SECRETAIRE_GENERAL', 'ADMIN_SYSTEME']).where('u.statut', 'ACTIF').select('u.username', 'r.code', 'r.libelle', db.raw(`concat_ws(' ', a.prenom, a.nom) as nom`));
+    res.json({
+      demo: true, motDePasse: demo.MOT_DE_PASSE, code: demo.codeActuel(), secondes: demo.secondesRestantes(),
+      comptes: [
+        ...autres.filter((u) => u.code === 'SECRETAIRE_GENERAL').map((u) => ({ username: u.username, nom: u.nom || 'Secrétaire Général', fonction: u.libelle, structure: 'Secrétariat Général', deuxFacteurs: true })),
+        ...nodes.map((n) => ({ username: n.username, nom: n.nomComplet, fonction: n.roleLibelle, structure: n.structure, deuxFacteurs: demo.ROLES_RENFORCES.includes(n.primaryRole) })),
+        ...autres.filter((u) => u.code === 'ADMIN_SYSTEME').map((u) => ({ username: u.username, nom: 'Administrateur Système', fonction: u.libelle, structure: 'Administration technique', deuxFacteurs: true })),
+      ],
+    });
+  });
+}
 
 // Vérification publique des cartes de service (QR code ou matricule), sans authentification
 app.use('/api/public/cartes', require('./modules/cartes/public'));

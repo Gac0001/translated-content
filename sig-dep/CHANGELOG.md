@@ -1,5 +1,14 @@
 # Journal des versions — SIG-DEP
 
+## 1.19.0
+
+### Démonstration et formation ; travail commun poste local et cloud
+- **Mode démonstration** (`DEMO_MODE=true`, refusé en production) : bandeau « Environnement de démonstration — données fictives » ; page de connexion listant les comptes par fonction (un clic remplit l’identifiant et le mot de passe) ; double authentification du Directeur, du Secrétaire Général et de l’Admin conservée mais avec un code de démonstration affiché et saisi d’un clic ; étapes de première connexion déjà accomplies pour ces comptes.
+- **Scénario de démonstration complet** (`npm run demo:reset`), joué au travers de l’API et donc de toutes les règles métier, dates recalculées au jour du chargement : réunion de coordination tenue avec compte rendu et décisions (instruction, exécution), réunions convoquées, agenda du Directeur, demandes du Secrétaire Général, programmes et services, PTBA validé avec suivi d’exécution et PTBA soumis, cadre de performance, crédits, PAP, RAP validé, CDMT, banque des projets, risques, annuaire de 12 acteurs, questionnaire, trois campagnes (dont une ouverte avec réponses à contrôler et un brouillon en erreur), indicateurs, bulletin diffusé et baromètre à viser.
+- **Guides** : `docs/GUIDE-DEMONSTRATION.md` (préparation et scénario de présentation de 45 minutes) et `docs/FORMATION.md` (plan de formation par rôle avec exercices).
+- **Mise à jour d’une copie locale** (`npm run mise-a-jour`, Windows/Linux/macOS) : vérification des modifications locales, récupération en avance rapide uniquement, dépendances, nouvelles variables de `.env.example`, migrations ; options `--demo` et `--tests`.
+- **`CLAUDE.md`** : consignes communes aux sessions Claude Code du poste local et du cloud (structure, commandes, règles de confidentialité, cadre organique, migrations, circuits, vérifications, usage de Git) ; `.gitattributes` pour des fins de ligne identiques sous Windows.
+
 ## 1.18.0
 
 ### Lot 10B — Données sectorielles : exploitation (cahier des charges, § 26)

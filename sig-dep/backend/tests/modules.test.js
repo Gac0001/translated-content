@@ -284,3 +284,17 @@ describe('Journal d’audit — sérialisation', () => {
     expect(rows.length).toBeGreaterThan(0);
   });
 });
+
+describe('Mode démonstration', () => {
+  test('désactivé hors démonstration : aucun compte ni code exposé', async () => {
+    const { app, request } = require('./helpers');
+    expect((await request(app).get('/api/demo')).status).toBe(404);
+    expect((await request(app).get('/api/statut-public')).body.demo).toBe(false);
+  });
+  test('code de démonstration conforme au secret partagé', () => {
+    const { authenticator } = require('otplib');
+    const demo = require('../src/services/demo');
+    expect(demo.codeActuel()).toBe(authenticator.generate(demo.SECRET_DEMO));
+    expect(demo.codeActuel()).toMatch(/^\d{6}$/);
+  });
+});

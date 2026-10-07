@@ -37,6 +37,9 @@ const config = {
   maxUploadBytes: Number(process.env.MAX_UPLOAD_MB || 15) * 1024 * 1024,
   presenceAutolockHours: Number(process.env.PRESENCE_AUTOLOCK_HOURS || 24),
   seedDemo: process.env.SEED_DEMO !== 'false',
+  // Mode démonstration (présentation, formation) : bandeau, comptes affichés à la connexion,
+  // double authentification par code connu. Interdit en production.
+  demo: process.env.DEMO_MODE === 'true',
   pgDumpPath: process.env.PG_DUMP_PATH || 'pg_dump',
   pgRestorePath: process.env.PG_RESTORE_PATH || 'pg_restore',
   // Copie de chaque sauvegarde hors du serveur (disque externe, partage réseau) — vide : aucune copie
@@ -63,6 +66,10 @@ const config = {
 
 if (config.isProd && /remplacer-par/.test(config.jwt.accessSecret)) {
   throw new Error('JWT_ACCESS_SECRET doit être défini avec une valeur secrète en production.');
+}
+
+if (config.isProd && config.demo) {
+  throw new Error('DEMO_MODE est interdit en production : il affiche les comptes et le code de double authentification de démonstration.');
 }
 
 module.exports = config;

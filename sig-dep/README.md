@@ -80,6 +80,29 @@ Le compte `admin` porte le rôle **Admin Système** (`ADMIN_SYSTEME`, périmètr
 
 Ensuite, chaque connexion demande le mot de passe **puis** le code de l’application (ou un code de secours). « Mot de passe oublié ? » envoie un code à l’adresse de récupération vérifiée ; le second facteur est aussi exigé. En dernier recours : `npm run reset-admin` sur le serveur.
 
+### Mettre à jour une copie existante (poste local)
+
+Depuis `backend` (Git Bash ou PowerShell) :
+
+```bash
+npm run mise-a-jour              # git (fast-forward), dépendances, nouvelles variables .env, migrations
+npm run mise-a-jour -- --demo    # … puis recharge la démonstration complète
+npm run mise-a-jour -- --tests   # … puis lance les tests
+```
+
+Le script s’arrête sans rien modifier si des modifications locales ne sont pas enregistrées, ou si la
+branche locale a divergé (commits non publiés). Les consignes communes aux sessions Claude Code
+(poste local et cloud) sont dans `CLAUDE.md`.
+
+### Démonstration et formation (`DEMO_MODE=true`)
+
+Ajouter `DEMO_MODE=true` dans `backend/.env` (jamais en production : l’API refuse de démarrer), puis
+`npm run demo:reset` : la base est rechargée avec un scénario complet et fictif (réunions, PTBA,
+programmation, données sectorielles…), dates recalculées au jour même. La page de connexion liste
+alors les comptes et affiche le code de double authentification du Directeur, du Secrétaire Général
+et de l’Admin ; un bandeau signale l’environnement de démonstration. Voir
+`docs/GUIDE-DEMONSTRATION.md` (scénario de présentation) et `docs/FORMATION.md` (formation par rôle).
+
 ### Comptes de démonstration (`SEED_DEMO=true`)
 
 Mot de passe commun : **`Demo@2026`**. Désactivez-les en production avec `SEED_DEMO=false` avant `npm run seed`.
@@ -94,7 +117,7 @@ Mot de passe commun : **`Demo@2026`**. Désactivez-les en production avec `SEED_
 | `cb.eap`, `cb.doi`, `cb.str`, `cb.coi`, `cb.prg`, `cb.sev` | Chef de Bureau | Bureaux des Divisions |
 | `ag.eap1`, `ag.eap2`, `ag.doi1`, … `ag.sev2` | Agent | Bureaux des Divisions |
 
-Les comptes **`directeur`** et **`sg`** configurent leur **double authentification** à la première connexion (application d’authentification sur téléphone, adresse de récupération, règles de sécurité), comme l’Admin Système.
+Les comptes **`directeur`** et **`sg`** configurent leur **double authentification** à la première connexion (application d’authentification sur téléphone, adresse de récupération, règles de sécurité), comme l’Admin Système — sauf en mode démonstration, où ces étapes sont déjà faites et le code est affiché sur la page de connexion.
 
 La liste déclarative de démonstration est **déjà validée** par le Directeur. Trois agents fictifs y figurent **sans compte**, pour essayer l’enrôlement : un agent du Bureau Secrétariat de Direction (enrôlable par l’Admin), un agent du Bureau Stratégies et un agent sans affectation (enrôlables par le Secrétariat).
 

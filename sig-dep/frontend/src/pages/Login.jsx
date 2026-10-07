@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, KeyRound, LogIn, Loader2, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, KeyRound, LogIn, Loader2, Eye, EyeOff, ShieldCheck, Presentation } from 'lucide-react';
 import api, { errorMessage } from '../lib/api';
 import { useAuth } from '../store/auth';
 import { DEP_NOM, SG_NOM } from '../lib/labels';
@@ -15,8 +15,41 @@ const schema = z.object({
   password: z.string().min(1, 'Saisissez votre mot de passe.'),
 });
 
+/** Démonstration : informations publiques (comptes fictifs, code de double authentification courant). */
+function useDemo(actif) {
+  const [d, setD] = useState(null);
+  useEffect(() => {
+    if (!actif) return undefined;
+    const lire = () => api.get('/demo').then((r) => setD(r.data)).catch(() => setD(null));
+    lire();
+    const t = setInterval(lire, 5000);
+    return () => clearInterval(t);
+  }, [actif]);
+  return d;
+}
+
+/** Démonstration : comptes fictifs par fonction ; un clic remplit le formulaire. */
+function ComptesDemo({ demo, onChoisir }) {
+  const [tous, setTous] = useState(false);
+  // Comptes du scénario de démonstration (circuits complets), dans l’ordre de la présentation
+  const principaux = ['sg', 'directeur', 'cb.secretariat', 'cd.ps', 'cb.prg', 'ag.prg1', 'cb.sev', 'ag.sev1', 'cd.edi', 'cb.eap', 'ag.doi1', 'admin'];
+  const comptes = tous ? demo.comptes : principaux.map((u) => demo.comptes.find((c) => c.username === u)).filter(Boolean);
+  return (
+    <div className="card mt-4 p-4 text-sm">
+      <h2 className="mb-1 flex items-center gap-2 font-semibold"><Presentation size={16} className="text-dep-700" /> Démonstration — comptes fictifs</h2>
+      <p className="mb-2 text-xs text-slate-600">Mot de passe : <b className="font-mono">{demo.motDePasse}</b>. Code de double authentification (Directeur, Secrétaire Général, Admin) : <b className="font-mono text-base tracking-widest text-dep-800">{demo.code}</b> <span className="text-slate-500">({demo.secondes} s)</span></p>
+      <ul className="max-h-64 divide-y overflow-y-auto">{comptes.map((c) => (
+        <li key={c.username}><button type="button" className="flex w-full items-baseline justify-between gap-2 py-1 text-left hover:bg-slate-50" onClick={() => onChoisir(c.username)}>
+          <span><span className="font-medium">{c.fonction}</span> <span className="text-xs text-slate-500">{c.structure}</span></span><span className="font-mono text-xs text-dep-700">{c.username}</span>
+        </button></li>
+      ))}</ul>
+      <button type="button" className="mt-2 text-xs link" onClick={() => setTous((v) => !v)}>{tous ? 'Afficher les principaux comptes' : `Afficher les ${demo.comptes.length} comptes`}</button>
+    </div>
+  );
+}
+
 /** Second facteur : code de l’application, ou code de secours. */
-function SecondFacteur({ defi, onSession, onAnnuler }) {
+function SecondFacteur({ defi, onSession, onAnnuler, demo }) {
   const [secours, setSecours] = useState(false);
   const [code, setCode] = useState('');
   const [error, setError] = useState(null);
@@ -32,6 +65,7 @@ function SecondFacteur({ defi, onSession, onAnnuler }) {
     <form onSubmit={valider} className="card space-y-4 p-6" noValidate>
       <h2 className="flex items-center gap-2 text-lg font-semibold"><ShieldCheck size={20} className="text-dep-700" /> Double authentification</h2>
       <ErrorAlert message={error} />
+      {demo && !secours && <InfoAlert>Démonstration : code courant <button type="button" className="font-mono font-semibold tracking-widest underline" onClick={() => setCode(demo.code)}>{demo.code}</button> (cliquez pour le saisir).</InfoAlert>}
       <p className="text-sm text-slate-600">{secours ? 'Saisissez l’un de vos codes de secours (format XXXX-XXXX). Il ne pourra plus être réutilisé.' : 'Saisissez le code à 6 chiffres affiché par votre application d’authentification.'}</p>
       <div>
         <label className="label" htmlFor="code">{secours ? 'Code de secours' : 'Code de vérification'}</label>
@@ -96,7 +130,7 @@ function Recuperation({ onFin }) {
 }
 
 export default function Login() {
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(schema) });
+  const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(schema) });
   const [error, setError] = useState(null);
   const [info, setInfo] = useState(null);
   const [show, setShow] = useState(false);
@@ -104,7 +138,9 @@ export default function Login() {
   const [recup, setRecup] = useState(false);
   const setSession = useAuth((s) => s.setSession);
   const [maintenance, setMaintenance] = useState(null);
-  useEffect(() => { api.get('/statut-public').then((r) => setMaintenance(r.data.maintenance.active ? r.data.maintenance : null)).catch(() => {}); }, []);
+  const [modeDemo, setModeDemo] = useState(false);
+  useEffect(() => { api.get('/statut-public').then((r) => { setMaintenance(r.data.maintenance.active ? r.data.maintenance : null); setModeDemo(!!r.data.demo); }).catch(() => {}); }, []);
+  const demo = useDemo(modeDemo);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -124,7 +160,7 @@ export default function Login() {
   };
 
   let contenu;
-  if (defi) contenu = <SecondFacteur defi={defi} onSession={ouvrir} onAnnuler={() => setDefi(null)} />;
+  if (defi) contenu = <SecondFacteur defi={defi} demo={demo} onSession={ouvrir} onAnnuler={() => setDefi(null)} />;
   else if (recup) contenu = <Recuperation onFin={(m) => { setRecup(false); setInfo(m); }} />;
   else {
     contenu = (
@@ -166,8 +202,10 @@ export default function Login() {
             <div className="mt-1 text-sm text-dep-100">{SG_NOM}</div>
             <h1 className="mt-3 text-2xl font-semibold text-white">{DEP_NOM}</h1>
             <div className="mt-1 text-sm text-dep-200">SIG-DEP — Système Intégré de Gestion</div>
+            {modeDemo && <div className="mt-3 inline-block rounded-full bg-amber-300 px-3 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-950">Environnement de démonstration — données fictives</div>}
           </header>
           {contenu}
+          {demo && !defi && !recup && <ComptesDemo demo={demo} onChoisir={(u) => { setValue('username', u); setValue('password', demo.motDePasse); }} />}
         </div>
       </main>
     </div>
