@@ -37,6 +37,11 @@ const Agenda = p(() => import('./pages/agenda/Agenda'));
 const Planification = p(() => import('./pages/planification/Planification'));
 const PtbaDetail = p(() => import('./pages/planification/PtbaDetail'));
 const PlanDocument = p(() => import('./pages/planification/PlanDocument'));
+const Donnees = p(() => import('./pages/donnees/Donnees'));
+const ActeurDetail = p(() => import('./pages/donnees/ActeurDetail'));
+const QuestionnaireDetail = p(() => import('./pages/donnees/QuestionnaireDetail'));
+const CampagneDetail = p(() => import('./pages/donnees/CampagneDetail'));
+const ReponseSaisie = p(() => import('./pages/donnees/ReponseSaisie'));
 const DemandeDetail = p(() => import('./pages/demandes/DemandeDetail'));
 const ActeForm = p(() => import('./pages/actes/ActeForm'));
 const ActeDetail = p(() => import('./pages/actes/ActeDetail'));
@@ -155,6 +160,11 @@ export default function App() {
             <Route path="planification" element={G(['planification.consulter'], <Planification />)} />
             <Route path="planification/ptba/:id" element={G(['planification.consulter'], <PtbaDetail />)} />
             <Route path="planification/documents/:id" element={G(['planification.consulter'], <PlanDocument />)} />
+            <Route path="donnees" element={G(['donnees.consulter'], <Donnees />)} />
+            <Route path="donnees/acteurs/:id" element={G(['donnees.consulter'], <ActeurDetail />)} />
+            <Route path="donnees/questionnaires/:id" element={G(['donnees.consulter'], <QuestionnaireDetail />)} />
+            <Route path="donnees/campagnes/:id" element={G(['donnees.consulter'], <CampagneDetail />)} />
+            <Route path="donnees/campagnes/:id/reponses/:acteur" element={G(['donnees.consulter'], <ReponseSaisie />)} />
             <Route path="agenda" element={G(['agenda.consulter'], <Agenda />)} />
             <Route path="demandes-information" element={G(['demandes_info.emettre', 'demandes_info.repondre'], <DemandesList />)} />
             <Route path="demandes-information/:id" element={G(['demandes_info.emettre', 'demandes_info.repondre'], <DemandeDetail />)} />

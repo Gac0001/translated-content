@@ -134,6 +134,11 @@ const LOADERS = {
     table: 'ptba as p', alias: 'p', scope: (qb, ctx) => (ctx.can('planification.consulter') ? (ctx.perimetre === 'SUPERVISION_GLOBALE' ? qb.where('p.statut', 'VALIDE') : qb) : qb.whereRaw('false')),
     writers: (r) => [r.prepare_par, r.detenteur_user_id],
   },
+  // Données sectorielles : source reçue (formulaire, fichier, courriel), jointe pendant la saisie
+  REPONSE_SECT: {
+    table: 'sect_reponses as x', alias: 'x', scope: (qb, ctx) => (ctx.can('donnees.consulter') && ctx.perimetre !== 'SUPERVISION_GLOBALE' ? qb : qb.whereRaw('false')),
+    writers: (r) => (['BROUILLON', 'A_CORRIGER'].includes(r.statut) ? [r.saisi_par] : []), strict: true,
+  },
   // Demandes d’information du SG : pièces jointes par le SG (question) ou le Directeur (réponse)
   DEMANDE_INFO: {
     table: 'demandes_information as x', alias: 'x', scope: (qb, ctx) => require('../modules/demandesInformation/routes').scopeDemandes(qb, ctx),

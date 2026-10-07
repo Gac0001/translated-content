@@ -28,6 +28,7 @@ const TYPES = {
   DECISION: 'Décision',
   AGENDA: 'Agenda du Directeur',
   PTBA: 'Plan de travail annuel budgétisé',
+  DONNEES: 'Données sectorielles',
 };
 
 /**

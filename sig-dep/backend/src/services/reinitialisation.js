@@ -22,6 +22,8 @@ const CONSERVEES = [
   'modeles_carte', 'verifications_carte',
   // Maquette programmatique et services du Ministère (référentiel de la planification)
   'plan_programmes', 'plan_actions', 'plan_services', 'plan_postes_budgetaires',
+  // Provinces et catégories d’acteurs (référentiel des données sectorielles)
+  'sect_zones', 'sect_categories',
 ];
 
 async function volumes(trx = db) {

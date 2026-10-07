@@ -136,6 +136,22 @@ async function loadContext(userId, trx = db) {
       permissions.add('planification.referentiel');
       permissions.add('ptba.suivre');
     }
+    // Données sectorielles : le Bureau Études, Analyses et Prospective conçoit les questionnaires et
+    // organise les campagnes ; le Bureau Documentation et Information tient l’annuaire et contrôle
+    // les réponses ; tous deux saisissent ; le Chef de la Division Études, Documentation et
+    // Information valide les campagnes.
+    if (aff.bureau_code === 'BUR-EAP') {
+      permissions.add('donnees.questionnaires');
+      permissions.add('donnees.saisir');
+    }
+    if (aff.bureau_code === 'BUR-DOI') {
+      permissions.add('donnees.annuaire');
+      permissions.add('donnees.saisir');
+      permissions.add('donnees.controler');
+    }
+    if (primaryRole === 'CHEF_DIVISION' && perimetre === PERIMETRES.DIVISION && aff.division_code === 'DIV-EDI') {
+      for (const p of ['donnees.annuaire', 'donnees.questionnaires', 'donnees.saisir', 'donnees.controler', 'donnees.valider']) permissions.add(p);
+    }
   }
   // Un rôle Chef de Division sans affectation de Division ne confère pas les permissions de Division.
   if (primaryRole === 'CHEF_DIVISION' && perimetre !== PERIMETRES.DIVISION) {

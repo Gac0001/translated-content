@@ -1,5 +1,17 @@
 # Journal des versions — SIG-DEP
 
+## 1.17.0
+
+### Lot 10A — Données sectorielles : collecte et annuaire (cahier des charges, § 26)
+- **Référentiel** : les 26 provinces et 13 catégories d’acteurs du numérique (opérateurs, fournisseurs d’accès, centres de données, éditeurs, services financiers numériques…), modifiables par le Bureau Documentation et Information.
+- **Annuaire des acteurs** : identification (raison sociale, sigle, forme juridique, RCCM, identification nationale, n° impôt), province, ville, coordonnées, responsable, effectif, statut (actif, suspendu, cessé). **Aucun doublon** : même RCCM, même identification nationale ou même raison sociale dans une province refusés en base. Chaque modification est historisée (champs modifiés, valeurs avant et après).
+- **Import contrôlé** depuis le modèle Excel fourni (listes déroulantes des catégories et provinces) : chaque ligne est classée nouvelle, doublon (annuaire ou fichier) ou en erreur avant confirmation ; seules les lignes nouvelles retenues sont importées. Export de l’annuaire au même format.
+- **Questionnaires configurables et versionnés** : questions numériques, texte, choix unique ou multiple, date, oui/non ; obligatoires, bornes, unités, sections, aide à la saisie ; contrôles de cohérence entre questions. Une version publiée est **figée en base** ; une nouvelle version reprend la précédente.
+- **Campagnes de collecte** (Bureau Études, Analyses et Prospective) : questionnaire, période, échéance, responsable, ciblage par catégories et provinces puis acteur par acteur. Circuit `Brouillon → Ouverte → Clôturée → Validée`, retour pour compléments ; campagne validée et ses réponses **intangibles en base**.
+- **Saisie par la DEP** à partir de la source reçue (formulaire papier, fichier, courriel, entretien), pièces sources jointes. **Contrôle de qualité** à chaque enregistrement : réponses obligatoires manquantes, valeurs hors bornes ou hors liste, incohérences (erreurs bloquantes) ; variation de plus de 50 % par rapport à la période précédente (alerte à justifier).
+- **Contrôle à quatre yeux** par le Bureau Documentation et Information (une autre personne que celle qui a saisi) : réponse contrôlée ou à corriger avec motif ; validation de la campagne par le Chef de la Division Études, Documentation et Information ou le Directeur, une fois toutes les réponses contrôlées.
+- Export Excel des réponses d’une campagne (une ligne par acteur, une colonne par question, dictionnaire des questions). Le Secrétaire Général consulte l’annuaire et les campagnes validées.
+
 ## 1.16.0
 
 ### Lot 9B — Performance et documents de programmation (cahier des charges, §§ 3 et 24)
