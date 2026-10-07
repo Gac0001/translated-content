@@ -18,7 +18,6 @@ const { audit } = require('../../services/audit');
 const { notify } = require('../../services/notifications');
 const { addHistory, getHistory } = require('../../services/history');
 const { nextReference } = require('../../services/sequence');
-const { loadAllNodes } = require('../../services/hierarchy');
 const { directeursActifs } = require('../../services/alertes');
 const svc = require('../../services/donnees');
 const { badRequest, forbidden, notFound, conflict } = require('../../utils/errors');
@@ -41,14 +40,11 @@ const supervision = (ctx) => ctx.perimetre === 'SUPERVISION_GLOBALE';
 const droits = (ctx) => ({
   annuaire: ctx.can('donnees.annuaire'), questionnaires: ctx.can('donnees.questionnaires'), saisir: ctx.can('donnees.saisir'),
   controler: ctx.can('donnees.controler'), valider: ctx.can('donnees.valider'), exporter: ctx.can('exports.generer'),
+  rediger: ctx.can('donnees.rediger'), viser: ctx.can('donnees.viser'), autoriser: ctx.can('donnees.autoriser'),
 });
 function exiger(ok, message) { if (!ok) throw forbidden(message); }
 
-/** Comptes de la Division Études, Documentation et Information (filtrés par bureau ou rôle). */
-async function membresEdi({ bureaux = ['BUR-EAP', 'BUR-DOI'], chef = true } = {}) {
-  const [bs, dv] = await Promise.all([db('bureaux').whereIn('code', bureaux).pluck('id'), db('divisions').where({ code: 'DIV-EDI' }).first('id')]);
-  return (await loadAllNodes()).filter((n) => n.node && (bs.includes(n.bureauId) || (chef && dv && !n.bureauId && n.divisionId === dv.id && n.primaryRole === 'CHEF_DIVISION')));
-}
+const { membresEdi } = svc;
 const validateurs = async () => [...(await membresEdi({ bureaux: [] })).map((n) => n.userId), ...(await directeursActifs())];
 
 // ─── Référentiel ────────────────────────────────────────────────────────────
@@ -511,5 +507,8 @@ router.delete('/campagnes/:id/reponses/:acteur', validate({ params: reponseParam
   res.json({ ok: true });
 });
 
+router.use(require('./exploitation'));
+
 module.exports = router;
 module.exports.scopeCampagnes = scopeCampagnes;
+module.exports.droits = droits;

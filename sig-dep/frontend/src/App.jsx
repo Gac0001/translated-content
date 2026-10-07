@@ -42,6 +42,8 @@ const ActeurDetail = p(() => import('./pages/donnees/ActeurDetail'));
 const QuestionnaireDetail = p(() => import('./pages/donnees/QuestionnaireDetail'));
 const CampagneDetail = p(() => import('./pages/donnees/CampagneDetail'));
 const ReponseSaisie = p(() => import('./pages/donnees/ReponseSaisie'));
+const IndicateurDetail = p(() => import('./pages/donnees/IndicateurDetail'));
+const BulletinDetail = p(() => import('./pages/donnees/BulletinDetail'));
 const DemandeDetail = p(() => import('./pages/demandes/DemandeDetail'));
 const ActeForm = p(() => import('./pages/actes/ActeForm'));
 const ActeDetail = p(() => import('./pages/actes/ActeDetail'));
@@ -165,6 +167,8 @@ export default function App() {
             <Route path="donnees/questionnaires/:id" element={G(['donnees.consulter'], <QuestionnaireDetail />)} />
             <Route path="donnees/campagnes/:id" element={G(['donnees.consulter'], <CampagneDetail />)} />
             <Route path="donnees/campagnes/:id/reponses/:acteur" element={G(['donnees.consulter'], <ReponseSaisie />)} />
+            <Route path="donnees/indicateurs/:id" element={G(['donnees.consulter'], <IndicateurDetail />)} />
+            <Route path="donnees/bulletins/:id" element={G(['donnees.consulter'], <BulletinDetail />)} />
             <Route path="agenda" element={G(['agenda.consulter'], <Agenda />)} />
             <Route path="demandes-information" element={G(['demandes_info.emettre', 'demandes_info.repondre'], <DemandesList />)} />
             <Route path="demandes-information/:id" element={G(['demandes_info.emettre', 'demandes_info.repondre'], <DemandeDetail />)} />

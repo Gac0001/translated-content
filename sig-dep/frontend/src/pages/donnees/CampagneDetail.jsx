@@ -43,6 +43,11 @@ export default function CampagneDetail() {
         const a = c.actions;
         const recues = c.cibles.filter((k) => k.reponse_statut);
         const compte = (s) => c.cibles.filter((k) => k.reponse_statut === s).length;
+        const valider = async () => {
+          const taux = c.cibles.length ? Math.round((recues.length / c.cibles.length) * 100) : 0;
+          if (taux < 100 && !(await confirm({ title: 'Valider la campagne', message: `${recues.length} acteur(s) sur ${c.cibles.length} ont répondu (${taux} % de couverture). Les données seront figées et exploitées en l’état. Confirmez-vous la validation ?`, confirmLabel: 'Valider' }))) return;
+          post('valider', {}, 'Campagne validée : données figées.');
+        };
         const retirer = async (k) => {
           if (!(await confirm({ title: 'Retirer du ciblage', message: `Retirer ${k.raison_sociale} de la campagne ?`, confirmLabel: 'Retirer', danger: true }))) return;
           await runAction(() => api.del(`/donnees/campagnes/${id}/cibles/${k.id}`), 'Acteur retiré.');
@@ -57,7 +62,7 @@ export default function CampagneDetail() {
                 {a.ouvrir && <button type="button" className="btn-primary" onClick={() => post('ouvrir', {}, 'Campagne ouverte : la saisie peut commencer.')}><Play size={16} /> Ouvrir la collecte</button>}
                 {a.cloturer && <button type="button" className="btn-secondary" onClick={() => post('cloturer', {}, 'Campagne clôturée : transmise pour validation.')}><Lock size={16} /> Clôturer</button>}
                 {a.rouvrir && <button type="button" className="btn-secondary" onClick={() => post('rouvrir', {}, 'Campagne rouverte.')}><RotateCcw size={16} /> Rouvrir</button>}
-                {a.valider && <button type="button" className="btn-success" onClick={() => post('valider', {}, 'Campagne validée : données figées.')}><CheckCircle2 size={16} /> Valider</button>}
+                {a.valider && <button type="button" className="btn-success" onClick={valider}><CheckCircle2 size={16} /> Valider</button>}
                 {a.retourner && <button type="button" className="btn-secondary" onClick={() => setModal('retour')}><Undo2 size={16} /> Retourner</button>}
               </>} />
             {c.observations && c.statut === 'OUVERTE' && <div className="mb-3"><InfoAlert tone="warning"><b>Retournée</b> : {c.observations}</InfoAlert></div>}

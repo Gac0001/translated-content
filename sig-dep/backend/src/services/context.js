@@ -143,14 +143,16 @@ async function loadContext(userId, trx = db) {
     if (aff.bureau_code === 'BUR-EAP') {
       permissions.add('donnees.questionnaires');
       permissions.add('donnees.saisir');
+      permissions.add('donnees.rediger');
     }
     if (aff.bureau_code === 'BUR-DOI') {
       permissions.add('donnees.annuaire');
       permissions.add('donnees.saisir');
       permissions.add('donnees.controler');
+      permissions.add('donnees.rediger');
     }
     if (primaryRole === 'CHEF_DIVISION' && perimetre === PERIMETRES.DIVISION && aff.division_code === 'DIV-EDI') {
-      for (const p of ['donnees.annuaire', 'donnees.questionnaires', 'donnees.saisir', 'donnees.controler', 'donnees.valider']) permissions.add(p);
+      for (const p of ['donnees.annuaire', 'donnees.questionnaires', 'donnees.saisir', 'donnees.controler', 'donnees.valider', 'donnees.rediger', 'donnees.viser']) permissions.add(p);
     }
   }
   // Un rôle Chef de Division sans affectation de Division ne confère pas les permissions de Division.

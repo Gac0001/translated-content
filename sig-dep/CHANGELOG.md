@@ -1,5 +1,15 @@
 # Journal des versions — SIG-DEP
 
+## 1.18.0
+
+### Lot 10B — Données sectorielles : exploitation (cahier des charges, § 26)
+- **Indicateurs sectoriels** définis sur un questionnaire par le Bureau Études, Analyses et Prospective : somme, moyenne, ratio (avec multiplicateur, ex. × 100), nombre de répondants (éventuellement pour une option donnée), part des répondants ayant choisi une option. La définition est contrôlée au regard des questions publiées.
+- Calcul sur les seules **réponses contrôlées des campagnes validées** : valeur par période, évolution par rapport à la période précédente, détail par province et par catégorie d’acteurs, nombre de répondants.
+- **Tableaux croisés** sur une campagne validée : lignes et colonnes au choix (province, catégorie, question de choix ou Oui/Non), mesure au choix (répondants, somme ou moyenne d’une question numérique), totaux ; export Excel.
+- **Bulletins et baromètres à diffusion interne** : rédaction par les Bureaux de la Division Études, Documentation et Information (introduction, indicateurs retenus, analyse, conclusion), visa du Chef de Division, **autorisation du Directeur valant diffusion** à toute la Direction (et au Secrétaire Général si prévu), avec notification. Avant diffusion, le bulletin n’est visible que de l’équipe de rédaction, de visa et d’autorisation ; à la diffusion, ses valeurs sont figées et le bulletin devient intangible en base. Export PDF avec visas.
+- **Recherche globale** étendue aux acteurs de l’annuaire et aux campagnes de collecte.
+- Validation d’une campagne : la couverture (acteurs ayant répondu / ciblés) est rappelée et une confirmation est demandée si elle est incomplète.
+
 ## 1.17.0
 
 ### Lot 10A — Données sectorielles : collecte et annuaire (cahier des charges, § 26)

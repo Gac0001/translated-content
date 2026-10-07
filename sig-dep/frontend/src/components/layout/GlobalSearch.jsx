@@ -4,7 +4,7 @@ import { Loader2, Search } from 'lucide-react';
 import api from '../../lib/api';
 import { StatusBadge } from '../ui';
 
-const GROUPES = { agents: 'Personnel', instructions: 'Instructions', taches: 'Tâches', courriers: 'Courriers', documents: 'Documents', pip: 'Projets PIP' };
+const GROUPES = { agents: 'Personnel', instructions: 'Instructions', taches: 'Tâches', courriers: 'Courriers', documents: 'Documents', pip: 'Projets PIP', acteurs: 'Acteurs du numérique', campagnes: 'Campagnes de collecte' };
 
 /**
  * Recherche globale dans le périmètre de l’utilisateur.

@@ -56,7 +56,7 @@ export const STATUTS = {
   // Risques
   OUVERT: ['Ouvert', C.orange],
   // Données sectorielles
-  OUVERTE: ['Ouverte', C.bleu], SAISIE: ['Saisie', C.indigo], CONTROLEE: ['Contrôlée', C.vert], PUBLIEE: ['Publiée', C.vert], CESSE: ['Cessé', C.gris], MAITRISE: ['Maîtrisé', C.indigo], CLOS: ['Clos', C.gris],
+  OUVERTE: ['Ouverte', C.bleu], DIFFUSE: ['Diffusé', C.vert], SAISIE: ['Saisie', C.indigo], CONTROLEE: ['Contrôlée', C.vert], PUBLIEE: ['Publiée', C.vert], CESSE: ['Cessé', C.gris], MAITRISE: ['Maîtrisé', C.indigo], CLOS: ['Clos', C.gris],
   PREVU: ['Prévu', C.bleu], CONFIRME: ['Confirmé', C.vert], TENU: ['Tenu', C.marine], ANNULE: ['Annulé', C.gris],
 };
 
@@ -85,7 +85,7 @@ export const ACTIONS_HISTO = {
   VISA: 'Visa', PUBLICATION: 'Publication', IMPORT: 'Import', CONSOLIDATION: 'Consolidation', SUIVI: 'Suivi de l’exécution', CONVOCATION: 'Convocation', REPORT: 'Report', MODIFICATION: 'Modification', PRESENCE: 'Présence relevée',
   TENUE: 'Réunion tenue', SOUMISSION_CR: 'Compte rendu soumis', RETOUR_CR: 'Compte rendu retourné', VALIDATION_CR: 'Compte rendu validé',
   DECISION: 'Décision', MISE_EN_OEUVRE: 'Mise en œuvre', EXECUTION: 'Exécution', ABANDON: 'Abandon', MISE_EN_OEUVRE_ANNULEE: 'Mise en œuvre annulée', ENVOI: 'Envoi', REPONSE: 'Réponse', COMPLEMENT_REPONSE: 'Complément de réponse', RELANCE: 'Relance',
-  CIBLAGE: 'Ciblage', OUVERTURE: 'Ouverture de la collecte', REOUVERTURE: 'Réouverture', CONTROLE: 'Contrôle de qualité',
+  DIFFUSION: 'Diffusion interne autorisée', CIBLAGE: 'Ciblage', OUVERTURE: 'Ouverture de la collecte', REOUVERTURE: 'Réouverture', CONTROLE: 'Contrôle de qualité',
   SOUMETTRE: 'Soumission', VERIFIER: 'Vérification', CONSOLIDER: 'Consolidation', VALIDER: 'Validation',
 };
 

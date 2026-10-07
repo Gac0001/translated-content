@@ -5,6 +5,7 @@
  */
 const ExcelJS = require('exceljs');
 const db = require('../db/knex');
+const { loadAllNodes } = require('./hierarchy');
 
 const TYPES_QUESTION = ['NOMBRE', 'ENTIER', 'TEXTE', 'CHOIX', 'CHOIX_MULTIPLE', 'DATE', 'OUI_NON'];
 const NUMERIQUES = ['NOMBRE', 'ENTIER'];
@@ -103,6 +104,12 @@ function acteursCibles(campagne, trx = db) {
   if (campagne.zones?.length) q.whereIn('zone_id', campagne.zones);
   if (campagne.categories?.length) q.whereIn('categorie_id', campagne.categories);
   return q.pluck('id');
+}
+
+/** Comptes de la Division Études, Documentation et Information (bureaux choisis, Chef de Division). */
+async function membresEdi({ bureaux = ['BUR-EAP', 'BUR-DOI'], chef = true } = {}) {
+  const [bs, dv] = await Promise.all([db('bureaux').whereIn('code', bureaux).pluck('id'), db('divisions').where({ code: 'DIV-EDI' }).first('id')]);
+  return (await loadAllNodes()).filter((n) => n.node && (bs.includes(n.bureauId) || (chef && dv && !n.bureauId && n.divisionId === dv.id && n.primaryRole === 'CHEF_DIVISION')));
 }
 
 // ─── Annuaire : modèle, import, export ──────────────────────────────────────
@@ -256,5 +263,5 @@ async function exporterReponses(campagne, version, cibles) {
 
 module.exports = {
   TYPES_QUESTION, NUMERIQUES, SEUIL_VARIATION, STATUTS_ACTEUR, STATUTS_REPONSE,
-  anomalies, normaliser, precedent, acteursCibles, modele, analyserImport, exporterAnnuaire, exporterReponses,
+  membresEdi, anomalies, normaliser, precedent, acteursCibles, modele, analyserImport, exporterAnnuaire, exporterReponses,
 };

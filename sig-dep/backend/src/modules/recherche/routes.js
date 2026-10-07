@@ -53,6 +53,14 @@ router.get('/', validate({ query: z.object({ q: z.string().trim().min(2, 'au moi
       .orderBy('p.updated_at', 'desc').limit(LIMIT).select('p.id', 'p.code', 'p.intitule', 'p.statut')
       .then((rows) => ['pip', rows.map((r) => ({ id: r.id, titre: r.intitule, sousTitre: r.code, statut: r.statut, lien: `/pip/${r.id}` }))]));
   }
+  if (ctx.can('donnees.consulter')) {
+    jobs.push(like(db('sect_acteurs as a').join('sect_zones as z', 'z.id', 'a.zone_id'), ['a.raison_sociale', 'a.sigle', 'a.reference', 'a.rccm', 'a.id_nat', 'a.ville'], t)
+      .orderBy('a.raison_sociale').limit(LIMIT).select('a.id', 'a.reference', 'a.raison_sociale', 'a.sigle', 'a.statut', 'z.libelle as zone')
+      .then((rows) => ['acteurs', rows.map((r) => ({ id: r.id, titre: r.sigle ? `${r.raison_sociale} (${r.sigle})` : r.raison_sociale, sousTitre: `${r.reference} · ${r.zone}`, statut: r.statut, lien: `/donnees/acteurs/${r.id}` }))]));
+    jobs.push(like(require('../donnees/routes').scopeCampagnes(db('sect_campagnes as c'), ctx), ['c.titre', 'c.reference', 'c.periode'], t)
+      .orderBy('c.periode_debut', 'desc').limit(LIMIT).select('c.id', 'c.reference', 'c.titre', 'c.statut', 'c.periode')
+      .then((rows) => ['campagnes', rows.map((r) => ({ id: r.id, titre: r.titre, sousTitre: `${r.reference} · ${r.periode}`, statut: r.statut, lien: `/donnees/campagnes/${r.id}` }))]));
+  }
   const results = Object.fromEntries(await Promise.all(jobs));
   res.json({ q: t, resultats: results, total: Object.values(results).reduce((n, l) => n + l.length, 0) });
 });

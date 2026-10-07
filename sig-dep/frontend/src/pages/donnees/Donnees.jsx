@@ -4,6 +4,9 @@ import { FileSpreadsheet, Plus, Upload } from 'lucide-react';
 import api, { download, errorMessage } from '../../lib/api';
 import { useApi, Loadable, PageHeader, Tabs, DataTable, StatusBadge, Card, Modal, Field, InfoAlert, Select, Badge, runAction, toast } from '../../components/ui';
 import { fmtDate } from '../../lib/format';
+import Indicateurs from './Indicateurs';
+import Tableaux from './Tableaux';
+import { Bulletins } from './BulletinDetail';
 
 export const STATUTS_ACTEUR = { ACTIF: 'Actif', SUSPENDU: 'Suspendu', CESSE: 'Cessé' };
 export const SOURCES = { PAPIER: 'Formulaire papier', FICHIER: 'Fichier reçu', COURRIEL: 'Courriel', ENTRETIEN: 'Entretien' };
@@ -285,15 +288,18 @@ export default function Donnees() {
   const choisir = (o) => { setOnglet(o); try { sessionStorage.setItem('donnees.onglet', o); } catch { /* stockage indisponible */ } };
   return (
     <>
-      <PageHeader title="Données sectorielles" subtitle="Annuaire des acteurs du numérique, questionnaires, campagnes de collecte et contrôle de la qualité des données."
+      <PageHeader title="Données sectorielles" subtitle="Annuaire des acteurs du numérique, collecte et contrôle de la qualité des données, indicateurs, tableaux croisés et bulletins internes."
         breadcrumb={[{ label: 'Données sectorielles' }]} />
-      <Tabs value={onglet} onChange={choisir} tabs={[{ value: 'annuaire', label: 'Annuaire des acteurs' }, { value: 'campagnes', label: 'Campagnes' }, { value: 'questionnaires', label: 'Questionnaires' }, { value: 'referentiel', label: 'Référentiel' }]} />
+      <Tabs value={onglet} onChange={choisir} tabs={[{ value: 'annuaire', label: 'Annuaire des acteurs' }, { value: 'campagnes', label: 'Campagnes' }, { value: 'questionnaires', label: 'Questionnaires' }, { value: 'indicateurs', label: 'Indicateurs' }, { value: 'tableaux', label: 'Tableaux croisés' }, { value: 'bulletins', label: 'Bulletins' }, { value: 'referentiel', label: 'Référentiel' }]} />
       <Loadable state={ref}>
         {(r) => (
           <>
             {onglet === 'annuaire' && <Annuaire referentiel={r} />}
             {onglet === 'campagnes' && <Campagnes referentiel={r} />}
             {onglet === 'questionnaires' && <Questionnaires referentiel={r} />}
+            {onglet === 'indicateurs' && <Indicateurs referentiel={r} />}
+            {onglet === 'tableaux' && <Tableaux />}
+            {onglet === 'bulletins' && <Bulletins referentiel={r} />}
             {onglet === 'referentiel' && <Referentiel referentiel={r} reload={ref.reload} />}
           </>
         )}

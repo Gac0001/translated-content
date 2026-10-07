@@ -87,6 +87,7 @@ const PERMISSIONS = [
   ['donnees.annuaire', 'donnees', 'Tenir l’annuaire des acteurs et le référentiel des données sectorielles'],
   ['donnees.questionnaires', 'donnees', 'Concevoir les questionnaires et organiser les campagnes de collecte'],
   ['donnees.valider', 'donnees', 'Valider les campagnes de collecte'],
+  ['donnees.autoriser', 'donnees', 'Autoriser la diffusion interne des bulletins et baromètres sectoriels'],
   ['documents.valider_final', 'documents', 'Valider définitivement et signer les documents'],
   ['documents.archiver', 'documents', 'Archiver les documents'],
   // PIP
@@ -159,7 +160,7 @@ const MATRICE = {
     'instructions.consulter', 'instructions.emettre', 'instructions.executer', 'instructions.valider', 'instructions.exceptionnelle',
     'demandes_info.repondre', 'reunions.organiser', 'decisions.prendre', 'agenda.consulter', 'agenda.gerer',
     'planification.consulter', 'planification.referentiel', 'ptba.valider',
-    'donnees.consulter', 'donnees.annuaire', 'donnees.questionnaires', 'donnees.valider',
+    'donnees.consulter', 'donnees.annuaire', 'donnees.questionnaires', 'donnees.valider', 'donnees.autoriser',
     'taches.consulter',
     'documents.consulter', 'documents.rediger', 'documents.examiner', 'documents.valider_final', 'documents.publier', 'documents.archiver',
     'pip.consulter', 'pip.rediger', 'pip.verifier', 'pip.valider', 'pip.archiver',
