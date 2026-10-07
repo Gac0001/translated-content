@@ -75,7 +75,7 @@ function FicheProjet({ id, programmes, onClose, onChanged }) {
               </div>
               {p.droits.suivre && <button type="button" className="btn-primary" disabled={!f} onClick={enregistrer}>Enregistrer la fiche</button>}
               <div>
-                <div className="mb-2 flex items-center justify-between"><h3 className="font-semibold text-dep-800">Jalons</h3>{p.droits.suivre && <button type="button" className="btn-secondary" onClick={() => setJalon({ libelle: '', date_prevue: '', date_realisee: '', commentaire: '' })}><Plus size={14} /> Jalon</button>}</div>
+                <div className="mb-2 flex items-center justify-between"><h3 className="font-semibold text-dep-800">Jalons</h3>{p.droits.suivre && <button type="button" className="btn-secondary" onClick={() => setJalon({ libelle: '', date_prevue: '', date_realisee: '', commentaire: '' })}><Plus size={16} /> Jalon</button>}</div>
                 {p.jalons.length ? (
                   <ul className="divide-y text-sm">{p.jalons.map((j) => (
                     <li key={j.id} className="flex items-center justify-between py-1.5">
@@ -86,7 +86,7 @@ function FicheProjet({ id, programmes, onClose, onChanged }) {
                 ) : <Empty compact message="Aucun jalon." />}
               </div>
               <div>
-                <div className="mb-2 flex items-center justify-between"><h3 className="font-semibold text-dep-800">Risques</h3>{p.droits.suivre && <button type="button" className="btn-secondary" onClick={() => setRisque({ entity_type: 'PIP', entity_id: p.id })}><Plus size={14} /> Risque</button>}</div>
+                <div className="mb-2 flex items-center justify-between"><h3 className="font-semibold text-dep-800">Risques</h3>{p.droits.suivre && <button type="button" className="btn-secondary" onClick={() => setRisque({ entity_type: 'PIP', entity_id: p.id })}><Plus size={16} /> Risque</button>}</div>
                 {p.risques.length ? (
                   <ul className="divide-y text-sm">{p.risques.map((r) => (
                     <li key={r.id} className="flex items-center justify-between gap-2 py-1.5"><button type="button" className="text-left" disabled={!p.droits.suivre} onClick={() => setRisque(r)}>{r.libelle}</button><span className="flex shrink-0 gap-1"><Criticite p={r.probabilite} i={r.impact} /><Badge tone="neutre">{STATUTS_RISQUE[r.statut]}</Badge></span></li>

@@ -27,7 +27,7 @@ export default function PipList() {
         { key: 'duree', header: 'Durée', sortValue: (p) => (p.duree_mois ? Number(p.duree_mois) : null), render: (p) => (p.duree_mois ? `${p.duree_mois} mois` : '—') },
         { key: 'date_debut', header: 'Démarrage', sortable: true, render: (p) => fmtDate(p.date_debut) },
         { key: 'auteur_nom', header: 'Élaborée par', sortable: true, render: (p) => <span>{p.auteur_nom}<span className="block text-xs text-slate-500">{p.bureau_nom || p.division_nom || 'Direction'}</span></span> },
-        { key: 'statut', header: 'Statut', sortValue: (p) => STATUTS[p.statut]?.[0], render: (p) => <StatusBadge value={p.statut} /> },
+        { key: 'statut', header: 'Statut', sortValue: (p) => STATUTS[p.statut]?.[0], render: (p) => <StatusBadge value={p.statut} feminin /> },
       ]} />
   );
 }

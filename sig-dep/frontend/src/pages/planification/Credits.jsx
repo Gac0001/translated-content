@@ -2,10 +2,11 @@ import { useMemo, useState } from 'react';
 import { Save } from 'lucide-react';
 import api from '../../lib/api';
 import { ControleCadrage } from './Cadrage';
+import { fmtNombre, lireNombre } from '../../lib/format';
 import { useApi, Loadable, Card, InfoAlert, Empty, runAction, toast } from '../../components/ui';
 
-const nombre = (v) => (v === null || v === undefined || v === '' ? '' : Math.round(Number(v)).toLocaleString('fr-FR').replace(/ | /g, ' '));
-const lire = (s) => { const b = String(s).replace(/[\s  ]/g, '').replace(',', '.'); return b === '' ? null : Number(b); };
+const nombre = (v) => fmtNombre(v === null || v === undefined || v === '' ? v : Math.round(Number(v)), 0, { vide: '' });
+const lire = lireNombre;
 
 /** Colonnes du PAP et du CDMT : réalisations A-2, exercice en cours A-1, prévisions A à A+3. */
 const colonnes = (A) => [
@@ -46,7 +47,7 @@ function Grille({ d, programme, A }) {
         <select className="input w-auto" value={niveau} onChange={(e) => { setNiveau(e.target.value); setSaisie({}); }} aria-label="Niveau de saisie">
           <option value="">Crédits du programme</option>{programme.actions.map((a) => <option key={a.id} value={a.id}>Action {a.code} — {a.libelle}</option>)}
         </select>
-        {d.droits.saisir && <button type="button" className="btn-primary" disabled={!modifies.length} onClick={enregistrer}><Save size={14} /> Enregistrer{modifies.length ? ` (${modifies.length})` : ''}</button>}
+        {d.droits.saisir && <button type="button" className="btn-primary" disabled={!modifies.length} onClick={enregistrer}><Save size={16} /> Enregistrer{modifies.length ? ` (${modifies.length})` : ''}</button>}
       </div>}>
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">

@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import api from '../../lib/api';
+import { fmtNombre } from '../../lib/format';
 import { useApi, Loadable, DataTable, Modal, Field, InfoAlert, Badge, runAction } from '../../components/ui';
 
-export const fmtVal = (v, d = 0, unite) => (v === null || v === undefined ? '—' : `${Number(v).toLocaleString('fr-FR', { maximumFractionDigits: d })}${unite ? ` ${unite}` : ''}`);
+export const fmtVal = (v, d = 0, unite) => { const n = fmtNombre(v, d); return n === '—' || !unite ? n : `${n} ${unite}`; };
 export const evolution = (v, p) => (v === null || v === undefined || !p ? null : ((v - p) / Math.abs(p)) * 100);
 export function Evolution({ v, p }) {
   const e = evolution(v, p);

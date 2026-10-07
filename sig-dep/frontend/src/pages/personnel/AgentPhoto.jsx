@@ -13,6 +13,6 @@ export default function AgentPhoto({ agentId, hasPhoto, size = 96, version = 0 }
     return () => url && URL.revokeObjectURL(url);
   }, [agentId, hasPhoto, version]);
   return src
-    ? <img src={src} alt="Photo de l’Agent" className="rounded-md border object-cover" style={{ width: size, height: size }} />
+    ? <img src={src} alt="Portrait de l’Agent" className="rounded-md border object-cover" style={{ width: size, height: size }} />
     : <div className="flex items-center justify-center rounded-md border bg-slate-50 text-slate-300" style={{ width: size, height: size }}><UserCircle size={size * 0.7} /></div>;
 }

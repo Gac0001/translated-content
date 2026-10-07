@@ -1,5 +1,15 @@
 # Journal des versions — SIG-DEP
 
+## 1.21.0
+
+### Refonte de l’interface — étape 1 : fondations (style « Bleu État »)
+- **Style conforme à la charte graphique du Gouvernement** : menu en bleu institutionnel (`#17418a`), entrée active en bleu marine avec repère jaune du drapeau, tricolore officiel (bleu, jaune, rouge à parts égales) en tête de page, fond gris bleuté, cartes et en-têtes de tableaux harmonisés ; palette de la charte disponible dans Tailwind (`dep`, `rdc`, `charte`).
+- **Titres en Cooper Hewitt** (police de la charte, embarquée, licence libre OFL) ; texte courant et tableaux en Source Sans 3. Titres de cartes en casse normale, chiffres clés plus lisibles avec un liseré de couleur.
+- **Formats communs** (`lib/format.js` : `fmtNombre`, `fmtCdf`, `fmtPourcent`, `lireNombre`) à la place des formateurs propres à chaque page (Planification, Crédits, CBMT, Indicateurs, Tableaux croisés) ; espaces insécables gérées à la saisie.
+- **Statuts accordés au genre** (« Fiche vérifiée », « Campagne validée »…) ; libellé « Vérifié » corrigé.
+- **Titre de l’onglet du navigateur** propre à chaque page (« Planification — SIG-DEP ») ; boutons : icônes agrandies, texte en demi-gras ; badges moins arrondis.
+- Analyse statique sans aucun avertissement (accessibilité : textes alternatifs des portraits, étiquettes de champs) ; tests de non-régression : 26 réussis, aucun nouveau débordement.
+
 ## 1.20.1
 
 ### Refonte de l’interface — étape 0 : filet de sécurité (aucun changement visible)

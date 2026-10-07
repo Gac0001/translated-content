@@ -9,9 +9,11 @@ import Performance from './Performance';
 import Credits from './Credits';
 import DocumentsProgrammation from './DocumentsProgrammation';
 import Banque from './Banque';
+import { fmtCdf } from '../../lib/format';
 import Risques from './Risques';
 
-export const cdf = (n) => `${Math.round(Number(n) || 0).toLocaleString('fr-FR')} CDF`;
+/** Montant en CDF (zéro pour une valeur absente, comme les totaux de PTBA). */
+export const cdf = (n) => fmtCdf(Number(n) || 0);
 
 /** Import d’un classeur PTBA au format du Ministère : analyse, choix des feuilles, confirmation. */
 function ImportModal({ referentiel, onClose, onDone }) {
@@ -163,10 +165,10 @@ function Referentiel({ referentiel, reload }) {
   const champ = (k, label, props = {}) => <Field label={label}><input className="input" value={edition[k] ?? ''} onChange={(e) => setEdition({ ...edition, [k]: e.target.value })} {...props} /></Field>;
   return (
     <div className="grid gap-4 lg:grid-cols-3">
-      <Card title="Exercices" actions={gerer && <button type="button" className="btn-secondary" onClick={() => setEdition({ type: 'exercice', annee: new Date().getFullYear() + 1, statut: 'PREPARATION' })}><Plus size={14} /> Exercice</button>}>
+      <Card title="Exercices" actions={gerer && <button type="button" className="btn-secondary" onClick={() => setEdition({ type: 'exercice', annee: new Date().getFullYear() + 1, statut: 'PREPARATION' })}><Plus size={16} /> Exercice</button>}>
         <ul className="space-y-1 text-sm">{referentiel.exercices.map((e) => <li key={e.id} className="flex justify-between"><span className="font-semibold">{e.annee}</span><button type="button" className="text-xs text-dep-700 hover:underline disabled:text-slate-500" disabled={!gerer} onClick={() => setEdition({ type: 'exercice', id: e.id, annee: e.annee, statut: e.statut })}>{({ PREPARATION: 'En préparation', EXECUTION: 'En exécution', CLOTURE: 'Clôturé' })[e.statut]}</button></li>)}</ul>
       </Card>
-      <Card title="Programmes et actions" className="lg:col-span-2" actions={gerer && <button type="button" className="btn-secondary" onClick={() => setEdition({ type: 'programme', code: '', libelle: '', objectif_global: '' })}><Plus size={14} /> Programme</button>}>
+      <Card title="Programmes et actions" className="lg:col-span-2" actions={gerer && <button type="button" className="btn-secondary" onClick={() => setEdition({ type: 'programme', code: '', libelle: '', objectif_global: '' })}><Plus size={16} /> Programme</button>}>
         {referentiel.programmes.length ? referentiel.programmes.map((p) => (
           <div key={p.id} className="mb-3 border-b border-slate-100 pb-2">
             <div className="flex flex-wrap items-center justify-between gap-2"><button type="button" disabled={!gerer} className="text-left font-semibold text-dep-800" onClick={() => setEdition({ type: 'programme', id: p.id, code: p.code, libelle: p.libelle, objectif_global: p.objectif_global || '', ordre: p.ordre })}>Programme {p.code} — {p.libelle}</button>
@@ -175,7 +177,7 @@ function Referentiel({ referentiel, reload }) {
           </div>
         )) : <Empty message="Aucun programme : saisissez la maquette programmatique du Ministère." />}
       </Card>
-      <Card title="Services du Ministère" className="lg:col-span-3" actions={gerer && <button type="button" className="btn-secondary" onClick={() => setEdition({ type: 'service', sigle: '', libelle: '' })}><Plus size={14} /> Service</button>}>
+      <Card title="Services du Ministère" className="lg:col-span-3" actions={gerer && <button type="button" className="btn-secondary" onClick={() => setEdition({ type: 'service', sigle: '', libelle: '' })}><Plus size={16} /> Service</button>}>
         <div className="grid gap-1 text-sm sm:grid-cols-2 lg:grid-cols-3">{referentiel.services.map((s) => <button key={s.id} type="button" disabled={!gerer} className="text-left" onClick={() => setEdition({ type: 'service', id: s.id, sigle: s.sigle, libelle: s.libelle, actif: s.actif })}><b>{s.sigle}</b> — {s.libelle}{!s.actif && ' (inactif)'}</button>)}</div>
       </Card>
       {edition && (

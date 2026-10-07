@@ -75,7 +75,7 @@ export default function CampagneDetail() {
             </div>
             <div className="grid gap-4 lg:grid-cols-3">
               <Card title="Réponses par acteur" className="lg:col-span-2" bodyClass="p-0"
-                actions={a.cibler && <button type="button" className="btn-secondary" onClick={() => setModal('cibles')}><Plus size={14} /> Acteurs</button>}>
+                actions={a.cibler && <button type="button" className="btn-secondary" onClick={() => setModal('cibles')}><Plus size={16} /> Acteurs</button>}>
                 <DataTable rows={c.cibles} encadre={false} onRowClick={c.statut !== 'BROUILLON' ? (k) => navigate(`/donnees/campagnes/${id}/reponses/${k.id}`) : undefined} empty="Aucun acteur ciblé."
                   columns={[
                     { key: 'raison_sociale', header: 'Acteur', render: (k) => <div><div className="font-medium">{k.raison_sociale}</div><div className="text-xs text-slate-500">{k.categorie} · {k.zone}</div></div>, search: (k) => `${k.raison_sociale} ${k.sigle || ''} ${k.categorie} ${k.zone}` },

@@ -21,7 +21,7 @@ export default function DocumentsProgrammation({ annee }) {
       {(d) => (
         <div className="space-y-4">
           <InfoAlert>Le CBMT (cadrage du Ministère du Budget) fixe les plafonds du Ministère sur trois ans ; le PAP et le RAP sont produits au format Word, le CDMT au format Excel, à partir du cadre de performance, des crédits et des parties rédigées. Circuit : préparation (Bureau Programme), vérification (Chef du Bureau Programme), consolidation (Chef de la Division Programme et Suivi), validation (Directeur).</InfoAlert>
-          <Card title="Documents de programmation" bodyClass="p-0" actions={d.droits.preparer && <button type="button" className="btn-primary" onClick={() => setNouveau({ type: 'PAP', annee: String(annee) })}><Plus size={14} /> Nouveau document</button>}>
+          <Card title="Documents de programmation" bodyClass="p-0" actions={d.droits.preparer && <button type="button" className="btn-primary" onClick={() => setNouveau({ type: 'PAP', annee: String(annee) })}><Plus size={16} /> Nouveau document</button>}>
             <DataTable rows={d.data} onRowClick={(x) => navigate(`/planification/documents/${x.id}`)} empty="Aucun document de programmation."
               columns={[
                 { key: 'reference', header: 'Référence' },

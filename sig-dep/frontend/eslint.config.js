@@ -28,6 +28,8 @@ export default [
       // Le composant Field relie libellé et champ à l’exécution (cloneElement) : invisible à l’analyse statique.
       'jsx-a11y/control-has-associated-label': 'off',
       'jsx-a11y/label-has-for': 'off', // règle obsolète, remplacée par label-has-associated-control
+      // Libellé englobant le champ et son texte (case à cocher ou bouton radio suivi d’explications).
+      'jsx-a11y/label-has-associated-control': ['warn', { assert: 'either', depth: 4 }],
       'no-unused-vars': ['warn', { varsIgnorePattern: '^_', argsIgnorePattern: '^_', ignoreRestSiblings: true }],
       'no-empty': ['warn', { allowEmptyCatch: true }],
     },

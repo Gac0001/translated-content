@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, DatabaseZap, FlaskConical, ShieldCheck, UserPlus } from 'lucide-react';
 import api from '../../lib/api';
-import { useApi, Loadable, PageHeader, Card, InfoAlert, Field, runAction, KeyValues, runCritique } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, InfoAlert, Field, KeyValues, runCritique } from '../../components/ui';
 
 const PHRASE = 'REINITIALISER';
 

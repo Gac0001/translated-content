@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, ChevronRight, Info, Loader2, Search, X, Inbox, XCircle } from 'lucide-react';
 import api, { errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
-import { STATUTS, PRIORITES, URGENCES, CONFIDENTIALITES, COLORS } from '../../lib/labels';
+import { STATUTS, STATUTS_FEMININ, PRIORITES, URGENCES, CONFIDENTIALITES, COLORS } from '../../lib/labels';
 import { IconButton } from './Button';
 import { useFocusTrap, useScrollLock } from './focus';
 
@@ -103,7 +103,18 @@ export async function runAction(fn, successMessage) {
 }
 
 // ─── Mise en page ───────────────────────────────────────────────────────────
+/** Titre de l’onglet du navigateur : « Page — SIG-DEP » (restauré en quittant la page). */
+export function useTitreDocument(titre) {
+  useEffect(() => {
+    if (!titre) return undefined;
+    const avant = document.title;
+    document.title = `${titre} — SIG-DEP`;
+    return () => { document.title = avant; };
+  }, [titre]);
+}
+
 export function PageHeader({ title, subtitle, breadcrumb = [], actions }) {
+  useTitreDocument(typeof title === 'string' ? title : null);
   return (
     <div className="mb-5">
       {breadcrumb.length > 0 && (
@@ -126,7 +137,7 @@ export function PageHeader({ title, subtitle, breadcrumb = [], actions }) {
       )}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="break-words text-xl font-semibold leading-tight sm:text-2xl">{title}</h1>
+          <h1 className="break-words text-xl font-bold leading-tight sm:text-[26px]">{title}</h1>
           {subtitle && <div className="mt-1 text-sm text-slate-600">{subtitle}</div>}
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2 no-print">{actions}</div>}
@@ -139,8 +150,8 @@ export function Card({ title, actions, children, className = '', bodyClass = 'p-
   return (
     <section className={`card ${className}`}>
       {(title || actions) && (
-        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
-          {title && <h2 className="text-sm font-semibold uppercase tracking-wide text-dep-800">{title}</h2>}
+        <header className="flex flex-wrap items-center justify-between gap-2 rounded-t-md border-b border-[#e9edf2] bg-[#f7f9fc] px-4 py-3">
+          {title && <h2 className="text-[15px] font-semibold leading-snug text-dep-700">{title}</h2>}
           {actions && <div className="flex flex-wrap gap-2 no-print">{actions}</div>}
         </header>
       )}
@@ -151,11 +162,14 @@ export function Card({ title, actions, children, className = '', bodyClass = 'p-
 
 export function Stat({ label, value, hint, tone = 'dep', icon: Icon, to }) {
   const tones = { dep: 'text-dep-700 bg-dep-50', rouge: 'text-red-700 bg-red-50', vert: 'text-emerald-700 bg-emerald-50', jaune: 'text-amber-700 bg-amber-50', gris: 'text-slate-700 bg-slate-100', violet: 'text-violet-700 bg-violet-50' };
+  // Liseré supérieur et chiffre de la couleur du ton (le libellé porte toujours le sens).
+  const lisere = { dep: 'border-t-dep-700', rouge: 'border-t-red-700', vert: 'border-t-emerald-700', jaune: 'border-t-amber-500', gris: 'border-t-slate-400', violet: 'border-t-violet-700' };
+  const chiffre = { dep: 'text-dep-700', rouge: 'text-red-700', vert: 'text-emerald-800', jaune: 'text-amber-800', gris: 'text-slate-800', violet: 'text-violet-800' };
   const body = (
-    <div className={`card flex h-full items-center gap-3 p-4 transition ${to ? 'hover:border-dep-300 hover:shadow' : ''}`}>
+    <div className={`card flex h-full items-center gap-3 border-t-[3px] ${lisere[tone] || lisere.dep} p-4 transition ${to ? 'hover:border-dep-300 hover:shadow' : ''}`}>
       {Icon && <div className={`rounded-md p-2.5 ${tones[tone]}`}><Icon size={20} aria-hidden /></div>}
       <div className="min-w-0">
-        <div className="text-2xl font-semibold tabular-nums text-slate-900">{value ?? '—'}</div>
+        <div className={`font-display text-[26px] font-bold leading-tight tabular-nums ${chiffre[tone] || chiffre.dep}`}>{value ?? '—'}</div>
         <div className="text-xs font-medium uppercase leading-tight tracking-wide text-slate-600">{label}</div>
         {hint && <div className="text-xs text-slate-500">{hint}</div>}
       </div>
@@ -215,13 +229,14 @@ export function Loadable({ state, children }) {
 /** tone : clé de COLORS (succes, attention, danger, info, neutre, ambre, vert, rouge…). */
 export function Badge({ children, tone, className = '', title }) {
   const couleur = tone ? COLORS[tone] : (/\bbg-/.test(className) ? '' : COLORS.neutre);
-  return <span title={title} className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${couleur} ${className}`}>{children}</span>;
+  return <span title={title} className={`inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${couleur} ${className}`}>{children}</span>;
 }
-function mapBadge(map, value) {
+function mapBadge(map, value, libelle) {
   const v = map[value];
-  return v ? <Badge className={v[1]}>{v[0]}</Badge> : <Badge>{value || '—'}</Badge>;
+  return v ? <Badge className={v[1]}>{libelle || v[0]}</Badge> : <Badge>{value || '—'}</Badge>;
 }
-export const StatusBadge = ({ value }) => mapBadge(STATUTS, value);
+/** Statut ; `feminin` accorde le libellé pour un objet féminin (fiche PIP…). */
+export const StatusBadge = ({ value, feminin = false }) => mapBadge(STATUTS, value, feminin ? STATUTS_FEMININ[value] : null);
 export const PrioriteBadge = ({ value }) => mapBadge(PRIORITES, value);
 export const UrgenceBadge = ({ value }) => mapBadge(URGENCES, value);
 export const ConfidBadge = ({ value }) => mapBadge(CONFIDENTIALITES, value);
@@ -360,7 +375,7 @@ export function Tabs({ tabs, value, onChange, label = 'Onglets' }) {
       {tabs.map((t, i) => (
         <button key={t.value} ref={(n) => { refs.current[t.value] = n; }} type="button" role="tab" aria-selected={actif === t.value} tabIndex={actif === t.value ? 0 : -1}
           onClick={() => onChange(t.value)} onKeyDown={(e) => onKeyDown(e, i)}
-          className={`whitespace-nowrap rounded-t border-b-2 px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dep-400 ${actif === t.value ? 'border-dep-700 text-dep-800' : 'border-transparent text-slate-600 hover:text-slate-900'}`}>
+          className={`whitespace-nowrap rounded-t border-b-2 px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dep-400 ${actif === t.value ? 'border-dep-700 font-semibold text-dep-700' : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900'}`}>
           {t.label}{t.count ? <span className="ml-1.5 rounded-full bg-dep-100 px-1.5 text-xs text-dep-800">{t.count}</span> : null}
         </button>
       ))}
@@ -624,7 +639,7 @@ export function useListParams(defaults = {}) {
       if (enTexte(v) === defaut(k)) n.delete(k); else n.set(k, enTexte(v));
     }
     return n;
-  }, { replace: true }), [setParams]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, { replace: true }), [setParams]);
   return { valeurs, set, defaut };
 }
 
@@ -823,6 +838,8 @@ export function BarList({ rows, label, sansValeur = 'aucune activité' }) {
         const texte = vide ? sansValeur : `${r.value} %`;
         const infoId = `barre-${String(r.key).replace(/\W/g, '')}`;
         return (
+          // Ligne focalisable pour afficher au clavier le détail de la barre (infobulle reliée par aria-describedby).
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex
           <li key={r.key} tabIndex={r.detail ? 0 : undefined} aria-describedby={r.detail ? infoId : undefined}
             onMouseEnter={() => setActif(r.key)} onMouseLeave={() => setActif(null)} onFocus={() => setActif(r.key)} onBlur={() => setActif(null)}
             className={`relative grid grid-cols-1 items-center gap-1 rounded px-1.5 py-1.5 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] sm:gap-3`}>

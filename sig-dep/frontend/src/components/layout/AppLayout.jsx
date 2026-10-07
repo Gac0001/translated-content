@@ -75,12 +75,12 @@ function Sidebar({ onNavigate }) {
     <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Menu principal">
       {groupes(user).map((g) => (
         <div key={g.section} className="mt-4 first:mt-0">
-          <h2 id={`menu-${g.section}`} className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-dep-200">{g.section}</h2>
+          <h2 id={`menu-${g.section}`} className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-dep-200">{g.section}</h2>
           <ul aria-labelledby={`menu-${g.section}`} className="space-y-0.5">
             {g.items.map((m) => (
               <li key={m.to}>
                 <NavLink to={m.to} end={m.end} onClick={onNavigate}
-                  className={({ isActive }) => `flex items-center gap-2.5 rounded-md px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-rdc-jaune ${isActive ? 'bg-white/15 font-medium text-white' : 'text-dep-100 hover:bg-white/10 hover:text-white'}`}>
+                  className={({ isActive }) => `flex items-center gap-2.5 rounded-md px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-rdc-jaune ${isActive ? 'bg-charte-marine font-semibold text-white shadow-[inset_3px_0_0_#fff24b]' : 'text-dep-100 hover:bg-white/10 hover:text-white'}`}>
                   <m.icon size={17} aria-hidden />
                   <span className="flex-1">{m.label}</span>
                   {m.counter && compteurs[m.counter] > 0 && (
@@ -166,11 +166,11 @@ export default function AppLayout() {
   const structure = user.affectation?.bureauNom || user.affectation?.divisionNom || (user.primaryRole === 'DIRECTEUR' ? DEP_NOM : user.primaryRole === 'SECRETAIRE_GENERAL' ? SG_NOM : 'Administration technique');
 
   const aside = (
-    <div className="flex h-full w-full flex-col bg-dep-800 text-white">
+    <div className="flex h-full w-full flex-col bg-dep-700 text-white">
       <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4">
         <img src="/favicon.jpg" alt="Ministère de l’Économie Numérique" className="h-10 w-[5.75rem] shrink-0 rounded-md bg-white object-contain" />
         <div className="min-w-0">
-          <div className="text-sm font-semibold leading-tight">SIG-DEP</div>
+          <div className="font-display text-base font-semibold leading-tight">SIG-DEP</div>
           <div className="text-xs leading-tight text-dep-200">{DEP_NOM}</div>
         </div>
       </div>
@@ -189,13 +189,13 @@ export default function AppLayout() {
       {open && <Tiroir onClose={() => setOpen(false)}>{aside}</Tiroir>}
       <div className="flex min-w-0 flex-1 flex-col lg:pl-64 print:pl-0">
         <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur no-print">
-          <div className="h-1 tricolore" />
+          <div className="h-1.5 tricolore" />
           <div className="flex items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4">
             <IconButton label="Ouvrir le menu" icon={Menu} size={22} className="p-1.5 lg:hidden" aria-expanded={open} onClick={() => setOpen(true)} />
-            <div className="min-w-0 sm:hidden"><div className="text-sm font-semibold text-dep-800">SIG-DEP</div></div>
+            <div className="min-w-0 sm:hidden"><div className="font-display text-sm font-semibold text-dep-700">SIG-DEP</div></div>
             <div className="hidden min-w-0 sm:block">
               <div className="truncate text-xs uppercase tracking-wide text-slate-500">République Démocratique du Congo — {SG_NOM}</div>
-              <div className="truncate text-sm font-semibold text-dep-800">{DEP_NOM} (DEP)</div>
+              <div className="truncate font-display text-[15px] font-semibold text-dep-700">{DEP_NOM} (DEP)</div>
             </div>
             <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1">
               <div className="mr-2 hidden min-w-0 flex-1 justify-end md:flex"><GlobalSearch /></div>
@@ -203,7 +203,7 @@ export default function AppLayout() {
               <Link to="/notifications" className="relative rounded-md p-2 text-slate-600 hover:bg-slate-100">
                 <Bell size={20} aria-hidden />
                 <span className="sr-only">Notifications</span>
-                {nonLues > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-rdc-rouge px-1 text-center text-xs font-semibold text-white">{nonLues > 99 ? '99+' : nonLues}<span className="sr-only"> non lues</span></span>}
+                {nonLues > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-red-700 px-1 text-center text-xs font-semibold text-white">{nonLues > 99 ? '99+' : nonLues}<span className="sr-only"> non lues</span></span>}
               </Link>
               <DropdownMenu width="w-64" menuLabel="Menu utilisateur"
                 triggerClassName="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400"

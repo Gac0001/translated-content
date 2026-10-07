@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Plus, Save, Trash2 } from 'lucide-react';
 import api from '../../lib/api';
+import { fmtNombre, lireNombre } from '../../lib/format';
 import { useApi, Card, Field, InfoAlert, Badge, runAction, toast } from '../../components/ui';
 
-const nombre = (v) => (v === null || v === undefined || v === '' ? '' : Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 }).replace(/[  ]/g, ' '));
-const lire = (s) => { const b = String(s ?? '').replace(/[\s  ]/g, '').replace(',', '.'); return b === '' ? null : Number(b); };
-const cdf = (v) => (v === null || v === undefined ? '—' : Math.round(v).toLocaleString('fr-FR'));
+const nombre = (v) => fmtNombre(v, 2, { vide: '' });
+const lire = lireNombre;
+const cdf = (v) => fmtNombre(v === null || v === undefined ? v : Math.round(v));
 const HYPOTHESES = [['croissance', 'Croissance du PIB réel (%)'], ['inflation', 'Inflation (%)'], ['taux_change', 'Taux de change moyen (CDF/USD)'], ['pib_nominal', 'PIB nominal (milliards CDF)']];
 
 /** Respect du cadrage : plafond, prévision et écart par rubrique et par année. */

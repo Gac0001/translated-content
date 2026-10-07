@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Save } from 'lucide-react';
 import api from '../../lib/api';
-import { useApi, Loadable, PageHeader, Card, Badge, InfoAlert, runAction, runCritique } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, Badge, InfoAlert, runCritique } from '../../components/ui';
 
 export default function Roles() {
   const state = useApi('/users/roles');

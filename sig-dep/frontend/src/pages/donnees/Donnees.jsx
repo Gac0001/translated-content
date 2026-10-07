@@ -257,7 +257,7 @@ function Referentiel({ referentiel, reload }) {
     setEdition(null); reload();
   };
   const liste = (type, titre, rows, libelle) => (
-    <Card title={titre} actions={gerer && <button type="button" className="btn-secondary" onClick={() => setEdition(type === 'zones' ? { type, libelle: '', ordre: rows.length + 1, actif: true } : { type, code: '', libelle: '', ordre: rows.length + 1, actif: true })}><Plus size={14} /> Ajouter</button>}>
+    <Card title={titre} actions={gerer && <button type="button" className="btn-secondary" onClick={() => setEdition(type === 'zones' ? { type, libelle: '', ordre: rows.length + 1, actif: true } : { type, code: '', libelle: '', ordre: rows.length + 1, actif: true })}><Plus size={16} /> Ajouter</button>}>
       <ul className="grid gap-1 text-sm sm:grid-cols-2">{rows.map((x) => (
         <li key={x.id}><button type="button" disabled={!gerer} className={`text-left ${x.actif ? '' : 'text-slate-400 line-through'}`} onClick={() => setEdition({ type, ...x })}>{libelle(x)}</button></li>
       ))}</ul>

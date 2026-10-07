@@ -66,11 +66,11 @@ export default function Performance({ annee }) {
       {(d) => (
         <div className="space-y-4">
           <InfoAlert>Les cibles sont fixées par le Bureau Programme et la Division Programme et Suivi ; les réalisations sont saisies par le Bureau Suivi-Évaluation. Colonnes du PAP {annee} : réalisations {annee - 4} à {annee - 2}, exercice en cours {annee - 1}, cibles {annee} à {annee + 2}.</InfoAlert>
-          <Card title="Objectifs les plus représentatifs du Ministère" actions={d.droits.saisir && <button type="button" className="btn-secondary" onClick={() => setEdition({ kind: 'objectif', programme_id: null, libelle: '' })}><Plus size={14} /> Objectif</button>}>
+          <Card title="Objectifs les plus représentatifs du Ministère" actions={d.droits.saisir && <button type="button" className="btn-secondary" onClick={() => setEdition({ kind: 'objectif', programme_id: null, libelle: '' })}><Plus size={16} /> Objectif</button>}>
             <TableauObjectifs objectifs={d.objectifsMinistere} A={annee} droits={d.droits} reload={state.reload} onIndicateur={(i) => setEdition({ kind: 'indicateur', ...i })} />
           </Card>
           {d.programmes.map((p) => (
-            <Card key={p.id} title={`Programme ${p.code} : ${p.libelle}`} actions={d.droits.saisir && <button type="button" className="btn-secondary" onClick={() => setEdition({ kind: 'objectif', programme_id: p.id, libelle: '' })}><Plus size={14} /> Objectif</button>}>
+            <Card key={p.id} title={`Programme ${p.code} : ${p.libelle}`} actions={d.droits.saisir && <button type="button" className="btn-secondary" onClick={() => setEdition({ kind: 'objectif', programme_id: p.id, libelle: '' })}><Plus size={16} /> Objectif</button>}>
               <TableauObjectifs objectifs={p.objectifs} A={annee} droits={d.droits} reload={state.reload} onIndicateur={(i) => setEdition({ kind: 'indicateur', ...i })} />
             </Card>
           ))}

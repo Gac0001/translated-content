@@ -22,7 +22,7 @@ export default function PipForm() {
   const [saving, setSaving] = useState(false);
   const [modifie, setModifie] = useState(false);
   useEffect(() => { if (existing.data) setData(existing.data.donnees || {}); }, [existing.data]);
-  const sections = modele.data?.sections || [];
+  const sections = useMemo(() => modele.data?.sections || [], [modele.data]);
   useEffect(() => {
     if (!id && sections.length && !data.identification) {
       const init = {};

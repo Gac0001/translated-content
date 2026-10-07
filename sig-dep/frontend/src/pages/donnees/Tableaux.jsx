@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { FileSpreadsheet } from 'lucide-react';
 import api, { download, errorMessage } from '../../lib/api';
+import { fmtNombre } from '../../lib/format';
 import { useApi, Loadable, Card, Field, InfoAlert, Empty, toast } from '../../components/ui';
 
-const nb = (v) => (v === null || v === undefined ? '—' : Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 }));
+const nb = (v) => fmtNombre(v, 2);
 
 /** Tableaux croisés sur une campagne validée : lignes × colonnes, mesure (répondants, somme, moyenne). */
 export default function Tableaux() {
