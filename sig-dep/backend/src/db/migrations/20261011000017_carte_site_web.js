@@ -20,7 +20,9 @@ exports.up = async function up(knex) {
 exports.down = async function down(knex) {
   const actif = await knex('modeles_carte').where({ actif: true }).first();
   if (!actif || actif.site_web !== SITE_WEB || actif.note !== 'Site web du ministère (www.numerique.cd)') return;
-  await knex('modeles_carte').where({ id: actif.id }).del();
-  const prec = await knex('modeles_carte').orderBy('version', 'desc').first();
+  const prec = await knex('modeles_carte').where('version', '<', actif.version).orderBy('version', 'desc').first();
+  const utilise = await knex('cartes_service').where({ modele_id: actif.id }).first();
+  if (utilise) await knex('modeles_carte').where({ id: actif.id }).update({ actif: false });
+  else await knex('modeles_carte').where({ id: actif.id }).del();
   if (prec) await knex('modeles_carte').where({ id: prec.id }).update({ actif: true });
 };
