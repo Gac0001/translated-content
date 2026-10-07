@@ -4,7 +4,8 @@ import { CheckCircle2, FileDown, Pencil, Save, Send, Undo2 } from 'lucide-react'
 import api, { download, errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, InfoAlert, Field, runAction, toast } from '../../components/ui';
-import { Timeline } from '../../components/shared';
+import { Attachments, Timeline } from '../../components/shared';
+import { EditeurCbmt, VueCbmt } from './Cadrage';
 import { fmtDateTime } from '../../lib/format';
 import { TextModal } from '../instructions/WorkflowActions';
 
@@ -13,8 +14,9 @@ const PARTIES = {
   PAP: [['missions', 'Missions du Ministère'], ['organisation', 'Organisation du Ministère'], ['performances_anterieures', 'Performances antérieures'], ['perspectives', 'Perspectives']],
   RAP: [['synthese', 'Synthèse'], ['difficultes', 'Difficultés rencontrées'], ['perspectives', 'Perspectives']],
   CDMT: [],
+  CBMT: [],
 };
-const PARTIES_PROGRAMME = { PAP: [['perimetre', 'Périmètre du programme'], ['strategie', 'Stratégie du programme']], RAP: [['analyse', 'Analyse des résultats du programme']], CDMT: [] };
+const PARTIES_PROGRAMME = { PAP: [['perimetre', 'Périmètre du programme'], ['strategie', 'Stratégie du programme']], RAP: [['analyse', 'Analyse des résultats du programme']], CDMT: [], CBMT: [] };
 
 function Editeur({ doc, programmes, onSaved, onCancel }) {
   const [c, setC] = useState({ programmes: {}, ...doc.contenu });
@@ -66,9 +68,9 @@ export default function PlanDocument() {
         const programmes = ref.data?.programmes.filter((p) => p.actif !== false) || [];
         return (
           <>
-            <PageHeader title={`${d.type} ${d.annee}`} subtitle={`${d.libelle} · ${d.reference}`} breadcrumb={[{ label: 'Planification', to: '/planification' }, { label: `${d.type} ${d.annee}` }]}
+            <PageHeader title={d.type === 'CBMT' ? `CBMT ${d.annee}-${d.annee + 2}` : `${d.type} ${d.annee}`} subtitle={`${d.libelle} · ${d.reference}`} breadcrumb={[{ label: 'Planification', to: '/planification' }, { label: d.type === 'CBMT' ? `CBMT ${d.annee}-${d.annee + 2}` : `${d.type} ${d.annee}` }]}
               actions={<>
-                {can('exports.generer') && <button type="button" className="btn-secondary" onClick={() => download(`/programmation/documents/${id}/export`, `${d.type}-${d.annee}`).catch((e) => toast.error(errorMessage(e)))}><FileDown size={16} /> {d.type === 'CDMT' ? 'Excel' : 'Word'}</button>}
+                {can('exports.generer') && <button type="button" className="btn-secondary" onClick={() => download(`/programmation/documents/${id}/export`, `${d.type}-${d.annee}`).catch((e) => toast.error(errorMessage(e)))}><FileDown size={16} /> {['CDMT', 'CBMT'].includes(d.type) ? 'Excel' : 'Word'}</button>}
                 {a.modifier && !edition && <button type="button" className="btn-secondary" onClick={() => setEdition(true)}><Pencil size={16} /> Rédiger</button>}
                 {a.soumettre && !edition && <button type="button" className="btn-primary" onClick={() => post('soumettre', {}, 'Document soumis au Chef du Bureau Programme.')}><Send size={16} /> Soumettre</button>}
                 {a.verifier && <button type="button" className="btn-success" onClick={() => post('verifier', {}, 'Document vérifié.')}><CheckCircle2 size={16} /> Vérifié</button>}
@@ -77,7 +79,17 @@ export default function PlanDocument() {
                 {a.retourner && <button type="button" className="btn-secondary" onClick={() => setRetour(true)}><Undo2 size={16} /> Retourner</button>}
               </>} />
             {d.statut === 'A_CORRIGER' && <div className="mb-3"><InfoAlert tone="warning"><b>À corriger</b> : {d.observations}</InfoAlert></div>}
-            {edition && ref.data ? <Editeur doc={d} programmes={programmes} onCancel={() => setEdition(false)} onSaved={() => { setEdition(false); state.reload(); }} /> : (
+            {edition && ref.data && d.type === 'CBMT' && <EditeurCbmt doc={d} programmes={programmes} onCancel={() => setEdition(false)} onSaved={() => { setEdition(false); state.reload(); }} />}
+            {!edition && d.type === 'CBMT' && (
+              <div className="space-y-4">
+                <VueCbmt doc={d} programmes={programmes} />
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <Card title="Pièces (document du Ministère du Budget, lettre de cadrage)"><Attachments type="PLAN_DOCUMENT" id={d.id} canUpload={a.modifier} /></Card>
+                  <Card title="Historique"><Timeline items={d.historique} /></Card>
+                </div>
+              </div>
+            )}
+            {d.type !== 'CBMT' && (edition && ref.data ? <Editeur doc={d} programmes={programmes} onCancel={() => setEdition(false)} onSaved={() => { setEdition(false); state.reload(); }} /> : (
               <div className="grid gap-4 lg:grid-cols-3">
                 <Card title="Document" className="lg:col-span-2">
                   <KeyValues items={[
@@ -97,8 +109,9 @@ export default function PlanDocument() {
                     <div className="space-y-3">{PARTIES_PROGRAMME[d.type].map(([k, l]) => <div key={k}><div className="mb-1 text-xs font-semibold uppercase text-slate-500">{l}</div><Texte t={c.programmes?.[p.id]?.[k]} /></div>)}</div>
                   </Card>
                 ))}
+                <Card title="Pièces jointes" className="lg:col-span-3"><Attachments type="PLAN_DOCUMENT" id={d.id} canUpload={a.modifier} /></Card>
               </div>
-            )}
+            ))}
             {retour && <TextModal title="Retourner pour correction" label="Corrections demandées" confirmLabel="Retourner" onClose={() => setRetour(false)} onSave={(t) => post('retourner', { motif: t }, 'Document retourné au Bureau Programme.')} />}
           </>
         );

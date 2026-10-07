@@ -19,6 +19,7 @@ const { nextReference } = require('../../services/sequence');
 const { directeursActifs } = require('../../services/alertes');
 const { loadAllNodes } = require('../../services/hierarchy');
 const prog = require('../../services/programmation');
+const cadrage = require('../../services/cadrage');
 const { badRequest, forbidden, notFound, conflict } = require('../../utils/errors');
 
 const router = express.Router();
@@ -115,11 +116,16 @@ router.put('/credits', requirePerm('planification.consulter'), validate({ body: 
     }
   });
   await audit(req, { action: 'MODIFICATION', module: 'planification', entite: 'credits', message: `${req.valid.body.lignes.length} montant(s) saisi(s), ${n} enregistré(s)` });
-  res.json({ enregistres: n });
+  res.json({ enregistres: n, depassements: await cadrage.depassements([...new Set(req.valid.body.lignes.filter((l) => l.type === 'PREVISION').map((l) => l.annee))]) });
 });
 
-// ─── Documents de programmation : PAP, RAP, CDMT ────────────────────────────
-const TYPES = { PAP: 'Projet Annuel de Performance', RAP: 'Rapport Annuel de Performance', CDMT: 'Cadre de Dépenses à Moyen Terme' };
+// ─── Cadrage budgétaire (CBMT) : plafonds et prévisions ─────────────────────
+router.get('/cadrage', requirePerm('planification.consulter'), validate({ query: z.object({ annee }) }), async (req, res) => {
+  res.json({ controle: await cadrage.controle(req.valid.query.annee) });
+});
+
+// ─── Documents de programmation : PAP, RAP, CDMT, CBMT ──────────────────────
+const TYPES = { PAP: 'Projet Annuel de Performance', RAP: 'Rapport Annuel de Performance', CDMT: 'Cadre de Dépenses à Moyen Terme', CBMT: 'Cadre Budgétaire à Moyen Terme (cadrage)' };
 
 router.get('/documents', requirePerm('planification.consulter'), async (req, res) => {
   const q = db('plan_documents').orderBy('annee', 'desc').orderBy('type');
@@ -145,7 +151,10 @@ function actionsDoc(ctx, d) {
 
 router.get('/documents/:id', requirePerm('planification.consulter'), validate({ params: idParam }), async (req, res) => {
   const d = await chargerDoc(req.ctx, req.valid.params.id);
-  res.json({ ...d, libelle: TYPES[d.type], historique: await getHistory('PLAN_DOCUMENT', d.id), actions: actionsDoc(req.ctx, d) });
+  res.json({
+    ...d, libelle: TYPES[d.type], historique: await getHistory('PLAN_DOCUMENT', d.id), actions: actionsDoc(req.ctx, d),
+    ...(d.type === 'CBMT' ? { controle: await cadrage.controle(d.annee, db, d), rubriques: await db('plan_postes_budgetaires').where({ axe: 'RUBRIQUE' }).orderBy('ordre') } : {}),
+  });
 });
 
 router.post('/documents', requirePerm('ptba.preparer'), validate({ body: z.object({ type: z.enum(Object.keys(TYPES)), annee }) }), async (req, res) => {
@@ -164,13 +173,38 @@ router.post('/documents', requirePerm('ptba.preparer'), validate({ body: z.objec
 });
 
 const texteLibre = z.string().trim().max(50000).optional().nullable();
+const nombreLibre = z.number().finite().optional().nullable();
+
+/** Cohérence d’un CBMT : années de la période, rubriques connues, programmes et projets existants. */
+async function verifierCbmt(d, c) {
+  const annees = Array.from({ length: cadrage.DUREE }, (_, i) => String(d.annee + i));
+  for (const k of [...Object.keys(c.hypotheses || {}), ...Object.keys(c.plafonds || {})]) {
+    if (!annees.includes(k)) throw badRequest(`Année ${k} hors de la période du CBMT (${annees[0]}-${annees[annees.length - 1]}).`);
+  }
+  const codes = await db('plan_postes_budgetaires').where({ axe: 'RUBRIQUE' }).pluck('code');
+  for (const p of Object.values(c.plafonds || {})) for (const k of Object.keys(p)) if (!codes.includes(k)) throw badRequest(`Rubrique inconnue : ${k}.`);
+  const progs = [...new Set((c.actions || []).map((a) => a.programme_id).filter(Boolean))];
+  if (progs.length && (await db('plan_programmes').whereIn('id', progs)).length !== progs.length) throw badRequest('Programme inconnu.');
+  const pips = [...new Set((c.actions || []).flatMap((a) => a.pips))];
+  if (pips.length && (await db('pip_projects').whereIn('id', pips)).length !== pips.length) throw badRequest('Projet PIP inconnu.');
+}
 router.put('/documents/:id', requirePerm('ptba.preparer'), validate({ params: idParam, body: z.object({ contenu: z.object({
   ministere: z.string().trim().max(200).optional().nullable(), section: z.string().trim().max(20).optional().nullable(), responsable: z.string().trim().max(300).optional().nullable(),
   missions: texteLibre, organisation: texteLibre, performances_anterieures: texteLibre, perspectives: texteLibre, synthese: texteLibre, difficultes: texteLibre,
   programmes: z.record(z.string(), z.object({ perimetre: texteLibre, strategie: texteLibre, analyse: texteLibre })).optional(),
+  // CBMT : source, hypothèses macroéconomiques, plafonds par année et rubrique (CDF), actions prioritaires
+  source: z.string().trim().max(300).optional().nullable(), date_publication: z.string().date().optional().nullable(), orientations: texteLibre,
+  hypotheses: z.record(z.string().regex(/^\d{4}$/), z.object({
+    croissance: nombreLibre, inflation: nombreLibre, taux_change: nombreLibre, pib_nominal: nombreLibre,
+  })).optional(),
+  plafonds: z.record(z.string().regex(/^\d{4}$/), z.record(z.string(), z.number().min(0).max(1e16).nullable())).optional(),
+  actions: z.array(z.object({
+    libelle: z.string().trim().min(3).max(1000), programme_id: z.coerce.number().int().positive().nullable().optional(), pips: z.array(z.coerce.number().int().positive()).max(50).default([]),
+  })).max(100).optional(),
 }) }) }), async (req, res) => {
   const d = await chargerDoc(req.ctx, req.valid.params.id);
   if (!actionsDoc(req.ctx, d).modifier) throw badRequest('Seul un document en préparation ou à corriger se modifie.');
+  if (d.type === 'CBMT') await verifierCbmt(d, req.valid.body.contenu);
   const [u] = await db('plan_documents').where({ id: d.id }).update({ contenu: JSON.stringify(req.valid.body.contenu), updated_at: db.fn.now() }).returning('*');
   await addHistory('PLAN_DOCUMENT', d.id, req.ctx.userId, { action: 'MODIFICATION', commentaire: 'Parties rédigées mises à jour' });
   await audit(req, { action: 'MODIFICATION', module: 'planification', entite: 'plan_document', entiteId: d.id });
@@ -215,6 +249,11 @@ router.get('/documents/:id/export', requirePerm('exports.generer'), validate({ p
   const d = await chargerDoc(req.ctx, req.valid.params.id);
   const nom = `${d.type}-${d.annee}`;
   await audit(req, { action: 'EXPORT', module: 'planification', entite: 'plan_document', entiteId: d.id, message: nom });
+  if (d.type === 'CBMT') {
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="CBMT-${d.annee}-${d.annee + cadrage.DUREE - 1}.xlsx"`);
+    return res.send(await prog.cbmt(d));
+  }
   if (d.type === 'CDMT') {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${nom}.xlsx"`);

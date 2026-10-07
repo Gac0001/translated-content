@@ -5,7 +5,7 @@ import api from '../../lib/api';
 import { useApi, Loadable, Card, DataTable, StatusBadge, Modal, Field, InfoAlert, runAction } from '../../components/ui';
 import { fmtDateTime } from '../../lib/format';
 
-export const TYPES_DOC = { PAP: 'Projet Annuel de Performance', RAP: 'Rapport Annuel de Performance', CDMT: 'Cadre de Dépenses à Moyen Terme' };
+export const TYPES_DOC = { PAP: 'Projet Annuel de Performance', RAP: 'Rapport Annuel de Performance', CDMT: 'Cadre de Dépenses à Moyen Terme', CBMT: 'Cadre Budgétaire à Moyen Terme (plafonds du Ministère)' };
 
 /** Documents de programmation : PAP, RAP et CDMT, générés à partir du cadre de performance et des crédits. */
 export default function DocumentsProgrammation({ annee }) {
@@ -20,13 +20,13 @@ export default function DocumentsProgrammation({ annee }) {
     <Loadable state={state}>
       {(d) => (
         <div className="space-y-4">
-          <InfoAlert>Le PAP et le RAP sont produits au format Word, le CDMT au format Excel, à partir du cadre de performance, des crédits et des parties rédigées. Circuit : préparation (Bureau Programme), vérification (Chef du Bureau Programme), consolidation (Chef de la Division Programme et Suivi), validation (Directeur).</InfoAlert>
+          <InfoAlert>Le CBMT (cadrage du Ministère du Budget) fixe les plafonds du Ministère sur trois ans ; le PAP et le RAP sont produits au format Word, le CDMT au format Excel, à partir du cadre de performance, des crédits et des parties rédigées. Circuit : préparation (Bureau Programme), vérification (Chef du Bureau Programme), consolidation (Chef de la Division Programme et Suivi), validation (Directeur).</InfoAlert>
           <Card title="Documents de programmation" bodyClass="p-0" actions={d.droits.preparer && <button type="button" className="btn-primary" onClick={() => setNouveau({ type: 'PAP', annee: String(annee) })}><Plus size={14} /> Nouveau document</button>}>
             <DataTable rows={d.data} onRowClick={(x) => navigate(`/planification/documents/${x.id}`)} empty="Aucun document de programmation."
               columns={[
                 { key: 'reference', header: 'Référence' },
                 { key: 'type', header: 'Document', render: (x) => <><b>{x.type}</b> <span className="text-slate-500">{TYPES_DOC[x.type]}</span></> },
-                { key: 'annee', header: 'Exercice' },
+                { key: 'annee', header: 'Exercice', render: (x) => (x.type === 'CBMT' ? `${x.annee}-${x.annee + 2}` : x.annee) },
                 { key: 'statut', header: 'Statut', render: (x) => <StatusBadge value={x.statut} /> },
                 { key: 'updated_at', header: 'Mis à jour', render: (x) => fmtDateTime(x.updated_at) },
               ]} />
@@ -35,7 +35,7 @@ export default function DocumentsProgrammation({ annee }) {
             <Modal open title="Nouveau document de programmation" onClose={() => setNouveau(null)} footer={<><button type="button" className="btn-secondary" onClick={() => setNouveau(null)}>Annuler</button><button type="button" className="btn-primary" onClick={creer}>Créer</button></>}>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Document"><select className="input" value={nouveau.type} onChange={(e) => setNouveau({ ...nouveau, type: e.target.value })}>{Object.entries(TYPES_DOC).map(([k, v]) => <option key={k} value={k}>{k} — {v}</option>)}</select></Field>
-                <Field label="Exercice" hint={nouveau.type === 'RAP' ? 'Exercice dont on rend compte.' : nouveau.type === 'CDMT' ? `Projections ${Number(nouveau.annee) + 1}-${Number(nouveau.annee) + 3}.` : 'Exercice budgétaire du projet de loi de finances.'}><input className="input" type="number" min="2000" max="2100" value={nouveau.annee} onChange={(e) => setNouveau({ ...nouveau, annee: e.target.value })} /></Field>
+                <Field label="Exercice" hint={nouveau.type === 'CBMT' ? `Première année de la période : ${nouveau.annee}-${Number(nouveau.annee) + 2}.` : nouveau.type === 'RAP' ? 'Exercice dont on rend compte.' : nouveau.type === 'CDMT' ? `Projections ${Number(nouveau.annee) + 1}-${Number(nouveau.annee) + 3}.` : 'Exercice budgétaire du projet de loi de finances.'}><input className="input" type="number" min="2000" max="2100" value={nouveau.annee} onChange={(e) => setNouveau({ ...nouveau, annee: e.target.value })} /></Field>
               </div>
             </Modal>
           )}

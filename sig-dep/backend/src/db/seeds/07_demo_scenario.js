@@ -202,6 +202,27 @@ async function programmation(api, knex, { A, progs, ptbaDep }) {
   for (const [u, e] of [['ag.prg1', 'soumettre'], ['cb.prg', 'verifier'], ['cd.ps', 'consolider'], ['directeur', 'valider']]) await api(u, 'POST', `/programmation/documents/${rap.id}/${e}`);
   await api('ag.prg1', 'POST', '/programmation/documents', { type: 'CDMT', annee: A + 1 });
 
+  // Cadrage budgétaire fictif (CBMT A+1 à A+3), validé ; un plafond de fonctionnement volontairement
+  // inférieur à la prévision de A+2 illustre le contrôle des dépassements.
+  const cbmt = await api('ag.prg1', 'POST', '/programmation/documents', { type: 'CBMT', annee: A + 1 });
+  const total = 6000000000;
+  const plafonds = {};
+  for (const [k, f] of [[A + 1, 1.25], [A + 2, 1.35], [A + 3, 1.45]]) plafonds[k] = { REM: Math.round(total * 0.6 * f), FONC: Math.round(total * 0.25 * f), INTER: 0, INV_RE: 0, INV_RP: Math.round(total * 0.15 * f) };
+  plafonds[A + 2].FONC = 1900000000;
+  const banqueIds = (await api('cb.prg', 'GET', '/programmation/banque')).data.map((x) => x.id);
+  await api('ag.prg1', 'PUT', `/programmation/documents/${cbmt.id}`, { contenu: {
+    source: 'Ministère du Budget (document fictif de démonstration)', date_publication: `${A}-05-31`,
+    orientations: 'Texte de démonstration : favoriser l’inclusion numérique, la digitalisation des services publics et le développement de l’économie numérique.',
+    hypotheses: Object.fromEntries([[A + 1, 5.2, 8.0, 2850, 290000], [A + 2, 5.5, 7.2, 2900, 325000], [A + 3, 5.6, 6.5, 2950, 360000]].map(([a, c, i, t, p]) => [a, { croissance: c, inflation: i, taux_change: t, pib_nominal: p }])),
+    plafonds,
+    actions: [
+      { libelle: 'Déployer les services publics en ligne prioritaires (démo)', programme_id: progs[2].id, pips: [] },
+      { libelle: 'Étendre l’accès au haut débit dans les chefs-lieux de province (démo)', programme_id: progs[1].id, pips: banqueIds.slice(0, 1) },
+      { libelle: 'Renforcer le suivi-évaluation des politiques du secteur (démo)', programme_id: progs[0].id, pips: [] },
+    ],
+  } });
+  for (const [u, e] of [['ag.prg1', 'soumettre'], ['cb.prg', 'verifier'], ['cd.ps', 'consolider'], ['directeur', 'valider']]) await api(u, 'POST', `/programmation/documents/${cbmt.id}/${e}`);
+
   const banque = (await api('cb.sev', 'GET', '/programmation/banque')).data;
   for (const [k, p] of banque.entries()) {
     await api('ag.sev1', 'PUT', `/programmation/banque/${p.id}`, { maturite: k === 0 ? 'PRET' : 'ETUDE', programme_id: progs[k % 2 === 0 ? 1 : 2].id, localisation: k === 0 ? 'Plusieurs provinces' : 'Kinshasa', partenaires: 'Partenaire technique (fictif)' });

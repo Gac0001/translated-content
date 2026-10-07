@@ -134,6 +134,11 @@ const LOADERS = {
     table: 'ptba as p', alias: 'p', scope: (qb, ctx) => (ctx.can('planification.consulter') ? (ctx.perimetre === 'SUPERVISION_GLOBALE' ? qb.where('p.statut', 'VALIDE') : qb) : qb.whereRaw('false')),
     writers: (r) => [r.prepare_par, r.detenteur_user_id],
   },
+  // Documents de programmation (PAP, RAP, CDMT, CBMT) : pièces jointes pendant la préparation
+  PLAN_DOCUMENT: {
+    table: 'plan_documents as x', alias: 'x', scope: (qb, ctx) => (ctx.can('planification.consulter') ? (ctx.perimetre === 'SUPERVISION_GLOBALE' ? qb.where('x.statut', 'VALIDE') : qb) : qb.whereRaw('false')),
+    writers: (r) => (['BROUILLON', 'A_CORRIGER'].includes(r.statut) ? [r.prepare_par] : []), strict: true,
+  },
   // Données sectorielles : source reçue (formulaire, fichier, courriel), jointe pendant la saisie
   REPONSE_SECT: {
     table: 'sect_reponses as x', alias: 'x', scope: (qb, ctx) => (ctx.can('donnees.consulter') && ctx.perimetre !== 'SUPERVISION_GLOBALE' ? qb : qb.whereRaw('false')),

@@ -38,7 +38,7 @@ deux navigateurs.
 | Agenda du Directeur | Audience demain, mission en province, cérémonie de lancement du bulletin |
 | Demandes du Secrétaire Général | Une demande répondue, une en attente |
 | Planification | Exercices en cours et suivant ; trois programmes et leurs actions ; PTBA de la DEP validé avec suivi d’exécution ; PTBA d’un autre service soumis (à vérifier) ; avant-projet de l’exercice suivant |
-| Performance et programmation | Objectifs et indicateurs avec réalisations et cibles, crédits sur cinq ans, PAP en préparation, RAP validé, CDMT, banque des projets avec jalons, registre des risques |
+| Performance et programmation | CBMT fictif validé (plafonds sur trois ans, un dépassement volontaire), objectifs et indicateurs avec réalisations et cibles, crédits sur cinq ans, PAP en préparation, RAP validé, CDMT, banque des projets avec jalons, registre des risques |
 | Données sectorielles | 12 acteurs du numérique, questionnaire publié, deux campagnes validées et une ouverte (réponses contrôlées, à contrôler, et un brouillon en erreur), 4 indicateurs, un bulletin diffusé, un baromètre en attente de visa |
 
 ## 4. Scénario de présentation (45 minutes environ)
@@ -49,7 +49,7 @@ deux navigateurs.
 | 5–12 min | `directeur` | **Tableau de bord** : décisions à suivre, agenda du jour, demandes du SG, tâches en retard, performance des structures ; **Agenda** ; **Registre des décisions** (décision exécutée, décision transformée en instruction) |
 | 12–18 min | `cb.secretariat` puis `directeur` | **Réunions** : la réunion tenue (présences, compte rendu verrouillé, décisions) ; préparer et convoquer une nouvelle réunion |
 | 18–25 min | `cb.prg`, `cd.ps`, `directeur` | **Planification** : PTBA de la DEP (chronogramme, coûts par trimestre, exports Excel/PDF au format du Ministère) ; PTBA soumis à vérifier → vérifier, consolider, valider ; onglet **Exécution** |
-| 25–30 min | `cb.prg` | **Performance**, **Crédits**, **PAP · RAP · CDMT** (export Word et Excel), **Banque des projets**, **Risques** |
+| 25–30 min | `cb.prg` | **CBMT** (plafonds du Ministère, actions prioritaires), **Crédits** (respect du cadrage, dépassement signalé en rouge), **Performance**, **PAP · RAP · CDMT** (export Word et Excel), **Banque des projets**, **Risques** |
 | 30–40 min | `ag.doi1`, `ag.doi2`, `cd.edi` | **Données sectorielles** : annuaire ; campagne ouverte → corriger le brouillon en erreur, transmettre, contrôler avec un autre agent ; **Indicateurs** (évolution, par province) ; **Tableaux croisés** ; **Bulletin** diffusé (PDF) |
 | 40–45 min | `sg` | Vue du Secrétaire Général : supervision en lecture, demandes d’information, bulletin diffusé ; questions |
 

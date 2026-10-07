@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Save } from 'lucide-react';
 import api from '../../lib/api';
+import { ControleCadrage } from './Cadrage';
 import { useApi, Loadable, Card, InfoAlert, Empty, runAction, toast } from '../../components/ui';
 
 const nombre = (v) => (v === null || v === undefined || v === '' ? '' : Math.round(Number(v)).toLocaleString('fr-FR').replace(/ | /g, ' '));
@@ -29,8 +30,9 @@ function Grille({ d, programme, A }) {
   const enregistrer = async () => {
     const lignes = modifies.map((k) => { const [annee, type, poste] = k.split(':'); return { annee: Number(annee), type, poste_id: Number(poste), programme_id: programme.id, action_id: action, montant: lire(saisie[k]) }; });
     if (lignes.some((l) => l.montant !== null && !(Number.isFinite(l.montant) && l.montant >= 0))) { toast.error('Montant invalide : saisissez un nombre positif.'); return; }
-    await runAction(() => api.put('/programmation/credits', { lignes }), 'Crédits enregistrés.');
-    setSaisie({}); d.reload();
+    const r = await runAction(() => api.put('/programmation/credits', { lignes }), 'Crédits enregistrés.');
+    if (r.data.depassements?.length) toast.error(`Plafond du CBMT dépassé : ${r.data.depassements.map((x) => `${x.rubrique} ${x.annee}`).join(', ')}.`);
+    setSaisie({}); d.reload(); d.onSaved();
   };
   const axes = [['RUBRIQUE', 'Par rubrique budgétaire'], ['TITRE', 'Par titre']];
   const total = (axe, c) => {
@@ -75,13 +77,15 @@ function Grille({ d, programme, A }) {
 /** Crédits par programme et action, ventilés par rubrique et par titre (CDF). */
 export default function Credits({ annee }) {
   const state = useApi(`/programmation/credits?annee=${annee}`, [annee]);
+  const [version, setVersion] = useState(0);
   return (
     <Loadable state={state}>
       {(d) => (
         <div className="space-y-4">
           <InfoAlert>Montants en francs congolais (CDF). Les crédits saisis au niveau du programme alimentent les tableaux par programme, rubrique et titre du PAP et le CDMT ; ceux saisis par action alimentent le tableau des crédits par action. Effacez une cellule pour supprimer le montant.</InfoAlert>
           {!d.programmes.length && <Empty message="Aucun programme : saisissez la maquette programmatique dans l’onglet Référentiel." />}
-          {d.programmes.map((p) => <Grille key={p.id} d={{ ...d, reload: state.reload }} programme={p} A={annee} />)}
+          <ControleCadrage annee={annee} version={version} />
+          {d.programmes.map((p) => <Grille key={p.id} d={{ ...d, reload: state.reload, onSaved: () => setVersion((v) => v + 1) }} programme={p} A={annee} />)}
         </div>
       )}
     </Loadable>

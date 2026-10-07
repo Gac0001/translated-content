@@ -1,5 +1,14 @@
 # Journal des versions — SIG-DEP
 
+## 1.20.0
+
+### Lot 11 — Cadrage budgétaire (CBMT)
+- Le **Cadre Budgétaire à Moyen Terme** du Ministère du Budget devient un document de programmation (type CBMT, période de trois exercices), avec le circuit du PAP (Bureau Programme → Chef du Bureau Programme → Chef de la Division Programme et Suivi → Directeur) et son intangibilité une fois validé ; le document du Ministère du Budget et la lettre de cadrage se joignent en pièces.
+- Saisie des **plafonds du Ministère par année et par nature** (rémunérations, fonctionnement, interventions, investissements sur ressources extérieures et propres, en CDF), des **hypothèses macroéconomiques** (croissance, inflation, taux de change, PIB nominal), des **orientations du secteur Numérique** et des **actions prioritaires** reliées aux programmes et aux projets de la banque PIP.
+- **Contrôle du cadrage** : dans l’onglet Crédits, plafond, prévision et écart par rubrique et par année, dépassements en rouge ; alerte dès l’enregistrement d’une prévision qui dépasse un plafond. Le CBMT applicable est le plus récent couvrant l’exercice, validé de préférence.
+- **Exports** : fiche de cadrage Excel (hypothèses, respect des plafonds, actions prioritaires) ; feuille « Respect du CBMT » ajoutée au CDMT ; tableau « Respect des plafonds du CBMT » et actions prioritaires de chaque programme dans le PAP ; pièces jointes possibles sur tous les documents de programmation.
+- Démonstration : CBMT fictif validé, avec un dépassement volontaire pour la formation. Aucun chiffre du CBMT réel n’est inclus dans le dépôt : les plafonds réels se saisissent dans l’application.
+
 ## 1.19.0
 
 ### Démonstration et formation ; travail commun poste local et cloud

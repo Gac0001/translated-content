@@ -203,7 +203,7 @@ export default function Planification() {
       <PageHeader title="Planification" subtitle="PTBA des services du Ministère, cadre de performance, crédits, documents de programmation (PAP, RAP, CDMT), banque des projets et risques."
         breadcrumb={[{ label: 'Planification' }]}
         actions={ref.data?.exercices.length > 0 && <select className="input w-32" value={annee || ''} onChange={(e) => setAnnee(Number(e.target.value))} aria-label="Exercice">{ref.data.exercices.map((e) => <option key={e.id} value={e.annee}>{e.annee}</option>)}</select>} />
-      <Tabs value={onglet} onChange={setOnglet} tabs={[{ value: 'ptba', label: 'PTBA' }, { value: 'execution', label: 'Exécution' }, { value: 'performance', label: 'Performance' }, { value: 'credits', label: 'Crédits' }, { value: 'documents', label: 'PAP · RAP · CDMT' }, { value: 'banque', label: 'Banque des projets' }, { value: 'risques', label: 'Risques' }, { value: 'referentiel', label: 'Référentiel' }]} />
+      <Tabs value={onglet} onChange={setOnglet} tabs={[{ value: 'ptba', label: 'PTBA' }, { value: 'execution', label: 'Exécution' }, { value: 'performance', label: 'Performance' }, { value: 'credits', label: 'Crédits' }, { value: 'documents', label: 'CBMT · PAP · RAP · CDMT' }, { value: 'banque', label: 'Banque des projets' }, { value: 'risques', label: 'Risques' }, { value: 'referentiel', label: 'Référentiel' }]} />
       <Loadable state={ref}>
         {(r) => (
           <>

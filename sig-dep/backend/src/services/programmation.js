@@ -10,6 +10,7 @@ const {
 } = require('docx');
 const db = require('../db/knex');
 const ptba = require('./ptba');
+const cadrage = require('./cadrage');
 
 const BLEU = '0B3D6E';
 const fmt = (n) => (n === null || n === undefined || n === '' ? '—' : Math.round(Number(n)).toLocaleString('fr-FR').replace(/ | /g, ' '));
@@ -115,6 +116,28 @@ function ligneCredits(libelle, rows, f, A, gras) {
   return { gras, cells: [libelle, cell(A - 2, 'VOTE'), cell(A - 2, 'EXECUTE'), cell(A - 1, 'VOTE'), cell(A - 1, 'EXECUTE_S1'), cell(A, 'PREVISION')] };
 }
 
+/** PAP : plafonds du CBMT applicable comparés aux prévisions de l’exercice. */
+async function tableauCadrage(A) {
+  const c = await cadrage.controle(A);
+  if (!c) return [];
+  const y = c.annees.find((x) => x.annee === A);
+  if (!y) return [];
+  return [
+    legende(`Tableau 5 : Respect des plafonds du CBMT ${c.cbmt.periode}${c.cbmt.statut === 'VALIDE' ? '' : ' (cadrage non validé)'} — exercice ${A}`),
+    tableau([['Rubrique', 'Plafond CBMT (CDF)', `Prévision ${A} (CDF)`, 'Écart (CDF)']], [
+      ...y.lignes.map((l) => [l.libelle, fmt(l.plafond), fmt(l.prevision), l.ecart === null ? '—' : `${l.depasse ? 'Dépassement ' : ''}${fmt(l.ecart)}`]),
+      { gras: true, cells: ['Total', fmt(y.total.plafond), fmt(y.total.prevision), y.total.ecart === null ? '—' : fmt(y.total.ecart)] },
+    ]),
+  ];
+}
+
+/** PAP : actions prioritaires du CBMT rattachées au programme. */
+function actionsPrioritaires(cbmt, programmeId) {
+  const actions = ((cbmt && cbmt.contenu && cbmt.contenu.actions) || []).filter((a) => a.programme_id === programmeId);
+  if (!actions.length) return [];
+  return [titre('Actions prioritaires retenues par le cadrage budgétaire', 3), ...actions.map((a) => para(`• ${a.libelle}`))];
+}
+
 async function pap(doc) {
   const A = doc.annee;
   const c = doc.contenu || {};
@@ -123,6 +146,7 @@ async function pap(doc) {
   const rows = auProgramme(tous);
   const rubriques = postes.filter((p) => p.axe === 'RUBRIQUE');
   const titres = postes.filter((p) => p.axe === 'TITRE');
+  const cbmtPap = await cadrage.cbmtPour(A);
   const corps = [
     para('RÉPUBLIQUE DÉMOCRATIQUE DU CONGO', { align: AlignmentType.CENTER, bold: true, color: BLEU }),
     para(c.ministere || 'ÉCONOMIE NUMÉRIQUE', { align: AlignmentType.CENTER, bold: true, size: 36, color: BLEU, after: 0 }),
@@ -157,6 +181,7 @@ async function pap(doc) {
       ...rubriques.map((x) => ligneCredits(x.libelle, rows, (r) => r.poste_id === x.id, A)),
       ligneCredits('Total', rows, (r) => rubriques.some((x) => x.id === r.poste_id), A, true),
     ]),
+    ...(await tableauCadrage(A)),
     new Paragraph({ children: [new PageBreak()] }),
     titre('2. Présentation des programmes'),
   ];
@@ -170,6 +195,7 @@ async function pap(doc) {
       ...p.objectifs.map((o, oi) => para(`Objectif ${oi + 1}. ${o.libelle}`)),
       legende(`Cadre de performance du programme ${p.libelle}`),
       tableauPerformance(p.objectifs, A),
+      ...actionsPrioritaires(cbmtPap, p.id),
       titre('Crédits du programme par rubrique budgétaire', 3),
       tableau(colonnesCredits(A), [...rubriques.map((x) => ligneCredits(x.libelle, rows, (r) => r.programme_id === p.id && r.poste_id === x.id, A)),
         ligneCredits('Total', rows, (r) => r.programme_id === p.id && rubriques.some((x) => x.id === r.poste_id), A, true)]),
@@ -268,7 +294,56 @@ async function cdmt(doc) {
   const tot = ws.addRow(['TOTAL MINISTÈRE', '', val(f, A - 1, 'VOTE'), val(f, A, 'PREVISION'), val(f, A + 1, 'PREVISION'), val(f, A + 2, 'PREVISION'), val(f, A + 3, 'PREVISION')]);
   tot.font = { bold: true };
   ws.columns.forEach((col, i) => { col.width = i === 0 ? 40 : i === 1 ? 44 : 18; if (i > 1) col.numFmt = '#,##0'; });
+  const c = await cadrage.controle(A);
+  if (c) feuilleCadrage(wb, c);
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
 
-module.exports = { cadre, credits, pap, rap, cdmt, somme };
+const ENTETE = (row) => row.eachCell((cell) => { cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF17418A' } }; cell.alignment = { wrapText: true, vertical: 'middle' }; });
+
+/** Feuille « Respect du CBMT » : plafonds, prévisions et écarts par année et rubrique. */
+function feuilleCadrage(wb, c) {
+  const ws = wb.addWorksheet('Respect du CBMT');
+  ws.addRow([`RESPECT DES PLAFONDS DU CBMT ${c.cbmt.periode} (${c.cbmt.reference}${c.cbmt.statut === 'VALIDE' ? '' : ', non validé'}) — en CDF`]).font = { bold: true, size: 12 };
+  ENTETE(ws.addRow(['Rubrique', ...c.annees.flatMap((y) => [`Plafond ${y.annee}`, `Prévision ${y.annee}`, `Écart ${y.annee}`])]));
+  const rub = c.annees[0].lignes.map((l) => l.code);
+  rub.forEach((code, k) => {
+    const r = ws.addRow([c.annees[0].lignes[k].libelle, ...c.annees.flatMap((y) => { const l = y.lignes.find((x) => x.code === code); return [l.plafond, l.prevision, l.ecart]; })]);
+    c.annees.forEach((y, i) => { if (y.lignes.find((x) => x.code === code).depasse) r.getCell(4 + i * 3).font = { bold: true, color: { argb: 'FFB91C1C' } }; });
+  });
+  const t = ws.addRow(['Total', ...c.annees.flatMap((y) => [y.total.plafond, y.total.prevision, y.total.ecart])]);
+  t.font = { bold: true };
+  ws.addRow(['Un écart négatif (en rouge) signale une prévision supérieure au plafond.']).font = { italic: true, size: 9 };
+  ws.columns.forEach((col, i) => { col.width = i === 0 ? 46 : 18; if (i > 0) col.numFmt = '#,##0'; });
+}
+
+/** Fiche de cadrage du CBMT (Excel) : hypothèses, plafonds et respect, actions prioritaires. */
+async function cbmt(doc) {
+  const c = doc.contenu || {};
+  const annees = Array.from({ length: cadrage.DUREE }, (_, i) => doc.annee + i);
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Cadrage');
+  ws.addRow([`CADRE BUDGÉTAIRE À MOYEN TERME ${annees[0]}-${annees[annees.length - 1]} — ÉCONOMIE NUMÉRIQUE`]).font = { bold: true, size: 13 };
+  ws.addRow([`${doc.reference}${c.source ? ` — source : ${c.source}` : ''}${c.date_publication ? ` (${c.date_publication})` : ''}`]).font = { italic: true };
+  ws.addRow([]);
+  ENTETE(ws.addRow(['Hypothèses macroéconomiques', ...annees.map(String)]));
+  for (const [k, l] of [['croissance', 'Croissance du PIB réel (%)'], ['inflation', 'Inflation (%)'], ['taux_change', 'Taux de change moyen (CDF pour 1 USD)'], ['pib_nominal', 'PIB nominal (milliards CDF)']]) {
+    ws.addRow([l, ...annees.map((a) => c.hypotheses?.[a]?.[k] ?? null)]);
+  }
+  ws.addRow([]);
+  if (c.orientations) { ws.addRow(['Orientations du secteur']).font = { bold: true }; ws.addRow([c.orientations]).alignment = { wrapText: true }; ws.addRow([]); }
+  ws.columns.forEach((col, i) => { col.width = i === 0 ? 46 : 18; if (i > 0) col.numFmt = '#,##0.##'; });
+  feuilleCadrage(wb, await cadrage.controle(doc.annee, db, doc));
+  const wa = wb.addWorksheet('Actions prioritaires');
+  ENTETE(wa.addRow(['N°', 'Action prioritaire du secteur', 'Programme', 'Projets PIP']));
+  const progs = await db('plan_programmes').select('id', 'code', 'libelle');
+  const pips = await db('pip_projects').select('id', 'code', 'intitule');
+  (c.actions || []).forEach((a, i) => {
+    const p = progs.find((x) => x.id === a.programme_id);
+    wa.addRow([i + 1, a.libelle, p ? `${p.code} — ${p.libelle}` : '—', a.pips.map((id) => pips.find((x) => x.id === id)?.code).filter(Boolean).join(', ') || '—']).alignment = { wrapText: true, vertical: 'top' };
+  });
+  [6, 70, 40, 30].forEach((w, i) => { wa.getColumn(i + 1).width = w; });
+  return Buffer.from(await wb.xlsx.writeBuffer());
+}
+
+module.exports = { cadre, credits, pap, rap, cdmt, cbmt, somme };

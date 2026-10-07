@@ -46,7 +46,7 @@ du Secrétaire Général et de l’Admin est affiché sur la page de connexion.
 - Attribuer une tâche, suivre et valider les travaux de son Bureau ; présences hebdomadaires
   (saisie, vérification, soumission) ; organiser une réunion de Bureau.
 - **Bureau Programme** (`cb.prg`) : vérifier le PTBA soumis par un autre service ; saisir les cibles
-  et les crédits ; préparer le PAP. **Bureau Études** (`cb.eap`) : créer un questionnaire et une
+  et les crédits ; corriger la prévision de fonctionnement qui dépasse le plafond du CBMT ; préparer le PAP. **Bureau Études** (`cb.eap`) : créer un questionnaire et une
   campagne, définir un indicateur. **Bureau Documentation** (`cb.doi`) : tenir l’annuaire, importer
   des acteurs depuis le modèle Excel.
 - *Exercice* : vérifier le PTBA soumis par le service des infrastructures (`cb.prg`) ; montrer aussi le retour pour correction avec un motif (sans l’exécuter, pour garder la suite du circuit).
