@@ -1,5 +1,15 @@
 # Journal des versions — SIG-DEP
 
+## 1.16.0
+
+### Lot 9B — Performance et documents de programmation (cahier des charges, §§ 3 et 24)
+- **Cadre de performance** : objectifs les plus représentatifs du Ministère et objectifs par programme, indicateurs (unité, sens, mode de calcul, source, commentaires) ; valeurs disposées comme dans le PAP : réalisations A-4 à A-2, exercice en cours A-1 (à mi-parcours), cibles A à A+2. Les cibles sont fixées par le Bureau Programme et la Division Programme et Suivi, les réalisations saisies par le Bureau Suivi-Évaluation.
+- **Crédits** (CDF) par programme et, en détail, par action, ventilés par rubrique budgétaire (Rémunérations, Fonctionnement, Interventions, Investissements sur ressources extérieures et propres) et par titre (III à VIII) : votés, exécutés, exécutés à fin juin, prévisions A à A+3 ; saisie en grille avec totaux.
+- **Documents de programmation** : PAP et RAP générés au format Word selon le plan du Ministère (présentation stratégique, cadres de performance, crédits par programme, rubrique, titre et action, parties rédigées), CDMT au format Excel (votés A-1, prévision A, projections A+1 à A+3, total Ministère) ; circuit Bureau Programme → Chef du Bureau Programme → Chef de la Division Programme et Suivi → Directeur ; document validé intangible en base.
+- **Banque des projets** : fiches PIP soumises avec maturité (idée, étude, prêt à financer, en exécution, achevé, abandonné), programme de rattachement, localisation, partenaires et **jalons** (retards signalés).
+- **Registre des risques** (projets, programmes, PTBA) : probabilité, impact, criticité, mesures d’atténuation, responsable, échéance, statut ; un risque critique est signalé au Directeur.
+- Non couvert à ce stade : tableaux des effectifs et de la masse salariale du PAP.
+
 ## 1.15.0
 
 ### Lot 9A — Planification : PTBA au format du Ministère (cahier des charges, §§ 3 et 24)

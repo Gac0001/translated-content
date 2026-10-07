@@ -1,6 +1,6 @@
 {
   "name": "sig-dep-backend",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "description": "API REST du SIG-DEP — Système Intégré de Gestion de la Direction d’Études et Planification",
   "main": "src/server.js",
   "private": true,
@@ -31,7 +31,6 @@
     "express-rate-limit": "^8.7.0",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
-    "jszip": "^3.10.2",
     "knex": "^3.3.0",
     "morgan": "^1.12.1",
     "multer": "^2.4.0",
@@ -46,6 +45,7 @@
   "devDependencies": {
     "cross-env": "^10.1.0",
     "jest": "^30.5.2",
+    "jszip": "^3.10.2",
     "nodemon": "^3.1.14",
     "smtp-server": "^3.19.13",
     "supertest": "^7.3.0"

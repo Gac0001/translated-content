@@ -5,6 +5,12 @@ import api, { download, errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { useApi, Loadable, PageHeader, Tabs, DataTable, StatusBadge, Card, Modal, Field, InfoAlert, Stat, Progress, runAction, toast, Empty } from '../../components/ui';
 
+import Performance from './Performance';
+import Credits from './Credits';
+import DocumentsProgrammation from './DocumentsProgrammation';
+import Banque from './Banque';
+import Risques from './Risques';
+
 export const cdf = (n) => `${Math.round(Number(n) || 0).toLocaleString('fr-FR')} CDF`;
 
 /** Import d’un classeur PTBA au format du Ministère : analyse, choix des feuilles, confirmation. */
@@ -186,7 +192,7 @@ function Referentiel({ referentiel, reload }) {
   );
 }
 
-/** Planification : PTBA des services du Ministère, exécution, référentiel. */
+/** Planification : PTBA, exécution, performance, crédits, PAP/RAP/CDMT, banque des projets, risques, référentiel. */
 export default function Planification() {
   const ref = useApi('/planification/referentiel');
   const [onglet, setOnglet] = useState('ptba');
@@ -194,16 +200,21 @@ export default function Planification() {
   useEffect(() => { if (ref.data && !annee) setAnnee(ref.data.exercices[0]?.annee || new Date().getFullYear()); }, [ref.data, annee]);
   return (
     <>
-      <PageHeader title="Planification" subtitle="Plans de Travail Annuels Budgétisés des services du Ministère, consolidés par la DEP, et suivi de leur exécution."
-        breadcrumb={[{ label: 'Planification' }, { label: 'PTBA' }]}
+      <PageHeader title="Planification" subtitle="PTBA des services du Ministère, cadre de performance, crédits, documents de programmation (PAP, RAP, CDMT), banque des projets et risques."
+        breadcrumb={[{ label: 'Planification' }]}
         actions={ref.data?.exercices.length > 0 && <select className="input w-32" value={annee || ''} onChange={(e) => setAnnee(Number(e.target.value))} aria-label="Exercice">{ref.data.exercices.map((e) => <option key={e.id} value={e.annee}>{e.annee}</option>)}</select>} />
-      <Tabs value={onglet} onChange={setOnglet} tabs={[{ value: 'ptba', label: 'PTBA' }, { value: 'execution', label: 'Exécution' }, { value: 'referentiel', label: 'Référentiel' }]} />
+      <Tabs value={onglet} onChange={setOnglet} tabs={[{ value: 'ptba', label: 'PTBA' }, { value: 'execution', label: 'Exécution' }, { value: 'performance', label: 'Performance' }, { value: 'credits', label: 'Crédits' }, { value: 'documents', label: 'PAP · RAP · CDMT' }, { value: 'banque', label: 'Banque des projets' }, { value: 'risques', label: 'Risques' }, { value: 'referentiel', label: 'Référentiel' }]} />
       <Loadable state={ref}>
         {(r) => (
           <>
-            {!r.exercices.length && onglet !== 'referentiel' && <InfoAlert>Aucun exercice : ouvrez un exercice dans l’onglet Référentiel.</InfoAlert>}
+            {!r.exercices.length && ['ptba', 'execution'].includes(onglet) && <InfoAlert>Aucun exercice : ouvrez un exercice dans l’onglet Référentiel.</InfoAlert>}
             {onglet === 'ptba' && annee && r.exercices.length > 0 && <ListePtba referentiel={r} annee={annee} />}
             {onglet === 'execution' && annee && r.exercices.length > 0 && <Execution annee={annee} />}
+            {onglet === 'performance' && annee && <Performance annee={annee} />}
+            {onglet === 'credits' && annee && <Credits annee={annee} />}
+            {onglet === 'documents' && annee && <DocumentsProgrammation annee={annee} />}
+            {onglet === 'banque' && <Banque programmes={r.programmes} />}
+            {onglet === 'risques' && annee && <Risques annee={annee} programmes={r.programmes} />}
             {onglet === 'referentiel' && <Referentiel referentiel={r} reload={ref.reload} />}
           </>
         )}

@@ -53,6 +53,8 @@ export const STATUTS = {
   PROJET: ['Projet', C.gris], A_EXECUTER: ['À exécuter', C.jaune], ABANDONNEE: ['Abandonnée', C.gris],
   // Agenda
   CONSOLIDE: ['Consolidé', C.violet],
+  // Risques
+  OUVERT: ['Ouvert', C.orange], MAITRISE: ['Maîtrisé', C.indigo], CLOS: ['Clos', C.gris],
   PREVU: ['Prévu', C.bleu], CONFIRME: ['Confirmé', C.vert], TENU: ['Tenu', C.marine], ANNULE: ['Annulé', C.gris],
 };
 
@@ -81,6 +83,7 @@ export const ACTIONS_HISTO = {
   VISA: 'Visa', PUBLICATION: 'Publication', IMPORT: 'Import', CONSOLIDATION: 'Consolidation', SUIVI: 'Suivi de l’exécution', CONVOCATION: 'Convocation', REPORT: 'Report', MODIFICATION: 'Modification', PRESENCE: 'Présence relevée',
   TENUE: 'Réunion tenue', SOUMISSION_CR: 'Compte rendu soumis', RETOUR_CR: 'Compte rendu retourné', VALIDATION_CR: 'Compte rendu validé',
   DECISION: 'Décision', MISE_EN_OEUVRE: 'Mise en œuvre', EXECUTION: 'Exécution', ABANDON: 'Abandon', MISE_EN_OEUVRE_ANNULEE: 'Mise en œuvre annulée', ENVOI: 'Envoi', REPONSE: 'Réponse', COMPLEMENT_REPONSE: 'Complément de réponse', RELANCE: 'Relance',
+  SOUMETTRE: 'Soumission', VERIFIER: 'Vérification', CONSOLIDER: 'Consolidation', VALIDER: 'Validation',
 };
 
 export const NOTIF_TYPES = {

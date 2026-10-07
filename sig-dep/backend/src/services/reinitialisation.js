@@ -21,7 +21,7 @@ const CONSERVEES = [
   // Modèle de carte (référentiel) et journal des vérifications publiques
   'modeles_carte', 'verifications_carte',
   // Maquette programmatique et services du Ministère (référentiel de la planification)
-  'plan_programmes', 'plan_actions', 'plan_services',
+  'plan_programmes', 'plan_actions', 'plan_services', 'plan_postes_budgetaires',
 ];
 
 async function volumes(trx = db) {

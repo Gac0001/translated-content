@@ -36,6 +36,7 @@ const DecisionDetail = p(() => import('./pages/decisions/DecisionDetail'));
 const Agenda = p(() => import('./pages/agenda/Agenda'));
 const Planification = p(() => import('./pages/planification/Planification'));
 const PtbaDetail = p(() => import('./pages/planification/PtbaDetail'));
+const PlanDocument = p(() => import('./pages/planification/PlanDocument'));
 const DemandeDetail = p(() => import('./pages/demandes/DemandeDetail'));
 const ActeForm = p(() => import('./pages/actes/ActeForm'));
 const ActeDetail = p(() => import('./pages/actes/ActeDetail'));
@@ -153,6 +154,7 @@ export default function App() {
             <Route path="decisions/:id" element={<DecisionDetail />} />
             <Route path="planification" element={G(['planification.consulter'], <Planification />)} />
             <Route path="planification/ptba/:id" element={G(['planification.consulter'], <PtbaDetail />)} />
+            <Route path="planification/documents/:id" element={G(['planification.consulter'], <PlanDocument />)} />
             <Route path="agenda" element={G(['agenda.consulter'], <Agenda />)} />
             <Route path="demandes-information" element={G(['demandes_info.emettre', 'demandes_info.repondre'], <DemandesList />)} />
             <Route path="demandes-information/:id" element={G(['demandes_info.emettre', 'demandes_info.repondre'], <DemandeDetail />)} />
