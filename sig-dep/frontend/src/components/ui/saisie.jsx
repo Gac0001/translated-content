@@ -83,12 +83,13 @@ MoneyInput.champ = true;
  * lignes : [{ key, label, aide?, lectureSeule?, niveau? }] — niveau 1 met la ligne en retrait ;
  * colonnes : [{ key, label }] ; valeurs : { [ligne]: { [colonne]: nombre } } ;
  * onChange(ligne, colonne, nombre | null) ; totaux : 'lignes' | 'colonnes' | 'tous' | null ;
- * alerte(ligne, colonne, valeur) → texte d’alerte ou null (cellule encadrée de rouge, texte lu).
+ * alerte(ligne, colonne, valeur) → texte d’alerte ou null (cellule encadrée de rouge, texte lu) ;
+ * modifiee(ligne, colonne) → vrai pour une cellule modifiée et non enregistrée (fond ambré).
  * Clavier : Entrée / flèches haut-bas passent à la ligne suivante / précédente de la même colonne.
  */
 export function EditableGrid({
   lignes, colonnes, valeurs = {}, onChange, totaux = 'colonnes', decimales = 0, lectureSeule = false,
-  label, entete = '', alerte, format = (v) => fmtNombre(v, decimales), unite,
+  label, entete = '', alerte, modifiee, format = (v) => fmtNombre(v, decimales), unite,
 }) {
   const id = useId().replace(/:/g, '');
   const table = useRef(null);
@@ -134,7 +135,7 @@ export function EditableGrid({
                     {lectureSeule || l.lectureSeule
                       ? <div className="px-3 text-right tabular-nums">{format(v)}</div>
                       : <NumberInput value={v} decimales={decimales} onChange={(n) => onChange(l.key, c.key, n)}
-                        className={`py-1.5 ${msg ? 'border-red-500' : ''}`} aria-label={`${l.label} — ${c.label}${unite ? ` (${unite})` : ''}`}
+                        className={`py-1.5 ${msg ? 'border-red-500' : modifiee?.(l.key, c.key) ? 'border-amber-400 bg-amber-50' : ''}`} aria-label={`${l.label} — ${c.label}${unite ? ` (${unite})` : ''}`}
                         aria-describedby={aideId} data-cellule={`${i}-${j}`} onKeyDown={(e) => deplacer(e, i, j)} />}
                     {msg && <div id={aideId} className="mt-0.5 text-right text-xs text-red-700">{msg}</div>}
                   </td>
@@ -220,7 +221,7 @@ export function FormModal({
 export function ActionBar({ dirty, saving = false, onSave, onCancel, saveLabel = 'Enregistrer', form, children, guard = true, disabled = false }) {
   return (
     <>
-      {guard && <UnsavedChangesGuard when={dirty && !saving} />}
+      {guard && <UnsavedChangesGuard surOnglet when={dirty && !saving} />}
       <div className="sticky bottom-0 z-20 -mx-4 mt-4 flex items-center gap-2 border-t border-[#dde3ea] bg-white/95 px-4 py-2.5 shadow-[0_-2px_6px_rgba(23,65,138,0.06)] backdrop-blur sm:-mx-6 sm:px-6 sm:py-3 no-print">
         <p className="mr-auto min-w-0 text-xs text-slate-600 sm:text-sm" aria-live="polite">
           {saving ? 'Enregistrement en cours…' : dirty

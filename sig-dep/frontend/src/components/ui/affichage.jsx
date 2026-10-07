@@ -14,10 +14,12 @@ const ALIGN = { right: 'text-right tabular-nums', center: 'text-center' };
  * la colonne `rowHeader` (sinon la première) est l’en-tête de ligne lu par les lecteurs d’écran.
  * footer : lignes de total, rendues en gras dans <tfoot> avec les mêmes colonnes.
  * rowClassName(row), onRowClick(row), dense, empty (message), figee (première colonne fixe).
+ * groupes : ligne d’en-tête au-dessus des colonnes, [{ label, colSpan }] (« Réalisations », « 2027 »…) ;
+ * une colonne `debutGroupe` reçoit un filet vertical à gauche.
  */
 export function SimpleTable({
   columns, rows = [], footer = [], rowKey = 'id', label, caption, empty = 'Aucune donnée.', dense = false,
-  rowClassName, onRowClick, figee = false,
+  rowClassName, onRowClick, figee = false, groupes,
 }) {
   const tete = columns.find((c) => c.rowHeader) || columns[0];
   const pad = dense ? 'py-1.5' : '';
@@ -25,7 +27,7 @@ export function SimpleTable({
   const fixe = (c, entete = false) => (figee && c === columns[0] ? `sticky left-0 z-10 ${entete ? '' : 'bg-inherit'}` : '');
   const cellule = (c, r, i, pied) => {
     const contenu = c.render ? c.render(r, i) : (r[c.key] ?? '—');
-    const cls = `td ${pad} ${ALIGN[c.align] || ''} ${c.className || ''} ${fixe(c)}`;
+    const cls = `td ${pad} ${ALIGN[c.align] || ''} ${c.debutGroupe ? 'border-l border-l-slate-200' : ''} ${c.className || ''} ${fixe(c)}`;
     return c === tete
       ? <th key={c.key} scope="row" className={`${cls} text-left ${pied ? 'font-semibold' : 'font-normal'}`}>{contenu}</th>
       : <td key={c.key} className={cls}>{contenu}</td>;
@@ -39,7 +41,10 @@ export function SimpleTable({
       <table className="min-w-full" aria-label={caption ? undefined : label}>
         {caption && <caption className="px-3 py-2 text-left text-sm font-medium text-slate-700">{caption}</caption>}
         <thead>
-          <tr>{columns.map((c) => <th key={c.key} scope="col" className={`th ${ALIGN[c.align] || ''} ${c.className || ''} ${fixe(c, true)}`}>{c.header ?? <span className="sr-only">Actions</span>}</th>)}</tr>
+          {groupes && (
+            <tr>{groupes.map((g, i) => <th key={i} scope={g.label ? 'colgroup' : undefined} colSpan={g.colSpan || 1} className={`th border-b-0 pb-0 text-center ${i ? 'border-l border-l-slate-200' : ''}`}>{g.label}</th>)}</tr>
+          )}
+          <tr>{columns.map((c) => <th key={c.key} scope="col" className={`th ${ALIGN[c.align] || ''} ${c.debutGroupe ? 'border-l border-l-slate-200' : ''} ${c.className || ''} ${fixe(c, true)}`}>{c.header ?? <span className="sr-only">Actions</span>}</th>)}</tr>
         </thead>
         <tbody className="bg-white">
           {rows.length === 0 && <tr><td colSpan={columns.length} className="td py-6 text-center text-slate-500">{empty}</td></tr>}
@@ -63,12 +68,13 @@ export function SimpleTable({
 // ─── États ──────────────────────────────────────────────────────────────────
 /**
  * État vide explicatif : pourquoi la liste est vide et quoi faire (action principale).
- * Pour un simple message dans une carte de tableau de bord, utiliser Empty compact.
+ * compact : marges réduites (section vide dans une page chargée). Pour un simple message dans une carte
+ * de tableau de bord, utiliser Empty compact.
  */
-export function EmptyState({ icon: Icon = Inbox, title, children, action, className = '' }) {
+export function EmptyState({ icon: Icon = Inbox, title, children, action, className = '', compact = false }) {
   return (
-    <div className={`flex flex-col items-center justify-center gap-2 px-4 py-10 text-center ${className}`}>
-      <span className="mb-1 rounded-full bg-dep-50 p-3 text-dep-600"><Icon size={26} aria-hidden /></span>
+    <div className={`flex flex-col items-center justify-center gap-2 px-4 text-center ${compact ? 'py-5' : 'py-10'} ${className}`}>
+      <span className={`mb-1 rounded-full bg-dep-50 text-dep-600 ${compact ? 'p-2' : 'p-3'}`}><Icon size={compact ? 20 : 26} aria-hidden /></span>
       {title && <p className="font-display text-base font-semibold text-slate-800">{title}</p>}
       {children && <div className="max-w-md text-sm text-slate-600">{children}</div>}
       {action && <div className="mt-2 flex flex-wrap justify-center gap-2">{action}</div>}

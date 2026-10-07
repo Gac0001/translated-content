@@ -1,5 +1,17 @@
 # Journal des versions — SIG-DEP
 
+## 1.23.0
+
+### Refonte de l’interface — étape 3a : Planification sur les composants communs
+- **Crédits** : grilles de saisie communes par programme (par rubrique et par titre), montants au format français, cellules modifiées signalées, Entrée pour passer à la ligne suivante ; une saisie non enregistrée est protégée, y compris au changement d’onglet.
+- **CBMT** : tableau « Respect des plafonds » à en-têtes groupés par année et première colonne fixe ; éditeur avec grilles de plafonds (total par année) et d’hypothèses, barre d’enregistrement et protection de la saisie.
+- **Performance** : un tableau par objectif (réalisations, exercice en cours, cibles groupés), valeurs saisies au format français et enregistrées en quittant la cellule ; fenêtres objectif et indicateur en sections, avec confirmation avant d’abandonner une saisie.
+- **Fiches PTBA et documents de programmation** : encadré « Circuit de traitement » commun (Préparation → Vérification → Consolidation → Validation du Directeur), actions de l’étape dans l’encadré, validation confirmée, retour pour correction avec motif obligatoire ; exports Excel / PDF / Word regroupés sous « Actions » sur téléphone ; éditeurs avec barre d’enregistrement (coût total du PTBA affiché) et coûts saisis en montants.
+- **Exécution, coûts par trimestre, activités du PTBA** : tableaux communs avec lignes de total et sous-totaux par objectif ; saisie de l’exécution trimestrielle en montants, décaissé contrôlé par rapport à l’engagé.
+- **Banque des projets, risques, référentiel, nouveaux PTBA et documents** : fenêtres de formulaire communes (champs obligatoires signalés, contrôles avant envoi, criticité du risque calculée pendant la saisie) ; états vides explicatifs.
+- Composants : `EditableGrid` signale les cellules modifiées, `SimpleTable` accepte des en-têtes groupés, `EmptyState` une variante compacte, `UnsavedChangesGuard` protège aussi le changement d’onglet (`surOnglet`).
+- Tests de l’interface : 34 réussis (dont 4 nouveaux sur la Planification).
+
 ## 1.22.0
 
 ### Refonte de l’interface — étape 2 : nouveaux composants communs

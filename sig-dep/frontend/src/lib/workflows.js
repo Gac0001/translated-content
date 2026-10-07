@@ -109,3 +109,17 @@ export function circuitCourrier(c) {
   if (pos > 2 && !aFait(c.historique, 'TRAITEMENT')) sautees.push(2);
   return { etapes, courante: pos, termine: c.statut === 'ARCHIVE', sautees };
 }
+
+/**
+ * Programmation (PTBA, CBMT, PAP, RAP, CDMT) : préparation (Bureau Programme) → vérification (Chef du
+ * Bureau Programme) → consolidation (Chef de la Division Programme et Suivi) → validation (Directeur).
+ */
+export function circuitProgrammation(d) {
+  const etapes = ['Préparation', 'Vérification', 'Consolidation', 'Validation du Directeur', 'Validé'];
+  const pos = { BROUILLON: 0, A_CORRIGER: 0, SOUMIS: 1, VERIFIE: 2, CONSOLIDE: 3, VALIDE: 4 }[d.statut] ?? 0;
+  const details = { SOUMIS: { 1: 'Chez le Chef du Bureau Programme' }, VERIFIE: { 2: 'Chez le Chef de la Division Programme et Suivi' }, CONSOLIDE: { 3: 'Chez le Directeur' } }[d.statut] || {};
+  return {
+    etapes, courante: pos, termine: d.statut === 'VALIDE', details,
+    alerte: d.statut === 'A_CORRIGER' ? { tone: 'attention', label: 'Retourné pour correction' } : undefined,
+  };
+}

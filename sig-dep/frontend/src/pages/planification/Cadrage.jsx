@@ -1,11 +1,10 @@
-import { useState } from 'react';
-import { Plus, Save, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
 import api from '../../lib/api';
-import { fmtNombre, lireNombre } from '../../lib/format';
-import { useApi, Card, Field, InfoAlert, Badge, runAction, toast } from '../../components/ui';
+import { fmtNombre } from '../../lib/format';
+import { useApi, Card, Field, InfoAlert, Badge, SimpleTable, EditableGrid, EmptyState, ActionBar, runAction } from '../../components/ui';
 
-const nombre = (v) => fmtNombre(v, 2, { vide: '' });
-const lire = lireNombre;
+const nombre = (v) => fmtNombre(v, 2);
 const cdf = (v) => fmtNombre(v === null || v === undefined ? v : Math.round(v));
 const HYPOTHESES = [['croissance', 'Croissance du PIB réel (%)'], ['inflation', 'Inflation (%)'], ['taux_change', 'Taux de change moyen (CDF/USD)'], ['pib_nominal', 'PIB nominal (milliards CDF)']];
 
@@ -13,27 +12,20 @@ const HYPOTHESES = [['croissance', 'Croissance du PIB réel (%)'], ['inflation',
 export function TableauCadrage({ controle, compact = false }) {
   if (!controle) return null;
   const { annees } = controle;
+  const rouge = (c) => (c.depasse ? 'font-semibold text-red-700' : '');
+  const columns = [
+    { key: 'libelle', header: 'Rubrique', className: 'min-w-[12rem]' },
+    ...annees.flatMap((y, i) => [
+      { key: `p${i}`, header: 'Plafond', align: 'right', debutGroupe: true, render: (r) => cdf(r.cel[i].plafond) },
+      { key: `v${i}`, header: 'Prévision', align: 'right', render: (r) => <span className={rouge(r.cel[i])} title={r.cel[i].depasse ? 'Prévision supérieure au plafond' : undefined}>{cdf(r.cel[i].prevision)}</span> },
+      !compact && { key: `e${i}`, header: 'Écart', align: 'right', className: 'whitespace-nowrap', render: (r) => { const c = r.cel[i]; return <span className={c.depasse ? 'text-red-700' : 'text-slate-600'}>{c.ecart === null ? '—' : `${c.depasse ? '▼ ' : ''}${cdf(c.ecart)}`}{c.depasse && <span className="sr-only"> (dépassement)</span>}</span>; } },
+    ].filter(Boolean)),
+  ];
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-sm">
-        <thead>
-          <tr className="border-b bg-slate-50 text-xs text-slate-500"><th className="px-3 py-2 text-left">Rubrique</th>{annees.map((y) => <th key={y.annee} colSpan={compact ? 2 : 3} className="border-l px-2 text-center">{y.annee}</th>)}</tr>
-          <tr className="border-b text-xs text-slate-500"><th />{annees.map((y) => [<th key={`p${y.annee}`} className="border-l px-2 text-right font-medium">Plafond</th>, <th key={`v${y.annee}`} className="px-2 text-right font-medium">Prévision</th>, !compact && <th key={`e${y.annee}`} className="px-2 text-right font-medium">Écart</th>])}</tr>
-        </thead>
-        <tbody>
-          {[...annees[0].lignes.map((l, k) => ({ libelle: l.libelle, cel: annees.map((y) => y.lignes[k]) })), { libelle: 'Total', total: true, cel: annees.map((y) => y.total) }].map((r) => (
-            <tr key={r.libelle} className={`border-b border-slate-100 ${r.total ? 'font-semibold' : ''}`}>
-              <td className="px-3 py-1.5">{r.libelle}</td>
-              {r.cel.map((c, i) => [
-                <td key={`p${i}`} className="border-l px-2 text-right tabular-nums">{cdf(c.plafond)}</td>,
-                <td key={`v${i}`} className={`px-2 text-right tabular-nums ${c.depasse ? 'font-semibold text-red-700' : ''}`} title={c.depasse ? 'Prévision supérieure au plafond' : undefined}>{cdf(c.prevision)}</td>,
-                !compact && <td key={`e${i}`} className={`whitespace-nowrap px-2 text-right tabular-nums ${c.depasse ? "text-red-700" : "text-slate-600"}`}>{c.ecart === null ? '—' : `${c.depasse ? '▼ ' : ''}${cdf(c.ecart)}`}</td>,
-              ])}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <SimpleTable label="Respect des plafonds du CBMT" dense figee rowKey="libelle" columns={columns}
+      groupes={[{ label: '' }, ...annees.map((y) => ({ label: String(y.annee), colSpan: compact ? 2 : 3 }))]}
+      rows={annees[0].lignes.map((l, k) => ({ libelle: l.libelle, cel: annees.map((y) => y.lignes[k]) }))}
+      footer={[{ libelle: 'Total', cel: annees.map((y) => y.total) }]} />
   );
 }
 
@@ -42,7 +34,7 @@ export function ControleCadrage({ annee, version }) {
   const state = useApi(`/programmation/cadrage?annee=${annee}`, [annee, version]);
   const c = state.data?.controle;
   if (!state.data) return null;
-  if (!c) return <InfoAlert>Aucun CBMT ne couvre l’exercice {annee} : créez-le dans l’onglet « PAP · RAP · CDMT » (type CBMT) pour contrôler les prévisions par rapport aux plafonds.</InfoAlert>;
+  if (!c) return <InfoAlert>Aucun CBMT ne couvre l’exercice {annee} : créez-le dans l’onglet « CBMT · PAP · RAP · CDMT » pour contrôler les prévisions par rapport aux plafonds.</InfoAlert>;
   const depassements = c.annees.flatMap((y) => [...y.lignes.filter((l) => l.depasse), ...(y.total.depasse ? [y.total] : [])]).length;
   return (
     <Card title={`Respect du cadrage budgétaire — CBMT ${c.cbmt.periode}`} bodyClass="p-0"
@@ -63,13 +55,14 @@ export function VueCbmt({ doc, programmes }) {
       <Card title="Respect des plafonds" bodyClass="p-0"><TableauCadrage controle={doc.controle} /></Card>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Hypothèses macroéconomiques">
-          <table className="w-full text-sm">
-            <thead><tr className="text-xs text-slate-500"><th className="text-left" />{annees.map((a) => <th key={a} className="text-right">{a}</th>)}</tr></thead>
-            <tbody>{HYPOTHESES.map(([k, l]) => <tr key={k} className="border-t border-slate-100"><td className="py-1">{l}</td>{annees.map((a) => <td key={a} className="text-right tabular-nums">{nombre(c.hypotheses?.[a]?.[k]) || '—'}</td>)}</tr>)}</tbody>
-          </table>
+          <div className="-mx-4 -mt-4 mb-2">
+            <SimpleTable label="Hypothèses macroéconomiques" dense rowKey="k"
+              columns={[{ key: 'l', header: 'Indicateur' }, ...annees.map((an) => ({ key: String(an), header: String(an), align: 'right', render: (r) => nombre(c.hypotheses?.[an]?.[r.k]) }))]}
+              rows={HYPOTHESES.map(([k, l]) => ({ k, l }))} />
+          </div>
           {(c.source || c.date_publication) && <p className="mt-2 text-xs text-slate-500">Source : {c.source || '—'}{c.date_publication ? ` (${c.date_publication})` : ''}</p>}
         </Card>
-        <Card title="Orientations du secteur">{c.orientations ? <p className="whitespace-pre-line text-sm">{c.orientations}</p> : <p className="text-sm italic text-slate-400">Non renseignées.</p>}</Card>
+        <Card title="Orientations du secteur">{c.orientations ? <p className="whitespace-pre-line text-sm">{c.orientations}</p> : <p className="text-sm italic text-slate-500">Non renseignées.</p>}</Card>
       </div>
       <Card title="Actions prioritaires du secteur">
         {(c.actions || []).length ? (
@@ -78,42 +71,42 @@ export function VueCbmt({ doc, programmes }) {
             const pips = (banque.data?.data || []).filter((x) => a.pips.includes(x.id));
             return <li key={i}>{a.libelle}<div className="text-xs text-slate-500">{p ? `Programme ${p.code} — ${p.libelle}` : 'Sans programme'}{pips.length ? ` · PIP : ${pips.map((x) => x.code).join(', ')}` : ''}</div></li>;
           })}</ol>
-        ) : <p className="text-sm italic text-slate-400">Aucune action saisie.</p>}
+        ) : <EmptyState title="Aucune action prioritaire">Les actions prioritaires du secteur, reliées aux programmes et aux projets de la banque, se saisissent avec « Rédiger ».</EmptyState>}
       </Card>
     </div>
   );
 }
 
+/** Valeurs par ligne puis par année (grille) ⇄ par année puis par ligne (contenu du CBMT). */
+const parLigne = (source, cles, annees) => Object.fromEntries(cles.map((k) => [k, Object.fromEntries(annees.map((a) => [a, source?.[a]?.[k] ?? null]))]));
+const parAnnee = (grille, annees) => Object.fromEntries(annees.map((a) => [a, Object.fromEntries(Object.entries(grille).map(([k, v]) => [k, v[a] ?? null]))]));
+
 /** Saisie du CBMT : source, hypothèses, plafonds par année et rubrique, actions prioritaires. */
 export function EditeurCbmt({ doc, programmes, onSaved, onCancel }) {
   const banque = useApi('/programmation/banque');
-  const annees = [doc.annee, doc.annee + 1, doc.annee + 2];
-  const c0 = doc.contenu || {};
-  const [c, setC] = useState({ source: 'Ministère du Budget — DGPPB', date_publication: '', orientations: '', ...c0, actions: c0.actions || [] });
-  const [hyp, setHyp] = useState(() => Object.fromEntries(annees.map((a) => [a, Object.fromEntries(HYPOTHESES.map(([k]) => [k, nombre(c0.hypotheses?.[a]?.[k])]))])));
-  const [pla, setPla] = useState(() => Object.fromEntries(annees.map((a) => [a, Object.fromEntries(doc.rubriques.map((r) => [r.code, nombre(c0.plafonds?.[a]?.[r.code])]))])));
+  const annees = useMemo(() => [doc.annee, doc.annee + 1, doc.annee + 2], [doc.annee]);
+  const colonnes = annees.map((a) => ({ key: String(a), label: String(a) }));
+  const [initial] = useState(() => {
+    const c0 = doc.contenu || {};
+    return {
+      c: { source: 'Ministère du Budget — DGPPB', date_publication: '', orientations: '', ...c0, actions: c0.actions || [] },
+      hyp: parLigne(c0.hypotheses, HYPOTHESES.map(([k]) => k), annees),
+      pla: parLigne(c0.plafonds, doc.rubriques.map((r) => r.code), annees),
+    };
+  });
+  const [c, setC] = useState(initial.c);
+  const [hyp, setHyp] = useState(initial.hyp);
+  const [pla, setPla] = useState(initial.pla);
+  const [enCours, setEnCours] = useState(false);
+  const modifie = JSON.stringify({ c, hyp, pla }) !== JSON.stringify(initial);
   const majAction = (i, k, v) => setC({ ...c, actions: c.actions.map((x, j) => (j === i ? { ...x, [k]: v } : x)) });
   const enregistrer = async () => {
-    const conv = (o) => Object.fromEntries(Object.entries(o).map(([a, v]) => [a, Object.fromEntries(Object.entries(v).map(([k, x]) => [k, lire(x)]))]));
-    const h = conv(hyp);
-    const p = conv(pla);
-    if ([...Object.values(h), ...Object.values(p)].some((v) => Object.values(v).some((x) => x !== null && !Number.isFinite(x)))) { toast.error('Valeur numérique attendue.'); return; }
-    const contenu = { ...c, date_publication: c.date_publication || null, hypotheses: h, plafonds: p, actions: c.actions.filter((a) => a.libelle.trim()).map((a) => ({ libelle: a.libelle, programme_id: a.programme_id ? Number(a.programme_id) : null, pips: a.pips })) };
-    await runAction(() => api.put(`/programmation/documents/${doc.id}`, { contenu }), 'CBMT enregistré.');
+    const contenu = { ...c, date_publication: c.date_publication || null, hypotheses: parAnnee(hyp, annees), plafonds: parAnnee(pla, annees), actions: c.actions.filter((a) => a.libelle.trim()).map((a) => ({ libelle: a.libelle, programme_id: a.programme_id ? Number(a.programme_id) : null, pips: a.pips })) };
+    setEnCours(true);
+    try { await runAction(() => api.put(`/programmation/documents/${doc.id}`, { contenu }), 'CBMT enregistré.'); } finally { setEnCours(false); }
     onSaved();
   };
-  const grille = (titre, lignes, valeurs, setValeurs, unite) => (
-    <Card title={titre} bodyClass="p-0">
-      <table className="min-w-full text-sm">
-        <thead><tr className="border-b bg-slate-50 text-xs text-slate-500"><th className="px-3 py-2 text-left">{unite}</th>{annees.map((a) => <th key={a} className="px-2 text-right">{a}</th>)}</tr></thead>
-        <tbody>{lignes.map(([k, l]) => (
-          <tr key={k} className="border-b border-slate-100"><td className="px-3 py-1">{l}</td>{annees.map((a) => (
-            <td key={a} className="px-1 py-0.5"><input className="input w-36 px-1 py-0.5 text-right tabular-nums" aria-label={`${l} ${a}`} value={valeurs[a][k] ?? ''} onChange={(e) => setValeurs({ ...valeurs, [a]: { ...valeurs[a], [k]: e.target.value } })} /></td>
-          ))}</tr>
-        ))}</tbody>
-      </table>
-    </Card>
-  );
+  const maj = (set) => (l, a, v) => set((g) => ({ ...g, [l]: { ...g[l], [a]: v } }));
   return (
     <div className="space-y-4">
       <Card title="Document">
@@ -124,28 +117,32 @@ export function EditeurCbmt({ doc, programmes, onSaved, onCancel }) {
         </div>
         <p className="mt-2 text-xs text-slate-500">Joignez le document du Ministère du Budget dans les pièces du CBMT. Les plafonds du Ministère figurent dans l’annexe « cadre des dépenses sectorielles » ou dans la lettre de cadrage.</p>
       </Card>
-      {grille('Plafonds du Ministère par nature (CDF)', doc.rubriques.map((r) => [r.code, r.libelle]), pla, setPla, 'Rubrique')}
-      {grille('Hypothèses macroéconomiques', HYPOTHESES, hyp, setHyp, 'Indicateur')}
-      <Card title="Actions prioritaires du secteur">
+      <Card title="Plafonds du Ministère par nature (CDF)" bodyClass="p-0">
+        <EditableGrid label="Plafonds du Ministère par nature" entete="Rubrique" unite="CDF" totaux="colonnes" colonnes={colonnes}
+          lignes={doc.rubriques.map((r) => ({ key: r.code, label: r.libelle }))} valeurs={pla} onChange={maj(setPla)} />
+      </Card>
+      <Card title="Hypothèses macroéconomiques" bodyClass="p-0">
+        <EditableGrid label="Hypothèses macroéconomiques" entete="Indicateur" decimales={2} totaux={null} colonnes={colonnes}
+          lignes={HYPOTHESES.map(([k, l]) => ({ key: k, label: l }))} valeurs={hyp} onChange={maj(setHyp)} />
+      </Card>
+      <Card title="Actions prioritaires du secteur" actions={<button type="button" className="btn-secondary" onClick={() => setC({ ...c, actions: [...c.actions, { libelle: '', programme_id: '', pips: [] }] })}><Plus size={16} aria-hidden /> Action</button>}>
+        {!c.actions.length && <p className="text-sm text-slate-500">Aucune action : ajoutez les actions prioritaires retenues par le cadrage.</p>}
         <div className="space-y-3">
           {c.actions.map((a, i) => (
-            <div key={i} className="grid gap-2 rounded-md border border-slate-200 p-3 lg:grid-cols-12">
-              <input className="input lg:col-span-6" placeholder="Action prioritaire" value={a.libelle} onChange={(e) => majAction(i, 'libelle', e.target.value)} aria-label="Action prioritaire" />
-              <select className="input lg:col-span-5" value={a.programme_id || ''} onChange={(e) => majAction(i, 'programme_id', e.target.value)} aria-label="Programme"><option value="">— Programme —</option>{programmes.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.libelle}</option>)}</select>
-              <button type="button" className="btn-ghost justify-self-end px-2 text-red-700 lg:col-span-1" aria-label="Retirer l’action" onClick={() => setC({ ...c, actions: c.actions.filter((_, j) => j !== i) })}><Trash2 size={15} /></button>
-              <div className="flex flex-wrap gap-1.5 lg:col-span-12">{(banque.data?.data || []).map((p) => {
+            <fieldset key={i} className="grid gap-2 rounded-md border border-slate-200 p-3 lg:grid-cols-12">
+              <legend className="sr-only">Action prioritaire {i + 1}</legend>
+              <input className="input lg:col-span-6" placeholder="Action prioritaire" value={a.libelle} onChange={(e) => majAction(i, 'libelle', e.target.value)} aria-label={`Action prioritaire ${i + 1}`} />
+              <select className="input lg:col-span-5" value={a.programme_id || ''} onChange={(e) => majAction(i, 'programme_id', e.target.value)} aria-label={`Programme de l’action ${i + 1}`}><option value="">— Programme —</option>{programmes.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.libelle}</option>)}</select>
+              <button type="button" className="btn-ghost justify-self-end px-2 text-red-700 lg:col-span-1" aria-label={`Retirer l’action ${i + 1}`} onClick={() => setC({ ...c, actions: c.actions.filter((_, j) => j !== i) })}><Trash2 size={15} aria-hidden /></button>
+              <div className="flex flex-wrap gap-1.5 lg:col-span-12" role="group" aria-label={`Projets de la banque liés à l’action ${i + 1}`}>{(banque.data?.data || []).map((p) => {
                 const on = a.pips.includes(p.id);
                 return <button key={p.id} type="button" aria-pressed={on} className={`rounded-full border px-2 py-0.5 text-xs ${on ? 'border-dep-600 bg-dep-50 text-dep-800' : 'border-slate-300 text-slate-600'}`} onClick={() => majAction(i, 'pips', on ? a.pips.filter((x) => x !== p.id) : [...a.pips, p.id])}>{p.code} — {p.intitule}</button>;
               })}</div>
-            </div>
+            </fieldset>
           ))}
         </div>
-        <button type="button" className="btn-secondary mt-3" onClick={() => setC({ ...c, actions: [...c.actions, { libelle: '', programme_id: '', pips: [] }] })}><Plus size={16} /> Action</button>
       </Card>
-      <div className="flex gap-2">
-        <button type="button" className="btn-primary" onClick={enregistrer}><Save size={16} /> Enregistrer</button>
-        <button type="button" className="btn-secondary" onClick={onCancel}>Annuler</button>
-      </div>
+      <ActionBar dirty={modifie} saving={enCours} onSave={enregistrer} onCancel={onCancel} saveLabel="Enregistrer le CBMT" />
     </div>
   );
 }

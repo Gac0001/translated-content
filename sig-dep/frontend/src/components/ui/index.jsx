@@ -834,14 +834,15 @@ export function DetailLayout({ main, aside }) {
  * Avertit avant de quitter une page dont la saisie n’est pas enregistrée : navigation dans l’application
  * (y compris le bouton Retour) par une fenêtre de confirmation, fermeture ou rechargement de l’onglet
  * par l’avertissement du navigateur. La déconnexion (inactivité, session expirée) n’est jamais bloquée.
- * when : vrai tant qu’il y a des modifications à perdre (faux pendant l’enregistrement).
+ * when : vrai tant qu’il y a des modifications à perdre (faux pendant l’enregistrement) ;
+ * surOnglet : protège aussi un changement d’onglet ou de filtre de la même page (paramètres de l’adresse).
  */
-export function UnsavedChangesGuard({ when, message = 'Vos modifications n’ont pas été enregistrées. Si vous quittez cette page, elles seront perdues.' }) {
+export function UnsavedChangesGuard({ when, surOnglet = false, message = 'Vos modifications n’ont pas été enregistrées. Si vous quittez cette page, elles seront perdues.' }) {
   const actif = useRef(when);
   actif.current = when;
   const blocker = useBlocker(useCallback(({ currentLocation, nextLocation }) => actif.current
-    && currentLocation.pathname !== nextLocation.pathname
-    && nextLocation.pathname !== '/connexion' && !!useAuth.getState().user, []));
+    && (currentLocation.pathname !== nextLocation.pathname || (surOnglet && currentLocation.search !== nextLocation.search))
+    && nextLocation.pathname !== '/connexion' && !!useAuth.getState().user, [surOnglet]));
   useEffect(() => {
     if (!when) return undefined;
     const avant = (e) => { if (!useAuth.getState().user) return; e.preventDefault(); e.returnValue = ''; };

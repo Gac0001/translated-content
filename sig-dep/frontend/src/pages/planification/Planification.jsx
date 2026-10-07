@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FileSpreadsheet, Plus, Upload } from 'lucide-react';
 import api, { download, errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
-import { useApi, Loadable, PageHeader, Tabs, useOnglet, DataTable, StatusBadge, Card, Modal, Field, InfoAlert, Stat, Progress, runAction, toast, Empty } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Tabs, useOnglet, DataTable, StatusBadge, Card, Modal, FormModal, FormSection, Field, InfoAlert, Stat, Progress, SimpleTable, EmptyState, runAction, toast } from '../../components/ui';
 
 import Performance from './Performance';
 import Credits from './Credits';
@@ -76,18 +76,20 @@ function NouveauPtba({ referentiel, onClose, onCreated }) {
   const [f, setF] = useState({ exercice_id: String(referentiel.exercices[0]?.id || ''), service_id: '', programme_id: '', objectif_global: '' });
   const up = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const creer = async () => {
-    const r = await runAction(() => api.post('/ptba', { exercice_id: Number(f.exercice_id), service_id: Number(f.service_id), programme_id: f.programme_id ? Number(f.programme_id) : null, objectif_global: f.objectif_global || null }), 'PTBA créé.');
+    if (!f.exercice_id || !f.service_id) throw new Error('L’exercice et le service sont obligatoires.');
+    const r = await api.post('/ptba', { exercice_id: Number(f.exercice_id), service_id: Number(f.service_id), programme_id: f.programme_id ? Number(f.programme_id) : null, objectif_global: f.objectif_global || null });
+    toast.success('PTBA créé.');
     onCreated(r.data.id);
   };
   return (
-    <Modal open title="Nouveau PTBA" onClose={onClose} footer={<><button type="button" className="btn-secondary" onClick={onClose}>Annuler</button><button type="button" className="btn-primary" disabled={!f.exercice_id || !f.service_id} onClick={creer}>Créer</button></>}>
-      <div className="grid gap-3">
+    <FormModal open title="Nouveau PTBA" submitLabel="Créer" onClose={onClose} onSubmit={creer} dirty={!!(f.service_id || f.programme_id || f.objectif_global)}>
+      <FormSection cols={1}>
         <Field label="Exercice" required><select className="input" value={f.exercice_id} onChange={up('exercice_id')}>{referentiel.exercices.map((x) => <option key={x.id} value={x.id}>{x.annee}</option>)}</select></Field>
         <Field label="Service" required><select className="input" value={f.service_id} onChange={up('service_id')}><option value="">— Choisir —</option>{referentiel.services.filter((s) => s.actif).map((s) => <option key={s.id} value={s.id}>{s.sigle} — {s.libelle}</option>)}</select></Field>
         <Field label="Programme"><select className="input" value={f.programme_id} onChange={up('programme_id')}><option value="">—</option>{referentiel.programmes.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.libelle}</option>)}</select></Field>
         <Field label="Objectif global"><textarea className="input" rows={3} value={f.objectif_global} onChange={up('objectif_global')} /></Field>
-      </div>
-    </Modal>
+      </FormSection>
+    </FormModal>
   );
 }
 
@@ -101,16 +103,16 @@ function ListePtba({ referentiel, annee }) {
       {(d) => (
         <>
           <div className="mb-3 flex flex-wrap gap-2">
-            {d.droits.preparer && <button type="button" className="btn-primary" onClick={() => setModal('import')}><Upload size={16} /> Importer un classeur</button>}
-            {d.droits.preparer && <button type="button" className="btn-secondary" onClick={() => setModal('nouveau')}><Plus size={16} /> Nouveau PTBA</button>}
-            {can('exports.generer') && <button type="button" className="btn-secondary" onClick={() => download(`/ptba/export/consolide?exercice=${annee}`, `PTBA-${annee}.xlsx`).catch((e) => toast.error(errorMessage(e)))}><FileSpreadsheet size={16} /> PTBA consolidé {annee}</button>}
+            {d.droits.preparer && <button type="button" className="btn-primary" onClick={() => setModal('import')}><Upload size={16} aria-hidden /> Importer un classeur</button>}
+            {d.droits.preparer && <button type="button" className="btn-secondary" onClick={() => setModal('nouveau')}><Plus size={16} aria-hidden /> Nouveau PTBA</button>}
+            {can('exports.generer') && <button type="button" className="btn-secondary" onClick={() => download(`/ptba/export/consolide?exercice=${annee}`, `PTBA-${annee}.xlsx`).catch((e) => toast.error(errorMessage(e)))}><FileSpreadsheet size={16} aria-hidden /> PTBA consolidé {annee}</button>}
           </div>
           <DataTable rows={d.data} onRowClick={(p) => navigate(`/planification/ptba/${p.id}`)} empty={`Aucun PTBA pour ${annee}.`}
             columns={[
               { key: 'service_sigle', header: 'Service', render: (p) => <div><div className="font-semibold">{p.service_sigle}</div><div className="text-xs text-slate-500">{p.service_libelle}</div></div>, search: (p) => `${p.service_sigle} ${p.service_libelle}` },
               { key: 'programme_libelle', header: 'Programme', render: (p) => p.programme_libelle || '—' },
-              { key: 'nb_lignes', header: 'Lignes' },
-              { key: 'cout_total', header: 'Coût', render: (p) => <span className="whitespace-nowrap tabular-nums">{cdf(p.cout_total)}</span> },
+              { key: 'nb_lignes', header: 'Lignes', className: 'text-right', sortable: true },
+              { key: 'cout_total', header: 'Coût', className: 'text-right', sortValue: (p) => Number(p.cout_total) || 0, render: (p) => <span className="whitespace-nowrap tabular-nums">{cdf(p.cout_total)}</span> },
               { key: 'statut', header: 'Statut', render: (p) => <StatusBadge value={p.statut} /> },
             ]} />
           {modal === 'import' && <ImportModal referentiel={referentiel} onClose={() => setModal(null)} onDone={() => { setModal(null); state.reload(); }} />}
@@ -133,17 +135,19 @@ function Execution({ annee }) {
             <Stat label="Exécution financière" value={`${d.global.tauxFinancier} %`} tone="jaune" />
             <Stat label="Exécution physique" value={`${d.global.tauxPhysique} %`} hint="Moyenne pondérée par le coût" tone="violet" />
           </div>
-          <Card title={`Exécution des PTBA validés — ${annee}`} className="mt-4">
+          <Card title={`Exécution des PTBA validés — ${annee}`} className="mt-4" bodyClass="p-0">
             {d.services.length ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead><tr className="border-b text-left text-xs uppercase text-slate-500"><th className="py-2 pr-3">Service</th><th className="pr-3 text-right">Programmé</th><th className="pr-3 text-right">Engagé</th><th className="pr-3 text-right">Décaissé</th><th className="w-40 pr-3">Physique</th><th className="w-40">Financier</th></tr></thead>
-                  <tbody>{d.services.map((s) => (
-                    <tr key={s.id} className="border-b border-slate-100"><td className="py-2 pr-3"><b>{s.sigle}</b> <span className="text-xs text-slate-500">{s.libelle}</span></td><td className="pr-3 text-right tabular-nums">{cdf(s.cout)}</td><td className="pr-3 text-right tabular-nums">{cdf(s.engage)}</td><td className="pr-3 text-right tabular-nums">{cdf(s.decaisse)}</td><td className="pr-3"><Progress value={s.tauxPhysique} /></td><td><Progress value={Math.round(s.tauxFinancier)} /></td></tr>
-                  ))}</tbody>
-                </table>
-              </div>
-            ) : <Empty message="Aucun PTBA validé pour cet exercice." />}
+              <SimpleTable label={`Exécution des PTBA validés ${annee}`} rows={d.services}
+                columns={[
+                  { key: 'sigle', header: 'Service', render: (s) => <><b>{s.sigle}</b> <span className="text-xs text-slate-500">{s.libelle}</span></> },
+                  { key: 'cout', header: 'Programmé', align: 'right', render: (s) => cdf(s.cout) },
+                  { key: 'engage', header: 'Engagé', align: 'right', render: (s) => cdf(s.engage) },
+                  { key: 'decaisse', header: 'Décaissé', align: 'right', render: (s) => cdf(s.decaisse) },
+                  { key: 'physique', header: 'Physique', className: 'w-44', render: (s) => <Progress value={s.tauxPhysique} label={`Exécution physique ${s.sigle}`} /> },
+                  { key: 'financier', header: 'Financier', className: 'w-44', render: (s) => <Progress value={Math.round(s.tauxFinancier)} label={`Exécution financière ${s.sigle}`} /> },
+                ]}
+                footer={[{ id: 'total', sigle: 'Total', libelle: '', cout: d.global.cout, engage: d.global.engage, decaisse: d.global.decaisse, tauxPhysique: d.global.tauxPhysique, tauxFinancier: d.global.tauxFinancier }]} />
+            ) : <EmptyState title="Aucun PTBA validé pour cet exercice">L’exécution trimestrielle se saisit sur chaque PTBA une fois validé par le Directeur (onglet PTBA).</EmptyState>}
           </Card>
         </>
       )}
@@ -154,41 +158,44 @@ function Execution({ annee }) {
 function Referentiel({ referentiel, reload }) {
   const [edition, setEdition] = useState(null);
   const gerer = referentiel.droits.gerer;
+  const [initial, setInitial] = useState(null);
+  const ouvrir = (e) => { setEdition(e); setInitial(e); };
   const enregistrer = async () => {
     const { type, id, ...body } = edition;
     const chemins = { exercice: 'exercices', programme: 'programmes', action: 'actions', service: 'services' };
     if (body.annee) body.annee = Number(body.annee);
     if (body.programme_id) body.programme_id = Number(body.programme_id);
-    await runAction(() => (id ? api.put(`/planification/${chemins[type]}/${id}`, body) : api.post(`/planification/${chemins[type]}`, body)), 'Référentiel mis à jour.');
+    await (id ? api.put(`/planification/${chemins[type]}/${id}`, body) : api.post(`/planification/${chemins[type]}`, body));
+    toast.success('Référentiel mis à jour.');
     setEdition(null); reload();
   };
-  const champ = (k, label, props = {}) => <Field label={label}><input className="input" value={edition[k] ?? ''} onChange={(e) => setEdition({ ...edition, [k]: e.target.value })} {...props} /></Field>;
+  const champ = (k, label, props = {}) => <Field label={label} required={props.required}><input className="input" value={edition[k] ?? ''} onChange={(e) => setEdition({ ...edition, [k]: e.target.value })} {...props} /></Field>;
   return (
     <div className="grid gap-4 lg:grid-cols-3">
-      <Card title="Exercices" actions={gerer && <button type="button" className="btn-secondary" onClick={() => setEdition({ type: 'exercice', annee: new Date().getFullYear() + 1, statut: 'PREPARATION' })}><Plus size={16} /> Exercice</button>}>
-        <ul className="space-y-1 text-sm">{referentiel.exercices.map((e) => <li key={e.id} className="flex justify-between"><span className="font-semibold">{e.annee}</span><button type="button" className="text-xs text-dep-700 hover:underline disabled:text-slate-500" disabled={!gerer} onClick={() => setEdition({ type: 'exercice', id: e.id, annee: e.annee, statut: e.statut })}>{({ PREPARATION: 'En préparation', EXECUTION: 'En exécution', CLOTURE: 'Clôturé' })[e.statut]}</button></li>)}</ul>
+      <Card title="Exercices" actions={gerer && <button type="button" className="btn-secondary" onClick={() => ouvrir({ type: 'exercice', annee: new Date().getFullYear() + 1, statut: 'PREPARATION' })}><Plus size={16} aria-hidden /> Exercice</button>}>
+        <ul className="space-y-1 text-sm">{referentiel.exercices.map((e) => <li key={e.id} className="flex justify-between"><span className="font-semibold">{e.annee}</span><button type="button" className="text-xs text-dep-700 hover:underline disabled:text-slate-500" disabled={!gerer} onClick={() => ouvrir({ type: 'exercice', id: e.id, annee: e.annee, statut: e.statut })}>{({ PREPARATION: 'En préparation', EXECUTION: 'En exécution', CLOTURE: 'Clôturé' })[e.statut]}</button></li>)}</ul>
       </Card>
-      <Card title="Programmes et actions" className="lg:col-span-2" actions={gerer && <button type="button" className="btn-secondary" onClick={() => setEdition({ type: 'programme', code: '', libelle: '', objectif_global: '' })}><Plus size={16} /> Programme</button>}>
+      <Card title="Programmes et actions" className="lg:col-span-2" actions={gerer && <button type="button" className="btn-secondary" onClick={() => ouvrir({ type: 'programme', code: '', libelle: '', objectif_global: '' })}><Plus size={16} aria-hidden /> Programme</button>}>
         {referentiel.programmes.length ? referentiel.programmes.map((p) => (
           <div key={p.id} className="mb-3 border-b border-slate-100 pb-2">
-            <div className="flex flex-wrap items-center justify-between gap-2"><button type="button" disabled={!gerer} className="text-left font-semibold text-dep-800" onClick={() => setEdition({ type: 'programme', id: p.id, code: p.code, libelle: p.libelle, objectif_global: p.objectif_global || '', ordre: p.ordre })}>Programme {p.code} — {p.libelle}</button>
-              {gerer && <button type="button" className="text-xs text-dep-700 hover:underline" onClick={() => setEdition({ type: 'action', programme_id: p.id, code: '', libelle: '', services_normatifs: '', operateurs: '' })}>+ action</button>}</div>
-            <ul className="ml-4 mt-1 space-y-0.5 text-sm">{p.actions.map((a) => <li key={a.id}><button type="button" disabled={!gerer} className="text-left" onClick={() => setEdition({ type: 'action', id: a.id, programme_id: p.id, code: a.code, libelle: a.libelle, services_normatifs: a.services_normatifs || '', operateurs: a.operateurs || '' })}>Action {a.code} : {a.libelle}</button></li>)}</ul>
+            <div className="flex flex-wrap items-center justify-between gap-2"><button type="button" disabled={!gerer} className="text-left font-semibold text-dep-800" onClick={() => ouvrir({ type: 'programme', id: p.id, code: p.code, libelle: p.libelle, objectif_global: p.objectif_global || '', ordre: p.ordre })}>Programme {p.code} — {p.libelle}</button>
+              {gerer && <button type="button" className="text-xs text-dep-700 hover:underline" onClick={() => ouvrir({ type: 'action', programme_id: p.id, code: '', libelle: '', services_normatifs: '', operateurs: '' })}>+ action</button>}</div>
+            <ul className="ml-4 mt-1 space-y-0.5 text-sm">{p.actions.map((a) => <li key={a.id}><button type="button" disabled={!gerer} className="text-left" onClick={() => ouvrir({ type: 'action', id: a.id, programme_id: p.id, code: a.code, libelle: a.libelle, services_normatifs: a.services_normatifs || '', operateurs: a.operateurs || '' })}>Action {a.code} : {a.libelle}</button></li>)}</ul>
           </div>
-        )) : <Empty message="Aucun programme : saisissez la maquette programmatique du Ministère." />}
+        )) : <EmptyState title="Aucun programme">Saisissez la maquette programmatique du Ministère : programmes, puis leurs actions.</EmptyState>}
       </Card>
-      <Card title="Services du Ministère" className="lg:col-span-3" actions={gerer && <button type="button" className="btn-secondary" onClick={() => setEdition({ type: 'service', sigle: '', libelle: '' })}><Plus size={16} /> Service</button>}>
-        <div className="grid gap-1 text-sm sm:grid-cols-2 lg:grid-cols-3">{referentiel.services.map((s) => <button key={s.id} type="button" disabled={!gerer} className="text-left" onClick={() => setEdition({ type: 'service', id: s.id, sigle: s.sigle, libelle: s.libelle, actif: s.actif })}><b>{s.sigle}</b> — {s.libelle}{!s.actif && ' (inactif)'}</button>)}</div>
+      <Card title="Services du Ministère" className="lg:col-span-3" actions={gerer && <button type="button" className="btn-secondary" onClick={() => ouvrir({ type: 'service', sigle: '', libelle: '' })}><Plus size={16} aria-hidden /> Service</button>}>
+        <div className="grid gap-1 text-sm sm:grid-cols-2 lg:grid-cols-3">{referentiel.services.map((s) => <button key={s.id} type="button" disabled={!gerer} className="text-left" onClick={() => ouvrir({ type: 'service', id: s.id, sigle: s.sigle, libelle: s.libelle, actif: s.actif })}><b>{s.sigle}</b> — {s.libelle}{!s.actif && ' (inactif)'}</button>)}</div>
       </Card>
       {edition && (
-        <Modal open title={{ exercice: 'Exercice', programme: 'Programme', action: 'Action', service: 'Service du Ministère' }[edition.type]} onClose={() => setEdition(null)} footer={<><button type="button" className="btn-secondary" onClick={() => setEdition(null)}>Annuler</button><button type="button" className="btn-primary" onClick={enregistrer}>Enregistrer</button></>}>
-          <div className="grid gap-3">
-            {edition.type === 'exercice' && <>{champ('annee', 'Année', { type: 'number' })}<Field label="État"><select className="input" value={edition.statut} onChange={(e) => setEdition({ ...edition, statut: e.target.value })}><option value="PREPARATION">En préparation</option><option value="EXECUTION">En exécution</option><option value="CLOTURE">Clôturé</option></select></Field></>}
-            {edition.type === 'programme' && <>{champ('code', 'Code')}{champ('libelle', 'Intitulé')}<Field label="Objectif global"><textarea className="input" rows={3} value={edition.objectif_global} onChange={(e) => setEdition({ ...edition, objectif_global: e.target.value })} /></Field></>}
-            {edition.type === 'action' && <>{champ('code', 'Code')}{champ('libelle', 'Intitulé')}{champ('services_normatifs', 'Services normatifs')}{champ('operateurs', 'Opérateurs')}</>}
-            {edition.type === 'service' && <>{champ('sigle', 'Sigle')}{champ('libelle', 'Intitulé')}</>}
-          </div>
-        </Modal>
+        <FormModal open title={`${edition.id ? '' : 'Nouveau : '}${{ exercice: 'Exercice', programme: 'Programme', action: 'Action', service: 'Service du Ministère' }[edition.type]}`} onClose={() => setEdition(null)} onSubmit={enregistrer} dirty={JSON.stringify(edition) !== JSON.stringify(initial)}>
+          <FormSection cols={1}>
+            {edition.type === 'exercice' && <>{champ('annee', 'Année', { type: 'number', required: true })}<Field label="État"><select className="input" value={edition.statut} onChange={(e) => setEdition({ ...edition, statut: e.target.value })}><option value="PREPARATION">En préparation</option><option value="EXECUTION">En exécution</option><option value="CLOTURE">Clôturé</option></select></Field></>}
+            {edition.type === 'programme' && <>{champ('code', 'Code', { required: true })}{champ('libelle', 'Intitulé', { required: true })}<Field label="Objectif global"><textarea className="input" rows={3} value={edition.objectif_global} onChange={(e) => setEdition({ ...edition, objectif_global: e.target.value })} /></Field></>}
+            {edition.type === 'action' && <>{champ('code', 'Code', { required: true })}{champ('libelle', 'Intitulé', { required: true })}{champ('services_normatifs', 'Services normatifs')}{champ('operateurs', 'Opérateurs')}</>}
+            {edition.type === 'service' && <>{champ('sigle', 'Sigle', { required: true })}{champ('libelle', 'Intitulé', { required: true })}</>}
+          </FormSection>
+        </FormModal>
       )}
     </div>
   );
