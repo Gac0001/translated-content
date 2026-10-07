@@ -94,6 +94,21 @@ Le script s’arrête sans rien modifier si des modifications locales ne sont pa
 branche locale a divergé (commits non publiés). Les consignes communes aux sessions Claude Code
 (poste local et cloud) sont dans `CLAUDE.md`.
 
+### Tests de l’interface
+
+Depuis `frontend` :
+
+```bash
+npm run lint        # analyse statique (erreurs bloquantes, avertissements d’accessibilité)
+npm run test:e2e    # parcours de non-régression par rôle, ordinateur et téléphone
+```
+
+Les parcours exigent l’API en mode démonstration (`DEMO_MODE=true`, `npm run demo:reset`) et l’interface
+démarrées ; relevez `LOGIN_RATE_LIMIT_MAX` (par ex. 500) dans le `.env` de démonstration, chaque parcours
+ouvrant une session par rôle. Sous Windows, installez une fois le navigateur de test :
+`npx playwright install chromium`. Les captures de chaque écran (`frontend/e2e/captures/`, non versionnées)
+servent de comparaison avant / après pendant la refonte de l’interface.
+
 ### Démonstration et formation (`DEMO_MODE=true`)
 
 Ajouter `DEMO_MODE=true` dans `backend/.env` (jamais en production : l’API refuse de démarrer), puis

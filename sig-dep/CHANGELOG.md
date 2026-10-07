@@ -1,5 +1,12 @@
 # Journal des versions — SIG-DEP
 
+## 1.20.1
+
+### Refonte de l’interface — étape 0 : filet de sécurité (aucun changement visible)
+- Analyse statique de l’interface (`npm run lint`, ESLint 9 avec règles React, hooks et accessibilité) : aucune erreur ; 13 avertissements relevés, à corriger à l’étape 1.
+- Tests de non-régression Playwright (`npm run test:e2e`) : pour 11 rôles, sur ordinateur et téléphone, chaque entrée du menu doit s’afficher sans erreur JavaScript, sans erreur d’API et avec un titre ; ouverture d’une fiche depuis chaque liste ; captures de référence et relevé des débordements horizontaux (seul relevé : Données sectorielles sur téléphone, 6 px).
+- Style graphique retenu pour la refonte : « Bleu État », conforme à la charte du Gouvernement (titres en Cooper Hewitt) — consigné dans `CLAUDE.md`.
+
 ## 1.20.0
 
 ### Lot 11 — Cadrage budgétaire (CBMT)
