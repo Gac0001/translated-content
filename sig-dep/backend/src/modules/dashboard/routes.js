@@ -15,6 +15,7 @@ const { politique } = require('../../services/politique');
 const { dernierControle, versionApplication, espaceDisque } = require('../../services/sante');
 const { etatSauvegardes } = require('../../services/sauvegarde');
 const effectifs = require('../../services/effectifs');
+const { aTraiter } = require('../../services/aTraiter');
 
 const router = express.Router();
 
@@ -257,6 +258,11 @@ router.get('/', async (req, res) => {
 });
 
 // Compteurs rapides pour le menu (éléments en attente d’action)
+/** Files « À traiter » de l’utilisateur (bandeau du tableau de bord). */
+router.get('/a-traiter', async (req, res) => {
+  res.json(await aTraiter(req.ctx));
+});
+
 router.get('/compteurs', async (req, res) => {
   const ctx = req.ctx;
   const [docs, instr, taches, courriers, pip, pres] = await Promise.all([
@@ -275,9 +281,13 @@ router.get('/compteurs', async (req, res) => {
   let demandesInfo = 0;
   if (ctx.can('demandes_info.repondre')) demandesInfo = Number((await db('demandes_information').where('statut', 'ENVOYEE').count('* as n').first()).n);
   else if (ctx.can('demandes_info.emettre')) demandesInfo = Number((await db('demandes_information').where({ statut: 'REPONDUE', emetteur_user_id: ctx.userId }).count('* as n').first()).n);
+  // Compteurs des modules récents : mêmes règles que les files « À traiter ».
+  const { parModule } = await aTraiter(ctx);
   res.json({
     documents: Number(docs.n), instructions: Number(instr.n) + instrAttente, taches: Number(taches.n) + tachesAttente, courriers: Number(courriers.n),
     pip: Number(pip.n), presences: Number(pres.n), alertes: Number(alertes.n), demandesInfo,
+    planification: parModule.planification || 0, donnees: parModule.donnees || 0, reunions: parModule.reunions || 0,
+    decisions: parModule.decisions || 0, actes: parModule.actes || 0, cartes: parModule.cartes || 0,
   });
 });
 

@@ -23,7 +23,7 @@ du Secrétaire Général et de l’Admin est affiché sur la page de connexion.
 ## 1. Prise en main (tous)
 
 - Connexion, changement de mot de passe, déconnexion automatique après inactivité.
-- Tableau de bord personnel, notifications (cloche), recherche globale (Ctrl K).
+- Tableau de bord personnel : le bandeau « À traiter » regroupe ce qui attend une action de sa part (ouvrir un élément, « Voir tout ») ; notifications (cloche), recherche globale (Ctrl K).
 - Menu utilisateur (en haut à droite) : « Mon profil », « Ma carte de service », mot de passe, sessions ouvertes.
 - Menu latéral : sections repliables (le choix est mémorisé), la section de la page affichée reste ouverte.
 - **Exercice** : retrouver par la recherche la campagne de collecte en cours et l’acteur « Fleuve Fibre SA ».

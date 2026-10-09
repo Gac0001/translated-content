@@ -89,6 +89,14 @@ async function reunionsEtDecisions(api, knex, uid) {
     participants: [await uid('cd.ps'), await uid('cb.prg'), await uid('cb.sev')],
   });
   await api(sec, 'POST', `/reunions/${r2.id}/convoquer`);
+  // Réunion passée encore « convoquée » : le Secrétariat doit la déclarer tenue (file « À traiter »).
+  const r3 = await api(sec, 'POST', '/reunions', {
+    objet: 'Point d’étape sur la collecte des données sectorielles', debut: J(2, 15), fin: J(2, 16), lieu: 'Bureau du Directeur', pour_directeur: true,
+    ordre_du_jour: [{ titre: 'Avancement de la collecte annuelle' }], participants: [await uid('cd.edi'), await uid('cb.doi')],
+  });
+  await api(sec, 'POST', `/reunions/${r3.id}/convoquer`);
+  await knex('reunions').where({ id: r3.id }).update({ debut: J(-1, 15), fin: J(-1, 16) });
+  await knex('agenda_evenements').where({ reunion_id: r3.id }).update({ debut: J(-1, 15), fin: J(-1, 16) });
   const cb = await api('cb.sev', 'POST', '/reunions', { objet: 'Point hebdomadaire du Bureau Suivi-Évaluation', debut: J(1, 8, 30), participants: [await uid('ag.sev1'), await uid('ag.sev2')] });
   await api('cb.sev', 'POST', `/reunions/${cb.id}/convoquer`);
 

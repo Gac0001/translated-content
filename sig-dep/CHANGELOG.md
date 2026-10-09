@@ -1,5 +1,14 @@
 # Journal des versions — SIG-DEP
 
+## 1.29.0
+
+### Refonte de l’interface — étape 5 : tableaux de bord « À traiter »
+- **Bandeau « À traiter »** en tête de chaque tableau de bord : une carte par file de travail (nombre, les cinq éléments les plus urgents, retards en rouge, « Voir tout ») ; les files vides sont masquées, et une seule ligne « Rien à traiter » s’affiche quand toutes le sont.
+- **Files calculées par l’API** (`GET /dashboard/a-traiter`) avec les mêmes règles de droits que les actions des fiches : PTBA et documents de programmation à vérifier, consolider ou valider, à corriger, brouillons ; dépassements des plafonds du CBMT ; exécution du trimestre écoulé à saisir, jalons en retard et risques critiques (Suivi-Évaluation uniquement) ; campagnes à valider ou proches de l’échéance (7 jours), réponses à contrôler, à corriger ou à transmettre, bulletins à viser, autoriser ou corriger ; réunions à convoquer, à déclarer tenues, comptes rendus à rédiger ou à valider ; décisions à mettre en œuvre ; actes à décider ou à reprendre ; cartes de service à valider ou en circuit ; confirmations et restaurations. Les cartes de service ne figurent que lorsqu’elles sont déjà dans le circuit.
+- **Compteurs du menu** : « PTBA et exécution », « Données sectorielles », « Réunions », « Registre des décisions », « Actes administratifs » et « Cartes de service » affichent le nombre d’éléments à traiter.
+- **Démonstration** : une réunion convoquée d’hier reste à déclarer tenue, pour montrer la file du Secrétariat.
+- Tests : 226 réussis côté API (dont 4 nouveaux sur les files) ; 59 réussis côté interface (dont 4 nouveaux).
+
 ## 1.28.0
 
 ### Refonte de l’interface — étape 4 : navigation
