@@ -200,7 +200,7 @@ export default function Gouvernance() {
   return (
     <>
       <PageHeader title="Gouvernance" subtitle="Contrôle des pouvoirs techniques : aucune opération critique, aucun accès aux pièces et aucun compte d’urgence sans décision du Directeur ou du Secrétaire Général."
-        breadcrumb={[{ label: 'Administration' }, { label: 'Gouvernance' }]} />
+        breadcrumb={[{ label: 'Sécurité et système' }, { label: 'Gouvernance' }]} />
       <Tabs value={tab} onChange={setTab} tabs={onglets} />
       <div className="mt-4">
         {tab === 'operations' && <Operations />}

@@ -214,7 +214,7 @@ export default function Securite() {
   const [tab, setTab] = useOnglet(tabs[0]?.value, { valeurs: tabs.map((t) => t.value) });
   return (
     <>
-      <PageHeader title="Sécurité" subtitle="Surveillance des accès, sessions, politique des mots de passe et contrôles de sécurité." breadcrumb={[{ label: 'Administration' }, { label: 'Sécurité' }]}
+      <PageHeader title="Sécurité" subtitle="Surveillance des accès, sessions, politique des mots de passe et contrôles de sécurité." breadcrumb={[{ label: 'Sécurité et système' }, { label: 'Sécurité' }]}
         actions={<Link to="/audit" className="btn-secondary"><ShieldCheck size={16} /> Journal d’audit</Link>} />
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
       {tab === 'alertes' && <Alertes />}

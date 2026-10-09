@@ -92,7 +92,7 @@ export default function Systeme() {
   const etat = useApi(can('systeme.consulter') ? '/systeme/etat' : null);
   return (
     <>
-      <PageHeader title="Système" subtitle="État technique, paramètres, messagerie et sauvegardes." breadcrumb={[{ label: 'Administration' }, { label: 'Système' }]}
+      <PageHeader title="Système" subtitle="État technique, paramètres, messagerie et sauvegardes." breadcrumb={[{ label: 'Sécurité et système' }, { label: 'Système' }]}
         actions={can('systeme.maintenir') && <Link to="/systeme/reinitialisation" className="btn-secondary"><DatabaseZap size={16} aria-hidden /> Réinitialisation de la base</Link>} />
       <div className="space-y-4">
         {can('systeme.consulter') && (

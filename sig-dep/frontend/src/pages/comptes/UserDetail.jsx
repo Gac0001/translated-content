@@ -83,7 +83,7 @@ export default function UserDetail() {
     <Loadable state={state}>
       {(u) => (
         <>
-          <PageHeader title={u.username} subtitle={[u.prenom, u.nom, u.postnom].filter(Boolean).join(' ')} breadcrumb={[{ label: 'Administration' }, { label: 'Comptes', to: '/comptes' }, { label: u.username }]}
+          <PageHeader title={u.username} subtitle={[u.prenom, u.nom, u.postnom].filter(Boolean).join(' ')} breadcrumb={[{ label: 'Personnel et habilitations' }, { label: 'Comptes', to: '/comptes' }, { label: u.username }]}
             actions={<>
               {u.statut === 'VERROUILLE' && can('compte.deverrouiller') && <Button icon={Unlock} onClick={() => act('deverrouiller', 'Compte déverrouillé.')}>Déverrouiller</Button>}
               <DropdownMenu label="Actions du compte" width="w-72" items={[

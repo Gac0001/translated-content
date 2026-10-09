@@ -13,7 +13,7 @@ export default function UsersList() {
   const state = useApi(`/users${queryString({ statut: v.statut, role: v.role, inactifs: v.inactifs })}`);
   const titulaire = (u) => [u.prenom, u.nom].filter(Boolean).join(' ');
   return (
-    <ListPage title="Comptes utilisateurs" breadcrumb={[{ label: 'Administration' }, { label: 'Comptes' }]}
+    <ListPage title="Comptes utilisateurs" breadcrumb={[{ label: 'Personnel et habilitations' }, { label: 'Comptes' }]}
       liste={liste} state={state} onRowClick={(u) => navigate(`/comptes/${u.id}`)}
       actions={<>
         {can('designations.gerer') && <Link to="/designations" className="btn-secondary"><Share2 size={16} aria-hidden /> Désignations</Link>}

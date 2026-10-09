@@ -38,7 +38,7 @@ export default function JournalTechnique() {
   };
   return (
     <>
-      <PageHeader title="Journal technique" subtitle="Erreurs internes du serveur, regroupées par cause. Les utilisateurs ne voient jamais ces détails." breadcrumb={[{ label: 'Administration' }, { label: 'Journal technique' }]} />
+      <PageHeader title="Journal technique" subtitle="Erreurs internes du serveur, regroupées par cause. Les utilisateurs ne voient jamais ces détails." breadcrumb={[{ label: 'Sécurité et système' }, { label: 'Journal technique' }]} />
       <Loadable state={state}>
         {(d) => (
           <div className="space-y-4">

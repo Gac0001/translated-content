@@ -3,8 +3,8 @@ import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-do
 import { fmtDate } from '../../lib/format';
 import {
   LayoutDashboard, Network, BookOpen, Users, UserCog, CalendarCheck, Mail, Send, ListTodo, FileText, FolderKanban,
-  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2, Landmark, IdCard, MessageCircleQuestion,
-  Search, CalendarDays, Gavel, Presentation, Target, Database,
+  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2, Landmark, IdCard, MessageCircleQuestion,
+  Search, CalendarDays, Gavel, Presentation, Target, Database, ChevronDown,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth, useCompteurs } from '../../store/auth';
@@ -26,7 +26,6 @@ const MENU = [
   { to: '/organigramme', label: 'Organigramme', icon: Network, perms: ['organisation.consulter'] },
   { to: '/cadre-organique', label: 'Cadre organique', icon: BookOpen, perms: ['organisation.consulter'] },
   { to: '/personnel', label: 'Personnel', icon: Users, perms: ['personnel.consulter', 'personnel.suivre'] },
-  { to: '/ma-carte', label: 'Ma carte de service', icon: IdCard, agent: true },
   { section: 'Activités' },
   { to: '/instructions', label: 'Instructions', icon: Send, perms: ['instructions.consulter'], counter: 'instructions' },
   { to: '/reunions', label: 'Réunions', icon: Presentation, agent: true },
@@ -36,7 +35,8 @@ const MENU = [
   { to: '/courriers', label: 'Courriers', icon: Mail, perms: ['courriers.consulter'], counter: 'courriers' },
   { to: '/documents', label: 'Documents de service', icon: FileText, perms: ['documents.consulter'], counter: 'documents' },
   { to: '/pip', label: 'Projets PIP', icon: FolderKanban, perms: ['pip.consulter'], counter: 'pip' },
-  { section: 'Administration' },
+  // Ancienne section « Administration », scindée : les actes et habilitations d’un côté, la technique de l’autre.
+  { section: 'Personnel et habilitations' },
   { to: '/liste-declarative', label: 'Liste déclarative', icon: ListChecks, perms: ['liste.consulter'] },
   { to: '/comptes/enrolement', label: 'Enrôlement des agents', icon: UserPlus, perms: ['compte.enroler'] },
   { to: '/comptes', label: 'Comptes utilisateurs', icon: UserCog, perms: ['compte.consulter'], end: true },
@@ -45,6 +45,7 @@ const MENU = [
   { to: '/actes', label: 'Actes administratifs', icon: Stamp, perms: ['actes.consulter', 'actes.preparer', 'actes.enregistrer_direction'] },
   { to: '/designations', label: 'Désignations', icon: Share2, perms: ['designations.gerer'] },
   { to: '/roles', label: 'Rôles et permissions', icon: ShieldCheck, perms: ['role.attribuer'] },
+  { section: 'Sécurité et système' },
   { to: '/securite', label: 'Sécurité', icon: ShieldAlert, perms: ['securite.superviser'], counter: 'alertes' },
   { to: '/rapports-securite', label: 'Rapports de sécurité', icon: FileBarChart, perms: ['rapport_securite.consulter'] },
   { to: '/audit', label: 'Journal d’audit', icon: ScrollText, perms: ['audit.consulter'] },
@@ -54,9 +55,15 @@ const MENU = [
   { to: '/systeme/maintenance', label: 'Maintenance', icon: Wrench, perms: ['systeme.maintenir'] },
   { to: '/systeme/sante', label: 'Santé du système', icon: HeartPulse, perms: ['systeme.consulter'] },
   { to: '/systeme/erreurs', label: 'Journal technique', icon: Bug, perms: ['systeme.consulter'] },
+  // La réinitialisation de la base, opération rare et irréversible, s’ouvre depuis la page Système.
   { to: '/systeme', label: 'Système', icon: Settings, perms: ['systeme.consulter', 'systeme.configurer'], end: true },
-  { to: '/systeme/reinitialisation', label: 'Réinitialisation', icon: DatabaseZap, perms: ['systeme.maintenir'] },
 ];
+
+/** Entrée du menu correspondant à l’adresse (la plus spécifique), pour ouvrir sa section. */
+const correspond = (m, chemin) => (m.end ? chemin === m.to : chemin === m.to || chemin.startsWith(`${m.to}/`));
+
+const CLE_REPLIES = 'sigdep.menu.replies';
+const lireReplies = () => { try { return JSON.parse(localStorage.getItem(CLE_REPLIES)) || []; } catch { return []; } };
 
 /** Regroupe le menu par section, en ne gardant que les entrées autorisées (« agent » : réservé aux titulaires d’une fiche Agent). */
 function groupes(user) {
@@ -68,15 +75,43 @@ function groupes(user) {
   return res.filter((g) => g.items.length);
 }
 
+/**
+ * Menu latéral par sections repliables. Le choix est mémorisé dans le navigateur ; la section de la
+ * page affichée reste toujours ouverte, et l’entrée active est ramenée dans la zone visible.
+ * Une section repliée affiche le total de ses éléments à traiter.
+ */
 function Sidebar({ onNavigate }) {
   const { user } = useAuth();
   const { compteurs } = useCompteurs();
+  const { pathname } = useLocation();
+  const [replies, setReplies] = useState(lireReplies);
+  const nav = useRef(null);
+  const liste = groupes(user);
+  const active = liste.find((g) => g.items.some((m) => correspond(m, pathname)))?.section;
+  const basculer = (section) => setReplies((r) => {
+    const n = r.includes(section) ? r.filter((x) => x !== section) : [...r, section];
+    try { localStorage.setItem(CLE_REPLIES, JSON.stringify(n)); } catch { /* stockage indisponible */ }
+    return n;
+  });
+  useEffect(() => { nav.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: 'nearest' }); }, [pathname]);
   return (
-    <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Menu principal">
-      {groupes(user).map((g) => (
-        <div key={g.section} className="mt-4 first:mt-0">
-          <h2 id={`menu-${g.section}`} className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-dep-200">{g.section}</h2>
-          <ul aria-labelledby={`menu-${g.section}`} className="space-y-0.5">
+    <nav ref={nav} className="flex-1 overflow-y-auto px-2 py-3" aria-label="Menu principal">
+      {liste.map((g) => {
+        const id = `menu-${g.section.normalize('NFD').replace(/[^\w]/g, '')}`;
+        const ouverte = g.section === active || !replies.includes(g.section);
+        const aTraiter = g.items.reduce((t, m) => t + (m.counter ? compteurs[m.counter] || 0 : 0), 0);
+        return (
+        <div key={g.section} className="mt-3 first:mt-0">
+          <h2 className="px-1">
+            <button type="button" aria-expanded={ouverte} aria-controls={id} disabled={g.section === active}
+              onClick={() => basculer(g.section)}
+              className="flex w-full items-center gap-1 rounded px-2 py-1 text-left text-[11px] font-semibold uppercase tracking-wider text-dep-200 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-rdc-jaune disabled:cursor-default disabled:hover:text-dep-200">
+              <span className="flex-1">{g.section}</span>
+              {!ouverte && aTraiter > 0 && <span className="rounded-full bg-rdc-jaune px-1.5 text-[11px] font-semibold normal-case tracking-normal text-dep-900">{aTraiter}<span className="sr-only"> à traiter</span></span>}
+              <ChevronDown size={14} aria-hidden className={`transition-transform motion-reduce:transition-none ${ouverte ? '' : '-rotate-90'}`} />
+            </button>
+          </h2>
+          <ul id={id} aria-label={g.section} hidden={!ouverte} className="mt-0.5 space-y-0.5">
             {g.items.map((m) => (
               <li key={m.to}>
                 <NavLink to={m.to} end={m.end} onClick={onNavigate}
@@ -91,7 +126,8 @@ function Sidebar({ onNavigate }) {
             ))}
           </ul>
         </div>
-      ))}
+        );
+      })}
     </nav>
   );
 }
@@ -224,6 +260,7 @@ export default function AppLayout() {
                 )}
                 items={[
                   user.agent && { label: 'Mon profil', icon: UserCircle, to: '/profil' },
+                  user.agent && { label: 'Ma carte de service', icon: IdCard, to: '/ma-carte' },
                   { label: 'Changer le mot de passe', icon: KeyRound, to: '/mot-de-passe' },
                   { label: 'Se déconnecter', icon: LogOut, danger: true, onClick: () => logout() },
                 ]} />

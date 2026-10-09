@@ -17,7 +17,7 @@ export default function ActesList() {
   return (
     <>
       <PageHeader title="Actes administratifs" subtitle="Nominations, affectations, intérims, désignations et fins de fonction : chaque droit temporaire repose sur un acte enregistré."
-        breadcrumb={[{ label: 'Administration' }, { label: 'Actes administratifs' }]}
+        breadcrumb={[{ label: 'Personnel et habilitations' }, { label: 'Actes administratifs' }]}
         actions={state.data?.droits?.preparer && <Link to="/actes/nouveau" className="btn-primary"><Plus size={16} aria-hidden /> Enregistrer un acte</Link>} />
       <InfoAlert>
         Un acte est préparé par le Bureau Secrétariat de Direction avec la copie de l’acte signé, puis validé par le Directeur. Les actes relatifs au poste de Directeur

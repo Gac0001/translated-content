@@ -75,7 +75,7 @@ export default function Sauvegardes() {
   };
   return (
     <>
-      <PageHeader title="Sauvegardes" subtitle="Sauvegardes chiffrées, vérifiées et testées ; restauration soumise à la validation du Directeur." breadcrumb={[{ label: 'Administration' }, { label: 'Sauvegardes' }]}
+      <PageHeader title="Sauvegardes" subtitle="Sauvegardes chiffrées, vérifiées et testées ; restauration soumise à la validation du Directeur." breadcrumb={[{ label: 'Sécurité et système' }, { label: 'Sauvegardes' }]}
         actions={<>
           {can('sauvegarde.restaurer') && <Link to="/restaurations" className="btn-secondary"><History size={16} aria-hidden /> Restaurations</Link>}
           {can('sauvegarde.creer') && <button type="button" className="btn-primary" disabled={!!busy} onClick={() => agir('creer', () => api.post('/sauvegardes'), 'Sauvegarde réalisée et vérifiée.')}><DatabaseBackup size={16} aria-hidden /> {busy === 'creer' ? 'Sauvegarde…' : 'Sauvegarder maintenant'}</button>}

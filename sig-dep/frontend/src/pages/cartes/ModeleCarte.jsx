@@ -63,7 +63,7 @@ export default function ModeleCarte() {
   return (
     <>
       <PageHeader title="Modèle de carte de service" subtitle="Charte graphique du Gouvernement (p. 43) : Bloc-armoirie, Ligne d’État, intitulé officiel ; recto avec photo, verso « Laissez passer » et QR code."
-        breadcrumb={[{ label: 'Administration' }, { label: 'Modèle de carte' }]} />
+        breadcrumb={[{ label: 'Personnel et habilitations' }, { label: 'Modèle de carte' }]} />
       <InfoAlert>L’Admin Système configure le modèle ; il ne prépare, ne valide ni ne délivre aucune carte. Chaque modification crée une version : les cartes déjà validées gardent la leur.</InfoAlert>
       <Loadable state={state}>
         {(d) => (

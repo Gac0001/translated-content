@@ -1,5 +1,15 @@
 # Journal des versions — SIG-DEP
 
+## 1.28.0
+
+### Refonte de l’interface — étape 4 : navigation
+- **Menu latéral par sections repliables** : un clic sur le titre d’une section la replie ou la déplie ; le choix est mémorisé dans le navigateur. La section de la page affichée reste toujours ouverte, et l’entrée active est ramenée dans la zone visible du menu. Une section repliée affiche le total de ses éléments à traiter.
+- **Section « Administration » scindée** en « Personnel et habilitations » (liste déclarative, enrôlement, comptes, cartes de service, modèle de carte, actes, désignations, rôles) et « Sécurité et système » (sécurité, rapports, journal d’audit, sauvegardes, gouvernance, restaurations, maintenance, santé, journal technique, système) ; fils d’Ariane alignés sur ces sections.
+- **Réinitialisation de la base** retirée du menu : opération rare et irréversible, elle s’ouvre depuis la page Système (et le bandeau de l’Admin tant que la base contient des données fictives).
+- **« Ma carte de service »** rejoint le menu utilisateur (en haut à droite), à côté de « Mon profil ».
+- Documentation mise à jour (`README.md`, `docs/FORMATION.md`).
+- Tests de l’interface : 55 réussis (dont 3 nouveaux sur le menu).
+
 ## 1.27.0
 
 ### Refonte de l’interface — étape 3e : écrans Système (Admin) sur les composants communs — fin de l’étape 3

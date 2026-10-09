@@ -11,7 +11,7 @@ export default function Roles() {
   const save = async (role) => { await runCritique(() => api.put(`/users/roles/${role}/permissions`, { permissions: [...matrix[role]] }), 'Permissions enregistrées.'); state.reload(); };
   return (
     <>
-      <PageHeader title="Rôles et permissions" subtitle="Matrice des permissions par rôle. Chaque accès reste en outre limité par le périmètre administratif." breadcrumb={[{ label: 'Administration' }, { label: 'Rôles et permissions' }]} />
+      <PageHeader title="Rôles et permissions" subtitle="Matrice des permissions par rôle. Chaque accès reste en outre limité par le périmètre administratif." breadcrumb={[{ label: 'Personnel et habilitations' }, { label: 'Rôles et permissions' }]} />
       <InfoAlert>Les permissions marquées « Réservée aux Divisions » ne peuvent jamais être attribuées au Bureau Secrétariat de Direction ni à son Chef (contrôle applicatif et contrainte de base de données). Le rôle Admin ne peut recevoir que des permissions techniques.</InfoAlert>
       <Loadable state={state}>
         {(d) => {

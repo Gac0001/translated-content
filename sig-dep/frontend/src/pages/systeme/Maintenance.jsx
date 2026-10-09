@@ -117,7 +117,7 @@ export default function Maintenance() {
   const [tab, setTab] = useOnglet('mode', { valeurs: ['mode', 'annonces', 'migrations', 'env'] });
   return (
     <>
-      <PageHeader title="Maintenance" subtitle="Mode maintenance, annonces aux utilisateurs, migrations de la base et paramètres d’environnement." breadcrumb={[{ label: 'Administration' }, { label: 'Maintenance' }]} />
+      <PageHeader title="Maintenance" subtitle="Mode maintenance, annonces aux utilisateurs, migrations de la base et paramètres d’environnement." breadcrumb={[{ label: 'Sécurité et système' }, { label: 'Maintenance' }]} />
       <Tabs tabs={[{ value: 'mode', label: 'Mode maintenance' }, { value: 'annonces', label: 'Annonces système' }, { value: 'migrations', label: 'Migrations' }, { value: 'env', label: 'Environnement' }]} value={tab} onChange={setTab} />
       {tab === 'mode' && <ModeMaintenance />}
       {tab === 'annonces' && <Annonces />}

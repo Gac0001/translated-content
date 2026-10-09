@@ -24,7 +24,8 @@ du Secrétaire Général et de l’Admin est affiché sur la page de connexion.
 
 - Connexion, changement de mot de passe, déconnexion automatique après inactivité.
 - Tableau de bord personnel, notifications (cloche), recherche globale (Ctrl K).
-- Fiche « Ma carte de service », « Mon profil » et sessions ouvertes.
+- Menu utilisateur (en haut à droite) : « Mon profil », « Ma carte de service », mot de passe, sessions ouvertes.
+- Menu latéral : sections repliables (le choix est mémorisé), la section de la page affichée reste ouverte.
 - **Exercice** : retrouver par la recherche la campagne de collecte en cours et l’acteur « Fleuve Fibre SA ».
 
 ## 2. Agents

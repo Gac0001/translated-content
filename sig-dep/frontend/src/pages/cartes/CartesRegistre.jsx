@@ -175,7 +175,7 @@ export default function CartesRegistre() {
   return (
     <>
       <PageHeader title="Cartes de service" subtitle="Préparation par le Bureau Secrétariat de Direction, validation par le Directeur, impression, remise et suivi. Validité : 5 ans."
-        breadcrumb={[{ label: 'Administration' }, { label: 'Cartes de service' }]} />
+        breadcrumb={[{ label: 'Personnel et habilitations' }, { label: 'Cartes de service' }]} />
       <Tabs value={tab} onChange={setTab} tabs={onglets} />
       <div className="mt-4">
         {tab === 'registre' && <Registre />}

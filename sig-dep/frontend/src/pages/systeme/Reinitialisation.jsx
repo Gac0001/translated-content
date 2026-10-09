@@ -40,7 +40,7 @@ export default function Reinitialisation() {
   return (
     <>
       <PageHeader title="Réinitialisation de la base" subtitle="Préparer la mise en service : retirer les données fictives avant la constitution de la liste officielle des agents."
-        breadcrumb={[{ label: 'Administration' }, { label: 'Système', to: '/systeme' }, { label: 'Réinitialisation' }]} />
+        breadcrumb={[{ label: 'Sécurité et système' }, { label: 'Système', to: '/systeme' }, { label: 'Réinitialisation' }]} />
       {resultat && (
         <Alert tone="succes" title={resultat.message} className="mb-4">
           {resultat.sauvegarde && <p className="mt-1">Sauvegarde préalable : <code>{resultat.sauvegarde.fichier}</code> (Système → Sauvegardes).</p>}

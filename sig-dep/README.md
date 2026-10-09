@@ -168,7 +168,7 @@ Les **comptes de démonstration** reposent sur des personnes fictives. Le person
 
 ### Mise en service : retirer les données fictives
 
-Tant que la base contient les données fictives, l’Admin voit dès sa connexion un bandeau « La base contient des données fictives de démonstration » avec le bouton **Réinitialiser la base** (aussi accessible par le menu Administration → Réinitialisation, et depuis la page Système).
+Tant que la base contient les données fictives, l’Admin voit dès sa connexion un bandeau « La base contient des données fictives de démonstration » avec le bouton **Réinitialiser la base** (aussi accessible depuis la page Système, bouton « Réinitialisation de la base »).
 
 | Type | Effet |
 |---|---|
@@ -452,7 +452,7 @@ Contrôlez ensuite depuis **Admin → Système → Messagerie** : « Tester la c
 * **Double authentification** (TOTP) obligatoire pour l’Admin Système, le **Directeur** et le **Secrétaire Général** (y compris pour un Directeur par intérim) ; secret chiffré en base (AES-256-GCM, clé `TOTP_ENC_KEY` ou dérivée du secret JWT), codes de secours hachés et à usage unique.
 * **Journal d’audit infalsifiable** : chaque entrée porte l’empreinte SHA-256 de la précédente (chaînage calculé par un déclencheur PostgreSQL). Modification, suppression ou troncature sont refusées en base ; une altération faite malgré tout (accès direct à PostgreSQL) est détectée par « Vérifier l’intégrité ». L’historique des connexions est lui aussi en ajout seul. La réinitialisation de la base ne les efface jamais.
 * **Alertes de sécurité** (Sécurité → Alertes, notification et e-mail à l’Admin) : vague d’échecs de connexion, tentative sur un compte Admin, verrouillage, réutilisation d’un jeton de session, code de secours utilisé, changement de politique, désactivation d’un compte sensible, réinitialisation, intégrité de l’audit rompue.
-* **Gouvernance de l’Admin Système** (Administration → Gouvernance) :
+* **Gouvernance de l’Admin Système** (Sécurité et système → Gouvernance) :
   * **double confirmation** par le Directeur des opérations critiques : réinitialisation de la base, politique de sécurité, migrations, permissions du rôle Admin Système (aucune permission métier ne peut lui être donnée). La première tentative crée la demande (réponse 202) ; une fois confirmée (mot de passe du Directeur), l’Admin relance la même opération dans les 24 heures ; une confirmation ne sert qu’une fois ;
   * **accès de support temporaire** : l’Admin n’a accès à aucune pièce jointe ; pour une intervention, il demande un accès motivé, limité à un élément ou à un type d’élément et à 4 heures, validé par le Directeur ; lecture seule, chaque consultation est auditée, expiration automatique, révocation possible ;
   * **compte d’urgence** `urgence` : distinct du compte Admin, scellé (désactivé, mot de passe inconnu), conservé par la réinitialisation. Le Directeur ou le Secrétaire Général l’active pour 24 heures au plus et obtient un mot de passe temporaire à remettre ; nouveau mot de passe et double authentification à la connexion ; toute activation et toute connexion sont signalées immédiatement ; fermeture automatique à l’échéance. Dernier recours sur le serveur : `npm run urgence -- activer 4 "motif"`, `npm run urgence -- fermer`.
@@ -461,7 +461,7 @@ Contrôlez ensuite depuis **Admin → Système → Messagerie** : « Tester la c
 * **Vérification de sécurité** à la demande : intégrité de l’audit, 2FA des Admins, comptes, politique, configuration (secret JWT, cookies HTTPS, messagerie), sauvegarde, fichiers téléversés.
 * **Supervision** (Admin Système) :
   * **tableau de bord** : comptes (total, actifs, désactivés, verrouillés, inactifs), sessions actives, échecs de connexion, alertes, santé des services, espace disque, dernière sauvegarde réussie et sauvegardes échouées, erreurs techniques récentes, version de l’application, dernières opérations sensibles ;
-  * **santé du système** (Administration → Santé du système) : API, PostgreSQL, stockage (espace libre et test d’écriture), sauvegarde, courriels, génération PDF/Excel. Contrôle automatique toutes les 15 minutes, historique sur 48 heures, alerte à chaque panne et à chaque rétablissement. Les seuils d’espace disque se règlent dans la politique (15 % / 5 % par défaut) ;
+  * **santé du système** (Sécurité et système → Santé du système) : API, PostgreSQL, stockage (espace libre et test d’écriture), sauvegarde, courriels, génération PDF/Excel. Contrôle automatique toutes les 15 minutes, historique sur 48 heures, alerte à chaque panne et à chaque rétablissement. Les seuils d’espace disque se règlent dans la politique (15 % / 5 % par défaut) ;
   * **journal technique** : erreurs internes du serveur regroupées par cause avec leur nombre d’occurrences, détail technique réservé à l’Admin, marquage « résolue » ; purge après 90 jours (réglable) — distinct du journal d’audit, qui n’est jamais purgé ;
   * **registre des sauvegardes** : chaque tentative, réussie ou échouée, avec durée, taille, origine et cause de l’échec (alerte en cas d’échec) ;
   * **rapport mensuel de sécurité** : produit automatiquement au début de chaque mois pour le mois écoulé (et à la demande), adressé à l’Admin Système et au **Directeur** (menu « Rapports de sécurité », PDF) : connexions, adresses IP suspectes, comptes, changements de rôles, réinitialisations, incidents, sauvegardes, intégrité de l’audit ;
@@ -513,7 +513,7 @@ Les tests réinitialisent la base `sig_dep_test` (migrations et seeds), puis vé
 
 ## 10. Sauvegardes, restauration et maintenance
 
-Écrans de l’Admin Système : **Sauvegardes**, **Restaurations** et **Maintenance** (menu Administration).
+Écrans de l’Admin Système : **Sauvegardes**, **Restaurations** et **Maintenance** (section « Sécurité et système » du menu).
 
 ### Sauvegardes automatiques
 

@@ -29,7 +29,7 @@ export default function Sante() {
   return (
     <>
       <PageHeader title="Santé du système" subtitle="Contrôle automatique toutes les 15 minutes ; une alerte est émise à chaque panne et à chaque rétablissement."
-        breadcrumb={[{ label: 'Administration' }, { label: 'Santé du système' }]}
+        breadcrumb={[{ label: 'Sécurité et système' }, { label: 'Santé du système' }]}
         actions={<button type="button" className="btn-primary" disabled={busy} onClick={verifier}><RefreshCw size={16} className={busy ? 'animate-spin' : ''} /> {busy ? 'Vérification…' : 'Vérifier maintenant'}</button>} />
       <Loadable state={state}>
         {(d) => (

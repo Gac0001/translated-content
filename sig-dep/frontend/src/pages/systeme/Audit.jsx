@@ -22,7 +22,7 @@ export default function Audit() {
   };
   return (
     <>
-      <PageHeader title="Journal d’audit" subtitle="Lecture seule — aucune entrée ne peut être modifiée ni supprimée." breadcrumb={[{ label: 'Administration' }, { label: 'Journal d’audit' }]}
+      <PageHeader title="Journal d’audit" subtitle="Lecture seule — aucune entrée ne peut être modifiée ni supprimée." breadcrumb={[{ label: 'Sécurité et système' }, { label: 'Journal d’audit' }]}
         actions={<button type="button" className="btn-secondary" onClick={verifier}><Link2 size={16} aria-hidden /> Vérifier l’intégrité</button>}
         menu={can('audit.exporter') ? [
           { label: 'Excel', icon: FileSpreadsheet, onClick: () => exporter('xlsx') },
