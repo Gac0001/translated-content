@@ -58,7 +58,7 @@ Général au Numérique (RDC). Interface et documentation **en français** ; ré
 
 ## Refonte de l’interface (en cours)
 
-Plan validé par l’utilisateur, par étapes livrées séparément (0, 1, 2, 3a Planification et 3b Données livrées de 1.20.1 à 1.24.0) : 0 filet de sécurité → 1 fondations
+Plan validé par l’utilisateur, par étapes livrées séparément (0, 1, 2, 3a Planification, 3b Données et 3c Réunions/Décisions/Agenda livrées de 1.20.1 à 1.25.0) : 0 filet de sécurité → 1 fondations
 (jetons, formats, badges, boutons) → 2 nouveaux composants → 3 migration des modules récents vers les
 composants communs (Planification, Données, Réunions/Décisions/Agenda, Actes/Cartes, Système) →
 4 navigation → 5 tableaux de bord « À traiter » → 6 accessibilité et responsive → 7 performance.
@@ -71,7 +71,8 @@ Composants à employer pour tout écran nouveau ou repris (catalogue vivant : pa
 `FormModal` + `FormSection` pour les fenêtres de saisie, `ActionBar` pour les formulaires de page,
 `SimpleTable` pour les tableaux sans recherche (jamais de `<table>` brute), `EmptyState`, `KpiTile`,
 `WorkQueue`, `FilterBar`, onglets par `useOnglet` (dans l’adresse), actions secondaires par `menu` de
-`PageHeader` ; formats par `lib/format.js` uniquement.
+`PageHeader`, circuits par `WorkflowPanel` et `lib/workflows.js` ; formats et dates par `lib/format.js`
+uniquement (jamais `toISOString().slice(0, 10)` pour une date du jour : c’est la date UTC).
 Ne jamais casser : renouvellement de session et redirections 401/403/503, première connexion,
 double authentification, inactivité, routeur « données » (protection des saisies), convention
 `dejaSignale` de `runAction`, téléchargements, impression, droits renvoyés par l’API (`actions` /

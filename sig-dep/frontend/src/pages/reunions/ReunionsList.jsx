@@ -14,14 +14,14 @@ export default function ReunionsList() {
     <>
       <PageHeader title="Réunions" subtitle="Ordre du jour, convocations, présence, compte rendu et décisions."
         breadcrumb={[{ label: 'Activités' }, { label: 'Réunions' }]}
-        actions={state.data?.droits?.organiser && <Link to="/reunions/nouvelle" className="btn-primary"><Plus size={16} /> Préparer une réunion</Link>} />
+        actions={state.data?.droits?.organiser && <Link to="/reunions/nouvelle" className="btn-primary"><Plus size={16} aria-hidden /> Préparer une réunion</Link>} />
       <Tabs value={periode} onChange={setPeriode} tabs={[{ value: 'a_venir', label: 'À venir' }, { value: 'passees', label: 'Passées' }, { value: 'toutes', label: 'Toutes' }]} />
       <Loadable state={state}>
         {(d) => (
-          <div className="mt-4">
-            <DataTable rows={d.data} onRowClick={(r) => navigate(`/reunions/${r.id}`)} empty="Aucune réunion."
+          <div>
+            <DataTable rows={d.data} label="Réunions" onRowClick={(r) => navigate(`/reunions/${r.id}`)} empty="Aucune réunion."
               columns={[
-                { key: 'debut', header: 'Date', render: (r) => <span className="whitespace-nowrap">{fmtDateTime(r.debut)}</span> },
+                { key: 'debut', header: 'Date', sortable: true, render: (r) => <span className="whitespace-nowrap">{fmtDateTime(r.debut)}</span> },
                 { key: 'objet', header: 'Objet', render: (r) => <div><div className="font-medium">{r.objet}</div><div className="text-xs text-slate-500">{r.reference}{r.lieu ? ` · ${r.lieu}` : ''}</div></div>, search: (r) => `${r.objet} ${r.reference}` },
                 { key: 'niveau', header: 'Niveau', render: (r) => <Badge>{NIVEAUX_REUNION[r.niveau]}</Badge> },
                 { key: 'president_nom', header: 'Président' },

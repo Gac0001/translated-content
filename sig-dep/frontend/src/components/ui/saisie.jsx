@@ -216,12 +216,14 @@ export function FormModal({
 /**
  * Barre d’enregistrement d’un formulaire de page, collée en bas de l’écran : état de la saisie,
  * Annuler et Enregistrer ; protège la saisie non enregistrée (navigation et fermeture de l’onglet).
- * onSave : fonction asynchrone (ou bouton de type submit si `form` est fourni).
+ * onSave : fonction asynchrone (ou bouton de type submit si `form` est fourni) ;
+ * guard : protège la saisie (vrai par défaut) — faux pour une première saisie encore vide.
  */
 export function ActionBar({ dirty, saving = false, onSave, onCancel, saveLabel = 'Enregistrer', form, children, guard = true, disabled = false }) {
   return (
     <>
-      {guard && <UnsavedChangesGuard surOnglet when={dirty && !saving} />}
+      {/* Protection toujours montée (le routeur n’accepte qu’un bloqueur ; le démonter pendant une navigation bloquée l’annulerait). */}
+      <UnsavedChangesGuard surOnglet when={!!guard && dirty && !saving} />
       <div className="sticky bottom-0 z-20 -mx-4 mt-4 flex items-center gap-2 border-t border-[#dde3ea] bg-white/95 px-4 py-2.5 shadow-[0_-2px_6px_rgba(23,65,138,0.06)] backdrop-blur sm:-mx-6 sm:px-6 sm:py-3 no-print">
         <p className="mr-auto min-w-0 text-xs text-slate-600 sm:text-sm" aria-live="polite">
           {saving ? 'Enregistrement en cours…' : dirty

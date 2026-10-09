@@ -155,3 +155,34 @@ export function circuitBulletin(b) {
     alerte: b.statut === 'A_CORRIGER' ? { tone: 'attention', label: 'Retourné pour correction' } : undefined,
   };
 }
+
+/**
+ * Réunions : préparation → convocation → tenue (rédaction du compte rendu) → compte rendu soumis au
+ * président → clôturée (décisions inscrites au registre). Annulée : position du dernier statut connu.
+ */
+export function circuitReunion(r) {
+  const etapes = ['Préparation', 'Convoquée', 'Tenue — compte rendu', 'Validation du président', 'Clôturée'];
+  const pos = (s) => ({ BROUILLON: 0, CONVOQUEE: 1, TENUE: 2, CR_A_VALIDER: 3, CLOTUREE: 4 }[s]);
+  if (r.statut === 'ANNULEE') {
+    const avant = [...(r.historique || [])].reverse().find((h) => h.nouveau_statut && h.nouveau_statut !== 'ANNULEE')?.nouveau_statut;
+    return { etapes, courante: pos(avant) ?? 1, alerte: { tone: 'danger', label: 'Annulée' } };
+  }
+  const retour = r.statut === 'TENUE' && !!r.observations_president;
+  return {
+    etapes, courante: pos(r.statut) ?? 0, termine: r.statut === 'CLOTUREE',
+    alerte: retour ? { tone: 'attention', label: 'Compte rendu retourné' } : undefined,
+    details: r.statut === 'CR_A_VALIDER' && r.president_nom ? { 3: `Chez ${r.president_nom}` } : {},
+  };
+}
+
+/** Décisions : à exécuter → mise en œuvre (instruction ou tâche) → exécutée ; abandon possible. */
+export function circuitDecision(d) {
+  const etapes = ['À exécuter', 'Mise en œuvre', 'Exécutée'];
+  if (d.statut === 'ABANDONNEE') return { etapes, courante: d.instruction_id || d.task_id ? 1 : 0, alerte: { tone: 'danger', label: 'Abandonnée' } };
+  const pos = { A_EXECUTER: 0, EN_COURS: 1, EXECUTEE: 2 }[d.statut] ?? 0;
+  return {
+    etapes, courante: pos, termine: d.statut === 'EXECUTEE',
+    sautees: d.statut === 'EXECUTEE' && !d.instruction_id && !d.task_id ? [1] : [],
+    alerte: d.en_retard ? { tone: 'danger', label: 'En retard' } : undefined,
+  };
+}

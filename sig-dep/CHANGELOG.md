@@ -1,5 +1,17 @@
 # Journal des versions — SIG-DEP
 
+## 1.25.0
+
+### Refonte de l’interface — étape 3c : Réunions, Décisions et Agenda sur les composants communs
+- **Réunions** : encadré « Circuit de traitement » (Préparation → Convoquée → Tenue — compte rendu → Validation du président → Clôturée ; annulation et compte rendu retourné signalés) avec les actions de l’étape ; validation du compte rendu confirmée (nombre de décisions rappelé) ; annulation et retour du compte rendu avec motif obligatoire ; « Annuler la réunion » et le PDF regroupés dans les actions secondaires.
+- **Préparation d’une réunion** et **compte rendu** : barre d’enregistrement avec protection de la saisie ; contrôles avant envoi (objet, début, fin après le début, responsable de chaque décision) ; champs de l’ordre du jour, des invités et des décisions nommés pour les lecteurs d’écran.
+- **Registre des décisions** : filtres (statut, origine, en retard, dont je suis responsable), recherche, tri et page conservés dans l’adresse ; « Effacer les filtres » ; échéance triable.
+- **Fiche de décision** : circuit (À exécuter → Mise en œuvre → Exécutée ; retard et abandon signalés) ; mise en œuvre en fenêtre commune ; exécution et abandon avec texte obligatoire.
+- **Agenda du Directeur** : semaine affichée conservée dans l’adresse ; rendez-vous en fenêtre commune (fin après le début contrôlée) ; annulation confirmée ; boutons d’action nommés.
+- **Corrections** : la semaine de l’agenda et la date minimale des échéances (décisions, demandes d’information) étaient calculées en heure UTC — entre minuit et une heure à Kinshasa, la veille ; elles le sont désormais en heure locale.
+- La barre d’enregistrement garde sa protection montée en permanence (activée ou non), pour ne jamais interrompre une navigation déjà confirmée.
+- Tests de l’interface : 44 réussis (dont 5 nouveaux sur les Réunions, Décisions et Agenda).
+
 ## 1.24.0
 
 ### Refonte de l’interface — étape 3b : Données sectorielles sur les composants communs
