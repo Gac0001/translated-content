@@ -756,7 +756,7 @@ export function WorkflowStatus({ etapes, courante, alerte, termine = false, saut
   };
   const pastille = (e) => (e === 'fait' ? 'bg-dep-600 text-white'
     : e === 'actif' ? (alerte ? TON_ALERTE[alerte.tone] : 'border-2 border-dep-600 bg-white text-dep-700')
-      : e === 'saute' ? 'border-2 border-dashed border-slate-300 bg-white text-slate-400'
+      : e === 'saute' ? 'border-2 border-dashed border-slate-300 bg-white text-slate-500'
         : 'bg-slate-200 text-slate-600');
   return (
     <div>

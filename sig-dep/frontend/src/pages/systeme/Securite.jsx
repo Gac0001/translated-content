@@ -161,7 +161,7 @@ function Politique() {
                 ? <label key={k} className="flex items-center justify-between gap-3 text-sm"><span>{libelles[k]}</span><input type="checkbox" disabled={lecture} checked={v[k]} onChange={(e) => setV((x) => ({ ...x, [k]: e.target.checked }))} /></label>
                 : (
                   <label key={k} className="flex items-center justify-between gap-3 text-sm">
-                    <span>{libelles[k]} <span className="text-xs text-slate-400">({bornes[k][0]}–{bornes[k][1]})</span></span>
+                    <span>{libelles[k]} <span className="text-xs text-slate-500">({bornes[k][0]}–{bornes[k][1]})</span></span>
                     <NumberInput className="w-24" disabled={lecture} min={bornes[k][0]} max={bornes[k][1]} value={v[k]} onChange={(n) => { if (n !== null) setV((x) => ({ ...x, [k]: n })); }} />
                   </label>
                 )))}

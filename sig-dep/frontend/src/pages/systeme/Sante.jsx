@@ -71,7 +71,7 @@ export default function Sante() {
                       </div>
                     </div>
                   ))}
-                  <div className="flex justify-between pl-28 text-[11px] text-slate-400"><span>{fmtDateTime(d.historique[d.historique.length - 1].date)}</span><span>maintenant</span></div>
+                  <div className="flex justify-between pl-28 text-[11px] text-slate-600"><span>{fmtDateTime(d.historique[d.historique.length - 1].date)}</span><span>maintenant</span></div>
                   <div className="flex flex-wrap gap-3 pl-28 text-xs text-slate-600">{Object.entries(ETATS).map(([k, e]) => <span key={k} className="inline-flex items-center gap-1"><span className={`inline-block h-3 w-3 rounded-sm ${e.bar}`} /> {e.label}</span>)}</div>
                 </div>
               ) : <p className="text-sm text-slate-500">Aucun contrôle sur la période.</p>}

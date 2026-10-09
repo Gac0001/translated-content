@@ -103,6 +103,13 @@ npm run lint        # analyse statique (erreurs bloquantes, avertissements d’a
 npm run test:e2e    # parcours de non-régression par rôle, ordinateur et téléphone
 ```
 
+Les parcours comprennent un **contrôle d’accessibilité** automatique (axe-core, critères WCAG 2.1
+niveaux A et AA) de chaque écran du menu et des fiches principales, pour chaque rôle, sur ordinateur et
+sur téléphone, ainsi que des pages publiques (connexion, vérification des cartes) et des fenêtres ; et
+des essais au clavier (lien « Aller au contenu », tiroir du menu, fenêtres : focus, Échap, retour du
+focus). Le relevé détaillé est écrit dans `frontend/e2e/captures/accessibilite/`. Pour ne lancer que
+ces contrôles : `npx playwright test e2e/accessibilite.spec.js e2e/clavier.spec.js`.
+
 Les parcours exigent l’API en mode démonstration (`DEMO_MODE=true`, `npm run demo:reset`) et l’interface
 démarrées ; relevez `LOGIN_RATE_LIMIT_MAX` (par ex. 500) dans le `.env` de démonstration, chaque parcours
 ouvrant une session par rôle. Sous Windows, installez une fois le navigateur de test :

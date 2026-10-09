@@ -10,6 +10,9 @@ export default {
           50: '#eef3fa', 100: '#d9e4f4', 200: '#b3c8e8', 300: '#84a5d6', 400: '#5180c0',
           500: '#2d62aa', 600: '#1f509a', 700: '#17418a', 800: '#12346f', 900: '#0d2754',
         },
+        // Gris du texte secondaire légèrement assombri (#64748b par défaut) : contraste AA (4,5:1) maintenu
+        // sur les fonds clairs (survol des lignes, en-têtes et pieds de tableaux, encadrés).
+        slate: { 500: '#5b677a' },
         // Couleurs du drapeau, valeurs officielles de la charte (Pantone 801 C, 803 C, 485 C).
         rdc: { bleu: '#0095c9', jaune: '#fff24b', rouge: '#db3832' },
         // Couleurs complémentaires de la charte.

@@ -152,7 +152,7 @@ export function WorkQueue({ title, items = [], total, voirTout, vide = 'Rien à 
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-medium text-slate-900 group-hover:text-dep-700">{it.titre}</div>
                           {(it.detail || it.echeance) && (
-                            <div className={`truncate text-xs ${it.alerte ? 'font-medium text-red-700' : 'text-slate-500'}`}>
+                            <div className={`truncate text-xs ${it.alerte ? 'font-medium text-red-700' : 'text-slate-600'}`}>
                               {it.detail}{it.detail && it.echeance && ' · '}
                               {it.echeance && <span className={retard ? 'font-semibold text-red-700' : ''}>{retard ? 'En retard — ' : 'Échéance '}{fmtDate(it.echeance)}</span>}
                             </div>

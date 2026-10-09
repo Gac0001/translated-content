@@ -29,7 +29,7 @@ function ManageButtons({ type, s }) {
 }
 
 function Person({ p, titre }) {
-  if (!p) return <div className="text-xs italic text-slate-400">{titre} : poste vacant</div>;
+  if (!p) return <div className="text-xs italic text-slate-500">{titre} : poste vacant</div>;
   return (
     <div className="flex items-center gap-2 text-sm">
       <User size={14} className="shrink-0 text-slate-400" />

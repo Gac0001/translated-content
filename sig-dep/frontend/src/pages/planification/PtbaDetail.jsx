@@ -20,7 +20,7 @@ function Chronogramme({ mois, onToggle }) {
     <div className="flex">
       {MOIS.map((m, k) => {
         const on = mois.includes(k + 1);
-        const cls = `h-6 w-5 border-y border-r border-slate-300 text-center text-[10px] leading-6 first:border-l ${on ? 'bg-yellow-300 font-semibold text-slate-900' : 'bg-white text-slate-400'} ${k % 3 === 0 ? 'border-l-slate-500' : ''}`;
+        const cls = `h-6 w-5 border-y border-r border-slate-300 text-center text-[10px] leading-6 first:border-l ${on ? 'bg-yellow-300 font-semibold text-slate-900' : 'bg-white text-slate-500'} ${k % 3 === 0 ? 'border-l-slate-500' : ''}`;
         return onToggle
           ? <button key={k} type="button" className={cls} aria-pressed={on} aria-label={`Mois ${k + 1}`} onClick={() => onToggle(k + 1)}>{m}</button>
           : <span key={k} className={cls}>{m}</span>;

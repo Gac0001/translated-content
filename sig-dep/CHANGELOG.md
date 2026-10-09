@@ -1,5 +1,13 @@
 # Journal des versions — SIG-DEP
 
+## 1.30.0
+
+### Refonte de l’interface — étape 6 : accessibilité et adaptation au téléphone
+- **Contrôle d’accessibilité automatique** (axe-core, WCAG 2.1 niveaux A et AA) ajouté aux tests de l’interface : chaque écran du menu et les fiches principales (PTBA, campagne, réunion, décision, instruction, courrier, acte, carte, agent), pour les 11 rôles, sur ordinateur et sur téléphone ; pages publiques (connexion, vérification des cartes) ; fenêtres de saisie et tiroir du menu. Résultat : aucune violation.
+- **Contrastes** : le gris du texte secondaire est légèrement assombri (#5b677a) pour garder le rapport 4,5:1 sur les fonds clairs (survol des lignes, en-têtes de tableaux, encadrés) ; textes trop pâles corrigés (santé des services, bornes de la politique de sécurité, poste vacant de l’organigramme, import du personnel, mois inactifs du chronogramme PTBA, détail des files « À traiter »).
+- **Clavier** : tests du lien « Aller au contenu » (premier élément atteignable), du tiroir du menu sur téléphone (focus piégé, Échap, retour du focus au bouton) et des fenêtres de saisie (focus sur le premier champ, tabulation bornée, Échap, retour du focus) ; vérification que le bandeau « À traiter » tient dans la largeur d’un téléphone.
+- Tests de l’interface : 86 (dont 27 nouveaux).
+
 ## 1.29.0
 
 ### Refonte de l’interface — étape 5 : tableaux de bord « À traiter »

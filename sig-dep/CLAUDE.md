@@ -58,7 +58,7 @@ Général au Numérique (RDC). Interface et documentation **en français** ; ré
 
 ## Refonte de l’interface (en cours)
 
-Plan validé par l’utilisateur, par étapes livrées séparément (0 à 5 livrées de 1.20.1 à 1.29.0 ; restent 6 et 7) : 0 filet de sécurité → 1 fondations
+Plan validé par l’utilisateur, par étapes livrées séparément (0 à 6 livrées de 1.20.1 à 1.30.0 ; reste 7) : 0 filet de sécurité → 1 fondations
 (jetons, formats, badges, boutons) → 2 nouveaux composants → 3 migration des modules récents vers les
 composants communs (Planification, Données, Réunions/Décisions/Agenda, Actes/Cartes, Système) →
 4 navigation → 5 tableaux de bord « À traiter » → 6 accessibilité et responsive → 7 performance.
@@ -76,7 +76,8 @@ uniquement (jamais `toISOString().slice(0, 10)` pour une date du jour : c’est 
 Ne jamais casser : renouvellement de session et redirections 401/403/503, première connexion,
 double authentification, inactivité, routeur « données » (protection des saisies), convention
 `dejaSignale` de `runAction`, téléchargements, impression, droits renvoyés par l’API (`actions` /
-`droits`), rang Bureau du BSD, cartes de service et vérification publique.
+`droits`), rang Bureau du BSD, cartes de service et vérification publique, absence de violation d’accessibilité
+(`e2e/accessibilite.spec.js` : ne pas employer `text-slate-400` pour du texte).
 
 ## Vérifier avant de publier
 
