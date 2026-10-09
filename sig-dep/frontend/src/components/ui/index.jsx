@@ -330,7 +330,7 @@ export function ConfirmProvider({ children }) {
       <Modal open={!!state} title={state?.title || 'Confirmation'} onClose={() => close(false)} size="sm"
         footer={<>
           <button type="button" className="btn-secondary" onClick={() => close(false)}>Annuler</button>
-          <button type="button" disabled={busy || (state?.input?.required && text.trim().length < 3)} className={state?.danger ? 'btn-danger' : 'btn-primary'}
+          <button type="button" disabled={busy || (state?.input?.required && text.trim().length < (state.input.min ?? 3))} className={state?.danger ? 'btn-danger' : 'btn-primary'}
             onClick={() => { setBusy(true); close(state?.input ? text : true); }}>{state?.confirmLabel || 'Confirmer'}</button>
         </>}>
         <p className="text-sm text-slate-700">{state?.message}</p>
@@ -339,14 +339,14 @@ export function ConfirmProvider({ children }) {
             <label className="label" htmlFor="confirm-input">{state.input.label}{state.input.required && <span className="text-red-600" aria-hidden> *</span>}</label>
             <textarea id="confirm-input" className="input" rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder={state.input.placeholder}
               aria-required={state.input.required || undefined} aria-describedby={state.input.required ? 'confirm-input-aide' : undefined} />
-            {state.input.required && <p id="confirm-input-aide" className="mt-1 text-xs text-slate-500">Au moins 3 caractères.</p>}
+            {state.input.required && <p id="confirm-input-aide" className="mt-1 text-xs text-slate-500">Au moins {state.input.min ?? 3} caractères.</p>}
           </div>
         )}
       </Modal>
     </ConfirmCtx.Provider>
   );
 }
-/** confirm({ title, message, danger, confirmLabel, input: { label, required } }) → Promise<boolean|string> */
+/** confirm({ title, message, danger, confirmLabel, input: { label, required, min, placeholder } }) → Promise<boolean|string> */
 export const useConfirm = () => useContext(ConfirmCtx);
 
 // ─── Formulaires ────────────────────────────────────────────────────────────

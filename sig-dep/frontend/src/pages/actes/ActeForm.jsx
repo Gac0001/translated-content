@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import api from '../../lib/api';
-import { useApi, Loadable, PageHeader, Card, Field, InfoAlert, runAction } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, Field, InfoAlert, ActionBar, runAction, toast } from '../../components/ui';
 
 const VIDE = { type: 'INTERIM', reference: '', date_acte: '', autorite: '', objet: '', motif: '', agent_id: '', poste_id: '', permissions: [], date_debut: '', date_fin: '' };
 const AIDE = {
@@ -16,6 +16,7 @@ const AIDE = {
 function Formulaire({ refs, initial, id }) {
   const [f, setF] = useState(initial);
   const [busy, setBusy] = useState(false);
+  const modifie = JSON.stringify(f) !== JSON.stringify(initial);
   const navigate = useNavigate();
   const up = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
   const temporaire = ['INTERIM', 'DESIGNATION'].includes(f.type);
@@ -23,6 +24,11 @@ function Formulaire({ refs, initial, id }) {
   const postesProposes = refs.postes;
   const enregistrer = async (e) => {
     e.preventDefault();
+    const manque = [!f.reference.trim() && 'référence officielle', !f.date_acte && 'date de l’acte', !f.autorite.trim() && 'autorité signataire', !f.objet.trim() && 'objet',
+      temporaire && !f.agent_id && (f.type === 'INTERIM' ? 'intérimaire' : 'bénéficiaire'), f.type === 'INTERIM' && !f.poste_id && 'poste',
+      temporaire && !f.date_debut && 'date de début', temporaire && !f.date_fin && 'date de fin', f.type === 'DESIGNATION' && !f.permissions.length && 'opérations désignées'].filter(Boolean);
+    if (manque.length) { toast.error(`Champs obligatoires à compléter : ${manque.join(', ')}.`); return; }
+    if (f.date_debut && f.date_fin && f.date_fin < f.date_debut) { toast.error('La date de fin précède la date de début.'); return; }
     setBusy(true);
     const body = {
       ...f,
@@ -34,11 +40,11 @@ function Formulaire({ refs, initial, id }) {
     };
     try {
       const r = await runAction(() => (id ? api.put(`/actes/${id}`, body) : api.post('/actes', body)), id ? 'Acte modifié.' : 'Acte enregistré en préparation : joignez la copie signée puis soumettez-le.');
-      navigate(`/actes/${r.data.id}`);
-    } catch { /* message affiché */ } finally { setBusy(false); }
+      navigate(`/actes/${r.data.id}`); // busy reste vrai : la navigation n’est pas bloquée
+    } catch { setBusy(false); /* message affiché */ }
   };
   return (
-    <form onSubmit={enregistrer} className="space-y-4" noValidate>
+    <form id="form-acte" onSubmit={enregistrer} className="space-y-4" noValidate>
       {refs.autoritePreparation === 'SECRETAIRE_GENERAL' && <InfoAlert tone="warning">En tant qu’Admin Système, vous n’enregistrez que les actes relatifs au poste de Directeur ; ils sont validés par le Secrétaire Général.</InfoAlert>}
       <Card title="Acte">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -86,10 +92,7 @@ function Formulaire({ refs, initial, id }) {
         </div>
         {temporaire && <p className="mt-2 text-xs text-slate-500">Les droits prennent effet à la date de début et expirent automatiquement après la date de fin.</p>}
       </Card>
-      <div className="flex justify-end gap-2">
-        <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>Annuler</button>
-        <button type="submit" className="btn-primary" disabled={busy}>{id ? 'Enregistrer les modifications' : 'Enregistrer en préparation'}</button>
-      </div>
+      <ActionBar form="form-acte" dirty={modifie || !id} guard={modifie} saving={busy} onCancel={() => navigate(id ? `/actes/${id}` : '/actes')} saveLabel={id ? 'Enregistrer les modifications' : 'Enregistrer en préparation'} />
     </form>
   );
 }

@@ -186,3 +186,42 @@ export function circuitDecision(d) {
     alerte: d.en_retard ? { tone: 'danger', label: 'En retard' } : undefined,
   };
 }
+
+/**
+ * Actes administratifs : préparation (copie signée jointe) → validation (Directeur, ou Secrétaire
+ * Général pour le poste de Directeur) → validé ; refus, révocation, expiration et remplacement signalés.
+ */
+export function circuitActe(a) {
+  const autorite = a.validation_par === 'SECRETAIRE_GENERAL' ? 'du Secrétaire Général' : 'du Directeur';
+  const etapes = ['Préparation', `Validation ${autorite}`, 'Validé'];
+  switch (a.statut) {
+    case 'BROUILLON': return { etapes, courante: 0 };
+    case 'SOUMIS': return { etapes, courante: 1 };
+    case 'REFUSE': return { etapes, courante: 1, alerte: { tone: 'danger', label: 'Refusé' } };
+    case 'REVOQUE': return { etapes, courante: 2, alerte: { tone: 'danger', label: 'Révoqué' } };
+    case 'EXPIRE': return { etapes, courante: 2, termine: true, details: { 2: 'Période échue' } };
+    case 'REMPLACE': return { etapes, courante: 2, termine: true, details: { 2: 'Remplacé par un rectificatif' } };
+    default: return { etapes, courante: 2, termine: true };
+  }
+}
+
+/**
+ * Cartes de service : préparation (Bureau Secrétariat de Direction) → validation du Directeur →
+ * impression → remise au titulaire ; suspension, perte, annulation, expiration et remplacement signalés.
+ */
+export function circuitCarte(c) {
+  const etapes = ['Préparation', 'Validation du Directeur', 'Impression', 'Remise au titulaire'];
+  const pos = { BROUILLON: 0, A_COMPLETER: 0, VERIFIEE: 1, VALIDEE: 2, IMPRIMEE: 3, REMISE: 3 }[c.statut];
+  if (pos !== undefined) {
+    return {
+      etapes, courante: pos, termine: c.statut === 'REMISE',
+      alerte: c.statut === 'A_COMPLETER' ? { tone: 'attention', label: 'Dossier à compléter' } : c.statut === 'BROUILLON' && c.commentaire ? { tone: 'attention', label: 'Retournée' } : undefined,
+      details: c.statut === 'REMISE' ? { 3: c.accuse_at ? 'Réception confirmée' : 'Accusé de réception attendu' } : {},
+    };
+  }
+  const fin = {
+    SUSPENDUE: { alerte: { tone: 'attention', label: 'Suspendue' } }, PERDUE: { alerte: { tone: 'danger', label: 'Perdue ou volée' } },
+    ANNULEE: { alerte: { tone: 'danger', label: 'Annulée' } }, EXPIREE: { termine: true, details: { 3: 'Validité échue' } }, REMPLACEE: { termine: true, details: { 3: 'Remplacée' } },
+  }[c.statut] || {};
+  return { etapes, courante: c.remise_at ? 3 : c.imprime_at ? 3 : 2, ...fin };
+}

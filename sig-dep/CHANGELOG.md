@@ -1,5 +1,16 @@
 # Journal des versions — SIG-DEP
 
+## 1.26.0
+
+### Refonte de l’interface — étape 3d : Actes administratifs et Cartes de service sur les composants communs
+- **Registre des actes** : filtres (type, statut, en vigueur), recherche, tri et page conservés dans l’adresse ; « Effacer les filtres ».
+- **Fiche d’un acte** : circuit (Préparation → Validation du Directeur, ou du Secrétaire Général pour le poste de Directeur → Validé ; refus, révocation, expiration et remplacement signalés) avec « Soumettre » et « Décider » dans l’encadré ; rectificatif, révocation (motif de 5 caractères au moins) et suppression du brouillon dans les actions secondaires ; fenêtre de décision protégée contre le double clic.
+- **Saisie d’un acte** : barre d’enregistrement avec protection de la saisie ; champs obligatoires selon le type (intérimaire, poste, période, opérations désignées) et ordre des dates contrôlés avant envoi.
+- **Fiche d’une carte de service** : circuit (Préparation → Validation du Directeur → Impression → Remise au titulaire ; suspension, perte, annulation, expiration signalées) avec les actions de l’étape ; validation confirmée ; retour, suspension, perte et annulation avec motif obligatoire ; anomalies du dossier et mentions regroupées dans l’encadré.
+- **Registre des cartes** : filtre d’état dans l’adresse, répartition par état, planche A4 ; préparation et renouvellement en boutons compacts ; **Ma carte** : état vide explicatif, déclaration de perte confirmée ; **modèle de carte** (Admin) : barre d’enregistrement, validité saisie en nombre borné (1 à 10 ans).
+- La fenêtre de confirmation accepte une longueur minimale de motif (`input.min`).
+- Tests de l’interface : 48 réussis (dont 4 nouveaux sur les Actes et les Cartes).
+
 ## 1.25.0
 
 ### Refonte de l’interface — étape 3c : Réunions, Décisions et Agenda sur les composants communs
