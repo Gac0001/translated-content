@@ -43,7 +43,7 @@ test('Agent de saisie : son brouillon en erreur ; Secrétariat : réunion à dé
 test('Rien à traiter : une seule ligne', async ({ page }) => {
   await connexion(page, 'ag.str1');
   await expect(bandeau(page)).toBeVisible();
-  const vide = await bandeau(page).getByText('Rien à traiter dans les circuits pour le moment.').isVisible();
-  const files = await bandeau(page).getByRole('heading').count();
-  expect(vide || files > 1).toBe(true); // soit la ligne, soit au moins une file
+  // Soit la ligne « Rien à traiter », soit au moins une file (titre de niveau 3), une fois les files chargées.
+  await expect(bandeau(page).getByText('Rien à traiter dans les circuits pour le moment.')
+    .or(bandeau(page).getByRole('heading', { level: 3 })).first()).toBeVisible();
 });
