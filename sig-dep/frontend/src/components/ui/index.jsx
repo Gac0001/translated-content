@@ -157,7 +157,7 @@ export function PageHeader({ title, subtitle, breadcrumb = [], actions, menu = [
                 <div className="hidden flex-wrap items-center gap-2 sm:flex">
                   {secondaires.map((it) => {
                     const contenu = <>{it.icon && <it.icon size={16} aria-hidden />}{it.label}</>;
-                    const cls = it.danger ? 'btn-danger' : 'btn-secondary';
+                    const cls = it.danger ? 'btn-secondary text-red-700 hover:bg-red-50' : 'btn-secondary';
                     return it.to && !it.disabled
                       ? <Link key={it.label} to={it.to} className={cls}>{contenu}</Link>
                       : <button key={it.label} type="button" className={cls} disabled={it.disabled} onClick={it.onClick}>{contenu}</button>;
@@ -651,7 +651,7 @@ export function DataTable({
 }
 
 /** Liste de filtre. `label` (sinon le texte de l’option vide) est lu par les lecteurs d’écran. */
-export function Select({ value, onChange, options, placeholder = 'Tous', className = 'input w-auto', label }) {
+export function Select({ value, onChange, options, placeholder = 'Tous', className = 'input w-auto max-w-full', label }) {
   return (
     <select className={className} value={value ?? ''} onChange={(e) => onChange(e.target.value)} aria-label={label || placeholder}>
       <option value="">{placeholder}</option>

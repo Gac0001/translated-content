@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { FileSpreadsheet } from 'lucide-react';
 import api, { download, errorMessage } from '../../lib/api';
 import { fmtNombre } from '../../lib/format';
-import { useApi, Loadable, Card, Field, InfoAlert, Empty, toast } from '../../components/ui';
+import { useApi, Loadable, Card, Field, InfoAlert, EmptyState, SimpleTable, toast } from '../../components/ui';
 
 const nb = (v) => fmtNombre(v, 2);
 
@@ -28,7 +28,7 @@ export default function Tableaux() {
     <Loadable state={campagnes}>
       {(c) => {
         const validees = c.data.filter((x) => x.statut === 'VALIDEE');
-        if (!validees.length) return <Empty message="Aucune campagne validée : les tableaux portent sur les données contrôlées et validées." />;
+        if (!validees.length) return <div className="card"><EmptyState title="Aucune campagne validée">Les tableaux croisés portent sur les données contrôlées et validées : ils seront disponibles dès la validation d’une première campagne.</EmptyState></div>;
         return (
           <div className="space-y-4">
             <Card title="Paramètres">
@@ -40,18 +40,14 @@ export default function Tableaux() {
               </div>
             </Card>
             {res && (
-              <Card title={res.titre} bodyClass="p-0" actions={<button type="button" className="btn-secondary" onClick={() => download(`/donnees/tableaux/export?${qs}`, 'Tableau.xlsx').catch((e) => toast.error(errorMessage(e)))}><FileSpreadsheet size={16} /> Excel</button>}>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead><tr className="border-b bg-slate-50 text-xs uppercase text-slate-500"><th className="px-3 py-2 text-left" />{res.colonnes.map((x) => <th key={x} className="px-3 text-right">{x}</th>)}{res.colonnes.length > 1 && <th className="px-3 text-right">Total</th>}</tr></thead>
-                    <tbody>
-                      {res.lignes.map((l) => (
-                        <tr key={l.libelle} className="border-b border-slate-100 hover:bg-slate-50"><td className="px-3 py-1.5">{l.libelle}</td>{l.valeurs.map((v, k) => <td key={k} className="px-3 text-right tabular-nums">{nb(v)}</td>)}{res.colonnes.length > 1 && <td className="px-3 text-right font-semibold tabular-nums">{nb(l.total)}</td>}</tr>
-                      ))}
-                      <tr className="bg-slate-50 font-semibold"><td className="px-3 py-1.5">Total</td>{res.totaux.map((v, k) => <td key={k} className="px-3 text-right tabular-nums">{nb(v)}</td>)}{res.colonnes.length > 1 && <td className="px-3 text-right tabular-nums">{nb(res.total)}</td>}</tr>
-                    </tbody>
-                  </table>
-                </div>
+              <Card title={res.titre} bodyClass="p-0" actions={<button type="button" className="btn-secondary" onClick={() => download(`/donnees/tableaux/export?${qs}`, 'Tableau.xlsx').catch((e) => toast.error(errorMessage(e)))}><FileSpreadsheet size={16} aria-hidden /> Excel</button>}>
+                <SimpleTable label={res.titre} dense figee rowKey="libelle"
+                  columns={[
+                    { key: 'libelle', header: <span className="sr-only">Ligne</span> },
+                    ...res.colonnes.map((x, k) => ({ key: `c${k}`, header: x, align: 'right', render: (l) => nb(l.valeurs[k]) })),
+                    ...(res.colonnes.length > 1 ? [{ key: 'total', header: 'Total', align: 'right', className: 'font-semibold', render: (l) => nb(l.total) }] : []),
+                  ]}
+                  rows={res.lignes} footer={[{ libelle: 'Total', valeurs: res.totaux, total: res.total }]} />
                 <p className="px-3 py-2 text-xs text-slate-500">{res.repondants} répondant(s) — {res.campagne.reference}. Une réponse à choix multiples compte dans chacune des options cochées.</p>
               </Card>
             )}

@@ -1,5 +1,17 @@
 # Journal des versions — SIG-DEP
 
+## 1.24.0
+
+### Refonte de l’interface — étape 3b : Données sectorielles sur les composants communs
+- **Annuaire** : filtres (catégorie, province, statut), recherche, tri et page conservés dans l’adresse, retrouvés au retour d’une fiche ; « Effacer les filtres » ; colonnes triables. Les listes de filtres ne dépassent plus la largeur de l’écran : **plus aucun débordement horizontal sur téléphone** (le relevé de l’étape 0 est soldé).
+- **Circuits de traitement** communs sur les fiches de **campagne** (Préparation → Collecte ouverte → Clôturée → Validée), de **réponse** (Saisie → Transmise au contrôle → Contrôlée) et de **bulletin** (Rédaction → Visa → Autorisation du Directeur → Diffusé), avec les actions de l’étape ; retours pour correction avec motif obligatoire ; clôture de la collecte confirmée (nombre de réponses reçues rappelé).
+- **Saisie des réponses** : champs numériques au format français (entiers ou décimaux selon la question), barre d’enregistrement « Enregistrer et contrôler », protection de la saisie ; la transmission au contrôle est bloquée tant que la saisie n’est pas enregistrée ou comporte des erreurs ; « Supprimer le brouillon » regroupé dans les actions secondaires.
+- **Campagne** : indicateurs clés (acteurs ciblés, couverture, contrôle) avec barres de progression.
+- **Formulaires** (acteur, questionnaire, campagne, indicateur, bulletin, référentiel) en fenêtres communes à sections, champs obligatoires contrôlés avant envoi, confirmation avant d’abandonner une saisie ; éditeur de questionnaire avec barre d’enregistrement.
+- **Indicateurs** : tuiles de valeur et d’évolution, tableau des périodes cliquable, répartition par province et catégorie en barres accessibles ; **tableaux croisés** et séries des bulletins en tableaux communs avec totaux.
+- Composants : actions secondaires « danger » de l’en-tête en style discret ; listes de filtres bornées à la largeur disponible.
+- Tests de l’interface : 39 réussis (dont 5 nouveaux sur les Données sectorielles).
+
 ## 1.23.0
 
 ### Refonte de l’interface — étape 3a : Planification sur les composants communs

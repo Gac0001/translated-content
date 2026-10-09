@@ -123,3 +123,35 @@ export function circuitProgrammation(d) {
     alerte: d.statut === 'A_CORRIGER' ? { tone: 'attention', label: 'Retourné pour correction' } : undefined,
   };
 }
+
+/** Campagnes de collecte : préparation → collecte ouverte → clôturée → validée (données figées). */
+export function circuitCampagne(c) {
+  const etapes = ['Préparation', 'Collecte ouverte', 'Clôturée', 'Validée'];
+  const pos = { BROUILLON: 0, OUVERTE: 1, CLOTUREE: 2, VALIDEE: 3 }[c.statut] ?? 0;
+  const retour = c.statut === 'OUVERTE' && !!c.observations;
+  return {
+    etapes, courante: pos, termine: c.statut === 'VALIDEE',
+    details: { CLOTUREE: { 2: 'En attente de validation par le Chef de Division' } }[c.statut] || {},
+    alerte: retour ? { tone: 'attention', label: 'Retournée par le Chef de Division' } : undefined,
+  };
+}
+
+/** Réponses de campagne : saisie (brouillon) → transmise au contrôle → contrôlée, par une autre personne. */
+export function circuitReponse(r) {
+  const etapes = ['Saisie', 'Transmise au contrôle', 'Contrôlée'];
+  const pos = { BROUILLON: 0, A_CORRIGER: 0, SAISIE: 1, CONTROLEE: 2 }[r?.statut] ?? 0;
+  return {
+    etapes, courante: pos, termine: r?.statut === 'CONTROLEE',
+    alerte: r?.statut === 'A_CORRIGER' ? { tone: 'attention', label: 'À corriger' } : undefined,
+  };
+}
+
+/** Bulletins et baromètres : rédaction → visa du Chef de Division → autorisation du Directeur (diffusion). */
+export function circuitBulletin(b) {
+  const etapes = ['Rédaction', 'Visa du Chef de Division', 'Autorisation du Directeur', 'Diffusé'];
+  const pos = { BROUILLON: 0, A_CORRIGER: 0, SOUMIS: 1, VISE: 2, DIFFUSE: 3 }[b.statut] ?? 0;
+  return {
+    etapes, courante: pos, termine: b.statut === 'DIFFUSE',
+    alerte: b.statut === 'A_CORRIGER' ? { tone: 'attention', label: 'Retourné pour correction' } : undefined,
+  };
+}

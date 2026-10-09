@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CheckCircle2, Save, Send, Trash2, Undo2 } from 'lucide-react';
+import { CheckCircle2, Send, Trash2, Undo2 } from 'lucide-react';
 import api from '../../lib/api';
-import { useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, InfoAlert, Field, Badge, runAction, useConfirm } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, InfoAlert, Field, Badge, Button, WorkflowPanel, NumberInput, ActionBar, runAction, useConfirm } from '../../components/ui';
 import { Attachments, Timeline } from '../../components/shared';
-import { fmtDate, fmtDateTime } from '../../lib/format';
-import { TextModal } from '../instructions/WorkflowActions';
+import { fmtDate, fmtDateTime, fmtNombre, lireNombre } from '../../lib/format';
+import { circuitReponse } from '../../lib/workflows';
 import { SOURCES } from './Donnees';
 
 const NUMERIQUES = ['NOMBRE', 'ENTIER'];
@@ -13,7 +13,7 @@ const affiche = (q, v) => {
   if (v === undefined || v === null || v === '') return '—';
   if (q.type === 'OUI_NON') return v ? 'Oui' : 'Non';
   if (q.type === 'CHOIX_MULTIPLE') return v.join(', ');
-  if (NUMERIQUES.includes(q.type)) return `${Number(v).toLocaleString('fr-FR')}${q.unite ? ` ${q.unite}` : ''}`;
+  if (NUMERIQUES.includes(q.type)) return `${fmtNombre(v, 4)}${q.unite ? ` ${q.unite}` : ''}`;
   if (q.type === 'DATE') return fmtDate(v);
   return String(v);
 };
@@ -36,7 +36,7 @@ function Champ({ q, valeur, onChange, anomalies, precedent }) {
       <div className="flex gap-4">{[[true, 'Oui'], [false, 'Non']].map(([v, l]) => <label key={l} className="flex items-center gap-1.5 text-sm"><input type="radio" name={id} checked={valeur === v} onChange={() => onChange(v)} />{l}</label>)}
         {valeur !== undefined && valeur !== null && <button type="button" className="text-xs text-slate-500 hover:underline" onClick={() => onChange(null)}>effacer</button>}</div>
     ); break;
-    default: input = <div className="flex items-center gap-2"><input id={id} inputMode="decimal" className="input w-48 text-right tabular-nums" value={valeur ?? ''} onChange={(e) => onChange(e.target.value)} />{q.unite && <span className="text-sm text-slate-500">{q.unite}</span>}</div>;
+    default: input = <div className="flex items-center gap-2"><NumberInput id={id} className="w-48" value={valeur ?? null} onChange={onChange} decimales={q.type === 'ENTIER' ? 0 : 4} aria-invalid={erreur ? true : undefined} />{q.unite && <span className="text-sm text-slate-500">{q.unite}</span>}</div>;
   }
   return (
     <div className={`rounded-md p-2 ${erreur ? 'bg-red-50' : alerte ? 'bg-amber-50' : ''}`}>
@@ -49,13 +49,26 @@ function Champ({ q, valeur, onChange, anomalies, precedent }) {
   );
 }
 
-function Formulaire({ d, onSaved }) {
+/** Valeur numérique enregistrée → nombre (une ancienne saisie non numérique est écartée). */
+const enNombre = (v) => { if (typeof v === 'number') return v; const n = lireNombre(v); return Number.isFinite(n) ? n : null; };
+
+function Formulaire({ d, onSaved, onModifie }) {
   const r = d.reponse;
-  const [valeurs, setValeurs] = useState(() => Object.fromEntries(Object.entries(r?.valeurs || {}).map(([k, v]) => [k, typeof v === 'number' ? String(v).replace('.', ',') : v])));
-  const [meta, setMeta] = useState({ source: r?.source || 'PAPIER', date_reception: r?.date_reception ? String(r.date_reception).slice(0, 10) : '', justification: r?.justification || '', observations: r?.statut === 'A_CORRIGER' ? '' : r?.observations || '' });
+  const [initial] = useState(() => ({
+    valeurs: Object.fromEntries(Object.entries(r?.valeurs || {}).map(([k, v]) => [k, NUMERIQUES.includes(d.version.questions.find((q) => q.code === k)?.type) ? enNombre(v) : v])),
+    meta: { source: r?.source || 'PAPIER', date_reception: r?.date_reception ? String(r.date_reception).slice(0, 10) : '', justification: r?.justification || '', observations: r?.statut === 'A_CORRIGER' ? '' : r?.observations || '' },
+  }));
+  const [valeurs, setValeurs] = useState(initial.valeurs);
+  const [meta, setMeta] = useState(initial.meta);
+  const [enCours, setEnCours] = useState(false);
+  const change = JSON.stringify({ valeurs, meta }) !== JSON.stringify(initial);
+  const modifie = !r || change; // une première saisie peut être enregistrée telle quelle
+  useEffect(() => { onModifie(change); }, [change, onModifie]);
   const anomalies = r?.anomalies || [];
   const enregistrer = async () => {
-    const res = await runAction(() => api.put(`/donnees/campagnes/${d.campagne.id}/reponses/${d.acteur.id}`, { valeurs, source: meta.source, date_reception: meta.date_reception || null, justification: meta.justification || null, observations: meta.observations || null }), 'Réponse enregistrée et contrôlée.');
+    setEnCours(true);
+    let res;
+    try { res = await runAction(() => api.put(`/donnees/campagnes/${d.campagne.id}/reponses/${d.acteur.id}`, { valeurs, source: meta.source, date_reception: meta.date_reception || null, justification: meta.justification || null, observations: meta.observations || null }), 'Réponse enregistrée et contrôlée.'); } finally { setEnCours(false); }
     onSaved(res.data);
   };
   const sections = [];
@@ -87,7 +100,7 @@ function Formulaire({ d, onSaved }) {
           <Field label="Observations"><textarea className="input" rows={3} value={meta.observations} onChange={(e) => setMeta({ ...meta, observations: e.target.value })} /></Field>
         </div>
       </Card>
-      <button type="button" className="btn-primary" onClick={enregistrer}><Save size={16} /> Enregistrer et contrôler</button>
+      <ActionBar dirty={modifie} guard={change} saving={enCours} onSave={enregistrer} saveLabel="Enregistrer et contrôler" />
     </div>
   );
 }
@@ -97,8 +110,8 @@ export default function ReponseSaisie() {
   const state = useApi(`/donnees/campagnes/${id}/reponses/${acteur}`, [id, acteur]);
   const navigate = useNavigate();
   const confirm = useConfirm();
-  const [retour, setRetour] = useState(false);
-  const post = async (path, body, msg) => { await runAction(() => api.post(`/donnees/campagnes/${id}/reponses/${acteur}/${path}`, body), msg); setRetour(false); state.reload(); };
+  const [modifie, setModifie] = useState(false);
+  const post = async (path, body, msg) => { await runAction(() => api.post(`/donnees/campagnes/${id}/reponses/${acteur}/${path}`, body), msg).catch(() => null); state.reload(); };
   return (
     <Loadable state={state}>
       {(d) => {
@@ -111,21 +124,31 @@ export default function ReponseSaisie() {
           await runAction(() => api.del(`/donnees/campagnes/${id}/reponses/${acteur}`), 'Brouillon supprimé.');
           navigate(`/donnees/campagnes/${id}`);
         };
+        const aCorriger = async () => {
+          const motif = await confirm({ title: 'Réponse à corriger', message: 'La réponse sera renvoyée à l’agent qui l’a saisie.', input: { label: 'Corrections demandées', required: true }, confirmLabel: 'Retourner', danger: true });
+          if (motif) post('controler', { decision: 'A_CORRIGER', motif }, 'Réponse retournée pour correction.');
+        };
+        const attente = !r ? (d.campagne.statut === 'OUVERTE' ? 'Aucune réponse saisie pour cet acteur.' : 'La campagne n’est pas ouverte à la saisie.')
+          : { BROUILLON: 'Brouillon : enregistrez, corrigez les erreurs, puis transmettez au contrôle.', A_CORRIGER: 'Retournée pour correction à l’agent de saisie.', SAISIE: 'Transmise : en attente du contrôle par une autre personne que l’agent de saisie.', CONTROLEE: 'Réponse contrôlée : elle sera exploitée à la validation de la campagne.' }[r.statut];
+        const bloque = erreurs > 0 ? 'Corrigez les erreurs avant transmission' : modifie ? 'Enregistrez d’abord la saisie' : undefined;
         return (
           <>
             <PageHeader title={d.acteur.raison_sociale} subtitle={`${d.campagne.titre} · période ${d.campagne.periode}`}
-              breadcrumb={[{ label: 'Données sectorielles', to: '/donnees' }, { label: d.campagne.reference, to: `/donnees/campagnes/${id}` }, { label: d.acteur.sigle || d.acteur.raison_sociale }]}
-              actions={<>
-                {a.soumettre && <button type="button" className="btn-primary" disabled={erreurs > 0} title={erreurs ? 'Corrigez les erreurs avant transmission' : undefined} onClick={() => post('soumettre', {}, 'Réponse transmise au contrôle.')}><Send size={16} /> Transmettre au contrôle</button>}
-                {a.controler && <button type="button" className="btn-success" onClick={() => post('controler', { decision: 'CONTROLEE' }, 'Réponse contrôlée.')}><CheckCircle2 size={16} /> Contrôlée</button>}
-                {a.controler && <button type="button" className="btn-secondary" onClick={() => setRetour(true)}><Undo2 size={16} /> À corriger</button>}
-                {a.supprimer && <button type="button" className="btn-ghost text-red-700" onClick={supprimer}><Trash2 size={16} /> Supprimer</button>}
-              </>} />
-            {r?.statut === 'A_CORRIGER' && <div className="mb-3"><InfoAlert tone="warning"><b>À corriger</b> : {r.observations}</InfoAlert></div>}
-            {r && (erreurs > 0 || alertes > 0) && <div className="mb-3"><InfoAlert tone={erreurs ? 'danger' : 'warning'}>Contrôle de qualité : {erreurs} erreur(s) bloquante(s), {alertes} alerte(s) à justifier.</InfoAlert></div>}
+              breadcrumb={[{ label: 'Données sectorielles', to: '/donnees?onglet=campagnes' }, { label: d.campagne.reference, to: `/donnees/campagnes/${id}` }, { label: d.acteur.sigle || d.acteur.raison_sociale }]}
+              menu={a.supprimer ? [{ label: 'Supprimer le brouillon', icon: Trash2, danger: true, onClick: supprimer }] : []} />
+            <WorkflowPanel circuit={circuitReponse(r)} attente={attente}
+              message={r && (r.statut === 'A_CORRIGER' || erreurs > 0 || alertes > 0) && <>
+                {r?.statut === 'A_CORRIGER' && <InfoAlert tone="warning"><b>À corriger</b> : {r.observations}</InfoAlert>}
+                {r && (erreurs > 0 || alertes > 0) && <div className={r?.statut === 'A_CORRIGER' ? 'mt-2' : ''}><InfoAlert tone={erreurs ? 'danger' : 'warning'}>Contrôle de qualité : {erreurs} erreur(s) bloquante(s), {alertes} alerte(s) à justifier.</InfoAlert></div>}
+              </>}
+              actions={[
+                a.soumettre && <Button key="so" variant="primary" icon={Send} disabled={!!bloque} title={bloque} onClick={() => post('soumettre', {}, 'Réponse transmise au contrôle.')}>Transmettre au contrôle</Button>,
+                a.controler && <Button key="co" variant="success" icon={CheckCircle2} onClick={() => post('controler', { decision: 'CONTROLEE' }, 'Réponse contrôlée.')}>Contrôlée</Button>,
+                a.controler && <Button key="ac" icon={Undo2} onClick={aCorriger}>À corriger</Button>,
+              ]} />
             <div className="grid gap-4 lg:grid-cols-3">
               <div className="lg:col-span-2">
-                {a.saisir ? <Formulaire key={r?.updated_at || 'nouvelle'} d={d} onSaved={() => state.reload()} /> : (
+                {a.saisir ? <Formulaire key={r?.updated_at || 'nouvelle'} d={d} onModifie={setModifie} onSaved={() => state.reload()} /> : (
                   <Card title="Réponse">
                     {r ? (
                       <dl className="divide-y text-sm">{d.version.questions.map((q) => {
@@ -159,7 +182,6 @@ export default function ReponseSaisie() {
                 {r && <Card title="Historique"><Timeline items={d.historique} /></Card>}
               </div>
             </div>
-            {retour && <TextModal title="Réponse à corriger" label="Corrections demandées" confirmLabel="Retourner" onClose={() => setRetour(false)} onSave={(t) => post('controler', { decision: 'A_CORRIGER', motif: t }, 'Réponse retournée pour correction.')} />}
           </>
         );
       }}
