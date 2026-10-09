@@ -3,7 +3,7 @@ import { KeyRound, Lock, LockOpen } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { fmtDateTime } from '../../lib/format';
-import { useApi, Loadable, PageHeader, Card, Tabs, useOnglet, DataTable, Badge, Modal, Field, InfoAlert, runAction } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, Tabs, useOnglet, DataTable, Badge, Modal, Field, InfoAlert, NumberInput, runAction } from '../../components/ui';
 
 const ETATS = {
   EN_ATTENTE: ['En attente du Directeur', 'bg-amber-50 text-amber-800 ring-amber-200'],
@@ -21,12 +21,16 @@ const Etat = ({ s }) => <Badge className={(ETATS[s] || ETATS.ANNULEE)[1]}>{(ETAT
 function Decision({ titre, texte, choix, onClose, onValider }) {
   const [motDePasse, setMdp] = useState('');
   const [commentaire, setCom] = useState('');
-  const valider = async (decision) => { await onValider({ decision, motDePasse, commentaire: commentaire || undefined }); onClose(); };
+  const [enCours, setEnCours] = useState(false);
+  const valider = async (decision) => {
+    setEnCours(true);
+    try { await onValider({ decision, motDePasse, commentaire: commentaire || undefined }); onClose(); } catch { setEnCours(false); /* erreur déjà signalée */ }
+  };
   return (
     <Modal open title={titre} onClose={onClose} footer={<>
-      <button type="button" className="btn-secondary" onClick={onClose}>Fermer</button>
+      <button type="button" className="btn-secondary" onClick={onClose} disabled={enCours}>Fermer</button>
       {choix.map(([d, libelle, danger]) => (
-        <button key={d} type="button" className={danger ? 'btn-danger' : 'btn-primary'} disabled={!motDePasse || (danger && commentaire.trim().length < 5 && d !== 'REVOQUER')} onClick={() => valider(d)}>{libelle}</button>
+        <button key={d} type="button" className={danger ? 'btn-danger' : 'btn-primary'} disabled={enCours || !motDePasse || (danger && commentaire.trim().length < 5 && d !== 'REVOQUER')} onClick={() => valider(d)}>{libelle}</button>
       ))}
     </>}>
       <div className="space-y-3">
@@ -98,7 +102,7 @@ function Support() {
               <form onSubmit={demander} className="grid gap-3 sm:grid-cols-4">
                 <Field label="Motif" required className="sm:col-span-4"><input className="input" value={f.motif} onChange={(e) => setF({ ...f, motif: e.target.value })} placeholder="Ex. pièce jointe illisible signalée par le Secrétariat" /></Field>
                 <Field label="Type d’élément" hint="Vide : toutes les pièces jointes"><select className="input" value={f.entity_type} onChange={(e) => setF({ ...f, entity_type: e.target.value })}><option value="">Toutes</option>{Object.entries(d.types).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
-                <Field label="N° de l’élément" hint="Facultatif"><input type="number" min={1} className="input" disabled={!f.entity_type} value={f.entity_id} onChange={(e) => setF({ ...f, entity_id: e.target.value })} /></Field>
+                <Field label="N° de l’élément" hint="Facultatif"><NumberInput min={1} disabled={!f.entity_type} value={f.entity_id === '' || f.entity_id === null || f.entity_id === undefined ? null : Number(f.entity_id)} onChange={(n) => setF({ ...f, entity_id: n ?? '' })} /></Field>
                 <Field label="Durée"><select className="input" value={f.duree_minutes} onChange={(e) => setF({ ...f, duree_minutes: Number(e.target.value) })}>{[15, 30, 60, 120, 240].map((m) => <option key={m} value={m}>{m < 60 ? `${m} min` : `${m / 60} h`}</option>)}</select></Field>
                 <div className="flex items-end"><button type="submit" className="btn-primary w-full" disabled={f.motif.trim().length < 10}><KeyRound size={16} /> Demander</button></div>
               </form>
@@ -167,7 +171,7 @@ function Urgence() {
               <div className="space-y-3">
                 <InfoAlert tone="warning">L’activation est signalée immédiatement à l’Admin Système, au Directeur et au Secrétaire Général.</InfoAlert>
                 <Field label="Motif" required><textarea className="input" rows={2} value={f.motif} onChange={(e) => setF({ ...f, motif: e.target.value })} /></Field>
-                <Field label="Durée (heures)" required><input type="number" min={1} max={d.dureeMaxHeures} className="input" value={f.heures} onChange={(e) => setF({ ...f, heures: Number(e.target.value) })} /></Field>
+                <Field label="Durée (heures)" required hint={`De 1 à ${d.dureeMaxHeures} heures`}><NumberInput min={1} max={d.dureeMaxHeures} value={f.heures} onChange={(n) => setF({ ...f, heures: n ?? f.heures })} /></Field>
                 <Field label="Votre mot de passe" required><input type="password" className="input" autoComplete="current-password" value={f.motDePasse} onChange={(e) => setF({ ...f, motDePasse: e.target.value })} /></Field>
               </div>
             </Modal>

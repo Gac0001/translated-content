@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, CheckCircle2, DatabaseZap, FlaskConical, ShieldCheck, UserPlus } from 'lucide-react';
+import { DatabaseZap, FlaskConical, ShieldCheck, UserPlus } from 'lucide-react';
 import api from '../../lib/api';
-import { useApi, Loadable, PageHeader, Card, InfoAlert, Field, KeyValues, runCritique } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, InfoAlert, Alert, Field, KeyValues, runCritique } from '../../components/ui';
 
 const PHRASE = 'REINITIALISER';
 
@@ -42,8 +42,7 @@ export default function Reinitialisation() {
       <PageHeader title="Réinitialisation de la base" subtitle="Préparer la mise en service : retirer les données fictives avant la constitution de la liste officielle des agents."
         breadcrumb={[{ label: 'Administration' }, { label: 'Système', to: '/systeme' }, { label: 'Réinitialisation' }]} />
       {resultat && (
-        <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-          <div className="flex items-center gap-2 font-medium"><CheckCircle2 size={18} /> {resultat.message}</div>
+        <Alert tone="succes" title={resultat.message} className="mb-4">
           {resultat.sauvegarde && <p className="mt-1">Sauvegarde préalable : <code>{resultat.sauvegarde.fichier}</code> (Système → Sauvegardes).</p>}
           {resultat.mode === 'VIERGE' && (
             <ol className="mt-2 list-decimal space-y-1 pl-5">
@@ -52,8 +51,8 @@ export default function Reinitialisation() {
               <li>Vous enrôlez ensuite les agents du Bureau Secrétariat de Direction, qui enrôlent les agents des Divisions.</li>
             </ol>
           )}
-          {resultat.mode === 'VIERGE' && <Link to="/comptes/nouveau" className="btn-primary mt-3"><UserPlus size={16} /> Créer le compte du Directeur</Link>}
-        </div>
+          {resultat.mode === 'VIERGE' && <Link to="/comptes/nouveau" className="btn-primary mt-3"><UserPlus size={16} aria-hidden /> Créer le compte du Directeur</Link>}
+        </Alert>
       )}
       <Loadable state={state}>
         {(d) => (
@@ -77,12 +76,12 @@ export default function Reinitialisation() {
 
             <form onSubmit={lancer} className="space-y-4 lg:col-span-2">
               <Card title="Type de réinitialisation">
-                <div className="grid gap-3 md:grid-cols-2" role="radiogroup">
+                <div className="grid gap-3 md:grid-cols-2" role="radiogroup" aria-label="Type de réinitialisation">
                   {MODES.map((m) => (
                     <label key={m.value} className={`flex cursor-pointer gap-3 rounded-md border p-3 text-sm ${mode === m.value ? 'border-dep-600 bg-dep-50 ring-1 ring-dep-600' : 'border-slate-200 hover:bg-slate-50'}`}>
                       <input type="radio" name="mode" value={m.value} checked={mode === m.value} onChange={() => setMode(m.value)} className="mt-1" />
                       <span>
-                        <span className="flex items-center gap-1.5 font-medium"><m.icon size={16} /> {m.titre}</span>
+                        <span className="flex items-center gap-1.5 font-medium"><m.icon size={16} aria-hidden /> {m.titre}</span>
                         <span className="mt-1 block text-slate-600">{m.texte}</span>
                       </span>
                     </label>
@@ -91,10 +90,7 @@ export default function Reinitialisation() {
               </Card>
 
               <Card title="Confirmation">
-                <div className="mb-4 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-                  <AlertTriangle size={18} className="mt-0.5 shrink-0" />
-                  <span>Opération <b>irréversible</b> depuis l’application : toutes les données autres que celles conservées sont supprimées et les autres utilisateurs sont déconnectés. Seule une sauvegarde permet de revenir en arrière.</span>
-                </div>
+                <Alert tone="danger" statique className="mb-4">Opération <b>irréversible</b> depuis l’application : toutes les données autres que celles conservées sont supprimées et les autres utilisateurs sont déconnectés. Seule une sauvegarde permet de revenir en arrière.</Alert>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="flex items-start gap-2 text-sm sm:col-span-2">
                     <input type="checkbox" checked={sauvegarde} onChange={(e) => setSauvegarde(e.target.checked)} className="mt-0.5" />
@@ -107,8 +103,8 @@ export default function Reinitialisation() {
                     <input type="password" className="input" value={motDePasse} onChange={(e) => setMotDePasse(e.target.value)} autoComplete="current-password" />
                   </Field>
                 </div>
-                <button className="btn-danger mt-4" disabled={busy || phrase.trim().toUpperCase() !== PHRASE || !motDePasse}>
-                  <ShieldCheck size={16} /> {busy ? 'Réinitialisation…' : mode === 'VIERGE' ? 'Réinitialiser : base vierge' : 'Réinitialiser avec les données fictives'}
+                <button type="submit" className="btn-danger mt-4" disabled={busy || phrase.trim().toUpperCase() !== PHRASE || !motDePasse}>
+                  <ShieldCheck size={16} aria-hidden /> {busy ? 'Réinitialisation…' : mode === 'VIERGE' ? 'Réinitialiser : base vierge' : 'Réinitialiser avec les données fictives'}
                 </button>
               </Card>
             </form>

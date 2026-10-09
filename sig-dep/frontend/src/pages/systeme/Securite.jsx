@@ -5,7 +5,7 @@ import api from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { fmtDateTime } from '../../lib/format';
 import { COLORS, ROLES } from '../../lib/labels';
-import { useApi, Loadable, PageHeader, Card, Tabs, useOnglet, DataTable, Badge, InfoAlert, runAction, useConfirm, Select, Stat, runCritique } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, Tabs, useOnglet, DataTable, Badge, InfoAlert, runAction, useConfirm, Select, Stat, runCritique, NumberInput } from '../../components/ui';
 
 const GRAVITE = {
   CRITIQUE: ['Critique', COLORS.danger],
@@ -162,7 +162,7 @@ function Politique() {
                 : (
                   <label key={k} className="flex items-center justify-between gap-3 text-sm">
                     <span>{libelles[k]} <span className="text-xs text-slate-400">({bornes[k][0]}–{bornes[k][1]})</span></span>
-                    <input type="number" className="input w-24 text-right" disabled={lecture} min={bornes[k][0]} max={bornes[k][1]} value={v[k]} onChange={(e) => setV((x) => ({ ...x, [k]: Number(e.target.value) }))} />
+                    <NumberInput className="w-24" disabled={lecture} min={bornes[k][0]} max={bornes[k][1]} value={v[k]} onChange={(n) => { if (n !== null) setV((x) => ({ ...x, [k]: n })); }} />
                   </label>
                 )))}
             </div>

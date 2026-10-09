@@ -218,11 +218,14 @@ const ALERTES = {
   danger: ['border-red-200 bg-red-50 text-red-800', XCircle],
 };
 
-/** Message encadré : tone = info | succes | attention | danger (danger est annoncé aux lecteurs d’écran). */
-export function Alert({ tone = 'info', title, children, action, className = '' }) {
+/**
+ * Message encadré : tone = info | succes | attention | danger. Un message « danger » est annoncé aux
+ * lecteurs d’écran (role="alert") ; statique={true} l’en dispense (avertissement permanent d’une page).
+ */
+export function Alert({ tone = 'info', title, children, action, className = '', statique = false }) {
   const [cls, Icon] = ALERTES[tone] || ALERTES.info;
   return (
-    <div className={`flex items-start gap-2 rounded-md border p-3 text-sm ${cls} ${className}`} role={tone === 'danger' ? 'alert' : undefined}>
+    <div className={`flex items-start gap-2 rounded-md border p-3 text-sm ${cls} ${className}`} role={tone === 'danger' && !statique ? 'alert' : undefined}>
       <Icon size={18} className="mt-0.5 shrink-0" aria-hidden />
       <div className="min-w-0 flex-1">{title && <div className="font-semibold">{title}</div>}{children}</div>
       {action}

@@ -1,5 +1,15 @@
 # Journal des versions — SIG-DEP
 
+## 1.27.0
+
+### Refonte de l’interface — étape 3e : écrans Système (Admin) sur les composants communs — fin de l’étape 3
+- **Journal d’audit** : filtres (recherche, module, action, résultat, période) et page conservés dans l’adresse, « Effacer les filtres » ; tableau commun (ligne ouverte au clic ou au clavier) ; exports Excel, CSV et PDF regroupés dans les actions secondaires ; résultat du contrôle d’intégrité en message commun.
+- **Journal technique** : filtre d’état, recherche, tri et page dans l’adresse.
+- **Sauvegardes** : durées de conservation saisies en nombres bornés ; demande de restauration en fenêtre de confirmation (motif de 10 caractères au moins) ; bouton de téléchargement nommé ; enregistrement de la planification protégé contre le double clic.
+- **Gouvernance, restaurations** : décisions protégées par mot de passe désormais à l’abri du double clic, sans erreur silencieuse ; durée du compte d’urgence et n° d’élément en nombres bornés. **Sécurité** : paramètres de la politique en nombres bornés.
+- **Système, réinitialisation, restaurations** : avertissements en messages communs ; un avertissement permanent n’est plus annoncé comme une alerte (`Alert statique`) ; compteurs de la messagerie en petites statistiques communes.
+- Tests de l’interface : 52 réussis (dont 4 nouveaux sur les écrans Système).
+
 ## 1.26.0
 
 ### Refonte de l’interface — étape 3d : Actes administratifs et Cartes de service sur les composants communs

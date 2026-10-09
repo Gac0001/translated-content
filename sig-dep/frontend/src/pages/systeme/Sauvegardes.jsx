@@ -4,7 +4,7 @@ import { DatabaseBackup, Download, FlaskConical, History, Lock, LockOpen, Save, 
 import api, { download, errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { fmtDateTime, fmtTaille } from '../../lib/format';
-import { useApi, Loadable, PageHeader, Card, DataTable, Badge, Stat, InfoAlert, runAction, toast, useConfirm, Tabs, useOnglet, Modal } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, DataTable, Badge, Stat, InfoAlert, IconButton, NumberInput, runAction, toast, useConfirm, Tabs, useOnglet } from '../../components/ui';
 
 const ORIGINES = { MANUELLE: 'Manuelle', PROGRAMMEE: 'Programmée', AVANT_REINITIALISATION: 'Avant réinitialisation', AVANT_RESTAURATION: 'Avant restauration', AVANT_MIGRATION: 'Avant migration' };
 const PALIERS = { QUOTIDIENNE: 'Quotidienne', HEBDOMADAIRE: 'Hebdomadaire', MENSUELLE: 'Mensuelle' };
@@ -18,10 +18,12 @@ function Planification({ p, onDone }) {
   const [v, setV] = useState(p);
   useEffect(() => setV(p), [p]);
   const modifie = Object.keys(v).some((k) => v[k] !== p[k]);
-  const num = (k, min, max) => <input type="number" min={min} max={max} className="input w-20 text-right" disabled={!can('systeme.configurer')} value={v[k]} onChange={(e) => setV((x) => ({ ...x, [k]: Number(e.target.value) }))} />;
+  const [enCours, setEnCours] = useState(false);
+  const num = (k, min, max) => <NumberInput className="w-20" min={min} max={max} disabled={!can('systeme.configurer')} value={v[k]} onChange={(n) => { if (n !== null) setV((x) => ({ ...x, [k]: n })); }} />;
   const save = async () => {
     const changes = Object.fromEntries(Object.keys(v).filter((k) => v[k] !== p[k]).map((k) => [k, v[k]]));
-    await runAction(() => api.put('/sauvegardes/planification', changes), 'Planification enregistrée.'); onDone();
+    setEnCours(true);
+    try { await runAction(() => api.put('/sauvegardes/planification', changes), 'Planification enregistrée.'); onDone(); } catch { /* erreur déjà signalée */ } finally { setEnCours(false); }
   };
   return (
     <Card title="Planification et conservation">
@@ -40,24 +42,11 @@ function Planification({ p, onDone }) {
           <label className="flex items-center justify-between gap-3"><span>Sauvegardes ponctuelles (jours)</span>{num('retention_ponctuelle_jours', 7, 3650)}</label>
         </div>
       </div>
-      {can('systeme.configurer') && <button type="button" className="btn-primary mt-4" disabled={!modifie} onClick={save}><Save size={16} /> Enregistrer</button>}
+      {can('systeme.configurer') && <button type="button" className="btn-primary mt-4" disabled={!modifie || enCours} onClick={save}><Save size={16} aria-hidden /> {enCours ? 'Enregistrement…' : 'Enregistrer'}</button>}
     </Card>
   );
 }
 
-function DemandeModal({ s, onClose, onDone }) {
-  const [motif, setMotif] = useState('');
-  const envoyer = async () => { await runAction(() => api.post(`/sauvegardes/${s.id}/restauration`, { motif }), 'Demande transmise au Directeur.'); onDone(); };
-  return (
-    <Modal open title="Demander une restauration" onClose={onClose} footer={<><button type="button" className="btn-secondary" onClick={onClose}>Annuler</button><button type="button" className="btn-danger" disabled={motif.trim().length < 10} onClick={envoyer}>Transmettre au Directeur</button></>}>
-      <div className="space-y-3 text-sm">
-        <p>Sauvegarde du <b>{fmtDateTime(s.created_at)}</b> ({s.fichier}).</p>
-        <InfoAlert tone="warning">La base reviendra à l’état de cette date : toutes les données saisies depuis seront perdues (les traces d’audit, de connexion et les alertes seront réintégrées). La demande doit être validée par le Directeur, puis exécutée par vous avec votre double authentification.</InfoAlert>
-        <div><label className="label" htmlFor="motif">Motif de la restauration <span className="text-red-600">*</span></label><textarea id="motif" className="input" rows={3} value={motif} onChange={(e) => setMotif(e.target.value)} placeholder="Incident constaté, données à récupérer…" /></div>
-      </div>
-    </Modal>
-  );
-}
 
 export default function Sauvegardes() {
   const state = useApi('/sauvegardes');
@@ -65,12 +54,20 @@ export default function Sauvegardes() {
   const confirm = useConfirm();
   const [tab, setTab] = useOnglet('sauvegardes', { valeurs: ['sauvegardes', 'verifications', 'registre', 'planification'] });
   const [busy, setBusy] = useState(null);
-  const [demande, setDemande] = useState(null);
+
   const agir = async (cle, fn, msg) => { setBusy(cle); try { const r = await runAction(fn, msg); state.reload(); return r; } catch { return null; } finally { setBusy(null); } };
   const tester = async (s) => {
     if (!(await confirm({ title: 'Test de restauration', message: 'La sauvegarde sera restaurée dans une base temporaire, contrôlée puis supprimée. Cela peut prendre quelques minutes et occupe temporairement l’espace d’une copie de la base.', confirmLabel: 'Lancer le test' }))) return;
     const r = await agir(`t${s.id}`, () => api.post(`/sauvegardes/${s.id}/tester`));
     if (r) (r.data.statut === 'OK' ? toast.success : toast.error)(r.data.statut === 'OK' ? `Restauration réussie : ${r.data.detail.tables} tables, ${r.data.detail.comptes} comptes, audit intègre.` : `Test échoué : ${r.data.detail.erreur}`);
+  };
+  const demanderRestauration = async (s) => {
+    const motif = await confirm({
+      title: 'Demander une restauration', danger: true, confirmLabel: 'Transmettre au Directeur',
+      message: `Sauvegarde du ${fmtDateTime(s.created_at)} (${s.fichier}). La base reviendra à l’état de cette date : toutes les données saisies depuis seront perdues (les traces d’audit, de connexion et les alertes seront réintégrées). La demande doit être validée par le Directeur, puis exécutée par vous avec votre double authentification.`,
+      input: { label: 'Motif de la restauration', required: true, min: 10, placeholder: 'Incident constaté, données à récupérer…' },
+    });
+    if (motif) agir(`r${s.id}`, () => api.post(`/sauvegardes/${s.id}/restauration`, { motif }), 'Demande transmise au Directeur.');
   };
   const verifier = async (s) => {
     const r = await agir(`v${s.id}`, () => api.post(`/sauvegardes/${s.id}/verifier`));
@@ -80,8 +77,8 @@ export default function Sauvegardes() {
     <>
       <PageHeader title="Sauvegardes" subtitle="Sauvegardes chiffrées, vérifiées et testées ; restauration soumise à la validation du Directeur." breadcrumb={[{ label: 'Administration' }, { label: 'Sauvegardes' }]}
         actions={<>
-          {can('sauvegarde.restaurer') && <Link to="/restaurations" className="btn-secondary"><History size={16} /> Restaurations</Link>}
-          {can('sauvegarde.creer') && <button type="button" className="btn-primary" disabled={!!busy} onClick={() => agir('creer', () => api.post('/sauvegardes'), 'Sauvegarde réalisée et vérifiée.')}><DatabaseBackup size={16} /> {busy === 'creer' ? 'Sauvegarde…' : 'Sauvegarder maintenant'}</button>}
+          {can('sauvegarde.restaurer') && <Link to="/restaurations" className="btn-secondary"><History size={16} aria-hidden /> Restaurations</Link>}
+          {can('sauvegarde.creer') && <button type="button" className="btn-primary" disabled={!!busy} onClick={() => agir('creer', () => api.post('/sauvegardes'), 'Sauvegarde réalisée et vérifiée.')}><DatabaseBackup size={16} aria-hidden /> {busy === 'creer' ? 'Sauvegarde…' : 'Sauvegarder maintenant'}</button>}
         </>} />
       <Loadable state={state}>
         {(d) => (
@@ -96,7 +93,7 @@ export default function Sauvegardes() {
             {!d.configuration.copie && <InfoAlert tone="warning">Aucune <b>copie hors du serveur</b> : définissez <code>BACKUP_COPY_DIR</code> (disque externe, partage réseau). Une panne du serveur emporterait sinon toutes les sauvegardes.</InfoAlert>}
             <Tabs tabs={[{ value: 'sauvegardes', label: 'Sauvegardes', count: d.sauvegardes.length }, { value: 'verifications', label: 'Vérifications' }, { value: 'registre', label: 'Registre' }, { value: 'planification', label: 'Planification' }]} value={tab} onChange={setTab} />
             {tab === 'sauvegardes' && (
-              <DataTable rows={d.sauvegardes} pageSize={20} empty="Aucune sauvegarde." columns={[
+              <DataTable rows={d.sauvegardes} label="Sauvegardes" pageSize={20} empty="Aucune sauvegarde." columns={[
                 { key: 'created_at', header: 'Date', className: 'whitespace-nowrap', render: (s) => fmtDateTime(s.created_at) },
                 { key: 'origine', header: 'Origine', render: (s) => <span>{ORIGINES[s.origine] || s.origine}{s.palier ? <span className="block text-xs text-slate-500">{PALIERS[s.palier]}</span> : null}</span> },
                 { key: 'taille', header: 'Taille', render: (s) => fmtTaille(Number(s.taille_octets)) },
@@ -105,16 +102,16 @@ export default function Sauvegardes() {
                 { key: 'verif', header: 'Intégrité', render: (s) => (!s.presente ? <Badge className={ko}>Fichier absent</Badge> : s.verification_statut === 'OK' ? <Badge className={ok}><ShieldCheck size={12} /> {fmtDateTime(s.verifiee_at)}</Badge> : s.verification_statut === 'ECHEC' ? <Badge className={ko}>Altérée</Badge> : <Badge>Non vérifiée</Badge>) },
                 { key: 'act', header: '', render: (s) => (
                   <div className="flex flex-wrap justify-end gap-1">
-                    <button type="button" className="btn-ghost px-2 text-xs" disabled={!!busy} onClick={() => verifier(s)}>{busy === `v${s.id}` ? '…' : 'Vérifier'}</button>
-                    <button type="button" className="btn-ghost px-2 text-xs" disabled={!!busy} onClick={() => tester(s)}>{busy === `t${s.id}` ? 'Test…' : 'Tester'}</button>
-                    <button type="button" className="btn-ghost px-2" title="Télécharger" onClick={() => download(`/sauvegardes/${s.id}/telecharger`, s.fichier).catch((e) => toast.error(errorMessage(e)))}><Download size={15} /></button>
-                    {can('sauvegarde.restaurer') && <button type="button" className="btn-ghost px-2 text-xs text-red-700" onClick={() => setDemande(s)}>Restaurer…</button>}
+                    <button type="button" className="btn-ghost btn-sm" disabled={!!busy} onClick={() => verifier(s)}>{busy === `v${s.id}` ? 'Vérification…' : 'Vérifier'}</button>
+                    <button type="button" className="btn-ghost btn-sm" disabled={!!busy} onClick={() => tester(s)}>{busy === `t${s.id}` ? 'Test…' : 'Tester'}</button>
+                    <IconButton icon={Download} size={15} label={`Télécharger ${s.fichier}`} onClick={() => download(`/sauvegardes/${s.id}/telecharger`, s.fichier).catch((e) => toast.error(errorMessage(e)))} />
+                    {can('sauvegarde.restaurer') && <button type="button" className="btn-ghost btn-sm text-red-700" disabled={!!busy} onClick={() => demanderRestauration(s)}>Restaurer…</button>}
                   </div>
                 ) },
               ]} />
             )}
             {tab === 'verifications' && (
-              <DataTable rows={d.verifications} empty="Aucune vérification." columns={[
+              <DataTable rows={d.verifications} label="Vérifications" empty="Aucune vérification." columns={[
                 { key: 'created_at', header: 'Date', render: (v) => fmtDateTime(v.created_at) },
                 { key: 'type', header: 'Type', render: (v) => (v.type === 'RESTAURATION' ? 'Test de restauration' : 'Intégrité') },
                 { key: 'statut', header: 'Résultat', render: (v) => <Badge className={v.statut === 'OK' ? ok : ko}>{v.statut === 'OK' ? 'Réussi' : 'Échec'}</Badge> },
@@ -124,12 +121,12 @@ export default function Sauvegardes() {
               ]} />
             )}
             {tab === 'registre' && (
-              <DataTable rows={d.historique} pageSize={25} columns={[
+              <DataTable rows={d.historique} label="Registre des sauvegardes" pageSize={25} columns={[
                 { key: 'created_at', header: 'Date', render: (h) => fmtDateTime(h.created_at) },
                 { key: 'statut', header: 'Résultat', render: (h) => (h.statut === 'REUSSIE' ? <Badge className={ok}>Réussie</Badge> : <Badge className={ko}>Échec</Badge>) },
                 { key: 'origine', header: 'Origine', render: (h) => ORIGINES[h.origine] || h.origine },
                 { key: 'username', header: 'Par' },
-                { key: 'detail', header: 'Détail', render: (h) => <span className="text-xs">{h.statut === 'REUSSIE' ? `${h.fichier} — ${fmtTaille(Number(h.taille_octets))} en ${Math.round(h.duree_ms / 100) / 10} s` : h.erreur}{h.supprimee_at ? <span className="ml-1 inline-flex items-center gap-1 text-slate-500"><Trash2 size={12} /> supprimée le {fmtDateTime(h.supprimee_at)}</span> : null}</span> },
+                { key: 'detail', header: 'Détail', render: (h) => <span className="text-xs">{h.statut === 'REUSSIE' ? `${h.fichier} — ${fmtTaille(Number(h.taille_octets))} en ${Math.round(h.duree_ms / 100) / 10} s` : h.erreur}{h.supprimee_at ? <span className="ml-1 inline-flex items-center gap-1 text-slate-500"><Trash2 size={12} aria-hidden /> supprimée le {fmtDateTime(h.supprimee_at)}</span> : null}</span> },
               ]} />
             )}
             {tab === 'planification' && (
@@ -137,14 +134,13 @@ export default function Sauvegardes() {
                 <Planification p={d.planification} onDone={state.reload} />
                 <Card title="Emplacements">
                   <ul className="space-y-1 text-sm"><li>Répertoire : <code>{d.configuration.repertoire}</code></li><li>Copie hors serveur : <code>{d.configuration.copie || 'non définie'}</code></li><li>Chiffrement : {d.configuration.chiffrement ? 'actif (AES-256-GCM)' : 'inactif'}</li></ul>
-                  {can('systeme.maintenir') && <button type="button" className="btn-secondary mt-3" onClick={() => agir('ret', () => api.post('/sauvegardes/conservation/appliquer')).then((r) => r && toast.info(r.data.message))}><Trash2 size={16} /> Appliquer la conservation maintenant</button>}
+                  {can('systeme.maintenir') && <button type="button" className="btn-secondary mt-3" onClick={() => agir('ret', () => api.post('/sauvegardes/conservation/appliquer')).then((r) => r && toast.info(r.data.message))}><Trash2 size={16} aria-hidden /> Appliquer la conservation maintenant</button>}
                 </Card>
               </>
             )}
           </div>
         )}
       </Loadable>
-      {demande && <DemandeModal s={demande} onClose={() => setDemande(null)} onDone={() => { setDemande(null); state.reload(); }} />}
     </>
   );
 }

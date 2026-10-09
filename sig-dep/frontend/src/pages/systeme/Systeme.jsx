@@ -3,14 +3,14 @@ import { Link } from 'react-router-dom';
 import { DatabaseBackup, DatabaseZap, Mail, PlugZap, RotateCcw, Save, Send } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../store/auth';
-import { useApi, Loadable, PageHeader, Card, KeyValues, runAction, toast, DataTable, InfoAlert, Badge, Field } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, KeyValues, runAction, toast, DataTable, InfoAlert, Badge, Field, MiniStats } from '../../components/ui';
 import { fmtDateTime } from '../../lib/format';
 import { COLORS } from '../../lib/labels';
 
 function Parametres() {
   const state = useApi('/systeme/parametres');
   const [edits, setEdits] = useState({});
-  const save = async (cle) => { await runAction(() => api.put(`/systeme/parametres/${cle}`, { valeur: edits[cle] }), 'Paramètre enregistré.'); state.reload(); };
+  const save = async (cle) => { await runAction(() => api.put(`/systeme/parametres/${cle}`, { valeur: edits[cle] }), 'Paramètre enregistré.').catch(() => null); setEdits((x) => { const n = { ...x }; delete n[cle]; return n; }); state.reload(); };
   return (
     <Card title="Paramètres généraux">
       <Loadable state={state}>
@@ -48,8 +48,8 @@ function Messagerie() {
   };
   return (
     <Card title="Messagerie (notifications par e-mail)" actions={<>
-      <button type="button" className="btn-secondary" disabled={!!busy} onClick={verifier}><PlugZap size={16} /> Tester la connexion</button>
-      <button type="button" className="btn-secondary" disabled={!!busy} onClick={() => run('traiter', () => api.post('/systeme/messagerie/traiter'), 'File d’envoi traitée.')}><Send size={16} /> Envoyer la file maintenant</button>
+      <button type="button" className="btn-secondary" disabled={!!busy} onClick={verifier}><PlugZap size={16} aria-hidden /> Tester la connexion</button>
+      <button type="button" className="btn-secondary" disabled={!!busy} onClick={() => run('traiter', () => api.post('/systeme/messagerie/traiter'), 'File d’envoi traitée.')}><Send size={16} aria-hidden /> Envoyer la file maintenant</button>
     </>}>
       <Loadable state={state}>
         {(m) => (
@@ -63,20 +63,16 @@ function Messagerie() {
                 ['Liens vers', m.configuration.adresseApplication], ['Tentatives maximales', m.configuration.tentativesMax],
               ]} />
               <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-                  {[['EN_ATTENTE', 'En attente'], ['ENVOYE', 'Envoyés'], ['ECHEC', 'Échecs'], ['ANNULE', 'Annulés']].map(([k, l]) => (
-                    <div key={k} className="rounded-md bg-slate-50 p-2"><div className="text-lg font-semibold tabular-nums">{m.file[k] || 0}</div><div className="text-xs text-slate-600">{l}</div></div>
-                  ))}
-                </div>
+                <MiniStats cols={4} items={[['En attente', m.file.EN_ATTENTE || 0], ['Envoyés', m.file.ENVOYE || 0], ['Échecs', m.file.ECHEC || 0, 'danger'], ['Annulés', m.file.ANNULE || 0]]} />
                 <p className="text-sm text-slate-600">Envoyés sur les dernières 24 h : <b>{m.envoyes24h}</b>. Comptes actifs sans adresse électronique : <b>{m.comptesSansAdresse}</b>.</p>
-                {(m.file.ECHEC || 0) > 0 && <button type="button" className="btn-secondary" disabled={!!busy} onClick={() => run('relancer', () => api.post('/systeme/messagerie/relancer'), 'E-mails en échec remis en file.')}><RotateCcw size={16} /> Relancer les échecs</button>}
+                {(m.file.ECHEC || 0) > 0 && <button type="button" className="btn-secondary" disabled={!!busy} onClick={() => run('relancer', () => api.post('/systeme/messagerie/relancer'), 'E-mails en échec remis en file.')}><RotateCcw size={16} aria-hidden /> Relancer les échecs</button>}
                 <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-end">
                   <Field label="Envoyer un e-mail de test à" className="flex-1"><input type="email" className="input" placeholder="adresse@exemple.cd" value={dest} onChange={(e) => setDest(e.target.value)} /></Field>
-                  <button type="button" className="btn-primary" disabled={!dest || !!busy || !m.configuration.active} onClick={() => run('test', () => api.post('/systeme/messagerie/test', { destinataire: dest }), `E-mail de test envoyé à ${dest}.`)}><Mail size={16} /> Envoyer</button>
+                  <button type="button" className="btn-primary" disabled={!dest || !!busy || !m.configuration.active} onClick={() => run('test', () => api.post('/systeme/messagerie/test', { destinataire: dest }), `E-mail de test envoyé à ${dest}.`)}><Mail size={16} aria-hidden /> Envoyer</button>
                 </div>
               </div>
             </div>
-            <DataTable searchable={false} pageSize={10} rows={m.recents} empty="Aucun e-mail." columns={[
+            <DataTable searchable={false} pageSize={10} rows={m.recents} label="E-mails récents" empty="Aucun e-mail." columns={[
               { key: 'created_at', header: 'Créé le', render: (r) => fmtDateTime(r.created_at) },
               { key: 'to_email', header: 'Destinataire' },
               { key: 'subject', header: 'Sujet', render: (r) => <span className="text-xs">{r.subject}</span> },
@@ -97,7 +93,7 @@ export default function Systeme() {
   return (
     <>
       <PageHeader title="Système" subtitle="État technique, paramètres, messagerie et sauvegardes." breadcrumb={[{ label: 'Administration' }, { label: 'Système' }]}
-        actions={can('systeme.maintenir') && <Link to="/systeme/reinitialisation" className="btn-secondary"><DatabaseZap size={16} /> Réinitialisation de la base</Link>} />
+        actions={can('systeme.maintenir') && <Link to="/systeme/reinitialisation" className="btn-secondary"><DatabaseZap size={16} aria-hidden /> Réinitialisation de la base</Link>} />
       <div className="space-y-4">
         {can('systeme.consulter') && (
           <Loadable state={etat}>
@@ -116,7 +112,7 @@ export default function Systeme() {
           <Card title="Sauvegardes et maintenance">
             <p className="text-sm text-slate-600">Les sauvegardes (programmation, chiffrement, vérification, tests de restauration), les restaurations et la maintenance ont leurs propres pages.</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Link to="/systeme/sauvegardes" className="btn-secondary"><DatabaseBackup size={16} /> Sauvegardes</Link>
+              <Link to="/systeme/sauvegardes" className="btn-secondary"><DatabaseBackup size={16} aria-hidden /> Sauvegardes</Link>
               <Link to="/restaurations" className="btn-secondary">Restaurations</Link>
               {can('systeme.maintenir') && <Link to="/systeme/maintenance" className="btn-secondary">Maintenance</Link>}
             </div>
