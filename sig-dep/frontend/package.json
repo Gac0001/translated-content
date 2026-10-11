@@ -1,7 +1,7 @@
 {
   "name": "sig-dep-frontend",
   "private": true,
-  "version": "1.30.0",
+  "version": "1.31.0",
   "description": "Interface web du SIG-DEP — Direction d’Études et Planification",
   "type": "module",
   "scripts": {

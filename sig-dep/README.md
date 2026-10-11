@@ -274,11 +274,12 @@ Navigateur ──► Frontend React (Vite)  ──/api──►  API Express  �
 
 | Dossier | Rôle |
 |---|---|
-| `lib/api.js` | Axios avec renouvellement automatique du jeton, messages d’erreur, téléchargements |
+| `lib/api.js` | Axios avec renouvellement automatique du jeton, messages d’erreur, téléchargements ; référentiels (nomenclature, catégories, provinces, types de documents…) mis en cache le temps de la session et vidés à toute modification |
 | `store/auth.js` | Session (Zustand) : utilisateur, permissions, compteurs |
 | `components/ui` | Tableaux avec recherche et pagination, badges, fenêtres de confirmation, notifications éphémères, états de chargement et d’erreur |
 | `components/shared.jsx` | Historique, pièces jointes, exports, formulaires guidés dynamiques |
-| `components/layout` | Menu latéral selon les permissions, en-tête avec recherche globale (Ctrl+K), fil d’Ariane, impression |
+| `components/layout` | Menu latéral selon les permissions, en-tête avec recherche globale (Ctrl+K), fil d’Ariane, impression ; un seul appel périodique (`/dashboard/compteurs` : compteurs du menu, notifications non lues, état du système) toutes les 60 s, au retour sur l’onglet et après chaque modification |
+| `App.jsx` | Chaque écran, pages de connexion comprises, est chargé à la demande |
 | `lib/inactivity.js` | Déconnexion automatique après inactivité, avec avertissement |
 | `pages/*` | Écrans de chaque module, pages « Accès refusé » et « Page introuvable » |
 

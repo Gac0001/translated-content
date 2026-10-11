@@ -2,7 +2,7 @@ import { Fragment, useEffect, useId, useMemo, useRef, useState, useCallback, cre
 import { Link, useBlocker, useSearchParams } from 'react-router-dom';
 import { create } from 'zustand';
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, ChevronRight, Info, Loader2, MoreHorizontal, Search, X, Inbox, XCircle } from 'lucide-react';
-import api, { errorMessage } from '../../lib/api';
+import api, { errorMessage, estReferentiel, lireCache, lireReferentiel, viderReferentiel } from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { STATUTS, STATUTS_FEMININ, PRIORITES, URGENCES, CONFIDENTIALITES, COLORS } from '../../lib/labels';
 import { IconButton } from './Button';
@@ -17,13 +17,20 @@ export { SimpleTable, EmptyState, KpiTile, WorkQueue, FilterBar } from './affich
 
 // ─── Données ────────────────────────────────────────────────────────────────
 export function useApi(url, deps = []) {
-  const [state, setState] = useState({ data: null, loading: !!url, error: null });
-  const load = useCallback(async () => {
+  const [state, setState] = useState(() => {
+    const c = url && estReferentiel(url) ? lireCache(url) : undefined;
+    return c !== undefined ? { data: c, loading: false, error: null } : { data: null, loading: !!url, error: null };
+  });
+  const load = useCallback(async (forcer = false) => {
     if (!url) return;
+    // Référentiel déjà lu pendant la session : pas de nouvel appel (sauf rechargement explicite).
+    const c = estReferentiel(url) && forcer !== true ? lireCache(url) : undefined;
+    if (c !== undefined) { setState({ data: c, loading: false, error: null }); return; }
     setState((s) => ({ ...s, loading: true, error: null }));
     try {
-      const r = await api.get(url);
-      setState({ data: r.data, loading: false, error: null });
+      if (forcer === true) viderReferentiel(url);
+      const data = estReferentiel(url) ? await lireReferentiel(url) : (await api.get(url)).data;
+      setState({ data, loading: false, error: null });
     } catch (e) {
       setState({ data: null, loading: false, error: errorMessage(e), status: e.response?.status });
     }

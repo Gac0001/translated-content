@@ -4,14 +4,16 @@ import { refreshSession } from './lib/api';
 import { useAuth } from './store/auth';
 import AppLayout from './components/layout/AppLayout';
 import { ConfirmProvider, Spinner, Toaster } from './components/ui';
-import Login from './pages/Login';
-import ChangePassword from './pages/ChangePassword';
-import PremiereConnexion from './pages/PremiereConnexion';
-import MaintenancePublique from './pages/MaintenancePublique';
-import VerificationCarte from './pages/VerificationCarte';
 import { Forbidden, NotFound } from './pages/Errors';
 
 const p = (loader) => lazy(loader);
+// Pages publiques et de connexion chargées à la demande : la bibliothèque de formulaires (react-hook-form,
+// zod) n’est plus téléchargée par un utilisateur déjà connecté.
+const Login = p(() => import('./pages/Login'));
+const ChangePassword = p(() => import('./pages/ChangePassword'));
+const PremiereConnexion = p(() => import('./pages/PremiereConnexion'));
+const MaintenancePublique = p(() => import('./pages/MaintenancePublique'));
+const VerificationCarte = p(() => import('./pages/VerificationCarte'));
 const Dashboard = p(() => import('./pages/Dashboard'));
 const Organigramme = p(() => import('./pages/organisation/Organigramme'));
 const Structure = p(() => import('./pages/organisation/Structure'));

@@ -74,3 +74,14 @@ describe('Files « À traiter »', () => {
     expect(f.flatMap((x) => x.items).every((i) => i.to.startsWith('/'))).toBe(true);
   });
 });
+
+describe('Compteurs du menu (appel périodique unique)', () => {
+  test('renvoient aussi les notifications non lues et l’état du système', async () => {
+    const a = api(await login('cb.prg'));
+    const c = (await a.get('/dashboard/compteurs')).body;
+    expect(c.nonLues).toBe((await a.get('/notifications/compteur')).body.nonLues);
+    expect(c.systeme.maintenance.active).toBe(false);
+    expect(typeof c.systeme.demo).toBe('boolean');
+    expect(c.planification).toBeGreaterThanOrEqual(0);
+  });
+});

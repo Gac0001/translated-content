@@ -1,5 +1,13 @@
 # Journal des versions — SIG-DEP
 
+## 1.31.0
+
+### Refonte de l’interface — étape 7 : performance (fin de la refonte)
+- **Un seul appel périodique** au lieu de trois : `GET /dashboard/compteurs` renvoie désormais aussi les notifications non lues et l’état du système (maintenance, démonstration). Il est lancé à l’ouverture, toutes les 60 secondes, au retour sur l’onglet du navigateur et après chaque modification enregistrée — et non plus à chaque changement de page (onglet masqué : aucun appel). Mesure sur les entrées du menu de quatre rôles : **5,2 appels à l’API par page en moyenne avant, 2,4 après (−55 %)**, et le calcul des files « À traiter » n’est plus refait à chaque page.
+- **Référentiels mis en cache** le temps de la session (nomenclature de la planification, référentiel des données sectorielles, types de documents, modèle PIP, Bureaux, rôles) : un seul appel partagé, cache vidé à toute modification, au changement d’utilisateur et après 10 minutes.
+- **Pages de connexion chargées à la demande** (connexion, première connexion, mot de passe, maintenance, vérification des cartes) : la bibliothèque de formulaires n’est plus téléchargée par un utilisateur déjà connecté. **Premier téléchargement de l’application : 530 Ko → 385 Ko (167 Ko → 124 Ko compressés, −26 %).** Les écrans métier étaient déjà chargés à la demande.
+- Tests : 1 nouveau côté API ; 2 nouveaux côté interface (aucun appel des compteurs en changeant de page, actualisation après une modification, référentiel lu une seule fois).
+
 ## 1.30.0
 
 ### Refonte de l’interface — étape 6 : accessibilité et adaptation au téléphone

@@ -16,6 +16,8 @@ const { dernierControle, versionApplication, espaceDisque } = require('../../ser
 const { etatSauvegardes } = require('../../services/sauvegarde');
 const effectifs = require('../../services/effectifs');
 const { aTraiter } = require('../../services/aTraiter');
+const config = require('../../config/env');
+const maintenanceSvc = require('../../services/maintenance');
 
 const router = express.Router();
 
@@ -282,8 +284,15 @@ router.get('/compteurs', async (req, res) => {
   if (ctx.can('demandes_info.repondre')) demandesInfo = Number((await db('demandes_information').where('statut', 'ENVOYEE').count('* as n').first()).n);
   else if (ctx.can('demandes_info.emettre')) demandesInfo = Number((await db('demandes_information').where({ statut: 'REPONDUE', emetteur_user_id: ctx.userId }).count('* as n').first()).n);
   // Compteurs des modules récents : mêmes règles que les files « À traiter ».
-  const { parModule } = await aTraiter(ctx);
+  const [{ parModule }, notif, maintenance] = await Promise.all([
+    aTraiter(ctx),
+    db('notifications').where({ user_id: ctx.userId, lu: false }).count('* as n').first(),
+    maintenanceSvc.etat(),
+  ]);
+  // Un seul appel périodique de l’interface : compteurs du menu, notifications non lues et état du système.
   res.json({
+    nonLues: Number(notif.n),
+    systeme: { maintenance: { active: maintenance.active, message: maintenance.active ? maintenance.message : '', fin: maintenance.active ? maintenance.fin : '' }, demo: config.demo },
     documents: Number(docs.n), instructions: Number(instr.n) + instrAttente, taches: Number(taches.n) + tachesAttente, courriers: Number(courriers.n),
     pip: Number(pip.n), presences: Number(pres.n), alertes: Number(alertes.n), demandesInfo,
     planification: parModule.planification || 0, donnees: parModule.donnees || 0, reunions: parModule.reunions || 0,

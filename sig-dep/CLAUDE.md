@@ -56,9 +56,9 @@ Général au Numérique (RDC). Interface et documentation **en français** ; ré
 6. **Consulter avant d’améliorer** : présenter à l’utilisateur toute amélioration ou tout nouveau
    lot (contenu, rôles, choix) et attendre son accord avant de l’implémenter.
 
-## Refonte de l’interface (en cours)
+## Refonte de l’interface (terminée)
 
-Plan validé par l’utilisateur, par étapes livrées séparément (0 à 6 livrées de 1.20.1 à 1.30.0 ; reste 7) : 0 filet de sécurité → 1 fondations
+Plan validé par l’utilisateur, livré par étapes de 1.20.1 à 1.31.0 : 0 filet de sécurité → 1 fondations
 (jetons, formats, badges, boutons) → 2 nouveaux composants → 3 migration des modules récents vers les
 composants communs (Planification, Données, Réunions/Décisions/Agenda, Actes/Cartes, Système) →
 4 navigation → 5 tableaux de bord « À traiter » → 6 accessibilité et responsive → 7 performance.
@@ -77,7 +77,9 @@ Ne jamais casser : renouvellement de session et redirections 401/403/503, premi�
 double authentification, inactivité, routeur « données » (protection des saisies), convention
 `dejaSignale` de `runAction`, téléchargements, impression, droits renvoyés par l’API (`actions` /
 `droits`), rang Bureau du BSD, cartes de service et vérification publique, absence de violation d’accessibilité
-(`e2e/accessibilite.spec.js` : ne pas employer `text-slate-400` pour du texte).
+(`e2e/accessibilite.spec.js` : ne pas employer `text-slate-400` pour du texte), un seul appel périodique
+(`/dashboard/compteurs`, jamais à chaque changement de page), référentiels en cache (`REFERENTIELS` de
+`lib/api.js`, lus par `useApi`).
 
 ## Vérifier avant de publier
 

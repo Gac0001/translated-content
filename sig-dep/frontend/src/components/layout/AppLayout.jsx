@@ -6,7 +6,7 @@ import {
   Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2, Landmark, IdCard, MessageCircleQuestion,
   Search, CalendarDays, Gavel, Presentation, Target, Database, ChevronDown,
 } from 'lucide-react';
-import api from '../../lib/api';
+import api, { MODIFICATION } from '../../lib/api';
 import { useAuth, useCompteurs } from '../../store/auth';
 import { DEP_NOM, SG_NOM, ROLES, PERIMETRES } from '../../lib/labels';
 import { useInactivity } from '../../lib/inactivity';
@@ -156,18 +156,39 @@ export default function AppLayout() {
   const main = useRef(null);
   const pageCourante = useRef(location.pathname);
 
+  // Bandeau « maintenance active » (visible des Admins Système, seuls à garder l’accès) et mode démonstration.
+  const [maintenanceActive, setMaintenanceActive] = useState(null);
+  const [modeDemo, setModeDemo] = useState(false);
+  // Un seul appel périodique (compteurs du menu, notifications non lues, état du système) : à l’ouverture,
+  // toutes les 60 secondes, au retour sur l’onglet du navigateur et après chaque modification enregistrée —
+  // et non plus à chaque changement de page.
   useEffect(() => {
     let alive = true;
+    let attente = null;
     const tick = async () => {
+      if (document.visibilityState === 'hidden') return;
       try {
-        const [n, c] = await Promise.all([api.get('/notifications/compteur'), api.get('/dashboard/compteurs')]);
-        if (alive) { setNonLues(n.data.nonLues); setCompteurs(c.data); }
+        const { data } = await api.get('/dashboard/compteurs');
+        if (!alive) return;
+        setNonLues(data.nonLues);
+        setCompteurs(data);
+        setMaintenanceActive(data.systeme?.maintenance?.active ? data.systeme.maintenance : null);
+        setModeDemo(!!data.systeme?.demo);
       } catch { /* silencieux */ }
     };
+    // Plusieurs modifications rapprochées (enregistrement puis action du circuit) : une seule actualisation.
+    const differe = () => { clearTimeout(attente); attente = setTimeout(tick, 400); };
+    const visible = () => { if (document.visibilityState === 'visible') tick(); };
     tick();
     const t = setInterval(tick, 60000);
-    return () => { alive = false; clearInterval(t); };
-  }, [location.pathname, setNonLues, setCompteurs]);
+    window.addEventListener(MODIFICATION, differe);
+    document.addEventListener('visibilitychange', visible);
+    return () => {
+      alive = false; clearInterval(t); clearTimeout(attente);
+      window.removeEventListener(MODIFICATION, differe);
+      document.removeEventListener('visibilitychange', visible);
+    };
+  }, [setNonLues, setCompteurs]);
 
   // Changement de page : retour en haut et focus sur le contenu, sauf si la nouvelle page a déjà placé
   // le focus sur un de ses champs. Un élément masqué appartient à l’ancienne page (chargement en cours).
@@ -187,16 +208,6 @@ export default function AppLayout() {
     navigate('/connexion', { state: raison === 'inactivite' ? { message: 'Vous avez été déconnecté après une période d’inactivité.' } : undefined });
   };
   const { remaining, prolonger } = useInactivity(() => logout('inactivite'), user.sessionInactiviteMinutes);
-  // Bandeau « maintenance active » (visible des Admins Système, seuls à garder l’accès)
-  const [maintenanceActive, setMaintenanceActive] = useState(null);
-  const [modeDemo, setModeDemo] = useState(false);
-  useEffect(() => {
-    let vivant = true;
-    const lire = () => api.get('/statut-public').then((r) => { if (!vivant) return; setMaintenanceActive(r.data.maintenance.active ? r.data.maintenance : null); setModeDemo(!!r.data.demo); }).catch(() => {});
-    lire();
-    const t = setInterval(lire, 60000);
-    return () => { vivant = false; clearInterval(t); };
-  }, [location.pathname]);
 
   const nom = user.agent ? [user.agent.prenom, user.agent.nom].filter(Boolean).join(' ') : user.username;
   const structure = user.affectation?.bureauNom || user.affectation?.divisionNom || (user.primaryRole === 'DIRECTEUR' ? DEP_NOM : user.primaryRole === 'SECRETAIRE_GENERAL' ? SG_NOM : 'Administration technique');
