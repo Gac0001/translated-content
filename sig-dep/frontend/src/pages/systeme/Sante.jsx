@@ -9,7 +9,7 @@ export const ETATS = {
   OK: { label: 'Opérationnel', icon: CheckCircle2, cls: 'text-emerald-700', badge: 'bg-emerald-50 text-emerald-800 ring-emerald-200', bar: 'bg-emerald-500' },
   ATTENTION: { label: 'À surveiller', icon: AlertTriangle, cls: 'text-amber-600', badge: 'bg-amber-50 text-amber-800 ring-amber-200', bar: 'bg-amber-400' },
   PANNE: { label: 'En panne', icon: XCircle, cls: 'text-red-700', badge: 'bg-red-50 text-red-800 ring-red-200', bar: 'bg-red-600' },
-  INACTIF: { label: 'Inactif', icon: MinusCircle, cls: 'text-slate-400', badge: 'bg-slate-100 text-slate-600 ring-slate-200', bar: 'bg-slate-300' },
+  INACTIF: { label: 'Inactif', icon: MinusCircle, cls: 'text-slate-500', badge: 'bg-slate-100 text-slate-600 ring-slate-200', bar: 'bg-slate-300' },
 };
 
 export function EtatBadge({ statut }) {
@@ -29,7 +29,7 @@ export default function Sante() {
   return (
     <>
       <PageHeader title="Santé du système" subtitle="Contrôle automatique toutes les 15 minutes ; une alerte est émise à chaque panne et à chaque rétablissement."
-        breadcrumb={[{ label: 'Administration' }, { label: 'Santé du système' }]}
+        breadcrumb={[{ label: 'Sécurité et système' }, { label: 'Santé du système' }]}
         actions={<button type="button" className="btn-primary" disabled={busy} onClick={verifier}><RefreshCw size={16} className={busy ? 'animate-spin' : ''} /> {busy ? 'Vérification…' : 'Vérifier maintenant'}</button>} />
       <Loadable state={state}>
         {(d) => (
@@ -71,7 +71,7 @@ export default function Sante() {
                       </div>
                     </div>
                   ))}
-                  <div className="flex justify-between pl-28 text-[11px] text-slate-400"><span>{fmtDateTime(d.historique[d.historique.length - 1].date)}</span><span>maintenant</span></div>
+                  <div className="flex justify-between pl-28 text-[11px] text-slate-600"><span>{fmtDateTime(d.historique[d.historique.length - 1].date)}</span><span>maintenant</span></div>
                   <div className="flex flex-wrap gap-3 pl-28 text-xs text-slate-600">{Object.entries(ETATS).map(([k, e]) => <span key={k} className="inline-flex items-center gap-1"><span className={`inline-block h-3 w-3 rounded-sm ${e.bar}`} /> {e.label}</span>)}</div>
                 </div>
               ) : <p className="text-sm text-slate-500">Aucun contrôle sur la période.</p>}
@@ -79,9 +79,62 @@ export default function Sante() {
             <Card title="Version de l’application">
               <KeyValues cols={3} items={[['Version', d.version.version], ['Révision', d.version.commit], ['Node.js', d.version.node], ['Environnement', d.version.environnement]]} />
             </Card>
+            <Preparation />
           </div>
         )}
       </Loadable>
     </>
+  );
+}
+
+const PREPARATION = {
+  OK: { ...ETATS.OK, label: 'Conforme' },
+  ATTENTION: ETATS.ATTENTION,
+  BLOQUANT: { ...ETATS.PANNE, label: 'Bloquant' },
+  INFO: { ...ETATS.INACTIF, label: 'Information', cls: 'text-slate-500' },
+};
+
+/** Contrôle de préparation à la mise en production (identique à « npm run verifier-production »). */
+function Preparation() {
+  const state = useApi('/supervision/preparation');
+  return (
+    <Card title="Préparation à la mise en production"
+      actions={<button type="button" className="btn-secondary" onClick={() => state.reload()} disabled={state.loading}><RefreshCw size={16} className={state.loading ? 'animate-spin' : ''} /> Relancer</button>}>
+      <Loadable state={state}>
+        {(r) => (
+          <div className="space-y-4">
+            <p className={`flex items-center gap-2 text-sm font-medium ${r.pret ? 'text-emerald-800' : 'text-red-800'}`}>
+              {r.pret ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+              {r.pret ? 'Aucun point bloquant' : `${r.totaux.BLOQUANT} point(s) bloquant(s) à corriger avant l’ouverture`} — {r.totaux.OK} conforme(s), {r.totaux.ATTENTION} à surveiller.
+            </p>
+            {Object.entries(r.groupes).map(([cle, titre]) => {
+              const items = r.controles.filter((c) => c.groupe === cle);
+              if (!items.length) return null;
+              return (
+                <section key={cle} aria-label={titre}>
+                  <h3 className="mb-1 text-sm font-semibold text-slate-800">{titre}</h3>
+                  <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
+                    {items.map((c) => {
+                      const E = PREPARATION[c.statut];
+                      return (
+                        <li key={c.cle} className="flex gap-3 px-3 py-2 text-sm">
+                          <E.icon size={18} className={`mt-0.5 shrink-0 ${E.cls}`} aria-hidden />
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium text-slate-900">{c.libelle} <span className="sr-only">: {E.label}</span></div>
+                            <div className="break-words text-slate-600">{c.detail}</div>
+                            {c.conseil && <div className="mt-0.5 text-slate-700">→ {c.conseil}</div>}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              );
+            })}
+            <p className="text-xs text-slate-600">Sur le serveur : <code>npm run verifier-production</code> (dossier backend), avant l’ouverture puis après chaque mise à jour.</p>
+          </div>
+        )}
+      </Loadable>
+    </Card>
   );
 }

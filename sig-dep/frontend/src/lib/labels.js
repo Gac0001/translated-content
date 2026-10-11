@@ -36,7 +36,7 @@ export const STATUTS = {
   EN_RELECTURE: ['En relecture', C.jaune], VISE: ['Visé', C.indigo], PUBLIE: ['Publié', C.marine],
   EN_EXAMEN: ['En examen', C.jaune], VALIDE_DIVISION: ['Validé (Division)', C.indigo], VALIDE: ['Validé', C.vert], SOUMIS: ['Soumis', C.bleu], REFUSE: ['Refusé', C.rouge], REVOQUE: ['Révoqué', C.orange], EXPIRE: ['Expiré', C.gris], REMPLACE: ['Remplacé', C.marine], REJETE: ['Rejeté', C.rouge], ARCHIVE: ['Archivé', C.gris],
   // PIP
-  EN_VERIFICATION: ['En vérification', C.jaune], VERIFIE: ['Vérifiée', C.indigo],
+  EN_VERIFICATION: ['En vérification', C.jaune], VERIFIE: ['Vérifié', C.indigo],
   // Courriers
   ENREGISTRE: ['Enregistré', C.bleu], EN_CIRCULATION: ['En circulation', C.jaune], TRAITE: ['Traité', C.violet], CLASSE: ['Classé', C.vert],
   // Comptes
@@ -58,6 +58,16 @@ export const STATUTS = {
   // Données sectorielles
   OUVERTE: ['Ouverte', C.bleu], DIFFUSE: ['Diffusé', C.vert], SAISIE: ['Saisie', C.indigo], CONTROLEE: ['Contrôlée', C.vert], PUBLIEE: ['Publiée', C.vert], CESSE: ['Cessé', C.gris], MAITRISE: ['Maîtrisé', C.indigo], CLOS: ['Clos', C.gris],
   PREVU: ['Prévu', C.bleu], CONFIRME: ['Confirmé', C.vert], TENU: ['Tenu', C.marine], ANNULE: ['Annulé', C.gris],
+};
+
+/**
+ * Accord au féminin des statuts partagés, pour les objets féminins (fiche PIP…) :
+ * <StatusBadge value={…} feminin />. Les statuts propres aux objets féminins (VALIDEE, SOUMISE…) ont déjà leur clé.
+ */
+export const STATUTS_FEMININ = {
+  VERIFIE: 'Vérifiée', VALIDE: 'Validée', SOUMIS: 'Soumise', CONSOLIDE: 'Consolidée', DIFFUSE: 'Diffusée', REJETE: 'Rejetée',
+  ARCHIVE: 'Archivée', ENREGISTRE: 'Enregistrée', TRAITE: 'Traitée', CLASSE: 'Classée', PUBLIE: 'Publiée', VISE: 'Visée',
+  REFUSE: 'Refusée', REVOQUE: 'Révoquée', EXPIRE: 'Expirée', REMPLACE: 'Remplacée', SUSPENDU: 'Suspendue', CESSE: 'Cessée', RECU: 'Reçue',
 };
 
 export const PRIORITES = { BASSE: ['Basse', C.gris], NORMALE: ['Normale', C.bleu], HAUTE: ['Haute', C.orange], URGENTE: ['Urgente', C.rouge] };

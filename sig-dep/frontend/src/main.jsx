@@ -11,6 +11,10 @@ import '@fontsource/source-sans-3/latin-600.css';
 import '@fontsource/source-sans-3/latin-ext-600.css';
 import '@fontsource/source-sans-3/latin-700.css';
 import '@fontsource/source-sans-3/latin-ext-700.css';
+// Typographie principale de la charte graphique (titres et chiffres clés)
+import '@fontsource/cooper-hewitt/500.css';
+import '@fontsource/cooper-hewitt/600.css';
+import '@fontsource/cooper-hewitt/700.css';
 import './index.css';
 
 // Routeur « de données » : indispensable à useBlocker (protection des saisies non enregistrées,

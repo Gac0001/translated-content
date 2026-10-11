@@ -103,11 +103,22 @@ npm run lint        # analyse statique (erreurs bloquantes, avertissements d’a
 npm run test:e2e    # parcours de non-régression par rôle, ordinateur et téléphone
 ```
 
+Les parcours comprennent un **contrôle d’accessibilité** automatique (axe-core, critères WCAG 2.1
+niveaux A et AA) de chaque écran du menu et des fiches principales, pour chaque rôle, sur ordinateur et
+sur téléphone, ainsi que des pages publiques (connexion, vérification des cartes) et des fenêtres ; et
+des essais au clavier (lien « Aller au contenu », tiroir du menu, fenêtres : focus, Échap, retour du
+focus). Le relevé détaillé est écrit dans `frontend/e2e/captures/accessibilite/`. Pour ne lancer que
+ces contrôles : `npx playwright test e2e/accessibilite.spec.js e2e/clavier.spec.js`.
+
 Les parcours exigent l’API en mode démonstration (`DEMO_MODE=true`, `npm run demo:reset`) et l’interface
 démarrées ; relevez `LOGIN_RATE_LIMIT_MAX` (par ex. 500) dans le `.env` de démonstration, chaque parcours
 ouvrant une session par rôle. Sous Windows, installez une fois le navigateur de test :
 `npx playwright install chromium`. Les captures de chaque écran (`frontend/e2e/captures/`, non versionnées)
 servent de comparaison avant / après pendant la refonte de l’interface.
+
+Les composants communs de l’interface (saisie de montants, grilles chiffrées, fenêtres de formulaire,
+tableaux, indicateurs, files « À traiter »…) sont présentés avec des données fictives sur la page
+**Catalogue des composants** (`/composants`, accessible à tout compte connecté, sans lien dans le menu).
 
 ### Démonstration et formation (`DEMO_MODE=true`)
 
@@ -164,7 +175,7 @@ Les **comptes de démonstration** reposent sur des personnes fictives. Le person
 
 ### Mise en service : retirer les données fictives
 
-Tant que la base contient les données fictives, l’Admin voit dès sa connexion un bandeau « La base contient des données fictives de démonstration » avec le bouton **Réinitialiser la base** (aussi accessible par le menu Administration → Réinitialisation, et depuis la page Système).
+Tant que la base contient les données fictives, l’Admin voit dès sa connexion un bandeau « La base contient des données fictives de démonstration » avec le bouton **Réinitialiser la base** (aussi accessible depuis la page Système, bouton « Réinitialisation de la base »).
 
 | Type | Effet |
 |---|---|
@@ -230,6 +241,8 @@ Le tableau de bord de l’Admin, du Directeur et du Secrétariat affiche l’ava
 | `npm run reset-admin -- "MotDePasse@1"` | Réinitialise l’Admin avec un mot de passe temporaire choisi |
 | `npm run backup` | Sauvegarde PostgreSQL (`storage/backups/`) |
 | `npm test` | Tests automatisés (base `sig_dep_test`) |
+| `npm run verifier-production` | Contrôle de préparation à la mise en production (voir section 11) |
+| `npm run paquet` | Paquet d’installation pour le serveur (`paquets/sig-dep-x.y.z.zip`) |
 
 ---
 
@@ -263,11 +276,12 @@ Navigateur ──► Frontend React (Vite)  ──/api──►  API Express  �
 
 | Dossier | Rôle |
 |---|---|
-| `lib/api.js` | Axios avec renouvellement automatique du jeton, messages d’erreur, téléchargements |
+| `lib/api.js` | Axios avec renouvellement automatique du jeton, messages d’erreur, téléchargements ; référentiels (nomenclature, catégories, provinces, types de documents…) mis en cache le temps de la session et vidés à toute modification |
 | `store/auth.js` | Session (Zustand) : utilisateur, permissions, compteurs |
 | `components/ui` | Tableaux avec recherche et pagination, badges, fenêtres de confirmation, notifications éphémères, états de chargement et d’erreur |
 | `components/shared.jsx` | Historique, pièces jointes, exports, formulaires guidés dynamiques |
-| `components/layout` | Menu latéral selon les permissions, en-tête avec recherche globale (Ctrl+K), fil d’Ariane, impression |
+| `components/layout` | Menu latéral selon les permissions, en-tête avec recherche globale (Ctrl+K), fil d’Ariane, impression ; un seul appel périodique (`/dashboard/compteurs` : compteurs du menu, notifications non lues, état du système) toutes les 60 s, au retour sur l’onglet et après chaque modification |
+| `App.jsx` | Chaque écran, pages de connexion comprises, est chargé à la demande |
 | `lib/inactivity.js` | Déconnexion automatique après inactivité, avec avertissement |
 | `pages/*` | Écrans de chaque module, pages « Accès refusé » et « Page introuvable » |
 
@@ -359,6 +373,7 @@ Directeur → Chef du Bureau Secrétariat de Direction → Agents du Bureau Secr
 
 | Module | Workflow |
 |---|---|
+| Tableaux de bord « À traiter » | En tête de chaque tableau de bord, une carte par file de travail : nombre d’éléments, les cinq plus urgents (retards en rouge) et « Voir tout ». Les files sont calculées par l’API avec les mêmes règles que les boutons des fiches : chacun ne voit que ce qu’il peut traiter, à l’étape où il intervient (PTBA et documents de programmation à vérifier, consolider ou valider, dépassements du CBMT, exécution trimestrielle à saisir, jalons en retard, risques critiques pour le Suivi-Évaluation ; réponses à contrôler ou à corriger, campagnes proches de l’échéance, bulletins à viser ou autoriser ; réunions à convoquer, déclarer tenues, comptes rendus à rédiger ou valider ; décisions à mettre en œuvre ; actes et cartes de service à décider ou reprendre ; confirmations et restaurations). Une file vide n’est pas affichée ; les entrées du menu correspondantes portent le compteur. |
 | Comptes | Admin → comptes initiaux (SG, Directeur). Directeur → validation de la liste déclarative. Admin → enrôlement du Bureau Secrétariat de Direction. Bureau Secrétariat → enrôlement des agents des Divisions et des autres Bureaux (voir section 1). Mot de passe temporaire à changer, verrouillage après 5 échecs pendant 15 min (déverrouillage automatique ou par l’Admin), historique des connexions, révocation des sessions. |
 | Affectations | Une nouvelle affectation **clôture** la précédente (date de fin et motif) sans rien supprimer. Un seul responsable par structure. Notification à l’Agent. |
 | Présences | `Brouillon → Vérifiée → Soumise → Verrouillée`. La soumission verrouille la liste en écriture (API et déclencheur PostgreSQL). Le Directeur réceptionne ; à défaut, verrouillage automatique après `PRESENCE_AUTOLOCK_HOURS`. Toute correction passe par un **rectificatif** lié à l’original. |
@@ -448,7 +463,7 @@ Contrôlez ensuite depuis **Admin → Système → Messagerie** : « Tester la c
 * **Double authentification** (TOTP) obligatoire pour l’Admin Système, le **Directeur** et le **Secrétaire Général** (y compris pour un Directeur par intérim) ; secret chiffré en base (AES-256-GCM, clé `TOTP_ENC_KEY` ou dérivée du secret JWT), codes de secours hachés et à usage unique.
 * **Journal d’audit infalsifiable** : chaque entrée porte l’empreinte SHA-256 de la précédente (chaînage calculé par un déclencheur PostgreSQL). Modification, suppression ou troncature sont refusées en base ; une altération faite malgré tout (accès direct à PostgreSQL) est détectée par « Vérifier l’intégrité ». L’historique des connexions est lui aussi en ajout seul. La réinitialisation de la base ne les efface jamais.
 * **Alertes de sécurité** (Sécurité → Alertes, notification et e-mail à l’Admin) : vague d’échecs de connexion, tentative sur un compte Admin, verrouillage, réutilisation d’un jeton de session, code de secours utilisé, changement de politique, désactivation d’un compte sensible, réinitialisation, intégrité de l’audit rompue.
-* **Gouvernance de l’Admin Système** (Administration → Gouvernance) :
+* **Gouvernance de l’Admin Système** (Sécurité et système → Gouvernance) :
   * **double confirmation** par le Directeur des opérations critiques : réinitialisation de la base, politique de sécurité, migrations, permissions du rôle Admin Système (aucune permission métier ne peut lui être donnée). La première tentative crée la demande (réponse 202) ; une fois confirmée (mot de passe du Directeur), l’Admin relance la même opération dans les 24 heures ; une confirmation ne sert qu’une fois ;
   * **accès de support temporaire** : l’Admin n’a accès à aucune pièce jointe ; pour une intervention, il demande un accès motivé, limité à un élément ou à un type d’élément et à 4 heures, validé par le Directeur ; lecture seule, chaque consultation est auditée, expiration automatique, révocation possible ;
   * **compte d’urgence** `urgence` : distinct du compte Admin, scellé (désactivé, mot de passe inconnu), conservé par la réinitialisation. Le Directeur ou le Secrétaire Général l’active pour 24 heures au plus et obtient un mot de passe temporaire à remettre ; nouveau mot de passe et double authentification à la connexion ; toute activation et toute connexion sont signalées immédiatement ; fermeture automatique à l’échéance. Dernier recours sur le serveur : `npm run urgence -- activer 4 "motif"`, `npm run urgence -- fermer`.
@@ -457,7 +472,7 @@ Contrôlez ensuite depuis **Admin → Système → Messagerie** : « Tester la c
 * **Vérification de sécurité** à la demande : intégrité de l’audit, 2FA des Admins, comptes, politique, configuration (secret JWT, cookies HTTPS, messagerie), sauvegarde, fichiers téléversés.
 * **Supervision** (Admin Système) :
   * **tableau de bord** : comptes (total, actifs, désactivés, verrouillés, inactifs), sessions actives, échecs de connexion, alertes, santé des services, espace disque, dernière sauvegarde réussie et sauvegardes échouées, erreurs techniques récentes, version de l’application, dernières opérations sensibles ;
-  * **santé du système** (Administration → Santé du système) : API, PostgreSQL, stockage (espace libre et test d’écriture), sauvegarde, courriels, génération PDF/Excel. Contrôle automatique toutes les 15 minutes, historique sur 48 heures, alerte à chaque panne et à chaque rétablissement. Les seuils d’espace disque se règlent dans la politique (15 % / 5 % par défaut) ;
+  * **santé du système** (Sécurité et système → Santé du système) : API, PostgreSQL, stockage (espace libre et test d’écriture), sauvegarde, courriels, génération PDF/Excel. Contrôle automatique toutes les 15 minutes, historique sur 48 heures, alerte à chaque panne et à chaque rétablissement. Les seuils d’espace disque se règlent dans la politique (15 % / 5 % par défaut) ;
   * **journal technique** : erreurs internes du serveur regroupées par cause avec leur nombre d’occurrences, détail technique réservé à l’Admin, marquage « résolue » ; purge après 90 jours (réglable) — distinct du journal d’audit, qui n’est jamais purgé ;
   * **registre des sauvegardes** : chaque tentative, réussie ou échouée, avec durée, taille, origine et cause de l’échec (alerte en cas d’échec) ;
   * **rapport mensuel de sécurité** : produit automatiquement au début de chaque mois pour le mois écoulé (et à la demande), adressé à l’Admin Système et au **Directeur** (menu « Rapports de sécurité », PDF) : connexions, adresses IP suspectes, comptes, changements de rôles, réinitialisations, incidents, sauvegardes, intégrité de l’audit ;
@@ -503,13 +518,13 @@ Les tests réinitialisent la base `sig_dep_test` (migrations et seeds), puis vé
 * les cartes de service : modèle versionné, contrôle du dossier, circuit de validation, numéro et QR code, renseignements figés, 5 ans, spécimen de signature, impression unitaire et planche, remise et accusé, suspension, perte, remplacement, renouvellement, expiration, vérification publique (QR, matricule, données limitées, journal, anti-énumération, limitation de débit) ;
 * les sauvegardes et la maintenance : planification et conservation, chiffrement, intégrité, test de restauration, circuit complet de restauration avec réintégration des traces, mode maintenance, annonces, migrations, masquage des secrets.
 
-**Intégration continue** : `.github/workflows/sig-dep.yml` exécute ces tests sur un PostgreSQL 16 éphémère et compile le frontend à chaque modification du dossier `sig-dep/`.
+**Intégration continue** : `.github/workflows/sig-dep.yml`, à chaque modification du dossier `sig-dep/` : tests de l’API sur un PostgreSQL 16 éphémère, analyse statique et compilation de l’interface, puis parcours de non-régression de l’interface sur une base de démonstration, l’API servant l’interface construite (ce qui sera livré). Le parcours d’accessibilité complet (11 rôles, ordinateur et téléphone) s’y ajoute chaque nuit et sur demande (« Run workflow ») ; en cas d’échec, le rapport et les captures sont joints au résultat.
 
 ---
 
 ## 10. Sauvegardes, restauration et maintenance
 
-Écrans de l’Admin Système : **Sauvegardes**, **Restaurations** et **Maintenance** (menu Administration).
+Écrans de l’Admin Système : **Sauvegardes**, **Restaurations** et **Maintenance** (section « Sécurité et système » du menu).
 
 ### Sauvegardes automatiques
 
@@ -557,74 +572,40 @@ Sauvegardez aussi le dossier `backend/storage/uploads` (pièces jointes et photo
 
 ## 11. Mise en production
 
-1. **Serveur** : Linux (Ubuntu 22.04 ou 24.04 recommandé) ou Windows Server, avec Node.js 22 LTS, PostgreSQL et Nginx (ou IIS).
-2. **Base** : créer un utilisateur PostgreSQL dédié avec un mot de passe fort. Ne pas ouvrir le port 5432 sur Internet.
-3. **Backend** :
+La procédure complète, pour **Windows et Linux**, est décrite dans **[docs/MISE-EN-SERVICE.md](docs/MISE-EN-SERVICE.md)**
+(prérequis, base PostgreSQL, installation, jour de l’ouverture avec liste à signer, HTTPS et e-mails, mises à jour, incidents).
+En résumé :
 
-   ```bash
-   cd backend
-   npm ci --omit=dev
-   cp .env.example .env
-   ```
+1. **Paquet d’installation** (poste de développement, dossier `backend`) : `npm run paquet` produit
+   `paquets/sig-dep-x.y.z.zip` et son empreinte SHA-256. Il contient l’API et ses dépendances de production
+   (valables sous Windows et Linux : le serveur n’a pas besoin d’Internet), l’interface construite, les fichiers
+   de déploiement (`deploy/`) et le guide ; jamais de `.env`, de pièces jointes ni de sauvegardes.
+2. **Installation et mises à jour** (serveur, depuis le paquet décompressé) :
+   `node backend/scripts/installer-serveur.js [--racine=DOSSIER] [--service]`. Structure créée :
+   `config/.env` (configuration commune aux versions, secrets générés sur place, clé des sauvegardes affichée
+   une seule fois), `donnees/` (pièces jointes, sauvegardes), `versions/x.y.z/`, lien `courante` vers la
+   version en service, `journaux/`. Une mise à jour copie la nouvelle version à côté de l’ancienne, sauvegarde
+   la base, applique les migrations (annulées si l’une échoue), bascule le lien et redémarre le service ;
+   `--revenir` rétablit la version précédente en défaisant ses migrations.
+3. **Service unique** : l’API sert aussi l’interface (`FRONTEND_DIR`) sur un seul port, en HTTP sur le réseau
+   local ou en **HTTPS direct** (`TLS_CERT_FILE`, `TLS_KEY_FILE`, `HTTP_REDIRECT_PORT`) ; Nginx ou IIS restent
+   possibles (`deploy/linux/nginx-sig-dep.conf`, avec `TRUST_PROXY=1`). Service systemd
+   (`deploy/linux/sig-dep.service`) ou service Windows WinSW (`deploy/windows/SIG-DEP.xml`), déclarés par `--service`.
+4. **Contrôle de préparation** : `npm run verifier-production` (avec `SIGDEP_ENV_FILE` pointant sur `config/.env`)
+   classe chaque point en conforme, à surveiller ou bloquant — environnement, mode démonstration, adresses
+   (application, QR codes des cartes), secret des jetons, HTTPS et cookie, proxy, base et migrations, données
+   fictives, mot de passe initial de l’Admin, dossiers, espace disque, interface, outils et chiffrement des
+   sauvegardes, copie hors serveur, sauvegarde et test de restauration réussis, messagerie. Code de sortie 1 s’il
+   reste un point bloquant. Le même contrôle figure sur la page **Santé du système** de l’Admin.
 
-   Dans `.env`, régler :
+| Variable | Rôle |
+|---|---|
+| `SIGDEP_ENV_FILE` | Fichier de configuration du serveur (par défaut `backend/.env`) |
+| `FRONTEND_DIR` | Dossier de l’interface construite servie par l’API (service unique) |
+| `TRUST_PROXY` | Nombre de proxys inverses de confiance (0 si l’API est exposée directement ; 1 derrière Nginx ou IIS) |
+| `TLS_CERT_FILE`, `TLS_KEY_FILE`, `HTTP_REDIRECT_PORT` | HTTPS assuré par l’API, redirection facultative du port HTTP |
 
-   ```
-   NODE_ENV=production
-   DATABASE_URL=postgres://sigdep:<mot-de-passe-fort>@localhost:5432/sig_dep
-   JWT_ACCESS_SECRET=<48 octets aléatoires>   # node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
-   CORS_ORIGINS=https://sig-dep.exemple.cd
-   COOKIE_SECURE=true
-   SEED_DEMO=false
-   APP_URL=https://sig-dep.exemple.cd
-   MAIL_ENABLED=true   # avec les variables SMTP_* (voir section 7)
-   ```
-
-   Puis :
-
-   ```bash
-   npm run migrate
-   npm run seed
-   ```
-
-   Lancer l’API en service : `pm2 start src/server.js --name sig-dep-api`, puis `pm2 save` et `pm2 startup` (ou un service systemd ou Windows).
-4. **Frontend** :
-
-   ```bash
-   cd frontend
-   npm ci
-   npm run build
-   ```
-
-   Servez le dossier `dist/` en statique.
-5. **Nginx** (même domaine pour l’interface et l’API, HTTPS obligatoire) :
-
-   ```nginx
-   server {
-     listen 443 ssl http2;
-     server_name sig-dep.exemple.cd;
-     ssl_certificate     /etc/letsencrypt/live/sig-dep.exemple.cd/fullchain.pem;
-     ssl_certificate_key /etc/letsencrypt/live/sig-dep.exemple.cd/privkey.pem;
-     client_max_body_size 20m;
-     root /opt/sig-dep/frontend/dist;
-     location /api/ { proxy_pass http://127.0.0.1:4000; proxy_set_header Host $host;
-                      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                      proxy_set_header X-Forwarded-Proto $scheme; }
-     location / { try_files $uri /index.html; }
-   }
-   server { listen 80; server_name sig-dep.exemple.cd; return 301 https://$host$request_uri; }
-   ```
-
-   En production, l’API fait confiance à un seul proxy (`trust proxy = 1`), ce qui lui permet d’enregistrer la vraie adresse IP dans l’audit.
-6. **Première connexion** : se connecter en `admin` / `dep@2026`, changer le mot de passe, puis créer les comptes du Secrétaire Général et du Directeur (Comptes → « Compte institutionnel »). Le Directeur valide ensuite la liste déclarative ; l’Admin enrôle le Bureau Secrétariat de Direction, qui enrôle les autres agents.
-7. **Exploitation** : sauvegardes planifiées, mises à jour de sécurité, surveillance des journaux (`pm2 logs`), consultation régulière du journal d’audit et des comptes verrouillés.
-
-En cas de perte du mot de passe Admin :
-
-```bash
-cd backend
-npm run reset-admin
-```
+En cas de perte du mot de passe Admin, sur le serveur : `npm run reset-admin` (dossier `courante/backend`).
 
 ---
 

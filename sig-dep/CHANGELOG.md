@@ -1,5 +1,129 @@
 # Journal des versions — SIG-DEP
 
+## 1.32.0
+
+### Préparation de la mise en production (Windows et Linux, hébergement local)
+- **Contrôle de préparation** : `npm run verifier-production` classe chaque point en conforme, à surveiller ou bloquant, avec la marche à suivre — environnement, mode démonstration, adresses de l’application et des QR codes des cartes, secret des jetons, HTTPS et cookie, proxy, base et migrations, données fictives, mot de passe initial de l’Admin, dossiers et espace disque, interface, outils, chiffrement et copie des sauvegardes, sauvegarde et test de restauration réussis, messagerie. Code de sortie 1 tant qu’un point bloque. Le même contrôle s’affiche sur la page **Santé du système** de l’Admin.
+- **Service unique** : l’API peut servir l’interface construite (`FRONTEND_DIR`) sur un seul port — plus besoin de Nginx ni d’IIS sur un réseau local ; HTTPS direct par certificat interne (`TLS_CERT_FILE`, `TLS_KEY_FILE`, redirection `HTTP_REDIRECT_PORT`) ; `TRUST_PROXY` pour ne pas croire l’en-tête X-Forwarded-For sans proxy ; politique de sécurité du navigateur adaptée (aperçus et photos, pas de passage forcé en HTTPS sur le réseau local).
+- **Paquet d’installation** : `npm run paquet` produit `sig-dep-x.y.z.zip` et son empreinte SHA-256 : API et dépendances de production valables sous Windows et Linux (le serveur n’a pas besoin d’Internet), interface construite, fichiers de déploiement, guide ; jamais de `.env`, de pièces jointes ni de sauvegardes.
+- **Installateur et mises à jour** (`installer-serveur.js`) : configuration du serveur créée avec des secrets générés sur place (clé des sauvegardes affichée une fois, à conserver sous scellé), versions installées côte à côte avec un lien vers la version en service, sauvegarde avant migration, migrations annulées si l’une échoue (base et version en service inchangées), `--revenir` vers la version précédente (migrations défaites), conservation des trois dernières versions ; déclaration du service systemd (Linux) ou WinSW (Windows) avec `--service`. Essayé de bout en bout sous Linux : première installation, mise à jour, mise à jour en échec, retour arrière.
+- **Guide `docs/MISE-EN-SERVICE.md`** : prérequis, base PostgreSQL, installation pas à pas, contrôle de préparation, déroulé du jour de l’ouverture avec liste à cocher et à signer (Admin, Directeur), HTTPS et e-mails à activer plus tard, mises à jour, incidents. README (section 11) et CLAUDE.md mis à jour.
+- **Intégration continue** : analyse statique de l’interface et parcours de non-régression sur la version construite servie par l’API, à chaque envoi ; parcours d’accessibilité complet chaque nuit et sur demande ; rapport joint en cas d’échec.
+- Tests : 7 nouveaux côté API (contrôle de préparation, service unique) ; un test des données sectorielles rendu indépendant de l’ordre d’exécution des fichiers.
+
+## 1.31.0
+
+### Refonte de l’interface — étape 7 : performance (fin de la refonte)
+- **Un seul appel périodique** au lieu de trois : `GET /dashboard/compteurs` renvoie désormais aussi les notifications non lues et l’état du système (maintenance, démonstration). Il est lancé à l’ouverture, toutes les 60 secondes, au retour sur l’onglet du navigateur et après chaque modification enregistrée — et non plus à chaque changement de page (onglet masqué : aucun appel). Mesure sur les entrées du menu de quatre rôles : **5,2 appels à l’API par page en moyenne avant, 2,4 après (−55 %)**, et le calcul des files « À traiter » n’est plus refait à chaque page.
+- **Référentiels mis en cache** le temps de la session (nomenclature de la planification, référentiel des données sectorielles, types de documents, modèle PIP, Bureaux, rôles) : un seul appel partagé, cache vidé à toute modification, au changement d’utilisateur et après 10 minutes.
+- **Pages de connexion chargées à la demande** (connexion, première connexion, mot de passe, maintenance, vérification des cartes) : la bibliothèque de formulaires n’est plus téléchargée par un utilisateur déjà connecté. **Premier téléchargement de l’application : 530 Ko → 385 Ko (167 Ko → 124 Ko compressés, −26 %).** Les écrans métier étaient déjà chargés à la demande.
+- Tests : 1 nouveau côté API ; 2 nouveaux côté interface (aucun appel des compteurs en changeant de page, actualisation après une modification, référentiel lu une seule fois).
+
+## 1.30.0
+
+### Refonte de l’interface — étape 6 : accessibilité et adaptation au téléphone
+- **Contrôle d’accessibilité automatique** (axe-core, WCAG 2.1 niveaux A et AA) ajouté aux tests de l’interface : chaque écran du menu et les fiches principales (PTBA, campagne, réunion, décision, instruction, courrier, acte, carte, agent), pour les 11 rôles, sur ordinateur et sur téléphone ; pages publiques (connexion, vérification des cartes) ; fenêtres de saisie et tiroir du menu. Résultat : aucune violation.
+- **Contrastes** : le gris du texte secondaire est légèrement assombri (#5b677a) pour garder le rapport 4,5:1 sur les fonds clairs (survol des lignes, en-têtes de tableaux, encadrés) ; textes trop pâles corrigés (santé des services, bornes de la politique de sécurité, poste vacant de l’organigramme, import du personnel, mois inactifs du chronogramme PTBA, détail des files « À traiter »).
+- **Clavier** : tests du lien « Aller au contenu » (premier élément atteignable), du tiroir du menu sur téléphone (focus piégé, Échap, retour du focus au bouton) et des fenêtres de saisie (focus sur le premier champ, tabulation bornée, Échap, retour du focus) ; vérification que le bandeau « À traiter » tient dans la largeur d’un téléphone.
+- Tests de l’interface : 86 (dont 27 nouveaux).
+
+## 1.29.0
+
+### Refonte de l’interface — étape 5 : tableaux de bord « À traiter »
+- **Bandeau « À traiter »** en tête de chaque tableau de bord : une carte par file de travail (nombre, les cinq éléments les plus urgents, retards en rouge, « Voir tout ») ; les files vides sont masquées, et une seule ligne « Rien à traiter » s’affiche quand toutes le sont.
+- **Files calculées par l’API** (`GET /dashboard/a-traiter`) avec les mêmes règles de droits que les actions des fiches : PTBA et documents de programmation à vérifier, consolider ou valider, à corriger, brouillons ; dépassements des plafonds du CBMT ; exécution du trimestre écoulé à saisir, jalons en retard et risques critiques (Suivi-Évaluation uniquement) ; campagnes à valider ou proches de l’échéance (7 jours), réponses à contrôler, à corriger ou à transmettre, bulletins à viser, autoriser ou corriger ; réunions à convoquer, à déclarer tenues, comptes rendus à rédiger ou à valider ; décisions à mettre en œuvre ; actes à décider ou à reprendre ; cartes de service à valider ou en circuit ; confirmations et restaurations. Les cartes de service ne figurent que lorsqu’elles sont déjà dans le circuit.
+- **Compteurs du menu** : « PTBA et exécution », « Données sectorielles », « Réunions », « Registre des décisions », « Actes administratifs » et « Cartes de service » affichent le nombre d’éléments à traiter.
+- **Démonstration** : une réunion convoquée d’hier reste à déclarer tenue, pour montrer la file du Secrétariat.
+- Tests : 226 réussis côté API (dont 4 nouveaux sur les files) ; 59 réussis côté interface (dont 4 nouveaux).
+
+## 1.28.0
+
+### Refonte de l’interface — étape 4 : navigation
+- **Menu latéral par sections repliables** : un clic sur le titre d’une section la replie ou la déplie ; le choix est mémorisé dans le navigateur. La section de la page affichée reste toujours ouverte, et l’entrée active est ramenée dans la zone visible du menu. Une section repliée affiche le total de ses éléments à traiter.
+- **Section « Administration » scindée** en « Personnel et habilitations » (liste déclarative, enrôlement, comptes, cartes de service, modèle de carte, actes, désignations, rôles) et « Sécurité et système » (sécurité, rapports, journal d’audit, sauvegardes, gouvernance, restaurations, maintenance, santé, journal technique, système) ; fils d’Ariane alignés sur ces sections.
+- **Réinitialisation de la base** retirée du menu : opération rare et irréversible, elle s’ouvre depuis la page Système (et le bandeau de l’Admin tant que la base contient des données fictives).
+- **« Ma carte de service »** rejoint le menu utilisateur (en haut à droite), à côté de « Mon profil ».
+- Documentation mise à jour (`README.md`, `docs/FORMATION.md`).
+- Tests de l’interface : 55 réussis (dont 3 nouveaux sur le menu).
+
+## 1.27.0
+
+### Refonte de l’interface — étape 3e : écrans Système (Admin) sur les composants communs — fin de l’étape 3
+- **Journal d’audit** : filtres (recherche, module, action, résultat, période) et page conservés dans l’adresse, « Effacer les filtres » ; tableau commun (ligne ouverte au clic ou au clavier) ; exports Excel, CSV et PDF regroupés dans les actions secondaires ; résultat du contrôle d’intégrité en message commun.
+- **Journal technique** : filtre d’état, recherche, tri et page dans l’adresse.
+- **Sauvegardes** : durées de conservation saisies en nombres bornés ; demande de restauration en fenêtre de confirmation (motif de 10 caractères au moins) ; bouton de téléchargement nommé ; enregistrement de la planification protégé contre le double clic.
+- **Gouvernance, restaurations** : décisions protégées par mot de passe désormais à l’abri du double clic, sans erreur silencieuse ; durée du compte d’urgence et n° d’élément en nombres bornés. **Sécurité** : paramètres de la politique en nombres bornés.
+- **Système, réinitialisation, restaurations** : avertissements en messages communs ; un avertissement permanent n’est plus annoncé comme une alerte (`Alert statique`) ; compteurs de la messagerie en petites statistiques communes.
+- Tests de l’interface : 52 réussis (dont 4 nouveaux sur les écrans Système).
+
+## 1.26.0
+
+### Refonte de l’interface — étape 3d : Actes administratifs et Cartes de service sur les composants communs
+- **Registre des actes** : filtres (type, statut, en vigueur), recherche, tri et page conservés dans l’adresse ; « Effacer les filtres ».
+- **Fiche d’un acte** : circuit (Préparation → Validation du Directeur, ou du Secrétaire Général pour le poste de Directeur → Validé ; refus, révocation, expiration et remplacement signalés) avec « Soumettre » et « Décider » dans l’encadré ; rectificatif, révocation (motif de 5 caractères au moins) et suppression du brouillon dans les actions secondaires ; fenêtre de décision protégée contre le double clic.
+- **Saisie d’un acte** : barre d’enregistrement avec protection de la saisie ; champs obligatoires selon le type (intérimaire, poste, période, opérations désignées) et ordre des dates contrôlés avant envoi.
+- **Fiche d’une carte de service** : circuit (Préparation → Validation du Directeur → Impression → Remise au titulaire ; suspension, perte, annulation, expiration signalées) avec les actions de l’étape ; validation confirmée ; retour, suspension, perte et annulation avec motif obligatoire ; anomalies du dossier et mentions regroupées dans l’encadré.
+- **Registre des cartes** : filtre d’état dans l’adresse, répartition par état, planche A4 ; préparation et renouvellement en boutons compacts ; **Ma carte** : état vide explicatif, déclaration de perte confirmée ; **modèle de carte** (Admin) : barre d’enregistrement, validité saisie en nombre borné (1 à 10 ans).
+- La fenêtre de confirmation accepte une longueur minimale de motif (`input.min`).
+- Tests de l’interface : 48 réussis (dont 4 nouveaux sur les Actes et les Cartes).
+
+## 1.25.0
+
+### Refonte de l’interface — étape 3c : Réunions, Décisions et Agenda sur les composants communs
+- **Réunions** : encadré « Circuit de traitement » (Préparation → Convoquée → Tenue — compte rendu → Validation du président → Clôturée ; annulation et compte rendu retourné signalés) avec les actions de l’étape ; validation du compte rendu confirmée (nombre de décisions rappelé) ; annulation et retour du compte rendu avec motif obligatoire ; « Annuler la réunion » et le PDF regroupés dans les actions secondaires.
+- **Préparation d’une réunion** et **compte rendu** : barre d’enregistrement avec protection de la saisie ; contrôles avant envoi (objet, début, fin après le début, responsable de chaque décision) ; champs de l’ordre du jour, des invités et des décisions nommés pour les lecteurs d’écran.
+- **Registre des décisions** : filtres (statut, origine, en retard, dont je suis responsable), recherche, tri et page conservés dans l’adresse ; « Effacer les filtres » ; échéance triable.
+- **Fiche de décision** : circuit (À exécuter → Mise en œuvre → Exécutée ; retard et abandon signalés) ; mise en œuvre en fenêtre commune ; exécution et abandon avec texte obligatoire.
+- **Agenda du Directeur** : semaine affichée conservée dans l’adresse ; rendez-vous en fenêtre commune (fin après le début contrôlée) ; annulation confirmée ; boutons d’action nommés.
+- **Corrections** : la semaine de l’agenda et la date minimale des échéances (décisions, demandes d’information) étaient calculées en heure UTC — entre minuit et une heure à Kinshasa, la veille ; elles le sont désormais en heure locale.
+- La barre d’enregistrement garde sa protection montée en permanence (activée ou non), pour ne jamais interrompre une navigation déjà confirmée.
+- Tests de l’interface : 44 réussis (dont 5 nouveaux sur les Réunions, Décisions et Agenda).
+
+## 1.24.0
+
+### Refonte de l’interface — étape 3b : Données sectorielles sur les composants communs
+- **Annuaire** : filtres (catégorie, province, statut), recherche, tri et page conservés dans l’adresse, retrouvés au retour d’une fiche ; « Effacer les filtres » ; colonnes triables. Les listes de filtres ne dépassent plus la largeur de l’écran : **plus aucun débordement horizontal sur téléphone** (le relevé de l’étape 0 est soldé).
+- **Circuits de traitement** communs sur les fiches de **campagne** (Préparation → Collecte ouverte → Clôturée → Validée), de **réponse** (Saisie → Transmise au contrôle → Contrôlée) et de **bulletin** (Rédaction → Visa → Autorisation du Directeur → Diffusé), avec les actions de l’étape ; retours pour correction avec motif obligatoire ; clôture de la collecte confirmée (nombre de réponses reçues rappelé).
+- **Saisie des réponses** : champs numériques au format français (entiers ou décimaux selon la question), barre d’enregistrement « Enregistrer et contrôler », protection de la saisie ; la transmission au contrôle est bloquée tant que la saisie n’est pas enregistrée ou comporte des erreurs ; « Supprimer le brouillon » regroupé dans les actions secondaires.
+- **Campagne** : indicateurs clés (acteurs ciblés, couverture, contrôle) avec barres de progression.
+- **Formulaires** (acteur, questionnaire, campagne, indicateur, bulletin, référentiel) en fenêtres communes à sections, champs obligatoires contrôlés avant envoi, confirmation avant d’abandonner une saisie ; éditeur de questionnaire avec barre d’enregistrement.
+- **Indicateurs** : tuiles de valeur et d’évolution, tableau des périodes cliquable, répartition par province et catégorie en barres accessibles ; **tableaux croisés** et séries des bulletins en tableaux communs avec totaux.
+- Composants : actions secondaires « danger » de l’en-tête en style discret ; listes de filtres bornées à la largeur disponible.
+- Tests de l’interface : 39 réussis (dont 5 nouveaux sur les Données sectorielles).
+
+## 1.23.0
+
+### Refonte de l’interface — étape 3a : Planification sur les composants communs
+- **Crédits** : grilles de saisie communes par programme (par rubrique et par titre), montants au format français, cellules modifiées signalées, Entrée pour passer à la ligne suivante ; une saisie non enregistrée est protégée, y compris au changement d’onglet.
+- **CBMT** : tableau « Respect des plafonds » à en-têtes groupés par année et première colonne fixe ; éditeur avec grilles de plafonds (total par année) et d’hypothèses, barre d’enregistrement et protection de la saisie.
+- **Performance** : un tableau par objectif (réalisations, exercice en cours, cibles groupés), valeurs saisies au format français et enregistrées en quittant la cellule ; fenêtres objectif et indicateur en sections, avec confirmation avant d’abandonner une saisie.
+- **Fiches PTBA et documents de programmation** : encadré « Circuit de traitement » commun (Préparation → Vérification → Consolidation → Validation du Directeur), actions de l’étape dans l’encadré, validation confirmée, retour pour correction avec motif obligatoire ; exports Excel / PDF / Word regroupés sous « Actions » sur téléphone ; éditeurs avec barre d’enregistrement (coût total du PTBA affiché) et coûts saisis en montants.
+- **Exécution, coûts par trimestre, activités du PTBA** : tableaux communs avec lignes de total et sous-totaux par objectif ; saisie de l’exécution trimestrielle en montants, décaissé contrôlé par rapport à l’engagé.
+- **Banque des projets, risques, référentiel, nouveaux PTBA et documents** : fenêtres de formulaire communes (champs obligatoires signalés, contrôles avant envoi, criticité du risque calculée pendant la saisie) ; états vides explicatifs.
+- Composants : `EditableGrid` signale les cellules modifiées, `SimpleTable` accepte des en-têtes groupés, `EmptyState` une variante compacte, `UnsavedChangesGuard` protège aussi le changement d’onglet (`surOnglet`).
+- Tests de l’interface : 34 réussis (dont 4 nouveaux sur la Planification).
+
+## 1.22.0
+
+### Refonte de l’interface — étape 2 : nouveaux composants communs
+- **Saisie chiffrée** : `NumberInput` et `MoneyInput` (format français, séparateurs de milliers, virgule décimale, clavier numérique sur téléphone, bornes et décimales contrôlées) ; `EditableGrid`, grille de saisie lignes × colonnes (crédits, plafonds, cibles) avec totaux, alerte par cellule (dépassement de plafond) et passage à la ligne suivante par Entrée ou les flèches.
+- **Formulaires** : `FormModal` (Entrée enregistre, bouton bloqué pendant l’enregistrement, confirmation avant d’abandonner une saisie modifiée, erreur affichée une seule fois), `FormSection` (sections titrées, groupes accessibles), `ActionBar` (barre d’enregistrement collée en bas de l’écran, état de la saisie, protection contre la perte des modifications).
+- **Affichage** : `SimpleTable` (tableaux de chiffres au style commun, lignes de total, première colonne fixe), `EmptyState` (état vide explicatif avec action), `KpiTile` (indicateur clé : évolution favorable ou défavorable, cible et progression), `WorkQueue` (file « À traiter » des tableaux de bord, échéances dépassées en rouge), `FilterBar` (filtres hors tableau avec « Effacer les filtres »).
+- **Onglets dans l’adresse** (`useOnglet`) : l’onglet choisi est retrouvé au retour d’une fiche, au rechargement et dans un lien partagé — Planification, Données sectorielles, Cadre organique, Réunions, Cartes de service, Sécurité, Gouvernance, Sauvegardes, Maintenance. Sur téléphone, au-delà de quatre onglets, une liste déroulante remplace la barre.
+- **En-tête de page** : actions secondaires (`menu`) en boutons sur ordinateur, regroupées sous « Actions » sur téléphone.
+- **Catalogue des composants** (`/composants`, données fictives, sans appel à l’API) : référence pour les écrans à venir et la formation.
+- Tests de l’interface : 30 réussis (dont 4 nouveaux sur les composants et les onglets).
+
+## 1.21.0
+
+### Refonte de l’interface — étape 1 : fondations (style « Bleu État »)
+- **Style conforme à la charte graphique du Gouvernement** : menu en bleu institutionnel (`#17418a`), entrée active en bleu marine avec repère jaune du drapeau, tricolore officiel (bleu, jaune, rouge à parts égales) en tête de page, fond gris bleuté, cartes et en-têtes de tableaux harmonisés ; palette de la charte disponible dans Tailwind (`dep`, `rdc`, `charte`).
+- **Titres en Cooper Hewitt** (police de la charte, embarquée, licence libre OFL) ; texte courant et tableaux en Source Sans 3. Titres de cartes en casse normale, chiffres clés plus lisibles avec un liseré de couleur.
+- **Formats communs** (`lib/format.js` : `fmtNombre`, `fmtCdf`, `fmtPourcent`, `lireNombre`) à la place des formateurs propres à chaque page (Planification, Crédits, CBMT, Indicateurs, Tableaux croisés) ; espaces insécables gérées à la saisie.
+- **Statuts accordés au genre** (« Fiche vérifiée », « Campagne validée »…) ; libellé « Vérifié » corrigé.
+- **Titre de l’onglet du navigateur** propre à chaque page (« Planification — SIG-DEP ») ; boutons : icônes agrandies, texte en demi-gras ; badges moins arrondis.
+- Analyse statique sans aucun avertissement (accessibilité : textes alternatifs des portraits, étiquettes de champs) ; tests de non-régression : 26 réussis, aucun nouveau débordement.
+
 ## 1.20.1
 
 ### Refonte de l’interface — étape 0 : filet de sécurité (aucun changement visible)

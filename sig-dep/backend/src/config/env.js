@@ -1,6 +1,8 @@
 'use strict';
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env'), quiet: true });
+// Serveur installé par le paquet : configuration commune à toutes les versions (SIGDEP_ENV_FILE,
+// ex. /opt/sig-dep/config/.env) ; poste de développement : backend/.env.
+require('dotenv').config({ path: process.env.SIGDEP_ENV_FILE || path.resolve(__dirname, '../../.env'), quiet: true });
 
 const env = process.env.NODE_ENV || 'development';
 const root = path.resolve(__dirname, '../..');
@@ -24,6 +26,19 @@ const config = {
     accessTtl: process.env.ACCESS_TOKEN_TTL || '15m',
     refreshTtlDays: Number(process.env.REFRESH_TOKEN_TTL_DAYS || 7),
   },
+  // Proxy inverse devant l’API (Nginx, IIS) : nombre de proxys de confiance pour l’adresse IP réelle (audit,
+  // limitation des tentatives). 0 quand l’API est exposée directement (service unique) : sinon un client
+  // pourrait falsifier son adresse par l’en-tête X-Forwarded-For.
+  trustProxy: process.env.TRUST_PROXY !== undefined && process.env.TRUST_PROXY !== '' ? Number(process.env.TRUST_PROXY) : (env === 'production' ? 1 : 0),
+  // Service unique : l’API sert aussi l’interface construite (dossier dist), sur le même port.
+  frontendDir: process.env.FRONTEND_DIR ? path.resolve(root, process.env.FRONTEND_DIR) : null,
+  // HTTPS assuré par l’API elle-même (certificat interne), sans proxy inverse.
+  tls: process.env.TLS_CERT_FILE && process.env.TLS_KEY_FILE ? {
+    cert: path.resolve(root, process.env.TLS_CERT_FILE),
+    key: path.resolve(root, process.env.TLS_KEY_FILE),
+    // Port HTTP redirigé vers HTTPS (facultatif, ex. 80)
+    redirectPort: process.env.HTTP_REDIRECT_PORT ? Number(process.env.HTTP_REDIRECT_PORT) : null,
+  } : null,
   corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:5173').split(',').map((s) => s.trim()).filter(Boolean),
   cookieSecure: process.env.COOKIE_SECURE === 'true',
   security: {

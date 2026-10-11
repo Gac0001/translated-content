@@ -5,7 +5,7 @@ import api from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { fmtDateTime } from '../../lib/format';
 import { COLORS, ROLES } from '../../lib/labels';
-import { useApi, Loadable, PageHeader, Card, Tabs, DataTable, Badge, InfoAlert, runAction, useConfirm, Select, Stat, runCritique } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, Tabs, useOnglet, DataTable, Badge, InfoAlert, runAction, useConfirm, Select, Stat, runCritique, NumberInput } from '../../components/ui';
 
 const GRAVITE = {
   CRITIQUE: ['Critique', COLORS.danger],
@@ -161,8 +161,8 @@ function Politique() {
                 ? <label key={k} className="flex items-center justify-between gap-3 text-sm"><span>{libelles[k]}</span><input type="checkbox" disabled={lecture} checked={v[k]} onChange={(e) => setV((x) => ({ ...x, [k]: e.target.checked }))} /></label>
                 : (
                   <label key={k} className="flex items-center justify-between gap-3 text-sm">
-                    <span>{libelles[k]} <span className="text-xs text-slate-400">({bornes[k][0]}–{bornes[k][1]})</span></span>
-                    <input type="number" className="input w-24 text-right" disabled={lecture} min={bornes[k][0]} max={bornes[k][1]} value={v[k]} onChange={(e) => setV((x) => ({ ...x, [k]: Number(e.target.value) }))} />
+                    <span>{libelles[k]} <span className="text-xs text-slate-500">({bornes[k][0]}–{bornes[k][1]})</span></span>
+                    <NumberInput className="w-24" disabled={lecture} min={bornes[k][0]} max={bornes[k][1]} value={v[k]} onChange={(n) => { if (n !== null) setV((x) => ({ ...x, [k]: n })); }} />
                   </label>
                 )))}
             </div>
@@ -211,10 +211,10 @@ export default function Securite() {
     can('systeme.consulter', 'securite.superviser') && { value: 'politique', label: 'Politique' },
     can('securite.superviser') && { value: 'verification', label: 'Vérification' },
   ].filter(Boolean);
-  const [tab, setTab] = useState(tabs[0]?.value);
+  const [tab, setTab] = useOnglet(tabs[0]?.value, { valeurs: tabs.map((t) => t.value) });
   return (
     <>
-      <PageHeader title="Sécurité" subtitle="Surveillance des accès, sessions, politique des mots de passe et contrôles de sécurité." breadcrumb={[{ label: 'Administration' }, { label: 'Sécurité' }]}
+      <PageHeader title="Sécurité" subtitle="Surveillance des accès, sessions, politique des mots de passe et contrôles de sécurité." breadcrumb={[{ label: 'Sécurité et système' }, { label: 'Sécurité' }]}
         actions={<Link to="/audit" className="btn-secondary"><ShieldCheck size={16} /> Journal d’audit</Link>} />
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
       {tab === 'alertes' && <Alertes />}

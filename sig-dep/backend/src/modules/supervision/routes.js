@@ -17,6 +17,11 @@ const router = express.Router();
 const idParam = z.object({ id: z.coerce.number().int().positive() });
 
 // ─── Santé du système ────────────────────────────────────────────────────────
+// Contrôle de préparation à la mise en production (le même que « npm run verifier-production »), en lecture seule.
+router.get('/preparation', requirePerm('systeme.consulter'), async (req, res) => {
+  res.json(await require('../../services/preparation').verifier());
+});
+
 router.get('/sante', requirePerm('systeme.consulter'), async (req, res) => {
   const historique = await db('sante_controles').where('created_at', '>', db.raw(`now() - interval '48 hours'`)).orderBy('id', 'desc').limit(200)
     .select('id', 'global', 'created_at', 'origine', 'composants');

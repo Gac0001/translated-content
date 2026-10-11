@@ -3,10 +3,10 @@ import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-do
 import { fmtDate } from '../../lib/format';
 import {
   LayoutDashboard, Network, BookOpen, Users, UserCog, CalendarCheck, Mail, Send, ListTodo, FileText, FolderKanban,
-  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, DatabaseZap, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2, Landmark, IdCard, MessageCircleQuestion,
-  Search, CalendarDays, Gavel, Presentation, Target, Database,
+  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2, Landmark, IdCard, MessageCircleQuestion,
+  Search, CalendarDays, Gavel, Presentation, Target, Database, ChevronDown,
 } from 'lucide-react';
-import api from '../../lib/api';
+import api, { MODIFICATION } from '../../lib/api';
 import { useAuth, useCompteurs } from '../../store/auth';
 import { DEP_NOM, SG_NOM, ROLES, PERIMETRES } from '../../lib/labels';
 import { useInactivity } from '../../lib/inactivity';
@@ -17,34 +17,35 @@ const MENU = [
   { section: 'Pilotage' },
   { to: '/', label: 'Tableau de bord', icon: LayoutDashboard, end: true },
   { to: '/agenda', label: 'Agenda du Directeur', icon: CalendarDays, perms: ['agenda.consulter'] },
-  { to: '/decisions', label: 'Registre des décisions', icon: Gavel, agent: true },
+  { to: '/decisions', label: 'Registre des décisions', icon: Gavel, agent: true, counter: 'decisions' },
   { to: '/rapports', label: 'Rapports et statistiques', icon: BarChart3, perms: ['rapports.consulter'] },
   { section: 'Planification et données' },
-  { to: '/planification', label: 'PTBA et exécution', icon: Target, perms: ['planification.consulter'] },
-  { to: '/donnees', label: 'Données sectorielles', icon: Database, perms: ['donnees.consulter'] },
+  { to: '/planification', label: 'PTBA et exécution', icon: Target, perms: ['planification.consulter'], counter: 'planification' },
+  { to: '/donnees', label: 'Données sectorielles', icon: Database, perms: ['donnees.consulter'], counter: 'donnees' },
   { section: 'Organisation' },
   { to: '/organigramme', label: 'Organigramme', icon: Network, perms: ['organisation.consulter'] },
   { to: '/cadre-organique', label: 'Cadre organique', icon: BookOpen, perms: ['organisation.consulter'] },
   { to: '/personnel', label: 'Personnel', icon: Users, perms: ['personnel.consulter', 'personnel.suivre'] },
-  { to: '/ma-carte', label: 'Ma carte de service', icon: IdCard, agent: true },
   { section: 'Activités' },
   { to: '/instructions', label: 'Instructions', icon: Send, perms: ['instructions.consulter'], counter: 'instructions' },
-  { to: '/reunions', label: 'Réunions', icon: Presentation, agent: true },
+  { to: '/reunions', label: 'Réunions', icon: Presentation, agent: true, counter: 'reunions' },
   { to: '/demandes-information', label: 'Demandes d’information', icon: MessageCircleQuestion, perms: ['demandes_info.emettre', 'demandes_info.repondre'], counter: 'demandesInfo' },
   { to: '/taches', label: 'Tâches', icon: ListTodo, perms: ['taches.consulter'], counter: 'taches' },
   { to: '/presences', label: 'Présences', icon: CalendarCheck, perms: ['presences.consulter', 'presences.preparer_direction'], counter: 'presences' },
   { to: '/courriers', label: 'Courriers', icon: Mail, perms: ['courriers.consulter'], counter: 'courriers' },
   { to: '/documents', label: 'Documents de service', icon: FileText, perms: ['documents.consulter'], counter: 'documents' },
   { to: '/pip', label: 'Projets PIP', icon: FolderKanban, perms: ['pip.consulter'], counter: 'pip' },
-  { section: 'Administration' },
+  // Ancienne section « Administration », scindée : les actes et habilitations d’un côté, la technique de l’autre.
+  { section: 'Personnel et habilitations' },
   { to: '/liste-declarative', label: 'Liste déclarative', icon: ListChecks, perms: ['liste.consulter'] },
   { to: '/comptes/enrolement', label: 'Enrôlement des agents', icon: UserPlus, perms: ['compte.enroler'] },
   { to: '/comptes', label: 'Comptes utilisateurs', icon: UserCog, perms: ['compte.consulter'], end: true },
-  { to: '/cartes', label: 'Cartes de service', icon: IdCard, perms: ['cartes.consulter'], end: true },
+  { to: '/cartes', label: 'Cartes de service', icon: IdCard, perms: ['cartes.consulter'], end: true, counter: 'cartes' },
   { to: '/cartes/modele', label: 'Modèle de carte', icon: IdCard, perms: ['modele_carte.configurer'] },
-  { to: '/actes', label: 'Actes administratifs', icon: Stamp, perms: ['actes.consulter', 'actes.preparer', 'actes.enregistrer_direction'] },
+  { to: '/actes', label: 'Actes administratifs', icon: Stamp, perms: ['actes.consulter', 'actes.preparer', 'actes.enregistrer_direction'], counter: 'actes' },
   { to: '/designations', label: 'Désignations', icon: Share2, perms: ['designations.gerer'] },
   { to: '/roles', label: 'Rôles et permissions', icon: ShieldCheck, perms: ['role.attribuer'] },
+  { section: 'Sécurité et système' },
   { to: '/securite', label: 'Sécurité', icon: ShieldAlert, perms: ['securite.superviser'], counter: 'alertes' },
   { to: '/rapports-securite', label: 'Rapports de sécurité', icon: FileBarChart, perms: ['rapport_securite.consulter'] },
   { to: '/audit', label: 'Journal d’audit', icon: ScrollText, perms: ['audit.consulter'] },
@@ -54,9 +55,15 @@ const MENU = [
   { to: '/systeme/maintenance', label: 'Maintenance', icon: Wrench, perms: ['systeme.maintenir'] },
   { to: '/systeme/sante', label: 'Santé du système', icon: HeartPulse, perms: ['systeme.consulter'] },
   { to: '/systeme/erreurs', label: 'Journal technique', icon: Bug, perms: ['systeme.consulter'] },
+  // La réinitialisation de la base, opération rare et irréversible, s’ouvre depuis la page Système.
   { to: '/systeme', label: 'Système', icon: Settings, perms: ['systeme.consulter', 'systeme.configurer'], end: true },
-  { to: '/systeme/reinitialisation', label: 'Réinitialisation', icon: DatabaseZap, perms: ['systeme.maintenir'] },
 ];
+
+/** Entrée du menu correspondant à l’adresse (la plus spécifique), pour ouvrir sa section. */
+const correspond = (m, chemin) => (m.end ? chemin === m.to : chemin === m.to || chemin.startsWith(`${m.to}/`));
+
+const CLE_REPLIES = 'sigdep.menu.replies';
+const lireReplies = () => { try { return JSON.parse(localStorage.getItem(CLE_REPLIES)) || []; } catch { return []; } };
 
 /** Regroupe le menu par section, en ne gardant que les entrées autorisées (« agent » : réservé aux titulaires d’une fiche Agent). */
 function groupes(user) {
@@ -68,19 +75,47 @@ function groupes(user) {
   return res.filter((g) => g.items.length);
 }
 
+/**
+ * Menu latéral par sections repliables. Le choix est mémorisé dans le navigateur ; la section de la
+ * page affichée reste toujours ouverte, et l’entrée active est ramenée dans la zone visible.
+ * Une section repliée affiche le total de ses éléments à traiter.
+ */
 function Sidebar({ onNavigate }) {
   const { user } = useAuth();
   const { compteurs } = useCompteurs();
+  const { pathname } = useLocation();
+  const [replies, setReplies] = useState(lireReplies);
+  const nav = useRef(null);
+  const liste = groupes(user);
+  const active = liste.find((g) => g.items.some((m) => correspond(m, pathname)))?.section;
+  const basculer = (section) => setReplies((r) => {
+    const n = r.includes(section) ? r.filter((x) => x !== section) : [...r, section];
+    try { localStorage.setItem(CLE_REPLIES, JSON.stringify(n)); } catch { /* stockage indisponible */ }
+    return n;
+  });
+  useEffect(() => { nav.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: 'nearest' }); }, [pathname]);
   return (
-    <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Menu principal">
-      {groupes(user).map((g) => (
-        <div key={g.section} className="mt-4 first:mt-0">
-          <h2 id={`menu-${g.section}`} className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-dep-200">{g.section}</h2>
-          <ul aria-labelledby={`menu-${g.section}`} className="space-y-0.5">
+    <nav ref={nav} className="flex-1 overflow-y-auto px-2 py-3" aria-label="Menu principal">
+      {liste.map((g) => {
+        const id = `menu-${g.section.normalize('NFD').replace(/[^\w]/g, '')}`;
+        const ouverte = g.section === active || !replies.includes(g.section);
+        const aTraiter = g.items.reduce((t, m) => t + (m.counter ? compteurs[m.counter] || 0 : 0), 0);
+        return (
+        <div key={g.section} className="mt-3 first:mt-0">
+          <h2 className="px-1">
+            <button type="button" aria-expanded={ouverte} aria-controls={id} disabled={g.section === active}
+              onClick={() => basculer(g.section)}
+              className="flex w-full items-center gap-1 rounded px-2 py-1 text-left text-[11px] font-semibold uppercase tracking-wider text-dep-200 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-rdc-jaune disabled:cursor-default disabled:hover:text-dep-200">
+              <span className="flex-1">{g.section}</span>
+              {!ouverte && aTraiter > 0 && <span className="rounded-full bg-rdc-jaune px-1.5 text-[11px] font-semibold normal-case tracking-normal text-dep-900">{aTraiter}<span className="sr-only"> à traiter</span></span>}
+              <ChevronDown size={14} aria-hidden className={`transition-transform motion-reduce:transition-none ${ouverte ? '' : '-rotate-90'}`} />
+            </button>
+          </h2>
+          <ul id={id} aria-label={g.section} hidden={!ouverte} className="mt-0.5 space-y-0.5">
             {g.items.map((m) => (
               <li key={m.to}>
                 <NavLink to={m.to} end={m.end} onClick={onNavigate}
-                  className={({ isActive }) => `flex items-center gap-2.5 rounded-md px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-rdc-jaune ${isActive ? 'bg-white/15 font-medium text-white' : 'text-dep-100 hover:bg-white/10 hover:text-white'}`}>
+                  className={({ isActive }) => `flex items-center gap-2.5 rounded-md px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-rdc-jaune ${isActive ? 'bg-charte-marine font-semibold text-white shadow-[inset_3px_0_0_#fff24b]' : 'text-dep-100 hover:bg-white/10 hover:text-white'}`}>
                   <m.icon size={17} aria-hidden />
                   <span className="flex-1">{m.label}</span>
                   {m.counter && compteurs[m.counter] > 0 && (
@@ -91,7 +126,8 @@ function Sidebar({ onNavigate }) {
             ))}
           </ul>
         </div>
-      ))}
+        );
+      })}
     </nav>
   );
 }
@@ -120,18 +156,39 @@ export default function AppLayout() {
   const main = useRef(null);
   const pageCourante = useRef(location.pathname);
 
+  // Bandeau « maintenance active » (visible des Admins Système, seuls à garder l’accès) et mode démonstration.
+  const [maintenanceActive, setMaintenanceActive] = useState(null);
+  const [modeDemo, setModeDemo] = useState(false);
+  // Un seul appel périodique (compteurs du menu, notifications non lues, état du système) : à l’ouverture,
+  // toutes les 60 secondes, au retour sur l’onglet du navigateur et après chaque modification enregistrée —
+  // et non plus à chaque changement de page.
   useEffect(() => {
     let alive = true;
+    let attente = null;
     const tick = async () => {
+      if (document.visibilityState === 'hidden') return;
       try {
-        const [n, c] = await Promise.all([api.get('/notifications/compteur'), api.get('/dashboard/compteurs')]);
-        if (alive) { setNonLues(n.data.nonLues); setCompteurs(c.data); }
+        const { data } = await api.get('/dashboard/compteurs');
+        if (!alive) return;
+        setNonLues(data.nonLues);
+        setCompteurs(data);
+        setMaintenanceActive(data.systeme?.maintenance?.active ? data.systeme.maintenance : null);
+        setModeDemo(!!data.systeme?.demo);
       } catch { /* silencieux */ }
     };
+    // Plusieurs modifications rapprochées (enregistrement puis action du circuit) : une seule actualisation.
+    const differe = () => { clearTimeout(attente); attente = setTimeout(tick, 400); };
+    const visible = () => { if (document.visibilityState === 'visible') tick(); };
     tick();
     const t = setInterval(tick, 60000);
-    return () => { alive = false; clearInterval(t); };
-  }, [location.pathname, setNonLues, setCompteurs]);
+    window.addEventListener(MODIFICATION, differe);
+    document.addEventListener('visibilitychange', visible);
+    return () => {
+      alive = false; clearInterval(t); clearTimeout(attente);
+      window.removeEventListener(MODIFICATION, differe);
+      document.removeEventListener('visibilitychange', visible);
+    };
+  }, [setNonLues, setCompteurs]);
 
   // Changement de page : retour en haut et focus sur le contenu, sauf si la nouvelle page a déjà placé
   // le focus sur un de ses champs. Un élément masqué appartient à l’ancienne page (chargement en cours).
@@ -151,26 +208,16 @@ export default function AppLayout() {
     navigate('/connexion', { state: raison === 'inactivite' ? { message: 'Vous avez été déconnecté après une période d’inactivité.' } : undefined });
   };
   const { remaining, prolonger } = useInactivity(() => logout('inactivite'), user.sessionInactiviteMinutes);
-  // Bandeau « maintenance active » (visible des Admins Système, seuls à garder l’accès)
-  const [maintenanceActive, setMaintenanceActive] = useState(null);
-  const [modeDemo, setModeDemo] = useState(false);
-  useEffect(() => {
-    let vivant = true;
-    const lire = () => api.get('/statut-public').then((r) => { if (!vivant) return; setMaintenanceActive(r.data.maintenance.active ? r.data.maintenance : null); setModeDemo(!!r.data.demo); }).catch(() => {});
-    lire();
-    const t = setInterval(lire, 60000);
-    return () => { vivant = false; clearInterval(t); };
-  }, [location.pathname]);
 
   const nom = user.agent ? [user.agent.prenom, user.agent.nom].filter(Boolean).join(' ') : user.username;
   const structure = user.affectation?.bureauNom || user.affectation?.divisionNom || (user.primaryRole === 'DIRECTEUR' ? DEP_NOM : user.primaryRole === 'SECRETAIRE_GENERAL' ? SG_NOM : 'Administration technique');
 
   const aside = (
-    <div className="flex h-full w-full flex-col bg-dep-800 text-white">
+    <div className="flex h-full w-full flex-col bg-dep-700 text-white">
       <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4">
         <img src="/favicon.jpg" alt="Ministère de l’Économie Numérique" className="h-10 w-[5.75rem] shrink-0 rounded-md bg-white object-contain" />
         <div className="min-w-0">
-          <div className="text-sm font-semibold leading-tight">SIG-DEP</div>
+          <div className="font-display text-base font-semibold leading-tight">SIG-DEP</div>
           <div className="text-xs leading-tight text-dep-200">{DEP_NOM}</div>
         </div>
       </div>
@@ -189,13 +236,13 @@ export default function AppLayout() {
       {open && <Tiroir onClose={() => setOpen(false)}>{aside}</Tiroir>}
       <div className="flex min-w-0 flex-1 flex-col lg:pl-64 print:pl-0">
         <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur no-print">
-          <div className="h-1 tricolore" />
+          <div className="h-1.5 tricolore" />
           <div className="flex items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4">
             <IconButton label="Ouvrir le menu" icon={Menu} size={22} className="p-1.5 lg:hidden" aria-expanded={open} onClick={() => setOpen(true)} />
-            <div className="min-w-0 sm:hidden"><div className="text-sm font-semibold text-dep-800">SIG-DEP</div></div>
+            <div className="min-w-0 sm:hidden"><div className="font-display text-sm font-semibold text-dep-700">SIG-DEP</div></div>
             <div className="hidden min-w-0 sm:block">
               <div className="truncate text-xs uppercase tracking-wide text-slate-500">République Démocratique du Congo — {SG_NOM}</div>
-              <div className="truncate text-sm font-semibold text-dep-800">{DEP_NOM} (DEP)</div>
+              <div className="truncate font-display text-[15px] font-semibold text-dep-700">{DEP_NOM} (DEP)</div>
             </div>
             <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1">
               <div className="mr-2 hidden min-w-0 flex-1 justify-end md:flex"><GlobalSearch /></div>
@@ -203,7 +250,7 @@ export default function AppLayout() {
               <Link to="/notifications" className="relative rounded-md p-2 text-slate-600 hover:bg-slate-100">
                 <Bell size={20} aria-hidden />
                 <span className="sr-only">Notifications</span>
-                {nonLues > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-rdc-rouge px-1 text-center text-xs font-semibold text-white">{nonLues > 99 ? '99+' : nonLues}<span className="sr-only"> non lues</span></span>}
+                {nonLues > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-red-700 px-1 text-center text-xs font-semibold text-white">{nonLues > 99 ? '99+' : nonLues}<span className="sr-only"> non lues</span></span>}
               </Link>
               <DropdownMenu width="w-64" menuLabel="Menu utilisateur"
                 triggerClassName="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400"
@@ -224,6 +271,7 @@ export default function AppLayout() {
                 )}
                 items={[
                   user.agent && { label: 'Mon profil', icon: UserCircle, to: '/profil' },
+                  user.agent && { label: 'Ma carte de service', icon: IdCard, to: '/ma-carte' },
                   { label: 'Changer le mot de passe', icon: KeyRound, to: '/mot-de-passe' },
                   { label: 'Se déconnecter', icon: LogOut, danger: true, onClick: () => logout() },
                 ]} />

@@ -111,7 +111,7 @@ export default function ListeDeclarative() {
   return (
     <>
       <PageHeader title="Liste déclarative des agents" subtitle="Agents affectés à la Direction d’Études et Planification, validés par le Directeur avant la création de leurs comptes."
-        breadcrumb={[{ label: 'Administration' }, { label: 'Liste déclarative' }]}
+        breadcrumb={[{ label: 'Personnel et habilitations' }, { label: 'Liste déclarative' }]}
         actions={d && <>
           {d.actions.valider && d.statut !== 'VALIDEE' && <button type="button" className="btn-success" onClick={valider} disabled={!d.agents.length}><BadgeCheck size={16} /> Valider la liste</button>}
           {can('personnel.gerer', 'personnel.suivre') && <Link to="/personnel/import" className="btn-secondary"><ListChecks size={16} /> Importer</Link>}

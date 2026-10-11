@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { CheckCircle2, FileDown, Pencil, Save, Send, Undo2 } from 'lucide-react';
+import { CheckCircle2, FileDown, Pencil, Send, Undo2 } from 'lucide-react';
 import api, { download, errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
-import { useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, InfoAlert, Field, runAction, toast } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, InfoAlert, Field, Button, WorkflowPanel, ActionBar, runAction, toast, useConfirm } from '../../components/ui';
 import { Attachments, Timeline } from '../../components/shared';
 import { EditeurCbmt, VueCbmt } from './Cadrage';
 import { fmtDateTime } from '../../lib/format';
-import { TextModal } from '../instructions/WorkflowActions';
+import { circuitProgrammation } from '../../lib/workflows';
 
 /** Parties rédigées de chaque document, dans l’ordre du modèle du ministère. */
 const PARTIES = {
@@ -19,10 +19,16 @@ const PARTIES = {
 const PARTIES_PROGRAMME = { PAP: [['perimetre', 'Périmètre du programme'], ['strategie', 'Stratégie du programme']], RAP: [['analyse', 'Analyse des résultats du programme']], CDMT: [], CBMT: [] };
 
 function Editeur({ doc, programmes, onSaved, onCancel }) {
-  const [c, setC] = useState({ programmes: {}, ...doc.contenu });
+  const [initial] = useState(() => ({ programmes: {}, ...doc.contenu }));
+  const [c, setC] = useState(initial);
+  const [enCours, setEnCours] = useState(false);
   const up = (k) => (e) => setC({ ...c, [k]: e.target.value });
   const upProg = (id, k) => (e) => setC({ ...c, programmes: { ...c.programmes, [id]: { ...(c.programmes[id] || {}), [k]: e.target.value } } });
-  const enregistrer = async () => { await runAction(() => api.put(`/programmation/documents/${doc.id}`, { contenu: c }), 'Document enregistré.'); onSaved(); };
+  const enregistrer = async () => {
+    setEnCours(true);
+    try { await runAction(() => api.put(`/programmation/documents/${doc.id}`, { contenu: c }), 'Document enregistré.'); } finally { setEnCours(false); }
+    onSaved();
+  };
   return (
     <div className="space-y-4">
       <Card title="Page de garde">
@@ -42,43 +48,62 @@ function Editeur({ doc, programmes, onSaved, onCancel }) {
           <div className="grid gap-3">{PARTIES_PROGRAMME[doc.type].map(([k, l]) => <Field key={k} label={l}><textarea className="input" rows={4} value={c.programmes[p.id]?.[k] || ''} onChange={upProg(p.id, k)} /></Field>)}</div>
         </Card>
       ))}
-      <div className="flex gap-2">
-        <button type="button" className="btn-primary" onClick={enregistrer}><Save size={16} /> Enregistrer</button>
-        <button type="button" className="btn-secondary" onClick={onCancel}>Annuler</button>
-      </div>
+      <ActionBar dirty={JSON.stringify(c) !== JSON.stringify(initial)} saving={enCours} onSave={enregistrer} onCancel={onCancel} saveLabel="Enregistrer le document" />
     </div>
   );
 }
 
-const Texte = ({ t }) => (t ? <p className="whitespace-pre-line text-sm">{t}</p> : <p className="text-sm italic text-slate-400">Non rédigé.</p>);
+const Texte = ({ t }) => (t ? <p className="whitespace-pre-line text-sm">{t}</p> : <p className="text-sm italic text-slate-500">Non rédigé.</p>);
+
+function attente(d) {
+  if (d.statut === 'VALIDE') return 'Document validé : il est intangible.';
+  return {
+    BROUILLON: 'En préparation au Bureau Programme.', A_CORRIGER: 'Retourné au Bureau Programme pour correction.',
+    SOUMIS: 'En attente de vérification par le Chef du Bureau Programme.', VERIFIE: 'En attente de consolidation par le Chef de la Division Programme et Suivi.',
+    CONSOLIDE: 'En attente de validation par le Directeur.',
+  }[d.statut];
+}
 
 export default function PlanDocument() {
   const { id } = useParams();
   const state = useApi(`/programmation/documents/${id}`, [id]);
   const ref = useApi('/planification/referentiel');
   const can = useAuth((s) => s.can);
+  const confirm = useConfirm();
   const [edition, setEdition] = useState(false);
-  const [retour, setRetour] = useState(false);
-  const post = async (path, body, msg) => { await runAction(() => api.post(`/programmation/documents/${id}/${path}`, body), msg); setRetour(false); state.reload(); };
+  const post = async (path, body, msg) => { await runAction(() => api.post(`/programmation/documents/${id}/${path}`, body), msg); state.reload(); };
+  const etape = async (path, msg, opts) => {
+    let body = {};
+    if (opts) {
+      const r = await confirm(opts);
+      if (!r) return;
+      if (typeof r === 'string') body = { motif: r };
+    }
+    await post(path, body, msg).catch(() => {});
+  };
   return (
     <Loadable state={state}>
       {(d) => {
         const a = d.actions;
         const c = d.contenu || {};
         const programmes = ref.data?.programmes.filter((p) => p.actif !== false) || [];
+        const titre = d.type === 'CBMT' ? `CBMT ${d.annee}-${d.annee + 2}` : `${d.type} ${d.annee}`;
         return (
           <>
-            <PageHeader title={d.type === 'CBMT' ? `CBMT ${d.annee}-${d.annee + 2}` : `${d.type} ${d.annee}`} subtitle={`${d.libelle} · ${d.reference}`} breadcrumb={[{ label: 'Planification', to: '/planification' }, { label: d.type === 'CBMT' ? `CBMT ${d.annee}-${d.annee + 2}` : `${d.type} ${d.annee}` }]}
-              actions={<>
-                {can('exports.generer') && <button type="button" className="btn-secondary" onClick={() => download(`/programmation/documents/${id}/export`, `${d.type}-${d.annee}`).catch((e) => toast.error(errorMessage(e)))}><FileDown size={16} /> {['CDMT', 'CBMT'].includes(d.type) ? 'Excel' : 'Word'}</button>}
-                {a.modifier && !edition && <button type="button" className="btn-secondary" onClick={() => setEdition(true)}><Pencil size={16} /> Rédiger</button>}
-                {a.soumettre && !edition && <button type="button" className="btn-primary" onClick={() => post('soumettre', {}, 'Document soumis au Chef du Bureau Programme.')}><Send size={16} /> Soumettre</button>}
-                {a.verifier && <button type="button" className="btn-success" onClick={() => post('verifier', {}, 'Document vérifié.')}><CheckCircle2 size={16} /> Vérifié</button>}
-                {a.consolider && <button type="button" className="btn-success" onClick={() => post('consolider', {}, 'Document consolidé : transmis au Directeur.')}><CheckCircle2 size={16} /> Consolider</button>}
-                {a.valider && <button type="button" className="btn-success" onClick={() => post('valider', {}, 'Document validé.')}><CheckCircle2 size={16} /> Valider</button>}
-                {a.retourner && <button type="button" className="btn-secondary" onClick={() => setRetour(true)}><Undo2 size={16} /> Retourner</button>}
-              </>} />
-            {d.statut === 'A_CORRIGER' && <div className="mb-3"><InfoAlert tone="warning"><b>À corriger</b> : {d.observations}</InfoAlert></div>}
+            <PageHeader title={titre} subtitle={`${d.libelle} · ${d.reference}`} breadcrumb={[{ label: 'Planification', to: `/planification?onglet=documents` }, { label: titre }]}
+              actions={a.modifier && !edition && <button type="button" className="btn-secondary" onClick={() => setEdition(true)}><Pencil size={16} aria-hidden /> Rédiger</button>}
+              menu={can('exports.generer') ? [{ label: ['CDMT', 'CBMT'].includes(d.type) ? 'Excel' : 'Word', icon: FileDown, onClick: () => download(`/programmation/documents/${id}/export`, `${d.type}-${d.annee}`).catch((e) => toast.error(errorMessage(e))) }] : []} />
+            {!edition && (
+              <WorkflowPanel circuit={circuitProgrammation(d)} attente={attente(d)}
+                message={d.statut === 'A_CORRIGER' && <InfoAlert tone="warning"><b>À corriger</b> : {d.observations}</InfoAlert>}
+                actions={[
+                  a.soumettre && <Button key="so" variant="primary" icon={Send} onClick={() => etape('soumettre', 'Document soumis au Chef du Bureau Programme.')}>Soumettre</Button>,
+                  a.verifier && <Button key="ve" variant="success" icon={CheckCircle2} onClick={() => etape('verifier', 'Document vérifié.')}>Vérifié</Button>,
+                  a.consolider && <Button key="co" variant="success" icon={CheckCircle2} onClick={() => etape('consolider', 'Document consolidé : transmis au Directeur.')}>Consolider</Button>,
+                  a.valider && <Button key="va" variant="success" icon={CheckCircle2} onClick={() => etape('valider', 'Document validé.', { title: `Valider : ${titre}`, message: 'Une fois validé, le document devient intangible.', confirmLabel: 'Valider' })}>Valider</Button>,
+                  a.retourner && <Button key="re" icon={Undo2} onClick={() => etape('retourner', 'Document retourné au Bureau Programme.', { title: 'Retourner pour correction', message: 'Le document sera renvoyé au Bureau Programme.', input: { label: 'Corrections demandées', required: true }, confirmLabel: 'Retourner', danger: true })}>Retourner</Button>,
+                ]} />
+            )}
             {edition && ref.data && d.type === 'CBMT' && <EditeurCbmt doc={d} programmes={programmes} onCancel={() => setEdition(false)} onSaved={() => { setEdition(false); state.reload(); }} />}
             {!edition && d.type === 'CBMT' && (
               <div className="space-y-4">
@@ -112,7 +137,6 @@ export default function PlanDocument() {
                 <Card title="Pièces jointes" className="lg:col-span-3"><Attachments type="PLAN_DOCUMENT" id={d.id} canUpload={a.modifier} /></Card>
               </div>
             ))}
-            {retour && <TextModal title="Retourner pour correction" label="Corrections demandées" confirmLabel="Retourner" onClose={() => setRetour(false)} onSave={(t) => post('retourner', { motif: t }, 'Document retourné au Bureau Programme.')} />}
           </>
         );
       }}

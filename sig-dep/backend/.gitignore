@@ -5,3 +5,4 @@ storage/uploads/*
 storage/backups/*
 !storage/backups/.gitkeep
 coverage/
+paquets/

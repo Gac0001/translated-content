@@ -34,7 +34,7 @@ deux navigateurs.
 |---|---|
 | Organisation et personnel | Organigramme 5.3.3, agents et comptes fictifs, liste déclarative validée, trois agents à enrôler |
 | Instructions, tâches, courriers, documents, présences, PIP | Activité des deux dernières semaines, dont une tâche en retard |
-| Réunions et décisions | Réunion de coordination tenue il y a six jours (compte rendu validé, trois décisions : une transformée en instruction, une exécutée, une à exécuter) ; deux réunions convoquées |
+| Réunions et décisions | Réunion de coordination tenue il y a six jours (compte rendu validé, trois décisions : une transformée en instruction, une exécutée, une à exécuter) ; deux réunions convoquées à venir et une d’hier à déclarer tenue |
 | Agenda du Directeur | Audience demain, mission en province, cérémonie de lancement du bulletin |
 | Demandes du Secrétaire Général | Une demande répondue, une en attente |
 | Planification | Exercices en cours et suivant ; trois programmes et leurs actions ; PTBA de la DEP validé avec suivi d’exécution ; PTBA d’un autre service soumis (à vérifier) ; avant-projet de l’exercice suivant |
@@ -46,7 +46,7 @@ deux navigateurs.
 | Temps | Compte | Montrer |
 |---|---|---|
 | 0–5 min | — | Page de connexion : sécurité (mot de passe, double authentification, journalisation), bandeau de démonstration |
-| 5–12 min | `directeur` | **Tableau de bord** : décisions à suivre, agenda du jour, demandes du SG, tâches en retard, performance des structures ; **Agenda** ; **Registre des décisions** (décision exécutée, décision transformée en instruction) |
+| 5–12 min | `directeur` | **Tableau de bord** : bandeau « À traiter » (montrer aussi celui de `cb.prg` ou `cd.edi`), décisions à suivre, agenda du jour, demandes du SG, tâches en retard, performance des structures ; **Agenda** ; **Registre des décisions** (décision exécutée, décision transformée en instruction) |
 | 12–18 min | `cb.secretariat` puis `directeur` | **Réunions** : la réunion tenue (présences, compte rendu verrouillé, décisions) ; préparer et convoquer une nouvelle réunion |
 | 18–25 min | `cb.prg`, `cd.ps`, `directeur` | **Planification** : PTBA de la DEP (chronogramme, coûts par trimestre, exports Excel/PDF au format du Ministère) ; PTBA soumis à vérifier → vérifier, consolider, valider ; onglet **Exécution** |
 | 25–30 min | `cb.prg` | **CBMT** (plafonds du Ministère, actions prioritaires), **Crédits** (respect du cadrage, dépassement signalé en rouge), **Performance**, **PAP · RAP · CDMT** (export Word et Excel), **Banque des projets**, **Risques** |

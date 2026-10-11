@@ -4,7 +4,7 @@ import {
   AlertTriangle, Clock, Building2, Bell, DatabaseZap, UserX, CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '../store/auth';
-import { useApi, Loadable, PageHeader, Card, Stat, StatusBadge, Progress, Empty, Badge, RangBadge, InfoAlert, BarList, MiniStats, CardLink, DataTable } from '../components/ui';
+import { useApi, Loadable, PageHeader, Card, Stat, StatusBadge, Progress, Empty, Badge, RangBadge, InfoAlert, BarList, MiniStats, CardLink, DataTable, WorkQueue } from '../components/ui';
 import { fmtDate, fmtDateTime, fmtMontant, isOverdue } from '../lib/format';
 import { DEP_NOM, ROLES, STATUTS, PERIMETRES, NOTIF_TYPES, DELEGATIONS } from '../lib/labels';
 import { Progression } from './comptes/ListeDeclarative';
@@ -408,6 +408,28 @@ function AgentPanel({ d }) {
   );
 }
 
+/**
+ * Bandeau « À traiter » : files calculées par le serveur selon les droits de l’utilisateur
+ * (une file vide n’est pas renvoyée). Rien à traiter : une seule ligne.
+ */
+function ATraiter() {
+  const state = useApi('/dashboard/a-traiter');
+  if (state.error) return null; // le reste du tableau de bord reste utilisable
+  const files = state.data?.files;
+  return (
+    <section aria-labelledby="a-traiter-titre">
+      <h2 id="a-traiter-titre" className="mb-3 font-display text-lg font-semibold text-dep-700">À traiter</h2>
+      {!files ? <p className="text-sm text-slate-500" role="status">Chargement…</p>
+        : !files.length ? <p className="card flex items-center gap-2 p-4 text-sm text-slate-600"><CheckCircle2 size={18} className="text-emerald-700" aria-hidden /> Rien à traiter dans les circuits pour le moment.</p>
+          : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {files.map((f) => <WorkQueue key={f.cle} title={f.titre} total={f.total} voirTout={f.voirTout} items={f.items} />)}
+            </div>
+          )}
+    </section>
+  );
+}
+
 export default function Dashboard() {
   const user = useAuth((s) => s.user);
   const state = useApi('/dashboard');
@@ -422,6 +444,7 @@ export default function Dashboard() {
         {(d) => (
           <div className="space-y-6">
             {d.admin?.donneesDemo && <BanniereDemo />}
+            <ATraiter />
             {d.miseEnService && <MiseEnService p={d.miseEnService} />}
             {user.roles.includes('ADMIN_SYSTEME') && d.admin && <AdminPanel a={d.admin} />}
             {d.role === 'SECRETAIRE_GENERAL' && <SGPanel d={d} />}

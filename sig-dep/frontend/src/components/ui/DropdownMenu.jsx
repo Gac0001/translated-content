@@ -49,6 +49,8 @@ export function DropdownMenu({
         {trigger || <>{Icon && <Icon size={16} aria-hidden />}{label}<ChevronDown size={14} aria-hidden /></>}
       </button>
       {open && (
+        // Conteneur du menu : il relaie la navigation au clavier (flèches, Échap) vers les éléments role="menuitem".
+        // eslint-disable-next-line jsx-a11y/no-static-element-interactions
         <div onKeyDown={onKeyDown} className={`absolute z-40 mt-1 ${width} max-w-[calc(100vw-2rem)] rounded-md border border-slate-200 bg-white py-1 shadow-lg ${align === 'right' ? 'right-0' : 'left-0'}`}>
           {header}
           <div id={id} ref={menu} role="menu" aria-label={menuLabel || triggerLabel || label}>

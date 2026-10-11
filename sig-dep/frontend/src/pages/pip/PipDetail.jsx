@@ -55,7 +55,7 @@ export default function PipDetail() {
               aside={<>
                 <Card title="Page de contrôle">
                   <KeyValues cols={1} items={[
-                    ['Statut', <StatusBadge key="s" value={p.statut} />], ['Structure', pc.structure], ['Élaborée par', `${pc.elaborePar} — ${fmtDateTime(pc.elaboreLe)}`],
+                    ['Statut', <StatusBadge key="s" value={p.statut} feminin />], ['Structure', pc.structure], ['Élaborée par', `${pc.elaborePar} — ${fmtDateTime(pc.elaboreLe)}`],
                     ['Vérifiée par', pc.verifiePar ? `${pc.verifiePar} — ${fmtDateTime(pc.verifieLe)}` : '—'], ['Validée par', pc.validePar ? `${pc.validePar} — ${fmtDateTime(pc.valideLe)}` : '—'],
                     ['Détenteur actuel', p.detenteur_nom], ['Complétude', pc.completude],
                   ]} />

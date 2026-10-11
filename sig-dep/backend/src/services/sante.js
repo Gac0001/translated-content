@@ -31,6 +31,10 @@ function avecDelai(promesse, ms, message) {
 /** Version de l’application : numéro, commit (si disponible), dernière migration. */
 function versionApplication() {
   let commit = process.env.APP_COMMIT || null;
+  // Paquet d’installation : révision enregistrée à la construction du paquet.
+  if (!commit) {
+    try { commit = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../paquet.json'), 'utf8')).commit || null; } catch (e) { commit = null; }
+  }
   if (!commit) {
     try {
       const gitDir = path.resolve(__dirname, '../../../../.git');

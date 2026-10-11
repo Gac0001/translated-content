@@ -21,8 +21,44 @@ export async function refreshSession() {
   return refreshing;
 }
 
+// ─── Référentiels mis en cache le temps de la session ────────────────────────
+// Listes de référence lues par plusieurs écrans (nomenclature, catégories, provinces, types…). Le cache
+// est vidé à toute modification réussie (POST, PUT, PATCH, DELETE), à la déconnexion et après 10 minutes.
+const REFERENTIELS = ['/planification/referentiel', '/donnees/referentiel', '/documents/types', '/pip/modele', '/organisation/bureaux', '/users/roles'];
+const DUREE_CACHE = 10 * 60 * 1000;
+const cache = new Map();
+export const estReferentiel = (url) => REFERENTIELS.includes(url);
+export const lireCache = (url) => {
+  const e = cache.get(url);
+  return e && Date.now() - e.t < DUREE_CACHE ? e.data : undefined;
+};
+const ecrireCache = (url, data) => cache.set(url, { t: Date.now(), data });
+export const viderReferentiel = (url) => cache.delete(url);
+export const viderCache = () => cache.clear();
+const enCours = new Map();
+/** Lecture d’un référentiel : depuis le cache, ou un seul appel partagé par les écrans qui le demandent. */
+export function lireReferentiel(url) {
+  const c = lireCache(url);
+  if (c !== undefined) return Promise.resolve(c);
+  if (!enCours.has(url)) {
+    enCours.set(url, api.get(url).then((r) => { ecrireCache(url, r.data); return r.data; }).finally(() => enCours.delete(url)));
+  }
+  return enCours.get(url);
+}
+// Changement d’utilisateur (connexion, déconnexion) : les référentiels dépendent des droits.
+useAuth.subscribe((s, avant) => { if (s.user?.id !== avant.user?.id) viderCache(); });
+
+/** Signal émis après toute modification réussie : compteurs du menu à actualiser, référentiels à relire. */
+export const MODIFICATION = 'sigdep:modification';
+
 api.interceptors.response.use(
-  (r) => r,
+  (r) => {
+    if (r.config.method && r.config.method !== 'get') {
+      viderCache();
+      window.dispatchEvent(new Event(MODIFICATION));
+    }
+    return r;
+  },
   async (error) => {
     const { response, config } = error;
     if (!response) return Promise.reject(error);

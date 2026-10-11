@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { CheckCircle2, XCircle } from 'lucide-react';
 import api, { errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { fmtDateTime } from '../../lib/format';
-import { useApi, Loadable, PageHeader, DataTable, Badge, Modal, InfoAlert, runAction, useConfirm, ErrorAlert } from '../../components/ui';
+import { useApi, Loadable, PageHeader, DataTable, Badge, Modal, InfoAlert, Alert, runAction, useConfirm, ErrorAlert } from '../../components/ui';
 
 const STATUTS = {
   EN_ATTENTE: ['En attente du Directeur', 'bg-amber-50 text-amber-800 ring-amber-200'], VALIDEE: ['Validée — à exécuter', 'bg-sky-50 text-sky-800 ring-sky-200'],
@@ -14,12 +14,16 @@ const STATUTS = {
 
 function Decision({ d, onClose, onDone }) {
   const [motDePasse, setMdp] = useState(''); const [commentaire, setCom] = useState('');
-  const decider = async (decision) => { await runAction(() => api.post(`/sauvegardes/restaurations/${d.id}/decision`, { decision, motDePasse, commentaire: commentaire || undefined }), decision === 'VALIDER' ? 'Restauration validée.' : 'Restauration refusée.'); onDone(); };
+  const [enCours, setEnCours] = useState(false);
+  const decider = async (decision) => {
+    setEnCours(true);
+    try { await runAction(() => api.post(`/sauvegardes/restaurations/${d.id}/decision`, { decision, motDePasse, commentaire: commentaire || undefined }), decision === 'VALIDER' ? 'Restauration validée.' : 'Restauration refusée.'); onDone(); } catch { setEnCours(false); /* erreur déjà signalée */ }
+  };
   return (
     <Modal open title="Décision sur la demande de restauration" onClose={onClose} footer={<>
-      <button type="button" className="btn-secondary" onClick={onClose}>Fermer</button>
-      <button type="button" className="btn-secondary" disabled={!motDePasse} onClick={() => decider('REFUSER')}><XCircle size={16} /> Refuser</button>
-      <button type="button" className="btn-danger" disabled={!motDePasse} onClick={() => decider('VALIDER')}><CheckCircle2 size={16} /> Valider la restauration</button>
+      <button type="button" className="btn-secondary" onClick={onClose} disabled={enCours}>Fermer</button>
+      <button type="button" className="btn-secondary" disabled={!motDePasse || enCours} onClick={() => decider('REFUSER')}><XCircle size={16} aria-hidden /> Refuser</button>
+      <button type="button" className="btn-danger" disabled={!motDePasse || enCours} onClick={() => decider('VALIDER')}><CheckCircle2 size={16} aria-hidden /> Valider la restauration</button>
     </>}>
       <div className="space-y-3 text-sm">
         <p>L’Admin Système <b>{d.demande_par_username}</b> demande de ramener la base de données à son état du <b>{fmtDateTime(d.sauvegarde_date)}</b>.</p>
@@ -50,9 +54,7 @@ function Execution({ d, phrase, onClose }) {
     <Modal open title="Exécuter la restauration" onClose={busy ? undefined : onClose} footer={<><button type="button" className="btn-secondary" disabled={busy} onClick={onClose}>Annuler</button><button type="button" className="btn-danger" disabled={busy || f.confirmation.trim().toUpperCase() !== phrase || !f.motDePasse || f.code.length < 6} onClick={executer}>{busy ? 'Restauration en cours…' : 'Restaurer la base'}</button></>}>
       <div className="space-y-3 text-sm">
         <ErrorAlert message={error} />
-        <div className="flex gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-red-900"><AlertTriangle size={18} className="mt-0.5 shrink-0" /><div>
-          La base va revenir à son état du <b>{fmtDateTime(d.sauvegarde_date)}</b>. Déroulement automatique : sauvegarde de l’état actuel, mode maintenance, restauration, réintégration des traces d’audit, fermeture de toutes les sessions. En cas d’échec, la base est remise dans son état actuel.
-        </div></div>
+        <Alert tone="danger" statique>La base va revenir à son état du <b>{fmtDateTime(d.sauvegarde_date)}</b>. Déroulement automatique : sauvegarde de l’état actuel, mode maintenance, restauration, réintégration des traces d’audit, fermeture de toutes les sessions. En cas d’échec, la base est remise dans son état actuel.</Alert>
         <div><label className="label" htmlFor="c">Saisissez {phrase}</label><input id="c" className="input font-mono" autoComplete="off" value={f.confirmation} onChange={up('confirmation')} /></div>
         <div><label className="label" htmlFor="m">Votre mot de passe</label><input id="m" type="password" className="input" autoComplete="current-password" value={f.motDePasse} onChange={up('motDePasse')} /></div>
         <div><label className="label" htmlFor="k">Code de double authentification</label><input id="k" className="input font-mono" autoComplete="one-time-code" value={f.code} onChange={up('code')} /></div>
@@ -68,7 +70,7 @@ export default function Restaurations() {
   const [execution, setExecution] = useState(null);
   const annuler = async (d) => {
     if (!(await confirm({ title: 'Annuler la demande', message: d.fichier, confirmLabel: 'Annuler la demande', danger: true }))) return;
-    await runAction(() => api.post(`/sauvegardes/restaurations/${d.id}/annuler`), 'Demande annulée.'); state.reload();
+    await runAction(() => api.post(`/sauvegardes/restaurations/${d.id}/annuler`), 'Demande annulée.').catch(() => null); state.reload();
   };
   return (
     <>
@@ -77,16 +79,16 @@ export default function Restaurations() {
         {(d) => (
           <div className="space-y-4">
             {d.actions.decider && d.data.some((x) => x.statut === 'EN_ATTENTE') && <InfoAlert tone="warning">Une demande de restauration attend votre décision.</InfoAlert>}
-            <DataTable rows={d.data} empty="Aucune demande de restauration." columns={[
+            <DataTable rows={d.data} label="Demandes de restauration" empty="Aucune demande de restauration." columns={[
               { key: 'demande_at', header: 'Demandée le', render: (r) => <span className="text-xs">{fmtDateTime(r.demande_at)}<span className="block text-slate-500">par {r.demande_par_username}</span></span> },
               { key: 'sauvegarde_date', header: 'État restauré', render: (r) => fmtDateTime(r.sauvegarde_date) },
               { key: 'motif', header: 'Motif', render: (r) => <span className="text-xs">{r.motif}</span> },
               { key: 'statut', header: 'Statut', render: (r) => <span><Badge className={STATUTS[r.statut][1]}>{STATUTS[r.statut][0]}</Badge>{r.decide_par_username && <span className="block text-xs text-slate-500">{r.statut === 'REFUSEE' ? 'refusée' : 'décidée'} par {r.decide_par_username}{r.decision_commentaire ? ` : ${r.decision_commentaire}` : ''}</span>}{['EN_ATTENTE', 'VALIDEE'].includes(r.statut) && <span className="block text-xs text-slate-500">expire le {fmtDateTime(r.expire_at)}</span>}</span> },
               { key: 'act', header: '', render: (r) => (
                 <div className="flex flex-wrap justify-end gap-1">
-                  {d.actions.decider && r.statut === 'EN_ATTENTE' && <button type="button" className="btn-primary px-2 py-1 text-xs" onClick={() => setDecision(r)}>Décider</button>}
-                  {d.actions.demander && r.statut === 'VALIDEE' && <button type="button" className="btn-danger px-2 py-1 text-xs" onClick={() => setExecution(r)}>Exécuter</button>}
-                  {d.actions.demander && ['EN_ATTENTE', 'VALIDEE'].includes(r.statut) && <button type="button" className="btn-ghost px-2 py-1 text-xs" onClick={() => annuler(r)}>Annuler</button>}
+                  {d.actions.decider && r.statut === 'EN_ATTENTE' && <button type="button" className="btn-primary btn-sm" onClick={() => setDecision(r)}>Décider</button>}
+                  {d.actions.demander && r.statut === 'VALIDEE' && <button type="button" className="btn-danger btn-sm" onClick={() => setExecution(r)}>Exécuter</button>}
+                  {d.actions.demander && ['EN_ATTENTE', 'VALIDEE'].includes(r.statut) && <button type="button" className="btn-ghost btn-sm" onClick={() => annuler(r)}>Annuler la demande</button>}
                 </div>
               ) },
             ]} />

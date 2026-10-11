@@ -27,7 +27,7 @@ function Resultat({ r }) {
       {r.titulaire && (
         <div className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:flex-row">
           {r.titulaire.photo
-            ? <img src={r.titulaire.photo} alt={`Photo de ${r.titulaire.nomComplet}`} className="h-44 w-36 shrink-0 rounded border border-slate-300 object-cover" />
+            ? <img src={r.titulaire.photo} alt={`Portrait de ${r.titulaire.nomComplet}`} className="h-44 w-36 shrink-0 rounded border border-slate-300 object-cover" />
             : <div className="flex h-44 w-36 items-center justify-center rounded border bg-slate-100 text-xs text-slate-500">Photo indisponible</div>}
           <dl className="grid flex-1 gap-2 text-sm">
             <div><dt className="text-xs uppercase text-slate-500">Nom complet</dt><dd className="text-lg font-semibold">{r.titulaire.nomComplet}</dd></div>

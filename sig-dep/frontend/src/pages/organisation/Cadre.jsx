@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { Plus, Trash2 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../store/auth';
-import { useApi, Loadable, PageHeader, Card, Tabs, Modal, Field, DataTable, RangBadge, Badge, runAction, useConfirm } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, Tabs, useOnglet, Modal, Field, DataTable, RangBadge, Badge, runAction, useConfirm } from '../../components/ui';
 import { ROLES } from '../../lib/labels';
 import Effectif from './Effectif';
 
@@ -75,7 +75,7 @@ function AttributionForm({ data, onClose, onSaved }) {
 export default function Cadre() {
   const state = useApi('/organisation/cadre');
   const location = useLocation();
-  const [tab, setTab] = useState(location.hash === '#effectif' ? 'effectif' : 'missions');
+  const [tab, setTab] = useOnglet(location.hash === '#effectif' ? 'effectif' : 'missions', { valeurs: ['missions', 'structure', 'effectif', 'responsabilites', 'postes', 'grades'] });
   const [form, setForm] = useState(false);
   const can = useAuth((s) => s.can);
   const confirm = useConfirm();

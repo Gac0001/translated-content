@@ -1,0 +1,26 @@
+<!--
+  SIG-DEP — service Windows (WinSW). L’installateur copie ce fichier en {{RACINE}}\service\SIG-DEP.xml.
+  Placer à côté WinSW-x64.exe (https://github.com/winsw/winsw/releases, version 2.12.0) renommé SIG-DEP.exe,
+  puis, dans une invite de commandes en administrateur :  {{RACINE}}\service\SIG-DEP.exe install
+  et  {{RACINE}}\service\SIG-DEP.exe start  (ou depuis « Services » de Windows).
+-->
+<service>
+  <id>SIG-DEP</id>
+  <name>SIG-DEP — Direction d’Études et Planification</name>
+  <description>Application SIG-DEP (interface et API). Configuration : {{RACINE}}\config\.env</description>
+  <executable>{{NODE}}</executable>
+  <arguments>src/server.js</arguments>
+  <workingdirectory>{{RACINE}}\courante\backend</workingdirectory>
+  <env name="SIGDEP_ENV_FILE" value="{{RACINE}}\config\.env" />
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>true</delayedAutoStart>
+  <depend>postgresql-x64-16</depend>
+  <onfailure action="restart" delay="10 sec" />
+  <onfailure action="restart" delay="30 sec" />
+  <resetfailure>1 hour</resetfailure>
+  <logpath>{{RACINE}}\journaux</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>8</keepFiles>
+  </log>
+</service>

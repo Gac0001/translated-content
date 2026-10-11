@@ -182,7 +182,7 @@ export default function AgentImport() {
                         <td className="td">
                           {t === 'BUREAU' && <select className="input min-w-[140px] py-1" value={l.role || 'AGENT'} onChange={(e) => set(i, { role: e.target.value })}><option value="AGENT">Agent</option><option value="CHEF_BUREAU">Chef de Bureau</option></select>}
                           {t === 'DIVISION' && <span className="text-xs">{ROLES.CHEF_DIVISION}</span>}
-                          {!t && <span className="text-xs text-slate-400">—</span>}
+                          {!t && <span className="text-xs text-slate-500">—</span>}
                         </td>
                         <td className="td min-w-[220px]">
                           {errServeur && <p className="mb-1 text-xs font-medium text-red-700">{errServeur}</p>}

@@ -26,7 +26,7 @@ export default function Risques({ annee, programmes }) {
               <Stat label="Dont critiques" value={ouverts.filter((r) => r.criticite >= 6).length} tone={ouverts.some((r) => r.criticite >= 6) ? 'rouge' : 'dep'} />
               <Stat label="Maîtrisés ou clos" value={d.data.length - ouverts.length} tone="vert" />
             </div>
-            <Card title="Registre des risques" bodyClass="p-0" actions={d.droits.suivre && <button type="button" className="btn-primary" onClick={() => setEdition({})}><Plus size={14} /> Risque</button>}>
+            <Card title="Registre des risques" bodyClass="p-0" actions={d.droits.suivre && <button type="button" className="btn-primary" onClick={() => setEdition({})}><Plus size={16} /> Risque</button>}>
               <DataTable rows={d.data} onRowClick={d.droits.suivre ? (r) => setEdition(r) : undefined} empty="Aucun risque enregistré."
                 columns={[
                   { key: 'libelle', header: 'Risque', render: (r) => <div><div className="font-medium">{r.libelle}</div><div className="text-xs text-slate-500">{r.objet}</div></div>, search: (r) => `${r.libelle} ${r.objet}` },

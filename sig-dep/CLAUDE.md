@@ -27,6 +27,8 @@ Général au Numérique (RDC). Interface et documentation **en français** ; ré
 | Tests | `npm test` (base `sig_dep_test`, recréée à chaque lancement) |
 | Construire l’interface | `npm run build` (frontend) |
 | Analyse statique de l’interface | `npm run lint` (frontend) — aucune erreur tolérée |
+| Paquet d’installation pour le serveur | `npm run paquet` (→ `paquets/`, non versionné) ; installation et mises à jour : `docs/MISE-EN-SERVICE.md` |
+| Contrôle de préparation à la production | `npm run verifier-production` (à compléter pour tout nouveau réglage sensible : `src/services/preparation.js`) |
 | Tests de non-régression de l’interface | `npm run test:e2e` (frontend ; API en mode démonstration démarrée, `LOGIN_RATE_LIMIT_MAX` relevé ; sous Windows, une fois : `npx playwright install chromium`) |
 
 ## Règles impératives
@@ -56,20 +58,30 @@ Général au Numérique (RDC). Interface et documentation **en français** ; ré
 6. **Consulter avant d’améliorer** : présenter à l’utilisateur toute amélioration ou tout nouveau
    lot (contenu, rôles, choix) et attendre son accord avant de l’implémenter.
 
-## Refonte de l’interface (en cours)
+## Refonte de l’interface (terminée)
 
-Plan validé par l’utilisateur, par étapes livrées séparément : 0 filet de sécurité → 1 fondations
+Plan validé par l’utilisateur, livré par étapes de 1.20.1 à 1.31.0 : 0 filet de sécurité → 1 fondations
 (jetons, formats, badges, boutons) → 2 nouveaux composants → 3 migration des modules récents vers les
 composants communs (Planification, Données, Réunions/Décisions/Agenda, Actes/Cartes, Système) →
 4 navigation → 5 tableaux de bord « À traiter » → 6 accessibilité et responsive → 7 performance.
 Style retenu : **« Bleu État »** conforme à la charte graphique du Gouvernement — menu en bleu
 institutionnel `#17418a` (actif `#115780`, repère jaune du drapeau `#fff24b`), tricolore officiel
 `#0095c9` / `#fff24b` / `#db3832`, en-têtes de tableaux en majuscules, densité soutenue ; **titres en
-Cooper Hewitt** (police de la charte, embarquée), texte courant et tableaux en Source Sans 3.
+Cooper Hewitt** (police de la charte, embarquée ; classe `font-display`), texte courant et tableaux en Source Sans 3.
+Composants à employer pour tout écran nouveau ou repris (catalogue vivant : page `/composants`) :
+`NumberInput` / `MoneyInput` pour les nombres et montants, `EditableGrid` pour les grilles chiffrées,
+`FormModal` + `FormSection` pour les fenêtres de saisie, `ActionBar` pour les formulaires de page,
+`SimpleTable` pour les tableaux sans recherche (jamais de `<table>` brute), `EmptyState`, `KpiTile`,
+`WorkQueue`, `FilterBar`, onglets par `useOnglet` (dans l’adresse), actions secondaires par `menu` de
+`PageHeader`, circuits par `WorkflowPanel` et `lib/workflows.js` ; formats et dates par `lib/format.js`
+uniquement (jamais `toISOString().slice(0, 10)` pour une date du jour : c’est la date UTC).
 Ne jamais casser : renouvellement de session et redirections 401/403/503, première connexion,
 double authentification, inactivité, routeur « données » (protection des saisies), convention
 `dejaSignale` de `runAction`, téléchargements, impression, droits renvoyés par l’API (`actions` /
-`droits`), rang Bureau du BSD, cartes de service et vérification publique.
+`droits`), rang Bureau du BSD, cartes de service et vérification publique, absence de violation d’accessibilité
+(`e2e/accessibilite.spec.js` : ne pas employer `text-slate-400` pour du texte), un seul appel périodique
+(`/dashboard/compteurs`, jamais à chaque changement de page), référentiels en cache (`REFERENTIELS` de
+`lib/api.js`, lus par `useApi`).
 
 ## Vérifier avant de publier
 

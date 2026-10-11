@@ -48,3 +48,28 @@ export function isOverdue(echeance, statut) {
   if (!echeance || ['EXECUTEE', 'VALIDEE', 'CLOTUREE'].includes(statut)) return false;
   return new Date(`${echeance}T23:59:59`) < new Date();
 }
+
+// ─── Nombres et montants (format français : espace fine insécable pour les milliers, virgule décimale) ───
+/** Nombre formaté ; `vide` est rendu pour une valeur absente (« — » par défaut, '' dans un champ de saisie). */
+export function fmtNombre(v, decimales = 0, { vide = '—' } = {}) {
+  if (v === null || v === undefined || v === '' || !Number.isFinite(Number(v))) return vide;
+  return Number(v).toLocaleString('fr-FR', { maximumFractionDigits: decimales });
+}
+
+/** Montant en francs congolais : « 1 250 000 CDF » (arrondi au franc). */
+export function fmtCdf(v, { vide = '—', suffixe = true } = {}) {
+  const n = fmtNombre(v === null || v === undefined || v === '' ? v : Math.round(Number(v)), 0, { vide });
+  return n === vide || !suffixe ? n : `${n} CDF`;
+}
+
+/** Pourcentage : « 45,5 % ». */
+export function fmtPourcent(v, decimales = 1, { vide = '—' } = {}) {
+  const n = fmtNombre(v, decimales, { vide });
+  return n === vide ? n : `${n} %`;
+}
+
+/** Lecture d’un nombre saisi à la française (« 1 250 000,5 ») ; null si vide, NaN si invalide. */
+export function lireNombre(s) {
+  const b = String(s ?? '').replace(/[\s\u00a0\u202f]/g, '').replace(',', '.');
+  return b === '' ? null : Number(b);
+}

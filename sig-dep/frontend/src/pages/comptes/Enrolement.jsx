@@ -389,7 +389,7 @@ export default function Enrolement() {
   return (
     <>
       <PageHeader title="Enrôlement des agents" subtitle="Création des comptes à partir de la liste déclarative validée par le Directeur."
-        breadcrumb={[{ label: 'Administration' }, { label: 'Enrôlement des agents' }]}
+        breadcrumb={[{ label: 'Personnel et habilitations' }, { label: 'Enrôlement des agents' }]}
         actions={can('liste.consulter') && <Link to="/liste-declarative" className="btn-secondary"><ListChecks size={16} /> Liste déclarative</Link>} />
       <Loadable state={state}>
         {(d) => (

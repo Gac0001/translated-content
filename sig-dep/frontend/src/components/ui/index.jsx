@@ -1,26 +1,36 @@
 import { Fragment, useEffect, useId, useMemo, useRef, useState, useCallback, createContext, useContext, cloneElement, isValidElement } from 'react';
 import { Link, useBlocker, useSearchParams } from 'react-router-dom';
 import { create } from 'zustand';
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, ChevronRight, Info, Loader2, Search, X, Inbox, XCircle } from 'lucide-react';
-import api, { errorMessage } from '../../lib/api';
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, ChevronRight, Info, Loader2, MoreHorizontal, Search, X, Inbox, XCircle } from 'lucide-react';
+import api, { errorMessage, estReferentiel, lireCache, lireReferentiel, viderReferentiel } from '../../lib/api';
 import { useAuth } from '../../store/auth';
-import { STATUTS, PRIORITES, URGENCES, CONFIDENTIALITES, COLORS } from '../../lib/labels';
+import { STATUTS, STATUTS_FEMININ, PRIORITES, URGENCES, CONFIDENTIALITES, COLORS } from '../../lib/labels';
 import { IconButton } from './Button';
+import { DropdownMenu } from './DropdownMenu';
 import { useFocusTrap, useScrollLock } from './focus';
 
 export { Button, IconButton } from './Button';
 export { DropdownMenu } from './DropdownMenu';
 export { useFocusTrap, useScrollLock } from './focus';
+export { NumberInput, MoneyInput, EditableGrid, FormSection, FormModal, ActionBar, signalerErreur } from './saisie';
+export { SimpleTable, EmptyState, KpiTile, WorkQueue, FilterBar } from './affichage';
 
 // ─── Données ────────────────────────────────────────────────────────────────
 export function useApi(url, deps = []) {
-  const [state, setState] = useState({ data: null, loading: !!url, error: null });
-  const load = useCallback(async () => {
+  const [state, setState] = useState(() => {
+    const c = url && estReferentiel(url) ? lireCache(url) : undefined;
+    return c !== undefined ? { data: c, loading: false, error: null } : { data: null, loading: !!url, error: null };
+  });
+  const load = useCallback(async (forcer = false) => {
     if (!url) return;
+    // Référentiel déjà lu pendant la session : pas de nouvel appel (sauf rechargement explicite).
+    const c = estReferentiel(url) && forcer !== true ? lireCache(url) : undefined;
+    if (c !== undefined) { setState({ data: c, loading: false, error: null }); return; }
     setState((s) => ({ ...s, loading: true, error: null }));
     try {
-      const r = await api.get(url);
-      setState({ data: r.data, loading: false, error: null });
+      if (forcer === true) viderReferentiel(url);
+      const data = estReferentiel(url) ? await lireReferentiel(url) : (await api.get(url)).data;
+      setState({ data, loading: false, error: null });
     } catch (e) {
       setState({ data: null, loading: false, error: errorMessage(e), status: e.response?.status });
     }
@@ -103,7 +113,25 @@ export async function runAction(fn, successMessage) {
 }
 
 // ─── Mise en page ───────────────────────────────────────────────────────────
-export function PageHeader({ title, subtitle, breadcrumb = [], actions }) {
+/** Titre de l’onglet du navigateur : « Page — SIG-DEP » (restauré en quittant la page). */
+export function useTitreDocument(titre) {
+  useEffect(() => {
+    if (!titre) return undefined;
+    const avant = document.title;
+    document.title = `${titre} — SIG-DEP`;
+    return () => { document.title = avant; };
+  }, [titre]);
+}
+
+/**
+ * En-tête de page : fil d’Ariane, titre (repris dans l’onglet du navigateur), sous-titre, actions.
+ * actions : boutons toujours visibles (l’action principale) ;
+ * menu : actions secondaires [{ label, icon, onClick, to, danger, disabled }] — boutons sur ordinateur,
+ * regroupées sous « Actions » sur téléphone pour ne pas encombrer l’en-tête.
+ */
+export function PageHeader({ title, subtitle, breadcrumb = [], actions, menu = [] }) {
+  useTitreDocument(typeof title === 'string' ? title : null);
+  const secondaires = menu.filter(Boolean);
   return (
     <div className="mb-5">
       {breadcrumb.length > 0 && (
@@ -126,10 +154,28 @@ export function PageHeader({ title, subtitle, breadcrumb = [], actions }) {
       )}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="break-words text-xl font-semibold leading-tight sm:text-2xl">{title}</h1>
+          <h1 className="break-words text-xl font-bold leading-tight sm:text-[26px]">{title}</h1>
           {subtitle && <div className="mt-1 text-sm text-slate-600">{subtitle}</div>}
         </div>
-        {actions && <div className="flex flex-wrap items-center gap-2 no-print">{actions}</div>}
+        {(actions || secondaires.length > 0) && (
+          <div className="flex flex-wrap items-center gap-2 no-print">
+            {secondaires.length > 0 && (
+              <>
+                <div className="hidden flex-wrap items-center gap-2 sm:flex">
+                  {secondaires.map((it) => {
+                    const contenu = <>{it.icon && <it.icon size={16} aria-hidden />}{it.label}</>;
+                    const cls = it.danger ? 'btn-secondary text-red-700 hover:bg-red-50' : 'btn-secondary';
+                    return it.to && !it.disabled
+                      ? <Link key={it.label} to={it.to} className={cls}>{contenu}</Link>
+                      : <button key={it.label} type="button" className={cls} disabled={it.disabled} onClick={it.onClick}>{contenu}</button>;
+                  })}
+                </div>
+                <div className="sm:hidden"><DropdownMenu label="Actions" icon={MoreHorizontal} items={secondaires} align="left" /></div>
+              </>
+            )}
+            {actions}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -139,8 +185,8 @@ export function Card({ title, actions, children, className = '', bodyClass = 'p-
   return (
     <section className={`card ${className}`}>
       {(title || actions) && (
-        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
-          {title && <h2 className="text-sm font-semibold uppercase tracking-wide text-dep-800">{title}</h2>}
+        <header className="flex flex-wrap items-center justify-between gap-2 rounded-t-md border-b border-[#e9edf2] bg-[#f7f9fc] px-4 py-3">
+          {title && <h2 className="text-[15px] font-semibold leading-snug text-dep-700">{title}</h2>}
           {actions && <div className="flex flex-wrap gap-2 no-print">{actions}</div>}
         </header>
       )}
@@ -151,11 +197,14 @@ export function Card({ title, actions, children, className = '', bodyClass = 'p-
 
 export function Stat({ label, value, hint, tone = 'dep', icon: Icon, to }) {
   const tones = { dep: 'text-dep-700 bg-dep-50', rouge: 'text-red-700 bg-red-50', vert: 'text-emerald-700 bg-emerald-50', jaune: 'text-amber-700 bg-amber-50', gris: 'text-slate-700 bg-slate-100', violet: 'text-violet-700 bg-violet-50' };
+  // Liseré supérieur et chiffre de la couleur du ton (le libellé porte toujours le sens).
+  const lisere = { dep: 'border-t-dep-700', rouge: 'border-t-red-700', vert: 'border-t-emerald-700', jaune: 'border-t-amber-500', gris: 'border-t-slate-400', violet: 'border-t-violet-700' };
+  const chiffre = { dep: 'text-dep-700', rouge: 'text-red-700', vert: 'text-emerald-800', jaune: 'text-amber-800', gris: 'text-slate-800', violet: 'text-violet-800' };
   const body = (
-    <div className={`card flex h-full items-center gap-3 p-4 transition ${to ? 'hover:border-dep-300 hover:shadow' : ''}`}>
+    <div className={`card flex h-full items-center gap-3 border-t-[3px] ${lisere[tone] || lisere.dep} p-4 transition ${to ? 'hover:border-dep-300 hover:shadow' : ''}`}>
       {Icon && <div className={`rounded-md p-2.5 ${tones[tone]}`}><Icon size={20} aria-hidden /></div>}
       <div className="min-w-0">
-        <div className="text-2xl font-semibold tabular-nums text-slate-900">{value ?? '—'}</div>
+        <div className={`font-display text-[26px] font-bold leading-tight tabular-nums ${chiffre[tone] || chiffre.dep}`}>{value ?? '—'}</div>
         <div className="text-xs font-medium uppercase leading-tight tracking-wide text-slate-600">{label}</div>
         {hint && <div className="text-xs text-slate-500">{hint}</div>}
       </div>
@@ -176,11 +225,14 @@ const ALERTES = {
   danger: ['border-red-200 bg-red-50 text-red-800', XCircle],
 };
 
-/** Message encadré : tone = info | succes | attention | danger (danger est annoncé aux lecteurs d’écran). */
-export function Alert({ tone = 'info', title, children, action, className = '' }) {
+/**
+ * Message encadré : tone = info | succes | attention | danger. Un message « danger » est annoncé aux
+ * lecteurs d’écran (role="alert") ; statique={true} l’en dispense (avertissement permanent d’une page).
+ */
+export function Alert({ tone = 'info', title, children, action, className = '', statique = false }) {
   const [cls, Icon] = ALERTES[tone] || ALERTES.info;
   return (
-    <div className={`flex items-start gap-2 rounded-md border p-3 text-sm ${cls} ${className}`} role={tone === 'danger' ? 'alert' : undefined}>
+    <div className={`flex items-start gap-2 rounded-md border p-3 text-sm ${cls} ${className}`} role={tone === 'danger' && !statique ? 'alert' : undefined}>
       <Icon size={18} className="mt-0.5 shrink-0" aria-hidden />
       <div className="min-w-0 flex-1">{title && <div className="font-semibold">{title}</div>}{children}</div>
       {action}
@@ -215,13 +267,14 @@ export function Loadable({ state, children }) {
 /** tone : clé de COLORS (succes, attention, danger, info, neutre, ambre, vert, rouge…). */
 export function Badge({ children, tone, className = '', title }) {
   const couleur = tone ? COLORS[tone] : (/\bbg-/.test(className) ? '' : COLORS.neutre);
-  return <span title={title} className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${couleur} ${className}`}>{children}</span>;
+  return <span title={title} className={`inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${couleur} ${className}`}>{children}</span>;
 }
-function mapBadge(map, value) {
+function mapBadge(map, value, libelle) {
   const v = map[value];
-  return v ? <Badge className={v[1]}>{v[0]}</Badge> : <Badge>{value || '—'}</Badge>;
+  return v ? <Badge className={v[1]}>{libelle || v[0]}</Badge> : <Badge>{value || '—'}</Badge>;
 }
-export const StatusBadge = ({ value }) => mapBadge(STATUTS, value);
+/** Statut ; `feminin` accorde le libellé pour un objet féminin (fiche PIP…). */
+export const StatusBadge = ({ value, feminin = false }) => mapBadge(STATUTS, value, feminin ? STATUTS_FEMININ[value] : null);
 export const PrioriteBadge = ({ value }) => mapBadge(PRIORITES, value);
 export const UrgenceBadge = ({ value }) => mapBadge(URGENCES, value);
 export const ConfidBadge = ({ value }) => mapBadge(CONFIDENTIALITES, value);
@@ -287,7 +340,7 @@ export function ConfirmProvider({ children }) {
       <Modal open={!!state} title={state?.title || 'Confirmation'} onClose={() => close(false)} size="sm"
         footer={<>
           <button type="button" className="btn-secondary" onClick={() => close(false)}>Annuler</button>
-          <button type="button" disabled={busy || (state?.input?.required && text.trim().length < 3)} className={state?.danger ? 'btn-danger' : 'btn-primary'}
+          <button type="button" disabled={busy || (state?.input?.required && text.trim().length < (state.input.min ?? 3))} className={state?.danger ? 'btn-danger' : 'btn-primary'}
             onClick={() => { setBusy(true); close(state?.input ? text : true); }}>{state?.confirmLabel || 'Confirmer'}</button>
         </>}>
         <p className="text-sm text-slate-700">{state?.message}</p>
@@ -296,14 +349,14 @@ export function ConfirmProvider({ children }) {
             <label className="label" htmlFor="confirm-input">{state.input.label}{state.input.required && <span className="text-red-600" aria-hidden> *</span>}</label>
             <textarea id="confirm-input" className="input" rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder={state.input.placeholder}
               aria-required={state.input.required || undefined} aria-describedby={state.input.required ? 'confirm-input-aide' : undefined} />
-            {state.input.required && <p id="confirm-input-aide" className="mt-1 text-xs text-slate-500">Au moins 3 caractères.</p>}
+            {state.input.required && <p id="confirm-input-aide" className="mt-1 text-xs text-slate-500">Au moins {state.input.min ?? 3} caractères.</p>}
           </div>
         )}
       </Modal>
     </ConfirmCtx.Provider>
   );
 }
-/** confirm({ title, message, danger, confirmLabel, input: { label, required } }) → Promise<boolean|string> */
+/** confirm({ title, message, danger, confirmLabel, input: { label, required, min, placeholder } }) → Promise<boolean|string> */
 export const useConfirm = () => useContext(ConfirmCtx);
 
 // ─── Formulaires ────────────────────────────────────────────────────────────
@@ -343,10 +396,34 @@ export function Field({ label, error, children, hint, required, className = '', 
   );
 }
 
-/** Onglets : flèches gauche / droite, Début / Fin. */
-export function Tabs({ tabs, value, onChange, label = 'Onglets' }) {
+/**
+ * Onglet courant conservé dans l’URL (`?onglet=…`) : il est retrouvé au retour d’une fiche, au
+ * rechargement et dans un lien partagé. Changer d’onglet efface les autres paramètres (filtres,
+ * recherche, page), propres à l’onglet quitté, sauf ceux de `garder`.
+ * Renvoie [onglet, choisir] ; une valeur inconnue de l’URL ramène au défaut.
+ */
+export function useOnglet(defaut, { cle = 'onglet', valeurs, garder = [] } = {}) {
+  const [params, setParams] = useSearchParams();
+  const brut = params.get(cle);
+  const onglet = brut && (!valeurs || valeurs.includes(brut)) ? brut : defaut;
+  const choisir = (v) => setParams((prev) => {
+    const n = new URLSearchParams();
+    for (const k of garder) if (prev.has(k)) n.set(k, prev.get(k));
+    if (v !== defaut) n.set(cle, v);
+    return n;
+  }, { replace: true });
+  return [onglet, choisir];
+}
+
+/**
+ * Onglets : flèches gauche / droite, Début / Fin. Sur téléphone, au-delà de `compact` onglets
+ * (4 par défaut), la barre est remplacée par une liste déroulante (pas de défilement caché).
+ * tabs : [{ value, label, count? }].
+ */
+export function Tabs({ tabs, value, onChange, label = 'Onglets', compact = 4 }) {
   const refs = useRef({});
   const actif = tabs.some((t) => t.value === value) ? value : tabs[0]?.value;
+  const replie = tabs.length > compact;
   const onKeyDown = (e, i) => {
     const cible = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
     if (cible === undefined) return;
@@ -356,15 +433,24 @@ export function Tabs({ tabs, value, onChange, label = 'Onglets' }) {
     refs.current[t.value]?.focus();
   };
   return (
-    <div className="mb-4 flex gap-1 overflow-x-auto border-b border-slate-200 no-print" role="tablist" aria-label={label}>
+    <>
+      {replie && (
+        <div className="mb-4 sm:hidden no-print">
+          <select className="input font-semibold text-dep-700" value={actif} onChange={(e) => onChange(e.target.value)} aria-label={label}>
+            {tabs.map((t) => <option key={t.value} value={t.value}>{t.label}{t.count ? ` (${t.count})` : ''}</option>)}
+          </select>
+        </div>
+      )}
+    <div className={`mb-4 gap-1 overflow-x-auto border-b border-slate-200 no-print ${replie ? 'hidden sm:flex' : 'flex'}`} role="tablist" aria-label={label}>
       {tabs.map((t, i) => (
         <button key={t.value} ref={(n) => { refs.current[t.value] = n; }} type="button" role="tab" aria-selected={actif === t.value} tabIndex={actif === t.value ? 0 : -1}
           onClick={() => onChange(t.value)} onKeyDown={(e) => onKeyDown(e, i)}
-          className={`whitespace-nowrap rounded-t border-b-2 px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dep-400 ${actif === t.value ? 'border-dep-700 text-dep-800' : 'border-transparent text-slate-600 hover:text-slate-900'}`}>
+          className={`whitespace-nowrap rounded-t border-b-2 px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dep-400 ${actif === t.value ? 'border-dep-700 font-semibold text-dep-700' : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900'}`}>
           {t.label}{t.count ? <span className="ml-1.5 rounded-full bg-dep-100 px-1.5 text-xs text-dep-800">{t.count}</span> : null}
         </button>
       ))}
     </div>
+    </>
   );
 }
 
@@ -575,7 +661,7 @@ export function DataTable({
 }
 
 /** Liste de filtre. `label` (sinon le texte de l’option vide) est lu par les lecteurs d’écran. */
-export function Select({ value, onChange, options, placeholder = 'Tous', className = 'input w-auto', label }) {
+export function Select({ value, onChange, options, placeholder = 'Tous', className = 'input w-auto max-w-full', label }) {
   return (
     <select className={className} value={value ?? ''} onChange={(e) => onChange(e.target.value)} aria-label={label || placeholder}>
       <option value="">{placeholder}</option>
@@ -624,7 +710,7 @@ export function useListParams(defaults = {}) {
       if (enTexte(v) === defaut(k)) n.delete(k); else n.set(k, enTexte(v));
     }
     return n;
-  }, { replace: true }), [setParams]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, { replace: true }), [setParams]);
   return { valeurs, set, defaut };
 }
 
@@ -677,7 +763,7 @@ export function WorkflowStatus({ etapes, courante, alerte, termine = false, saut
   };
   const pastille = (e) => (e === 'fait' ? 'bg-dep-600 text-white'
     : e === 'actif' ? (alerte ? TON_ALERTE[alerte.tone] : 'border-2 border-dep-600 bg-white text-dep-700')
-      : e === 'saute' ? 'border-2 border-dashed border-slate-300 bg-white text-slate-400'
+      : e === 'saute' ? 'border-2 border-dashed border-slate-300 bg-white text-slate-500'
         : 'bg-slate-200 text-slate-600');
   return (
     <div>
@@ -758,14 +844,15 @@ export function DetailLayout({ main, aside }) {
  * Avertit avant de quitter une page dont la saisie n’est pas enregistrée : navigation dans l’application
  * (y compris le bouton Retour) par une fenêtre de confirmation, fermeture ou rechargement de l’onglet
  * par l’avertissement du navigateur. La déconnexion (inactivité, session expirée) n’est jamais bloquée.
- * when : vrai tant qu’il y a des modifications à perdre (faux pendant l’enregistrement).
+ * when : vrai tant qu’il y a des modifications à perdre (faux pendant l’enregistrement) ;
+ * surOnglet : protège aussi un changement d’onglet ou de filtre de la même page (paramètres de l’adresse).
  */
-export function UnsavedChangesGuard({ when, message = 'Vos modifications n’ont pas été enregistrées. Si vous quittez cette page, elles seront perdues.' }) {
+export function UnsavedChangesGuard({ when, surOnglet = false, message = 'Vos modifications n’ont pas été enregistrées. Si vous quittez cette page, elles seront perdues.' }) {
   const actif = useRef(when);
   actif.current = when;
   const blocker = useBlocker(useCallback(({ currentLocation, nextLocation }) => actif.current
-    && currentLocation.pathname !== nextLocation.pathname
-    && nextLocation.pathname !== '/connexion' && !!useAuth.getState().user, []));
+    && (currentLocation.pathname !== nextLocation.pathname || (surOnglet && currentLocation.search !== nextLocation.search))
+    && nextLocation.pathname !== '/connexion' && !!useAuth.getState().user, [surOnglet]));
   useEffect(() => {
     if (!when) return undefined;
     const avant = (e) => { if (!useAuth.getState().user) return; e.preventDefault(); e.returnValue = ''; };
@@ -823,6 +910,8 @@ export function BarList({ rows, label, sansValeur = 'aucune activité' }) {
         const texte = vide ? sansValeur : `${r.value} %`;
         const infoId = `barre-${String(r.key).replace(/\W/g, '')}`;
         return (
+          // Ligne focalisable pour afficher au clavier le détail de la barre (infobulle reliée par aria-describedby).
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex
           <li key={r.key} tabIndex={r.detail ? 0 : undefined} aria-describedby={r.detail ? infoId : undefined}
             onMouseEnter={() => setActif(r.key)} onMouseLeave={() => setActif(null)} onFocus={() => setActif(r.key)} onBlur={() => setActif(null)}
             className={`relative grid grid-cols-1 items-center gap-1 rounded px-1.5 py-1.5 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] sm:gap-3`}>

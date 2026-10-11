@@ -109,3 +109,119 @@ export function circuitCourrier(c) {
   if (pos > 2 && !aFait(c.historique, 'TRAITEMENT')) sautees.push(2);
   return { etapes, courante: pos, termine: c.statut === 'ARCHIVE', sautees };
 }
+
+/**
+ * Programmation (PTBA, CBMT, PAP, RAP, CDMT) : préparation (Bureau Programme) → vérification (Chef du
+ * Bureau Programme) → consolidation (Chef de la Division Programme et Suivi) → validation (Directeur).
+ */
+export function circuitProgrammation(d) {
+  const etapes = ['Préparation', 'Vérification', 'Consolidation', 'Validation du Directeur', 'Validé'];
+  const pos = { BROUILLON: 0, A_CORRIGER: 0, SOUMIS: 1, VERIFIE: 2, CONSOLIDE: 3, VALIDE: 4 }[d.statut] ?? 0;
+  const details = { SOUMIS: { 1: 'Chez le Chef du Bureau Programme' }, VERIFIE: { 2: 'Chez le Chef de la Division Programme et Suivi' }, CONSOLIDE: { 3: 'Chez le Directeur' } }[d.statut] || {};
+  return {
+    etapes, courante: pos, termine: d.statut === 'VALIDE', details,
+    alerte: d.statut === 'A_CORRIGER' ? { tone: 'attention', label: 'Retourné pour correction' } : undefined,
+  };
+}
+
+/** Campagnes de collecte : préparation → collecte ouverte → clôturée → validée (données figées). */
+export function circuitCampagne(c) {
+  const etapes = ['Préparation', 'Collecte ouverte', 'Clôturée', 'Validée'];
+  const pos = { BROUILLON: 0, OUVERTE: 1, CLOTUREE: 2, VALIDEE: 3 }[c.statut] ?? 0;
+  const retour = c.statut === 'OUVERTE' && !!c.observations;
+  return {
+    etapes, courante: pos, termine: c.statut === 'VALIDEE',
+    details: { CLOTUREE: { 2: 'En attente de validation par le Chef de Division' } }[c.statut] || {},
+    alerte: retour ? { tone: 'attention', label: 'Retournée par le Chef de Division' } : undefined,
+  };
+}
+
+/** Réponses de campagne : saisie (brouillon) → transmise au contrôle → contrôlée, par une autre personne. */
+export function circuitReponse(r) {
+  const etapes = ['Saisie', 'Transmise au contrôle', 'Contrôlée'];
+  const pos = { BROUILLON: 0, A_CORRIGER: 0, SAISIE: 1, CONTROLEE: 2 }[r?.statut] ?? 0;
+  return {
+    etapes, courante: pos, termine: r?.statut === 'CONTROLEE',
+    alerte: r?.statut === 'A_CORRIGER' ? { tone: 'attention', label: 'À corriger' } : undefined,
+  };
+}
+
+/** Bulletins et baromètres : rédaction → visa du Chef de Division → autorisation du Directeur (diffusion). */
+export function circuitBulletin(b) {
+  const etapes = ['Rédaction', 'Visa du Chef de Division', 'Autorisation du Directeur', 'Diffusé'];
+  const pos = { BROUILLON: 0, A_CORRIGER: 0, SOUMIS: 1, VISE: 2, DIFFUSE: 3 }[b.statut] ?? 0;
+  return {
+    etapes, courante: pos, termine: b.statut === 'DIFFUSE',
+    alerte: b.statut === 'A_CORRIGER' ? { tone: 'attention', label: 'Retourné pour correction' } : undefined,
+  };
+}
+
+/**
+ * Réunions : préparation → convocation → tenue (rédaction du compte rendu) → compte rendu soumis au
+ * président → clôturée (décisions inscrites au registre). Annulée : position du dernier statut connu.
+ */
+export function circuitReunion(r) {
+  const etapes = ['Préparation', 'Convoquée', 'Tenue — compte rendu', 'Validation du président', 'Clôturée'];
+  const pos = (s) => ({ BROUILLON: 0, CONVOQUEE: 1, TENUE: 2, CR_A_VALIDER: 3, CLOTUREE: 4 }[s]);
+  if (r.statut === 'ANNULEE') {
+    const avant = [...(r.historique || [])].reverse().find((h) => h.nouveau_statut && h.nouveau_statut !== 'ANNULEE')?.nouveau_statut;
+    return { etapes, courante: pos(avant) ?? 1, alerte: { tone: 'danger', label: 'Annulée' } };
+  }
+  const retour = r.statut === 'TENUE' && !!r.observations_president;
+  return {
+    etapes, courante: pos(r.statut) ?? 0, termine: r.statut === 'CLOTUREE',
+    alerte: retour ? { tone: 'attention', label: 'Compte rendu retourné' } : undefined,
+    details: r.statut === 'CR_A_VALIDER' && r.president_nom ? { 3: `Chez ${r.president_nom}` } : {},
+  };
+}
+
+/** Décisions : à exécuter → mise en œuvre (instruction ou tâche) → exécutée ; abandon possible. */
+export function circuitDecision(d) {
+  const etapes = ['À exécuter', 'Mise en œuvre', 'Exécutée'];
+  if (d.statut === 'ABANDONNEE') return { etapes, courante: d.instruction_id || d.task_id ? 1 : 0, alerte: { tone: 'danger', label: 'Abandonnée' } };
+  const pos = { A_EXECUTER: 0, EN_COURS: 1, EXECUTEE: 2 }[d.statut] ?? 0;
+  return {
+    etapes, courante: pos, termine: d.statut === 'EXECUTEE',
+    sautees: d.statut === 'EXECUTEE' && !d.instruction_id && !d.task_id ? [1] : [],
+    alerte: d.en_retard ? { tone: 'danger', label: 'En retard' } : undefined,
+  };
+}
+
+/**
+ * Actes administratifs : préparation (copie signée jointe) → validation (Directeur, ou Secrétaire
+ * Général pour le poste de Directeur) → validé ; refus, révocation, expiration et remplacement signalés.
+ */
+export function circuitActe(a) {
+  const autorite = a.validation_par === 'SECRETAIRE_GENERAL' ? 'du Secrétaire Général' : 'du Directeur';
+  const etapes = ['Préparation', `Validation ${autorite}`, 'Validé'];
+  switch (a.statut) {
+    case 'BROUILLON': return { etapes, courante: 0 };
+    case 'SOUMIS': return { etapes, courante: 1 };
+    case 'REFUSE': return { etapes, courante: 1, alerte: { tone: 'danger', label: 'Refusé' } };
+    case 'REVOQUE': return { etapes, courante: 2, alerte: { tone: 'danger', label: 'Révoqué' } };
+    case 'EXPIRE': return { etapes, courante: 2, termine: true, details: { 2: 'Période échue' } };
+    case 'REMPLACE': return { etapes, courante: 2, termine: true, details: { 2: 'Remplacé par un rectificatif' } };
+    default: return { etapes, courante: 2, termine: true };
+  }
+}
+
+/**
+ * Cartes de service : préparation (Bureau Secrétariat de Direction) → validation du Directeur →
+ * impression → remise au titulaire ; suspension, perte, annulation, expiration et remplacement signalés.
+ */
+export function circuitCarte(c) {
+  const etapes = ['Préparation', 'Validation du Directeur', 'Impression', 'Remise au titulaire'];
+  const pos = { BROUILLON: 0, A_COMPLETER: 0, VERIFIEE: 1, VALIDEE: 2, IMPRIMEE: 3, REMISE: 3 }[c.statut];
+  if (pos !== undefined) {
+    return {
+      etapes, courante: pos, termine: c.statut === 'REMISE',
+      alerte: c.statut === 'A_COMPLETER' ? { tone: 'attention', label: 'Dossier à compléter' } : c.statut === 'BROUILLON' && c.commentaire ? { tone: 'attention', label: 'Retournée' } : undefined,
+      details: c.statut === 'REMISE' ? { 3: c.accuse_at ? 'Réception confirmée' : 'Accusé de réception attendu' } : {},
+    };
+  }
+  const fin = {
+    SUSPENDUE: { alerte: { tone: 'attention', label: 'Suspendue' } }, PERDUE: { alerte: { tone: 'danger', label: 'Perdue ou volée' } },
+    ANNULEE: { alerte: { tone: 'danger', label: 'Annulée' } }, EXPIREE: { termine: true, details: { 3: 'Validité échue' } }, REMPLACEE: { termine: true, details: { 3: 'Remplacée' } },
+  }[c.statut] || {};
+  return { etapes, courante: c.remise_at ? 3 : c.imprime_at ? 3 : 2, ...fin };
+}

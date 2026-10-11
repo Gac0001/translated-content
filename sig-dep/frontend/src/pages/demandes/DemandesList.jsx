@@ -5,7 +5,7 @@ import api from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import { useApi, Loadable, PageHeader, DataTable, Badge, PrioriteBadge, InfoAlert, Modal, Field, Select, runAction } from '../../components/ui';
 import { COLORS } from '../../lib/labels';
-import { fmtDate, fmtDateTime } from '../../lib/format';
+import { aujourdhui, fmtDate, fmtDateTime } from '../../lib/format';
 
 export const ETATS_DEMANDE = {
   ENVOYEE: ['En attente de réponse', COLORS.jaune], REPONDUE: ['Répondue', COLORS.vert], CLOSE: ['Close', COLORS.gris],
@@ -24,7 +24,7 @@ function NouvelleDemande({ onClose, onCreated }) {
         <Field label="Objet" required className="sm:col-span-2"><input className="input" value={f.objet} onChange={up('objet')} /></Field>
         <Field label="Question" required className="sm:col-span-2"><textarea className="input" rows={6} value={f.question} onChange={up('question')} /></Field>
         <Field label="Priorité"><select className="input" value={f.priorite} onChange={up('priorite')}><option value="BASSE">Basse</option><option value="NORMALE">Normale</option><option value="HAUTE">Haute</option><option value="URGENTE">Urgente</option></select></Field>
-        <Field label="Réponse attendue pour le"><input type="date" className="input" min={new Date().toISOString().slice(0, 10)} value={f.echeance} onChange={up('echeance')} /></Field>
+        <Field label="Réponse attendue pour le"><input type="date" className="input" min={aujourdhui()} value={f.echeance} onChange={up('echeance')} /></Field>
       </div>
     </Modal>
   );

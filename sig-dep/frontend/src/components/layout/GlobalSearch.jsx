@@ -75,6 +75,8 @@ export default function GlobalSearch({ panel = false, onNavigate }) {
                   index += 1;
                   const i = index;
                   return (
+                    // Liste déroulante de type combobox : le focus reste dans le champ (aria-activedescendant), les flèches et Entrée sont gérées par lui.
+                    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/interactive-supports-focus
                     <div key={`${g}${it.id}`} id={optionId(i)} role="option" aria-selected={i === active} onMouseEnter={() => setActive(i)} onMouseDown={(e) => e.preventDefault()} onClick={() => go(it)}
                       className={`flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm ${i === active ? 'bg-dep-50' : ''}`}>
                       <span className="min-w-0 flex-1"><span className="block truncate font-medium">{it.titre}</span><span className="block truncate text-xs text-slate-500">{it.sousTitre}</span></span>
