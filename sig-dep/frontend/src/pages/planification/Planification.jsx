@@ -1,0 +1,235 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FileSpreadsheet, Plus, Upload } from 'lucide-react';
+import api, { download, errorMessage } from '../../lib/api';
+import { useAuth } from '../../store/auth';
+import { useApi, Loadable, PageHeader, Tabs, useOnglet, DataTable, StatusBadge, Card, Modal, FormModal, FormSection, Field, InfoAlert, Stat, Progress, SimpleTable, EmptyState, runAction, toast } from '../../components/ui';
+
+import Performance from './Performance';
+import Credits from './Credits';
+import DocumentsProgrammation from './DocumentsProgrammation';
+import Banque from './Banque';
+import { fmtCdf } from '../../lib/format';
+import Risques from './Risques';
+
+/** Montant en CDF (zéro pour une valeur absente, comme les totaux de PTBA). */
+export const cdf = (n) => fmtCdf(Number(n) || 0);
+
+/** Import d’un classeur PTBA au format du Ministère : analyse, choix des feuilles, confirmation. */
+function ImportModal({ referentiel, onClose, onDone }) {
+  const [exercice, setExercice] = useState(String(referentiel.exercices[0]?.id || ''));
+  const [analyse, setAnalyse] = useState(null);
+  const [choix, setChoix] = useState({});
+  const [busy, setBusy] = useState(false);
+  const analyser = async (fichier) => {
+    if (!fichier) return;
+    const fd = new FormData(); fd.append('fichier', fichier);
+    setBusy(true);
+    try {
+      const r = await api.post('/ptba/import/analyser', fd);
+      setAnalyse(r.data);
+      setChoix(Object.fromEntries(r.data.feuilles.map((f, i) => [i, !!f.service_id])));
+    } catch (e) { toast.error(errorMessage(e)); } finally { setBusy(false); }
+  };
+  const maj = (i, k, v) => setAnalyse({ ...analyse, feuilles: analyse.feuilles.map((f, j) => (j === i ? { ...f, [k]: v } : f)) });
+  const confirmer = async () => {
+    const feuilles = analyse.feuilles.filter((_, i) => choix[i]).map((f) => ({
+      sigle: f.sigle, service_id: f.service_id || null, service_libelle: f.service_libelle || f.sigle, programme_id: f.programme_id ? Number(f.programme_id) : null,
+      objectif_global: f.objectif_global || null, objectifs: f.objectifs,
+    }));
+    await runAction(() => api.post('/ptba/import/confirmer', { exercice_id: Number(exercice), feuilles }), `${feuilles.length} PTBA importé(s) en brouillon.`);
+    onDone();
+  };
+  const nb = Object.values(choix).filter(Boolean).length;
+  return (
+    <Modal open size="xl" title="Importer un PTBA (format du Ministère)" onClose={onClose} footer={<><button type="button" className="btn-secondary" onClick={onClose}>Annuler</button><button type="button" className="btn-primary" disabled={!analyse || !nb || !exercice} onClick={confirmer}>Importer {nb} feuille(s)</button></>}>
+      <div className="space-y-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Exercice" required><select className="input" value={exercice} onChange={(e) => setExercice(e.target.value)}>{referentiel.exercices.map((x) => <option key={x.id} value={x.id}>{x.annee}</option>)}</select></Field>
+          <Field label="Classeur Excel (.xlsx)" required hint="Une feuille par service : activités principales, tâches, coût, chronogramme, structure responsable…"><input type="file" accept=".xlsx" className="input" disabled={busy} onChange={(e) => analyser(e.target.files[0])} /></Field>
+        </div>
+        {busy && <p className="text-sm text-slate-500">Analyse du classeur…</p>}
+        {analyse && (
+          <>
+            {analyse.ignorees.length > 0 && <InfoAlert>Feuilles ignorées (autre format) : {analyse.ignorees.join(', ')}.</InfoAlert>}
+            <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
+              {analyse.feuilles.map((f, i) => (
+                <li key={f.feuille} className="grid gap-2 p-3 text-sm sm:grid-cols-12 sm:items-center">
+                  <label className="flex items-center gap-2 sm:col-span-3"><input type="checkbox" checked={!!choix[i]} onChange={(e) => setChoix({ ...choix, [i]: e.target.checked })} /><span><b>{f.feuille}</b><span className="block text-xs text-slate-500">{f.nb_lignes} ligne(s) · {cdf(f.cout_total)}</span></span></label>
+                  <div className="sm:col-span-3">{f.service_id ? <span>Service <b>{f.sigle}</b></span> : <input className="input" placeholder={`Intitulé du nouveau service ${f.sigle}`} value={f.service_libelle || ''} onChange={(e) => maj(i, 'service_libelle', e.target.value)} />}</div>
+                  <select className="input sm:col-span-3" value={f.programme_id || ''} onChange={(e) => maj(i, 'programme_id', e.target.value)} aria-label="Programme">
+                    <option value="">— Programme —</option>
+                    {referentiel.programmes.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.libelle}</option>)}
+                  </select>
+                  <span className="truncate text-xs text-slate-500 sm:col-span-3" title={f.objectif_global}>{f.objectif_global || 'Objectif global non renseigné'}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+function NouveauPtba({ referentiel, onClose, onCreated }) {
+  const [f, setF] = useState({ exercice_id: String(referentiel.exercices[0]?.id || ''), service_id: '', programme_id: '', objectif_global: '' });
+  const up = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const creer = async () => {
+    if (!f.exercice_id || !f.service_id) throw new Error('L’exercice et le service sont obligatoires.');
+    const r = await api.post('/ptba', { exercice_id: Number(f.exercice_id), service_id: Number(f.service_id), programme_id: f.programme_id ? Number(f.programme_id) : null, objectif_global: f.objectif_global || null });
+    toast.success('PTBA créé.');
+    onCreated(r.data.id);
+  };
+  return (
+    <FormModal open title="Nouveau PTBA" submitLabel="Créer" onClose={onClose} onSubmit={creer} dirty={!!(f.service_id || f.programme_id || f.objectif_global)}>
+      <FormSection cols={1}>
+        <Field label="Exercice" required><select className="input" value={f.exercice_id} onChange={up('exercice_id')}>{referentiel.exercices.map((x) => <option key={x.id} value={x.id}>{x.annee}</option>)}</select></Field>
+        <Field label="Service" required><select className="input" value={f.service_id} onChange={up('service_id')}><option value="">— Choisir —</option>{referentiel.services.filter((s) => s.actif).map((s) => <option key={s.id} value={s.id}>{s.sigle} — {s.libelle}</option>)}</select></Field>
+        <Field label="Programme"><select className="input" value={f.programme_id} onChange={up('programme_id')}><option value="">—</option>{referentiel.programmes.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.libelle}</option>)}</select></Field>
+        <Field label="Objectif global"><textarea className="input" rows={3} value={f.objectif_global} onChange={up('objectif_global')} /></Field>
+      </FormSection>
+    </FormModal>
+  );
+}
+
+function ListePtba({ referentiel, annee }) {
+  const state = useApi(`/ptba?exercice=${annee}`, [annee]);
+  const navigate = useNavigate();
+  const can = useAuth((s) => s.can);
+  const [modal, setModal] = useState(null);
+  return (
+    <Loadable state={state}>
+      {(d) => (
+        <>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {d.droits.preparer && <button type="button" className="btn-primary" onClick={() => setModal('import')}><Upload size={16} aria-hidden /> Importer un classeur</button>}
+            {d.droits.preparer && <button type="button" className="btn-secondary" onClick={() => setModal('nouveau')}><Plus size={16} aria-hidden /> Nouveau PTBA</button>}
+            {can('exports.generer') && <button type="button" className="btn-secondary" onClick={() => download(`/ptba/export/consolide?exercice=${annee}`, `PTBA-${annee}.xlsx`).catch((e) => toast.error(errorMessage(e)))}><FileSpreadsheet size={16} aria-hidden /> PTBA consolidé {annee}</button>}
+          </div>
+          <DataTable rows={d.data} onRowClick={(p) => navigate(`/planification/ptba/${p.id}`)} empty={`Aucun PTBA pour ${annee}.`}
+            columns={[
+              { key: 'service_sigle', header: 'Service', render: (p) => <div><div className="font-semibold">{p.service_sigle}</div><div className="text-xs text-slate-500">{p.service_libelle}</div></div>, search: (p) => `${p.service_sigle} ${p.service_libelle}` },
+              { key: 'programme_libelle', header: 'Programme', render: (p) => p.programme_libelle || '—' },
+              { key: 'nb_lignes', header: 'Lignes', className: 'text-right', sortable: true },
+              { key: 'cout_total', header: 'Coût', className: 'text-right', sortValue: (p) => Number(p.cout_total) || 0, render: (p) => <span className="whitespace-nowrap tabular-nums">{cdf(p.cout_total)}</span> },
+              { key: 'statut', header: 'Statut', render: (p) => <StatusBadge value={p.statut} /> },
+            ]} />
+          {modal === 'import' && <ImportModal referentiel={referentiel} onClose={() => setModal(null)} onDone={() => { setModal(null); state.reload(); }} />}
+          {modal === 'nouveau' && <NouveauPtba referentiel={referentiel} onClose={() => setModal(null)} onCreated={(id) => navigate(`/planification/ptba/${id}`)} />}
+        </>
+      )}
+    </Loadable>
+  );
+}
+
+function Execution({ annee }) {
+  const state = useApi(`/ptba/tableau-de-bord?exercice=${annee}`, [annee]);
+  return (
+    <Loadable state={state}>
+      {(d) => (
+        <>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Stat label="Coût programmé" value={cdf(d.global.cout)} />
+            <Stat label="Décaissé" value={cdf(d.global.decaisse)} hint={`Engagé : ${cdf(d.global.engage)}`} tone="vert" />
+            <Stat label="Exécution financière" value={`${d.global.tauxFinancier} %`} tone="jaune" />
+            <Stat label="Exécution physique" value={`${d.global.tauxPhysique} %`} hint="Moyenne pondérée par le coût" tone="violet" />
+          </div>
+          <Card title={`Exécution des PTBA validés — ${annee}`} className="mt-4" bodyClass="p-0">
+            {d.services.length ? (
+              <SimpleTable label={`Exécution des PTBA validés ${annee}`} rows={d.services}
+                columns={[
+                  { key: 'sigle', header: 'Service', render: (s) => <><b>{s.sigle}</b> <span className="text-xs text-slate-500">{s.libelle}</span></> },
+                  { key: 'cout', header: 'Programmé', align: 'right', render: (s) => cdf(s.cout) },
+                  { key: 'engage', header: 'Engagé', align: 'right', render: (s) => cdf(s.engage) },
+                  { key: 'decaisse', header: 'Décaissé', align: 'right', render: (s) => cdf(s.decaisse) },
+                  { key: 'physique', header: 'Physique', className: 'w-44', render: (s) => <Progress value={s.tauxPhysique} label={`Exécution physique ${s.sigle}`} /> },
+                  { key: 'financier', header: 'Financier', className: 'w-44', render: (s) => <Progress value={Math.round(s.tauxFinancier)} label={`Exécution financière ${s.sigle}`} /> },
+                ]}
+                footer={[{ id: 'total', sigle: 'Total', libelle: '', cout: d.global.cout, engage: d.global.engage, decaisse: d.global.decaisse, tauxPhysique: d.global.tauxPhysique, tauxFinancier: d.global.tauxFinancier }]} />
+            ) : <EmptyState title="Aucun PTBA validé pour cet exercice">L’exécution trimestrielle se saisit sur chaque PTBA une fois validé par le Directeur (onglet PTBA).</EmptyState>}
+          </Card>
+        </>
+      )}
+    </Loadable>
+  );
+}
+
+function Referentiel({ referentiel, reload }) {
+  const [edition, setEdition] = useState(null);
+  const gerer = referentiel.droits.gerer;
+  const [initial, setInitial] = useState(null);
+  const ouvrir = (e) => { setEdition(e); setInitial(e); };
+  const enregistrer = async () => {
+    const { type, id, ...body } = edition;
+    const chemins = { exercice: 'exercices', programme: 'programmes', action: 'actions', service: 'services' };
+    if (body.annee) body.annee = Number(body.annee);
+    if (body.programme_id) body.programme_id = Number(body.programme_id);
+    await (id ? api.put(`/planification/${chemins[type]}/${id}`, body) : api.post(`/planification/${chemins[type]}`, body));
+    toast.success('Référentiel mis à jour.');
+    setEdition(null); reload();
+  };
+  const champ = (k, label, props = {}) => <Field label={label} required={props.required}><input className="input" value={edition[k] ?? ''} onChange={(e) => setEdition({ ...edition, [k]: e.target.value })} {...props} /></Field>;
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <Card title="Exercices" actions={gerer && <button type="button" className="btn-secondary" onClick={() => ouvrir({ type: 'exercice', annee: new Date().getFullYear() + 1, statut: 'PREPARATION' })}><Plus size={16} aria-hidden /> Exercice</button>}>
+        <ul className="space-y-1 text-sm">{referentiel.exercices.map((e) => <li key={e.id} className="flex justify-between"><span className="font-semibold">{e.annee}</span><button type="button" className="text-xs text-dep-700 hover:underline disabled:text-slate-500" disabled={!gerer} onClick={() => ouvrir({ type: 'exercice', id: e.id, annee: e.annee, statut: e.statut })}>{({ PREPARATION: 'En préparation', EXECUTION: 'En exécution', CLOTURE: 'Clôturé' })[e.statut]}</button></li>)}</ul>
+      </Card>
+      <Card title="Programmes et actions" className="lg:col-span-2" actions={gerer && <button type="button" className="btn-secondary" onClick={() => ouvrir({ type: 'programme', code: '', libelle: '', objectif_global: '' })}><Plus size={16} aria-hidden /> Programme</button>}>
+        {referentiel.programmes.length ? referentiel.programmes.map((p) => (
+          <div key={p.id} className="mb-3 border-b border-slate-100 pb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2"><button type="button" disabled={!gerer} className="text-left font-semibold text-dep-800" onClick={() => ouvrir({ type: 'programme', id: p.id, code: p.code, libelle: p.libelle, objectif_global: p.objectif_global || '', ordre: p.ordre })}>Programme {p.code} — {p.libelle}</button>
+              {gerer && <button type="button" className="text-xs text-dep-700 hover:underline" onClick={() => ouvrir({ type: 'action', programme_id: p.id, code: '', libelle: '', services_normatifs: '', operateurs: '' })}>+ action</button>}</div>
+            <ul className="ml-4 mt-1 space-y-0.5 text-sm">{p.actions.map((a) => <li key={a.id}><button type="button" disabled={!gerer} className="text-left" onClick={() => ouvrir({ type: 'action', id: a.id, programme_id: p.id, code: a.code, libelle: a.libelle, services_normatifs: a.services_normatifs || '', operateurs: a.operateurs || '' })}>Action {a.code} : {a.libelle}</button></li>)}</ul>
+          </div>
+        )) : <EmptyState title="Aucun programme">Saisissez la maquette programmatique du Ministère : programmes, puis leurs actions.</EmptyState>}
+      </Card>
+      <Card title="Services du Ministère" className="lg:col-span-3" actions={gerer && <button type="button" className="btn-secondary" onClick={() => ouvrir({ type: 'service', sigle: '', libelle: '' })}><Plus size={16} aria-hidden /> Service</button>}>
+        <div className="grid gap-1 text-sm sm:grid-cols-2 lg:grid-cols-3">{referentiel.services.map((s) => <button key={s.id} type="button" disabled={!gerer} className="text-left" onClick={() => ouvrir({ type: 'service', id: s.id, sigle: s.sigle, libelle: s.libelle, actif: s.actif })}><b>{s.sigle}</b> — {s.libelle}{!s.actif && ' (inactif)'}</button>)}</div>
+      </Card>
+      {edition && (
+        <FormModal open title={`${edition.id ? '' : 'Nouveau : '}${{ exercice: 'Exercice', programme: 'Programme', action: 'Action', service: 'Service du Ministère' }[edition.type]}`} onClose={() => setEdition(null)} onSubmit={enregistrer} dirty={JSON.stringify(edition) !== JSON.stringify(initial)}>
+          <FormSection cols={1}>
+            {edition.type === 'exercice' && <>{champ('annee', 'Année', { type: 'number', required: true })}<Field label="État"><select className="input" value={edition.statut} onChange={(e) => setEdition({ ...edition, statut: e.target.value })}><option value="PREPARATION">En préparation</option><option value="EXECUTION">En exécution</option><option value="CLOTURE">Clôturé</option></select></Field></>}
+            {edition.type === 'programme' && <>{champ('code', 'Code', { required: true })}{champ('libelle', 'Intitulé', { required: true })}<Field label="Objectif global"><textarea className="input" rows={3} value={edition.objectif_global} onChange={(e) => setEdition({ ...edition, objectif_global: e.target.value })} /></Field></>}
+            {edition.type === 'action' && <>{champ('code', 'Code', { required: true })}{champ('libelle', 'Intitulé', { required: true })}{champ('services_normatifs', 'Services normatifs')}{champ('operateurs', 'Opérateurs')}</>}
+            {edition.type === 'service' && <>{champ('sigle', 'Sigle', { required: true })}{champ('libelle', 'Intitulé', { required: true })}</>}
+          </FormSection>
+        </FormModal>
+      )}
+    </div>
+  );
+}
+
+const ONGLETS = [{ value: 'ptba', label: 'PTBA' }, { value: 'execution', label: 'Exécution' }, { value: 'performance', label: 'Performance' }, { value: 'credits', label: 'Crédits' }, { value: 'documents', label: 'CBMT · PAP · RAP · CDMT' }, { value: 'banque', label: 'Banque des projets' }, { value: 'risques', label: 'Risques' }, { value: 'referentiel', label: 'Référentiel' }];
+
+/** Planification : PTBA, exécution, performance, crédits, PAP/RAP/CDMT, banque des projets, risques, référentiel. */
+export default function Planification() {
+  const ref = useApi('/planification/referentiel');
+  const [onglet, setOnglet] = useOnglet('ptba', { valeurs: ONGLETS.map((t) => t.value) });
+  const [annee, setAnnee] = useState(null);
+  useEffect(() => { if (ref.data && !annee) setAnnee(ref.data.exercices[0]?.annee || new Date().getFullYear()); }, [ref.data, annee]);
+  return (
+    <>
+      <PageHeader title="Planification" subtitle="PTBA des services du Ministère, cadre de performance, crédits, documents de programmation (PAP, RAP, CDMT), banque des projets et risques."
+        breadcrumb={[{ label: 'Planification' }]}
+        actions={ref.data?.exercices.length > 0 && <select className="input w-32" value={annee || ''} onChange={(e) => setAnnee(Number(e.target.value))} aria-label="Exercice">{ref.data.exercices.map((e) => <option key={e.id} value={e.annee}>{e.annee}</option>)}</select>} />
+      <Tabs value={onglet} onChange={setOnglet} tabs={ONGLETS} />
+      <Loadable state={ref}>
+        {(r) => (
+          <>
+            {!r.exercices.length && ['ptba', 'execution'].includes(onglet) && <InfoAlert>Aucun exercice : ouvrez un exercice dans l’onglet Référentiel.</InfoAlert>}
+            {onglet === 'ptba' && annee && r.exercices.length > 0 && <ListePtba referentiel={r} annee={annee} />}
+            {onglet === 'execution' && annee && r.exercices.length > 0 && <Execution annee={annee} />}
+            {onglet === 'performance' && annee && <Performance annee={annee} />}
+            {onglet === 'credits' && annee && <Credits annee={annee} />}
+            {onglet === 'documents' && annee && <DocumentsProgrammation annee={annee} />}
+            {onglet === 'banque' && <Banque programmes={r.programmes} />}
+            {onglet === 'risques' && annee && <Risques annee={annee} programmes={r.programmes} />}
+            {onglet === 'referentiel' && <Referentiel referentiel={r} reload={ref.reload} />}
+          </>
+        )}
+      </Loadable>
+    </>
+  );
+}
