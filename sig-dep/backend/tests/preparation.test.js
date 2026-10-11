@@ -10,17 +10,31 @@ const { verifier, MOT_DE_PASSE_ADMIN_INITIAL } = require('../src/services/prepar
 const statut = (r, cle) => r.controles.find((c) => c.cle === cle)?.statut;
 
 describe('Contrôle de préparation à la mise en production', () => {
-  test('hors production : non prêt, environnement et secret de test signalés comme bloquants', async () => {
+  test('hors production : non prêt, environnement signalé comme bloquant', async () => {
     const r = await verifier();
     expect(r.pret).toBe(false);
     expect(statut(r, 'environnement')).toBe('BLOQUANT');
-    expect(statut(r, 'secret_jwt')).toBe('BLOQUANT');
     expect(statut(r, 'connexion')).toBe('OK');
     expect(statut(r, 'migrations')).toBe('OK');
     expect(r.totaux.BLOQUANT).toBe(r.controles.filter((c) => c.statut === 'BLOQUANT').length);
     // Chaque point non conforme dit quoi faire ; aucun secret n’est renvoyé.
     expect(r.controles.filter((c) => ['ATTENTION', 'BLOQUANT'].includes(c.statut)).every((c) => c.conseil)).toBe(true);
     expect(JSON.stringify(r)).not.toContain(require('../src/config/env').jwt.accessSecret);
+  });
+
+  test('secret des jetons d’exemple ou trop court : bloquant', async () => {
+    const config = require('../src/config/env');
+    const avant = config.jwt.accessSecret;
+    try {
+      for (const faible of ['remplacer-par-un-secret-long-et-aleatoire-acces', 'court']) {
+        config.jwt.accessSecret = faible;
+        expect(statut(await verifier(), 'secret_jwt')).toBe('BLOQUANT');
+      }
+      config.jwt.accessSecret = 'a'.repeat(96);
+      expect(statut(await verifier(), 'secret_jwt')).toBe('OK');
+    } finally {
+      config.jwt.accessSecret = avant;
+    }
   });
 
   test('le mot de passe initial publié de l’Admin est bloquant', async () => {
