@@ -27,6 +27,8 @@ Général au Numérique (RDC). Interface et documentation **en français** ; ré
 | Tests | `npm test` (base `sig_dep_test`, recréée à chaque lancement) |
 | Construire l’interface | `npm run build` (frontend) |
 | Analyse statique de l’interface | `npm run lint` (frontend) — aucune erreur tolérée |
+| Paquet d’installation pour le serveur | `npm run paquet` (→ `paquets/`, non versionné) ; installation et mises à jour : `docs/MISE-EN-SERVICE.md` |
+| Contrôle de préparation à la production | `npm run verifier-production` (à compléter pour tout nouveau réglage sensible : `src/services/preparation.js`) |
 | Tests de non-régression de l’interface | `npm run test:e2e` (frontend ; API en mode démonstration démarrée, `LOGIN_RATE_LIMIT_MAX` relevé ; sous Windows, une fois : `npx playwright install chromium`) |
 
 ## Règles impératives

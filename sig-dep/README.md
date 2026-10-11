@@ -241,6 +241,8 @@ Le tableau de bord de l’Admin, du Directeur et du Secrétariat affiche l’ava
 | `npm run reset-admin -- "MotDePasse@1"` | Réinitialise l’Admin avec un mot de passe temporaire choisi |
 | `npm run backup` | Sauvegarde PostgreSQL (`storage/backups/`) |
 | `npm test` | Tests automatisés (base `sig_dep_test`) |
+| `npm run verifier-production` | Contrôle de préparation à la mise en production (voir section 11) |
+| `npm run paquet` | Paquet d’installation pour le serveur (`paquets/sig-dep-x.y.z.zip`) |
 
 ---
 
@@ -516,7 +518,7 @@ Les tests réinitialisent la base `sig_dep_test` (migrations et seeds), puis vé
 * les cartes de service : modèle versionné, contrôle du dossier, circuit de validation, numéro et QR code, renseignements figés, 5 ans, spécimen de signature, impression unitaire et planche, remise et accusé, suspension, perte, remplacement, renouvellement, expiration, vérification publique (QR, matricule, données limitées, journal, anti-énumération, limitation de débit) ;
 * les sauvegardes et la maintenance : planification et conservation, chiffrement, intégrité, test de restauration, circuit complet de restauration avec réintégration des traces, mode maintenance, annonces, migrations, masquage des secrets.
 
-**Intégration continue** : `.github/workflows/sig-dep.yml` exécute ces tests sur un PostgreSQL 16 éphémère et compile le frontend à chaque modification du dossier `sig-dep/`.
+**Intégration continue** : `.github/workflows/sig-dep.yml`, à chaque modification du dossier `sig-dep/` : tests de l’API sur un PostgreSQL 16 éphémère, analyse statique et compilation de l’interface, puis parcours de non-régression de l’interface sur une base de démonstration, l’API servant l’interface construite (ce qui sera livré). Le parcours d’accessibilité complet (11 rôles, ordinateur et téléphone) s’y ajoute chaque nuit et sur demande (« Run workflow ») ; en cas d’échec, le rapport et les captures sont joints au résultat.
 
 ---
 
@@ -570,74 +572,40 @@ Sauvegardez aussi le dossier `backend/storage/uploads` (pièces jointes et photo
 
 ## 11. Mise en production
 
-1. **Serveur** : Linux (Ubuntu 22.04 ou 24.04 recommandé) ou Windows Server, avec Node.js 22 LTS, PostgreSQL et Nginx (ou IIS).
-2. **Base** : créer un utilisateur PostgreSQL dédié avec un mot de passe fort. Ne pas ouvrir le port 5432 sur Internet.
-3. **Backend** :
+La procédure complète, pour **Windows et Linux**, est décrite dans **[docs/MISE-EN-SERVICE.md](docs/MISE-EN-SERVICE.md)**
+(prérequis, base PostgreSQL, installation, jour de l’ouverture avec liste à signer, HTTPS et e-mails, mises à jour, incidents).
+En résumé :
 
-   ```bash
-   cd backend
-   npm ci --omit=dev
-   cp .env.example .env
-   ```
+1. **Paquet d’installation** (poste de développement, dossier `backend`) : `npm run paquet` produit
+   `paquets/sig-dep-x.y.z.zip` et son empreinte SHA-256. Il contient l’API et ses dépendances de production
+   (valables sous Windows et Linux : le serveur n’a pas besoin d’Internet), l’interface construite, les fichiers
+   de déploiement (`deploy/`) et le guide ; jamais de `.env`, de pièces jointes ni de sauvegardes.
+2. **Installation et mises à jour** (serveur, depuis le paquet décompressé) :
+   `node backend/scripts/installer-serveur.js [--racine=DOSSIER] [--service]`. Structure créée :
+   `config/.env` (configuration commune aux versions, secrets générés sur place, clé des sauvegardes affichée
+   une seule fois), `donnees/` (pièces jointes, sauvegardes), `versions/x.y.z/`, lien `courante` vers la
+   version en service, `journaux/`. Une mise à jour copie la nouvelle version à côté de l’ancienne, sauvegarde
+   la base, applique les migrations (annulées si l’une échoue), bascule le lien et redémarre le service ;
+   `--revenir` rétablit la version précédente en défaisant ses migrations.
+3. **Service unique** : l’API sert aussi l’interface (`FRONTEND_DIR`) sur un seul port, en HTTP sur le réseau
+   local ou en **HTTPS direct** (`TLS_CERT_FILE`, `TLS_KEY_FILE`, `HTTP_REDIRECT_PORT`) ; Nginx ou IIS restent
+   possibles (`deploy/linux/nginx-sig-dep.conf`, avec `TRUST_PROXY=1`). Service systemd
+   (`deploy/linux/sig-dep.service`) ou service Windows WinSW (`deploy/windows/SIG-DEP.xml`), déclarés par `--service`.
+4. **Contrôle de préparation** : `npm run verifier-production` (avec `SIGDEP_ENV_FILE` pointant sur `config/.env`)
+   classe chaque point en conforme, à surveiller ou bloquant — environnement, mode démonstration, adresses
+   (application, QR codes des cartes), secret des jetons, HTTPS et cookie, proxy, base et migrations, données
+   fictives, mot de passe initial de l’Admin, dossiers, espace disque, interface, outils et chiffrement des
+   sauvegardes, copie hors serveur, sauvegarde et test de restauration réussis, messagerie. Code de sortie 1 s’il
+   reste un point bloquant. Le même contrôle figure sur la page **Santé du système** de l’Admin.
 
-   Dans `.env`, régler :
+| Variable | Rôle |
+|---|---|
+| `SIGDEP_ENV_FILE` | Fichier de configuration du serveur (par défaut `backend/.env`) |
+| `FRONTEND_DIR` | Dossier de l’interface construite servie par l’API (service unique) |
+| `TRUST_PROXY` | Nombre de proxys inverses de confiance (0 si l’API est exposée directement ; 1 derrière Nginx ou IIS) |
+| `TLS_CERT_FILE`, `TLS_KEY_FILE`, `HTTP_REDIRECT_PORT` | HTTPS assuré par l’API, redirection facultative du port HTTP |
 
-   ```
-   NODE_ENV=production
-   DATABASE_URL=postgres://sigdep:<mot-de-passe-fort>@localhost:5432/sig_dep
-   JWT_ACCESS_SECRET=<48 octets aléatoires>   # node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
-   CORS_ORIGINS=https://sig-dep.exemple.cd
-   COOKIE_SECURE=true
-   SEED_DEMO=false
-   APP_URL=https://sig-dep.exemple.cd
-   MAIL_ENABLED=true   # avec les variables SMTP_* (voir section 7)
-   ```
-
-   Puis :
-
-   ```bash
-   npm run migrate
-   npm run seed
-   ```
-
-   Lancer l’API en service : `pm2 start src/server.js --name sig-dep-api`, puis `pm2 save` et `pm2 startup` (ou un service systemd ou Windows).
-4. **Frontend** :
-
-   ```bash
-   cd frontend
-   npm ci
-   npm run build
-   ```
-
-   Servez le dossier `dist/` en statique.
-5. **Nginx** (même domaine pour l’interface et l’API, HTTPS obligatoire) :
-
-   ```nginx
-   server {
-     listen 443 ssl http2;
-     server_name sig-dep.exemple.cd;
-     ssl_certificate     /etc/letsencrypt/live/sig-dep.exemple.cd/fullchain.pem;
-     ssl_certificate_key /etc/letsencrypt/live/sig-dep.exemple.cd/privkey.pem;
-     client_max_body_size 20m;
-     root /opt/sig-dep/frontend/dist;
-     location /api/ { proxy_pass http://127.0.0.1:4000; proxy_set_header Host $host;
-                      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                      proxy_set_header X-Forwarded-Proto $scheme; }
-     location / { try_files $uri /index.html; }
-   }
-   server { listen 80; server_name sig-dep.exemple.cd; return 301 https://$host$request_uri; }
-   ```
-
-   En production, l’API fait confiance à un seul proxy (`trust proxy = 1`), ce qui lui permet d’enregistrer la vraie adresse IP dans l’audit.
-6. **Première connexion** : se connecter en `admin` / `dep@2026`, changer le mot de passe, puis créer les comptes du Secrétaire Général et du Directeur (Comptes → « Compte institutionnel »). Le Directeur valide ensuite la liste déclarative ; l’Admin enrôle le Bureau Secrétariat de Direction, qui enrôle les autres agents.
-7. **Exploitation** : sauvegardes planifiées, mises à jour de sécurité, surveillance des journaux (`pm2 logs`), consultation régulière du journal d’audit et des comptes verrouillés.
-
-En cas de perte du mot de passe Admin :
-
-```bash
-cd backend
-npm run reset-admin
-```
+En cas de perte du mot de passe Admin, sur le serveur : `npm run reset-admin` (dossier `courante/backend`).
 
 ---
 

@@ -7,6 +7,8 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
+  // Intégration continue à chaque envoi : sans le parcours d’accessibilité complet (lancé chaque nuit et sur demande).
+  testIgnore: process.env.SIGDEP_SANS_ACCESSIBILITE ? ['**/accessibilite.spec.js'] : [],
   timeout: 10 * 60 * 1000,
   workers: 1,
   retries: 0,

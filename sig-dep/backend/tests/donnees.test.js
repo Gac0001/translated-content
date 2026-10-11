@@ -119,14 +119,18 @@ describe('Données sectorielles', () => {
     const c = (await eap.post('/donnees/campagnes', base)).body;
     expect(c.reference).toMatch(/^DEP\/COL\//);
     let d = (await eap.get(`/donnees/campagnes/${c.id}`)).body;
-    expect(d.cibles.map((k) => k.id)).toEqual([a1.id]);
+    // Ciblage par catégorie et province : FAI de Kinshasa (d’autres fichiers de tests peuvent en créer).
+    const initiales = d.cibles.map((k) => k.id);
+    expect(initiales).toContain(a1.id);
+    expect(initiales).not.toContain(a2.id);
+    expect(initiales).not.toContain(a3.id);
     await eap.post(`/donnees/campagnes/${c.id}/cibles`, { acteurs: [a2.id, a3.id] });
     await eap.del(`/donnees/campagnes/${c.id}/cibles/${a3.id}`);
     // Saisie impossible avant l’ouverture
     expect((await doi.put(`/donnees/campagnes/${c.id}/reponses/${a1.id}`, { valeurs: { ABONNES: 10 }, source: 'PAPIER' })).status).toBe(403);
     expect((await eap.post(`/donnees/campagnes/${c.id}/ouvrir`)).status).toBe(200);
     d = (await eap.get(`/donnees/campagnes/${c.id}`)).body;
-    expect(d.cibles).toHaveLength(2);
+    expect(d.cibles.map((k) => k.id).sort()).toEqual([...initiales, a2.id].sort()); // a2 ajouté, a3 ajouté puis retiré
     expect((await sg.get(`/donnees/campagnes/${c.id}`)).status).toBe(404);
     // Saisie avec erreurs : enregistrée en brouillon, transmission refusée
     const s1 = await doi.put(`/donnees/campagnes/${c.id}/reponses/${a1.id}`, { valeurs: { ABONNES: '1 200', ABONNES_FIXE: 1500, TECHNO: 'Laser', INCONNUE: 3 }, source: 'FICHIER', date_reception: '2031-01-15' });

@@ -10,10 +10,18 @@ const { authenticate } = require('./middleware/auth');
 const { DEP_NOM } = require('./constants');
 
 const app = express();
-app.set('trust proxy', config.isProd ? 1 : false);
+app.set('trust proxy', config.trustProxy > 0 ? config.trustProxy : false);
 app.disable('x-powered-by');
 
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'same-site' } }));
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'same-site' },
+  // Interface servie par l’API : aperçus et photos lus en « blob: » (pièces jointes, cartes de service).
+  // Réseau local sans HTTPS : pas de « upgrade-insecure-requests », qui empêcherait le chargement de l’interface.
+  contentSecurityPolicy: { directives: {
+    'img-src': ["'self'", 'data:', 'blob:'], 'frame-src': ["'self'", 'blob:'], 'object-src': ["'self'", 'blob:'],
+    'upgrade-insecure-requests': config.tls || config.mail.appUrl.startsWith('https:') ? [] : null,
+  } },
+}));
 app.use(cors({
   origin(origin, cb) {
     if (!origin || config.corsOrigins.includes(origin)) return cb(null, true);
@@ -104,5 +112,17 @@ for (const [path, mod] of Object.entries(protectedModules)) {
 
 app.use('/api', (req, res) => res.status(404).json({ error: { code: 'INTROUVABLE', message: 'Ressource introuvable.' } }));
 app.use(errorHandler);
+
+// Service unique : interface construite servie par l’API (FRONTEND_DIR). Les fichiers versionnés
+// (assets/) sont mis en cache un an ; index.html jamais, pour qu’une mise à jour soit vue aussitôt.
+if (config.frontendDir) {
+  const fs = require('fs');
+  const path = require('path');
+  const index = path.join(config.frontendDir, 'index.html');
+  if (!fs.existsSync(index)) throw new Error(`FRONTEND_DIR : ${index} introuvable. Construisez l’interface (npm run build dans frontend) ou utilisez le paquet d’installation.`);
+  app.use('/assets', express.static(path.join(config.frontendDir, 'assets'), { immutable: true, maxAge: '365d', fallthrough: false }));
+  app.use(express.static(config.frontendDir, { index: false, maxAge: '1h' }));
+  app.get(/^(?!\/api(\/|$)).*/, (req, res) => { res.set('Cache-Control', 'no-cache'); res.sendFile(index); });
+}
 
 module.exports = app;

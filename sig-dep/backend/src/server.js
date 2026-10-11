@@ -15,9 +15,24 @@ async function start() {
     console.error('Vérifiez DATABASE_URL dans backend/.env puis exécutez « npm run migrate » et « npm run seed ».');
     process.exit(1);
   }
-  app.listen(config.port, () => {
-    console.log(`SIG-DEP — API de la Direction d’Études et Planification démarrée sur http://localhost:${config.port}`);
-  });
+  const quoi = config.frontendDir ? 'interface et API' : 'API';
+  if (config.tls) {
+    // HTTPS direct (certificat interne) ; le port HTTP facultatif ne fait que rediriger.
+    const https = require('https');
+    https.createServer({ cert: fs.readFileSync(config.tls.cert), key: fs.readFileSync(config.tls.key) }, app).listen(config.port, () => {
+      console.log(`SIG-DEP — ${quoi} de la Direction d’Études et Planification démarrées sur https://localhost:${config.port}`);
+    });
+    if (config.tls.redirectPort) {
+      require('http').createServer((req, res) => {
+        const hote = String(req.headers.host || 'localhost').replace(/:\d+$/, '');
+        res.writeHead(301, { Location: `https://${hote}${config.port === 443 ? '' : `:${config.port}`}${req.url}` }).end();
+      }).listen(config.tls.redirectPort);
+    }
+  } else {
+    app.listen(config.port, () => {
+      console.log(`SIG-DEP — ${quoi} de la Direction d’Études et Planification démarrées sur http://localhost:${config.port}`);
+    });
+  }
   jobs.start();
 }
 

@@ -1,5 +1,16 @@
 # Journal des versions — SIG-DEP
 
+## 1.32.0
+
+### Préparation de la mise en production (Windows et Linux, hébergement local)
+- **Contrôle de préparation** : `npm run verifier-production` classe chaque point en conforme, à surveiller ou bloquant, avec la marche à suivre — environnement, mode démonstration, adresses de l’application et des QR codes des cartes, secret des jetons, HTTPS et cookie, proxy, base et migrations, données fictives, mot de passe initial de l’Admin, dossiers et espace disque, interface, outils, chiffrement et copie des sauvegardes, sauvegarde et test de restauration réussis, messagerie. Code de sortie 1 tant qu’un point bloque. Le même contrôle s’affiche sur la page **Santé du système** de l’Admin.
+- **Service unique** : l’API peut servir l’interface construite (`FRONTEND_DIR`) sur un seul port — plus besoin de Nginx ni d’IIS sur un réseau local ; HTTPS direct par certificat interne (`TLS_CERT_FILE`, `TLS_KEY_FILE`, redirection `HTTP_REDIRECT_PORT`) ; `TRUST_PROXY` pour ne pas croire l’en-tête X-Forwarded-For sans proxy ; politique de sécurité du navigateur adaptée (aperçus et photos, pas de passage forcé en HTTPS sur le réseau local).
+- **Paquet d’installation** : `npm run paquet` produit `sig-dep-x.y.z.zip` et son empreinte SHA-256 : API et dépendances de production valables sous Windows et Linux (le serveur n’a pas besoin d’Internet), interface construite, fichiers de déploiement, guide ; jamais de `.env`, de pièces jointes ni de sauvegardes.
+- **Installateur et mises à jour** (`installer-serveur.js`) : configuration du serveur créée avec des secrets générés sur place (clé des sauvegardes affichée une fois, à conserver sous scellé), versions installées côte à côte avec un lien vers la version en service, sauvegarde avant migration, migrations annulées si l’une échoue (base et version en service inchangées), `--revenir` vers la version précédente (migrations défaites), conservation des trois dernières versions ; déclaration du service systemd (Linux) ou WinSW (Windows) avec `--service`. Essayé de bout en bout sous Linux : première installation, mise à jour, mise à jour en échec, retour arrière.
+- **Guide `docs/MISE-EN-SERVICE.md`** : prérequis, base PostgreSQL, installation pas à pas, contrôle de préparation, déroulé du jour de l’ouverture avec liste à cocher et à signer (Admin, Directeur), HTTPS et e-mails à activer plus tard, mises à jour, incidents. README (section 11) et CLAUDE.md mis à jour.
+- **Intégration continue** : analyse statique de l’interface et parcours de non-régression sur la version construite servie par l’API, à chaque envoi ; parcours d’accessibilité complet chaque nuit et sur demande ; rapport joint en cas d’échec.
+- Tests : 7 nouveaux côté API (contrôle de préparation, service unique) ; un test des données sectorielles rendu indépendant de l’ordre d’exécution des fichiers.
+
 ## 1.31.0
 
 ### Refonte de l’interface — étape 7 : performance (fin de la refonte)

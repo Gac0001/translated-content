@@ -1,0 +1,30 @@
+# SIG-DEP — service systemd (installé par « node backend/scripts/installer-serveur.js » lancé en root,
+# ou à la main : copier dans /etc/systemd/system/, puis systemctl daemon-reload && systemctl enable --now sig-dep).
+# {{RACINE}} : dossier d’installation (par défaut /opt/sig-dep). {{NODE}} : chemin de node.
+[Unit]
+Description=SIG-DEP — Direction d’Études et Planification
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sigdep
+Group=sigdep
+WorkingDirectory={{RACINE}}/courante/backend
+Environment=SIGDEP_ENV_FILE={{RACINE}}/config/.env
+ExecStart={{NODE}} src/server.js
+Restart=always
+RestartSec=5
+# Port < 1024 (80, 443) sans exécuter le service en root
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+# Durcissement : le service n’écrit que dans ses données et ses journaux
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths={{RACINE}}/donnees {{RACINE}}/journaux
+StandardOutput=append:{{RACINE}}/journaux/sig-dep.log
+StandardError=append:{{RACINE}}/journaux/sig-dep.log
+
+[Install]
+WantedBy=multi-user.target
