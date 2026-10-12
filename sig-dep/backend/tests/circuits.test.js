@@ -98,7 +98,7 @@ describe('Instruction exceptionnelle du Directeur', () => {
     // Le Secrétaire Général ne peut pas adresser d’instruction exceptionnelle
     const sg = api(await login('sg'));
     expect((await sg.post('/instructions', { ...base, justification_exception: 'Justification suffisante' })).status).toBe(403);
-    const audit = await db('audit_logs').where({ entite: 'instruction', entite_id: String(r.body.id) }).first();
+    const audit = await db('audit_logs').where({ entite: 'instruction', entite_id: String(r.body.id) }).orderBy('id').first();
     expect(audit.message).toMatch(/Instruction exceptionnelle/);
   });
 });

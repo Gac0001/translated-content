@@ -6,6 +6,8 @@
 const ExcelJS = require('exceljs');
 const db = require('../db/knex');
 const { loadAllNodes } = require('./hierarchy');
+const identite = require('./identite');
+const officiel = require('./entete');
 
 const TYPES_QUESTION = ['NOMBRE', 'ENTIER', 'TEXTE', 'CHOIX', 'CHOIX_MULTIPLE', 'DATE', 'OUI_NON'];
 const NUMERIQUES = ['NOMBRE', 'ENTIER'];
@@ -122,12 +124,18 @@ const COLONNES = [
 const STATUTS_ACTEUR = { ACTIF: 'Actif', SUSPENDU: 'Suspendu', CESSE: 'Cessé' };
 const sansAccent = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
-function entete(ws, cols) {
+/** Ligne d’intitulés (précédée de l’en-tête officiel de la Direction si `wb` est fourni) ; renvoie son numéro. */
+function entete(ws, cols, wb) {
+  if (wb) {
+    cols.forEach((c, i) => { ws.getColumn(i + 1).width = c[2] || 18; });
+    officiel.excelEntete(wb, ws, identite.courante(), cols.length);
+  }
   const r = ws.addRow(cols.map((c) => c[1]));
   r.eachCell((cell) => { cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF17418A' } }; cell.alignment = { vertical: 'middle', wrapText: true }; });
   r.height = 30;
   cols.forEach((c, i) => { ws.getColumn(i + 1).width = c[2] || 18; });
   ws.views = [{ state: 'frozen', ySplit: r.number }];
+  return r.number;
 }
 
 /** Modèle d’import : feuille Acteurs et listes des catégories, provinces et statuts. */
@@ -135,13 +143,13 @@ async function modele() {
   const [categories, zones] = await Promise.all([db('sect_categories').where('actif', true).orderBy('ordre'), db('sect_zones').where('actif', true).orderBy('ordre')]);
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Acteurs');
-  entete(ws, COLONNES);
+  const h = entete(ws, COLONNES, wb);
   const listes = wb.addWorksheet('Listes');
   listes.addRow(['Catégories', 'Provinces', 'Statuts']).font = { bold: true };
   const n = Math.max(categories.length, zones.length, 3);
   for (let i = 0; i < n; i += 1) listes.addRow([categories[i]?.libelle || null, zones[i]?.libelle || null, Object.values(STATUTS_ACTEUR)[i] || null]);
   listes.columns.forEach((c) => { c.width = 48; });
-  for (let r = 2; r <= 1000; r += 1) {
+  for (let r = h + 1; r <= h + 1000; r += 1) {
     ws.getCell(r, 3).dataValidation = { type: 'list', allowBlank: true, formulae: [`Listes!$A$2:$A$${categories.length + 1}`] };
     ws.getCell(r, 4).dataValidation = { type: 'list', allowBlank: true, formulae: [`Listes!$B$2:$B$${zones.length + 1}`] };
     ws.getCell(r, 17).dataValidation = { type: 'list', allowBlank: true, formulae: ['Listes!$C$2:$C$4'] };
@@ -227,9 +235,9 @@ async function analyserImport(buffer) {
 async function exporterAnnuaire(rows) {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Acteurs');
-  entete(ws, [['reference', 'Référence', 20], ...COLONNES]);
+  const h = entete(ws, [['reference', 'Référence', 20], ...COLONNES], wb);
   for (const a of rows) ws.addRow([a.reference, ...COLONNES.map(([k]) => (k === 'categorie' ? a.categorie : k === 'zone' ? a.zone : k === 'statut' ? STATUTS_ACTEUR[a.statut] : a[k] ?? null))]);
-  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: COLONNES.length + 1 } };
+  ws.autoFilter = { from: { row: h, column: 1 }, to: { row: h, column: COLONNES.length + 1 } };
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
 
@@ -246,8 +254,9 @@ function libelleValeur(q, v) {
 async function exporterReponses(campagne, version, cibles) {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Réponses');
-  ws.addRow([`${campagne.reference} — ${campagne.titre} (période ${campagne.periode})`]).font = { bold: true, size: 13 };
   const qs = version.questions || [];
+  officiel.excelEntete(wb, ws, identite.courante(), 6 + qs.length);
+  ws.addRow([`${campagne.reference} — ${campagne.titre} (période ${campagne.periode})`]).font = { bold: true, size: 13 };
   entete(ws, [['ref', 'Référence', 18], ['acteur', 'Acteur', 36], ['categorie', 'Catégorie', 28], ['zone', 'Province', 16], ['statut', 'Statut de la réponse', 16],
     ...qs.map((q) => [q.code, `${q.code} — ${q.libelle}${q.unite ? ` (${q.unite})` : ''}`, 22]), ['anomalies', 'Anomalies', 40]]);
   for (const c of cibles) {
@@ -256,7 +265,7 @@ async function exporterReponses(campagne, version, cibles) {
     qs.forEach((q, i) => { if (NUMERIQUES.includes(q.type)) r.getCell(6 + i).numFmt = '#,##0.##'; });
   }
   const dico = wb.addWorksheet('Questionnaire');
-  entete(dico, [['code', 'Code', 14], ['libelle', 'Question', 60], ['type', 'Type', 16], ['unite', 'Unité', 14], ['obligatoire', 'Obligatoire', 12], ['bornes', 'Bornes', 20], ['options', 'Options', 50]]);
+  entete(dico, [['code', 'Code', 14], ['libelle', 'Question', 60], ['type', 'Type', 16], ['unite', 'Unité', 14], ['obligatoire', 'Obligatoire', 12], ['bornes', 'Bornes', 20], ['options', 'Options', 50]], wb);
   for (const q of qs) dico.addRow([q.code, q.libelle, q.type, q.unite || null, q.obligatoire ? 'Oui' : 'Non', NUMERIQUES.includes(q.type) ? [q.min, q.max].map((x) => x ?? '—').join(' à ') : null, (q.options || []).join(' ; ') || null]);
   return Buffer.from(await wb.xlsx.writeBuffer());
 }

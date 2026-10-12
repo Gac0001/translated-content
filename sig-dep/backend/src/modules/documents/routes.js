@@ -25,6 +25,7 @@ const pdf = require('../../services/pdf');
 const { sendWorkbook } = require('../../services/excel');
 const { buildDocx } = require('../../services/word');
 const { TYPES, BY_CODE, normalize } = require('./types');
+const correspondance = require('../../services/correspondance');
 const { notFound, badRequest, forbidden } = require('../../utils/errors');
 const { ROLE_LIBELLES } = require('../../constants');
 
@@ -110,7 +111,8 @@ function actionsFor(ctx, d) {
 
 router.get('/:id', requirePerm('documents.consulter'), validate({ params: idParam }), async (req, res) => {
   const d = await detail(req.ctx, req.valid.params.id);
-  res.json({ ...d, actions: actionsFor(req.ctx, d) });
+  const t = BY_CODE[d.type_document];
+  res.json({ ...d, actions: actionsFor(req.ctx, d), ...(t?.correspondance ? { reference_officielle: correspondance.referenceAffichee(d, t) } : {}) });
 });
 
 router.get('/:id/versions/:numero', requirePerm('documents.consulter'), validate({ params: z.object({ id: z.coerce.number().int(), numero: z.coerce.number().int() }) }), async (req, res) => {
@@ -132,7 +134,7 @@ const createSchema = z.object({
 router.post('/', requirePerm('documents.rediger'), validate({ body: createSchema }), async (req, res) => {
   if (req.ctx.perimetre === 'SUPERVISION_GLOBALE' || !ctxNode(req.ctx)) throw forbidden('Votre compte ne peut pas rédiger de document de service de la DEP.');
   const b = req.valid.body;
-  const { contenu } = normalize(b.type_document, b.contenu);
+  const { contenu } = normalize(b.type_document, b.contenu, { defauts: true });
   const dep = await db('directions').where({ code: 'DEP' }).first();
   const row = await db.transaction(async (trx) => {
     const reference = await nextReference(`DOC-${b.type_document}`, `DEP/${b.type_document.split('_').map((x) => x[0]).join('')}`, trx);
@@ -222,7 +224,10 @@ router.post('/:id/valider', requirePerm('documents.valider_final'), validate({ p
   const { missing } = normalize(d.type_document, d.contenu);
   if (missing.length) throw badRequest(`Rubriques obligatoires manquantes : ${missing.join(', ')}.`);
   const visas = [...(d.visas || []), visa(req.ctx, 'SIGNATURE')];
-  res.json(await move(req, d, { statut: 'VALIDE', niveau_actuel: 'DIRECTION', visas: JSON.stringify(visas), valide_par: req.ctx.userId, valide_at: db.fn.now() }, 'VALIDATION', req.valid.body.commentaire || 'Validé et signé par le Directeur', d.auteur_user_id, 'DOCUMENT_VALIDE', 'Document validé'));
+  // Correspondance : numéro officiel attribué à la signature (séquence annuelle, jamais réutilisé)
+  const numero = BY_CODE[d.type_document]?.correspondance && !d.numero_officiel
+    ? await db.transaction((trx) => correspondance.numeroter(trx, d, BY_CODE[d.type_document], req.ctx.userId)) : {};
+  res.json(await move(req, d, { statut: 'VALIDE', niveau_actuel: 'DIRECTION', visas: JSON.stringify(visas), valide_par: req.ctx.userId, valide_at: db.fn.now(), ...numero }, 'VALIDATION', [req.valid.body.commentaire || 'Validé et signé par le Directeur', numero.numero_officiel].filter(Boolean).join(' — '), d.auteur_user_id, 'DOCUMENT_VALIDE', 'Document validé'));
 });
 
 router.post('/:id/rejeter', requirePerm('documents.valider_final'), validate({ params: idParam, body: z.object({ commentaire: z.string().trim().min(3).max(5000) }) }), async (req, res) => {
@@ -305,6 +310,15 @@ router.get('/:id/export/:format', requirePerm('exports.generer'), validate({ par
   const fname = `${d.reference.replace(/\//g, '-')}`;
   const visas = (d.visas || []).map((v) => ({ ...v, libelle: v.type === 'VALIDATION_DIVISION' ? 'Chef de Division' : v.libelle }));
   if (d.publie_at) meta.push(['Publication', `${pdf.fmtDateTime(d.publie_at)} — ${d.diffusion === 'DIRECTION' ? 'toute la Direction' : d.diffusions.map((x) => x.nom).join(', ')}${d.diffusion_sg ? ' ; Secrétaire Général' : ''}`]);
+  // Correspondance : mise en page en lettre (en-tête selon le signataire, référence, lieu et date…)
+  if (BY_CODE[d.type_document]?.correspondance && req.valid.params.format !== 'xlsx') {
+    const ref = correspondance.referenceAffichee(d, BY_CODE[d.type_document]).replace(/^N°\s*/, '').replace(/[/\\?%*:|"<>…\s]+/g, '-');
+    if (req.valid.params.format === 'pdf') return correspondance.pdfLettre(res, d, BY_CODE[d.type_document], `${ref}.pdf`);
+    const buf = await correspondance.wordLettre(d, BY_CODE[d.type_document]);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename="${ref}.docx"`);
+    return res.send(buf);
+  }
   if (req.valid.params.format === 'docx') {
     const buf = await buildDocx({ titre: `${t.libelle.toUpperCase()} — ${d.titre}`, reference: d.reference, meta, sections: t.sections.map((s) => ({ label: s.label, type: s.type, columns: s.columns, value: s.type === 'date' ? pdf.fmtDate(d.contenu[s.key]) : d.contenu[s.key] })), visas });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');

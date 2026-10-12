@@ -1,11 +1,12 @@
 'use strict';
 /**
- * Génération PDF (pdfkit) avec en-tête administratif officiel :
- * République Démocratique du Congo — Secrétariat Général au Numérique —
- * Direction d’Études et Planification.
+ * Génération PDF (pdfkit) avec l’en-tête et le pied de page officiels de la Direction
+ * (services/entete.js, identité du Ministère en vigueur ou celle d’un document signé).
  */
 const PDFDocument = require('pdfkit');
-const { DEP_NOM, SG_NOM, PAYS } = require('../constants');
+const { DEP_NOM } = require('../constants');
+const identite = require('./identite');
+const entete = require('./entete');
 
 const BLUE = '#0b3d6e';
 const GREY = '#555555';
@@ -20,56 +21,41 @@ function fmtDateTime(d) {
   return new Date(d).toLocaleString('fr-FR', { timeZone: 'Africa/Kinshasa', dateStyle: 'short', timeStyle: 'short' });
 }
 
-function header(doc, { reference } = {}) {
-  const x = doc.page.margins.left;
-  const w = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-  doc.save();
-  // Bandeau tricolore sobre (bleu, jaune, rouge)
-  doc.rect(x, 28, w, 3).fill('#007fff');
-  doc.rect(x, 31, w, 1.5).fill('#f7d618');
-  doc.rect(x, 32.5, w, 1.5).fill('#ce1021');
-  doc.restore();
-  doc.fillColor(BLUE).font('Helvetica-Bold').fontSize(10).text(PAYS.toUpperCase(), x, 42, { width: w, align: 'center' });
-  doc.font('Helvetica').fontSize(9).fillColor('#222').text(SG_NOM.toUpperCase(), { width: w, align: 'center' });
-  doc.font('Helvetica-Bold').fontSize(9.5).fillColor(BLUE).text(DEP_NOM.toUpperCase(), { width: w, align: 'center' });
-  doc.font('Helvetica').fontSize(8).fillColor(GREY).text('(DEP)', { width: w, align: 'center' });
-  const endY = doc.y;
-  if (reference) doc.fontSize(8).fillColor(GREY).text(`Réf. : ${reference}`, x, 42, { width: w, align: 'right' });
-  const y = endY + 6;
-  doc.moveTo(x, y).lineTo(x + w, y).lineWidth(0.7).strokeColor(BLUE).stroke();
-  doc.y = y + 10;
-  doc.x = x;
-  doc.fillColor('#000');
-}
-
-function footer(doc) {
+/** Pieds de page officiels de toutes les pages (numéro de page au-delà d’une page). */
+function footer(doc, ident) {
   const range = doc.bufferedPageRange();
   for (let i = range.start; i < range.start + range.count; i++) {
     doc.switchToPage(i);
-    const bottom = doc.page.height - 30;
-    const oldBottom = doc.page.margins.bottom;
-    doc.page.margins.bottom = 0;
-    doc.fontSize(7.5).fillColor(GREY).font('Helvetica')
-      .text(`SIG-DEP — ${DEP_NOM} — Document généré le ${fmtDateTime(new Date())} — Page ${i + 1}/${range.count}`,
-        doc.page.margins.left, bottom, { width: doc.page.width - doc.page.margins.left - doc.page.margins.right, align: 'center' });
-    doc.page.margins.bottom = oldBottom;
+    entete.pdfPied(doc, ident, { page: i + 1, total: range.count });
   }
 }
 
-/** Crée un PDF diffusé en réponse HTTP. Appeler `finish()` pour terminer. */
-function createPdf(res, { filename, titre, sousTitre, reference, landscape = false }) {
-  const doc = new PDFDocument({ size: 'A4', layout: landscape ? 'landscape' : 'portrait', margins: { top: 40, bottom: 50, left: 45, right: 45 }, bufferPages: true, info: { Title: titre, Author: `SIG-DEP — ${DEP_NOM}` } });
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-  doc.pipe(res);
-  doc.on('pageAdded', () => header(doc, { reference }));
-  header(doc, { reference });
+/**
+ * Crée un PDF diffusé en réponse HTTP, avec l’en-tête officiel en première page, un rappel discret
+ * sur les suivantes et le pied de page officiel sur chaque page. Appeler `finish()` pour terminer.
+ * `variante` : 'DEP' (par défaut) ou 'SG' (document signé par le Secrétaire Général) ;
+ * `identiteId` : version de l’identité du Ministère d’un document signé (sinon celle en vigueur).
+ */
+function createPdf(res, { filename, titre, sousTitre, reference, landscape = false, variante = 'DEP', identiteId = null, referenceSousEntete = true }) {
+  const ident = identite.version(identiteId);
+  const doc = new PDFDocument({ size: 'A4', layout: landscape ? 'landscape' : 'portrait', margins: { top: 46, bottom: entete.PIED_PDF + 14, left: 45, right: 45 }, bufferPages: true, info: { Title: titre || reference || filename || 'Document', Author: `SIG-DEP — ${DEP_NOM}` } });
+  entete.pdfPolices(doc);
+  if (res) {
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    doc.pipe(res);
+  }
+  doc.on('pageAdded', () => { doc.y = Math.max(doc.page.margins.top, entete.pdfRappel(doc, reference)); doc.x = doc.page.margins.left; });
+  doc.y = entete.pdfEntete(doc, ident, { variante });
+  doc.x = doc.page.margins.left;
+  if (reference && referenceSousEntete) doc.font('Helvetica').fontSize(8).fillColor(GREY).text(`Réf. : ${reference}`, { align: 'right' });
   if (titre) {
     doc.moveDown(0.3).font('Helvetica-Bold').fontSize(13).fillColor(BLUE).text(titre, { align: 'center' });
     if (sousTitre) doc.font('Helvetica').fontSize(9.5).fillColor(GREY).text(sousTitre, { align: 'center' });
-    doc.moveDown(0.8).fillColor('#000');
+    doc.moveDown(0.8);
   }
-  return { doc, finish: () => { footer(doc); doc.end(); } };
+  doc.fillColor('#000').font('Helvetica');
+  return { doc, ident, finish: () => { footer(doc, ident); doc.end(); } };
 }
 
 function ensureSpace(doc, h) {

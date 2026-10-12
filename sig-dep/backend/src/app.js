@@ -31,6 +31,8 @@ app.use(cors({
   exposedHeaders: ['Content-Disposition'],
 }));
 app.use(express.json({ limit: '2mb' }));
+// Identité du Ministère (en-tête et pied de page des documents) gardée en mémoire, relue au plus chaque minute.
+app.use(async (req, res, next) => { await require('./services/identite').pret(); next(); });
 app.use(cookieParser());
 if (!config.isTest && !process.env.SIG_DEP_SILENCIEUX) app.use(morgan(config.isProd ? 'combined' : 'dev'));
 

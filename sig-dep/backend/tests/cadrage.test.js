@@ -63,7 +63,9 @@ describe('Cadrage budgétaire (CBMT)', () => {
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(x.body);
     expect(wb.worksheets.map((w) => w.name)).toEqual(['Cadrage', 'Respect du CBMT', 'Actions prioritaires']);
-    expect(wb.getWorksheet('Actions prioritaires').getRow(2).values.slice(1, 3)).toEqual([1, 'Identité numérique (essai)']);
+    const actions = wb.getWorksheet('Actions prioritaires');
+    const premiere = actions.getRows(1, actions.rowCount).find((r) => r.getCell(1).value === 1); // sous l’en-tête officiel
+    expect(premiere.values.slice(1, 3)).toEqual([1, 'Identité numérique (essai)']);
     const cdmt = (await prg.post('/programmation/documents', { type: 'CDMT', annee: A })).body;
     const wc = new ExcelJS.Workbook();
     await wc.xlsx.load((await binaire(str.get(`/programmation/documents/${cdmt.id}/export`))).body);

@@ -30,6 +30,7 @@ const OPERATIONS = {
   POLITIQUE: 'Modification de la politique de sécurité',
   MIGRATIONS: 'Application des migrations de la base',
   ROLE_ADMIN: 'Modification des permissions du rôle Admin Système',
+  IDENTITE: 'Modification de l’identité du Ministère (en-tête et pied de page des documents)',
 };
 const VALIDITE_HEURES = 24;
 

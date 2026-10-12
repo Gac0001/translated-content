@@ -20,6 +20,8 @@ const CONSERVEES = [
   'audit_logs', 'login_history', 'alertes_securite', 'demandes_confirmation', 'acces_support', 'activations_urgence',
   // Modèle de carte (référentiel) et journal des vérifications publiques
   'modeles_carte', 'verifications_carte',
+  // Identité du Ministère (en-tête et pied de page officiels, versions datées)
+  'identite_versions',
   // Maquette programmatique et services du Ministère (référentiel de la planification)
   'plan_programmes', 'plan_actions', 'plan_services', 'plan_postes_budgetaires',
   // Provinces et catégories d’acteurs (référentiel des données sectorielles)

@@ -174,7 +174,7 @@ describe('Données sectorielles', () => {
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(ex.body);
     const ws = wb.getWorksheet('Réponses');
-    const ligne = [3, 4].map((n) => ws.getRow(n).values.slice(1)).find((l) => l[0] === a1.reference);
+    const ligne = ws.getRows(1, ws.rowCount).map((r) => r.values.slice(1)).find((l) => l[0] === a1.reference);
     expect(ligne.slice(0, 5)).toEqual([a1.reference, 'Fictive Connect SARL', expect.any(String), 'Kinshasa', 'Contrôlée']);
     expect(ligne).toContain(2600000);
     const h = (await eap.get(`/donnees/campagnes/${c.id}`)).body.historique.map((x) => x.action);

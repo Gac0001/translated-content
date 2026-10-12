@@ -1,20 +1,28 @@
 'use strict';
-/** Exports Excel (exceljs) avec en-tête officiel de la Direction d’Études et Planification. */
+/**
+ * Exports Excel (exceljs) avec l’en-tête officiel de la Direction dans les premières lignes de chaque
+ * feuille (répété à l’impression) et le pied de page officiel dans le pied d’impression.
+ */
 const ExcelJS = require('exceljs');
-const { DEP_NOM, SG_NOM, PAYS } = require('../constants');
+const { DEP_NOM } = require('../constants');
+const identite = require('./identite');
+const entete = require('./entete');
 
 function addSheet(wb, { name, titre, sousTitre, columns, rows }) {
   const ws = wb.addWorksheet(name.slice(0, 31), { pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1 } });
   const n = Math.max(columns.length, 3);
-  const lines = [PAYS.toUpperCase(), SG_NOM.toUpperCase(), `${DEP_NOM.toUpperCase()} (DEP)`, '', titre || '', sousTitre || ''];
-  lines.forEach((t, i) => {
-    const r = ws.getRow(i + 1);
+  columns.forEach((c, i) => { ws.getColumn(i + 1).width = c.width || 18; });
+  let ligne = entete.excelEntete(wb, ws, identite.courante(), n);
+  [[titre, { bold: true, size: 13, color: { argb: 'FF0B3D6E' } }], [sousTitre, { size: 10, color: { argb: 'FF444444' } }]].forEach(([t, font]) => {
+    if (!t) return;
+    const r = ws.getRow(ligne);
     r.getCell(1).value = t;
-    ws.mergeCells(i + 1, 1, i + 1, n);
+    ws.mergeCells(ligne, 1, ligne, n);
     r.getCell(1).alignment = { horizontal: 'center' };
-    r.getCell(1).font = { bold: i === 2 || i === 4, size: i === 4 ? 13 : 10, color: { argb: i === 2 || i === 4 ? 'FF0B3D6E' : 'FF222222' } };
+    r.getCell(1).font = font;
+    ligne += 1;
   });
-  const headerRowIdx = lines.length + 1;
+  const headerRowIdx = ligne + 1;
   const hr = ws.getRow(headerRowIdx);
   columns.forEach((c, i) => {
     const cell = hr.getCell(i + 1);
@@ -37,6 +45,7 @@ function addSheet(wb, { name, titre, sousTitre, columns, rows }) {
   ws.views = [{ state: 'frozen', ySplit: headerRowIdx }];
   ws.addRow([]);
   ws.addRow([`Généré par SIG-DEP — ${DEP_NOM} — ${new Date().toLocaleString('fr-FR', { timeZone: 'Africa/Kinshasa' })}`]).font = { italic: true, size: 8, color: { argb: 'FF666666' } };
+  ws.pageSetup.printTitlesRow = `${headerRowIdx}:${headerRowIdx}`; // intitulés de colonnes répétés à chaque page
   return ws;
 }
 

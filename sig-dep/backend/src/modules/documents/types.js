@@ -2,8 +2,13 @@
 /**
  * Modèles des documents de service (formulaires guidés).
  * Le frontend construit les formulaires à partir de ces définitions ; le backend valide le contenu.
- * Types de champs : text, textarea, date, number, list (liste de lignes), table (colonnes).
+ * Types de champs : text, textarea, date, number, select (options), list (liste de lignes), table (colonnes).
+ * `default` : valeur proposée à la création ; `ancien` : rubrique d’un modèle antérieur, affichée seulement
+ * si elle est renseignée ; `correspondance` : document numéroté à la signature et mis en page en lettre.
  */
+// Signataires des correspondances : le Secrétaire Général emploie la variante d’en-tête du Secrétariat Général.
+const SIGNATAIRES = ['Directeur', 'Secrétaire Général'];
+
 const TYPES = [
   {
     code: 'RAPPORT', libelle: 'Rapport', description: 'Rapport d’activités ou rapport d’étude.',
@@ -38,12 +43,22 @@ const TYPES = [
     ],
   },
   {
-    code: 'NOTE_EXPLICATIVE', libelle: 'Note explicative', description: 'Explication d’une décision, d’un texte ou d’une situation.',
+    code: 'NOTE_EXPLICATIVE', libelle: 'Note explicative', correspondance: true,
+    description: 'Note à l’attention d’une autorité (par exemple le Ministre), signée par le Secrétaire Général ou le Directeur ; numérotée à la signature.',
     sections: [
-      { key: 'destinataire', label: 'À l’attention de', type: 'text', required: true },
-      { key: 'objet_explication', label: 'Objet de l’explication', type: 'textarea', required: true },
-      { key: 'explications', label: 'Explications', type: 'textarea', required: true },
-      { key: 'conclusion', label: 'Conclusion', type: 'textarea' },
+      { key: 'signataire', label: 'Signataire', type: 'select', options: SIGNATAIRES, required: true, default: 'Secrétaire Général', help: 'Le Secrétaire Général : en-tête du Secrétariat Général et référence « …/SG/… ».' },
+      { key: 'destinataire', label: 'À l’attention de', type: 'text', required: true, default: 'Son Excellence Monsieur le Ministre de l’Économie Numérique' },
+      { key: 'concerne', label: 'Concerne', type: 'text', required: true },
+      { key: 'formule_appel', label: 'Formule d’appel', type: 'text', default: 'Excellence Monsieur le Ministre,' },
+      { key: 'corps', label: 'Corps de la note', type: 'textarea', required: true },
+      { key: 'formule_finale', label: 'Formule finale', type: 'text', default: 'Vos instructions m’obligeraient. Haute considération.' },
+      { key: 'signataire_nom', label: 'Nom du signataire', type: 'text' },
+      { key: 'copies', label: 'Transmis copie pour information à', type: 'list', help: 'Une ligne par destinataire, avec sa formule de politesse.' },
+      { key: 'annexes', label: 'Annexes', type: 'list' },
+      // Rubriques de l’ancien modèle, affichées seulement si elles sont renseignées
+      { key: 'objet_explication', label: 'Objet de l’explication', type: 'textarea', ancien: true },
+      { key: 'explications', label: 'Explications', type: 'textarea', ancien: true },
+      { key: 'conclusion', label: 'Conclusion', type: 'textarea', ancien: true },
     ],
   },
   {
@@ -95,21 +110,49 @@ const TYPES = [
     ],
   },
   {
-    code: 'LETTRE_TRANSMISSION', libelle: 'Lettre de transmission', description: 'Lettre accompagnant la transmission de documents.',
+    code: 'LETTRE_TRANSMISSION', libelle: 'Lettre de transmission', correspondance: true,
+    description: 'Lettre accompagnant la transmission de documents ; numérotée à la signature.',
     sections: [
-      { key: 'destinataire', label: 'Destinataire', type: 'text', required: true },
+      { key: 'signataire', label: 'Signataire', type: 'select', options: SIGNATAIRES, required: true, default: 'Directeur' },
+      { key: 'destinataire', label: 'Destinataire', type: 'text', required: true, help: 'Titre du destinataire, par exemple « Monsieur le Secrétaire Général au Numérique ».' },
+      { key: 'adresse', label: 'Adresse', type: 'text', default: 'à Kinshasa/Gombe' },
       { key: 'objet', label: 'Objet', type: 'text', required: true },
       { key: 'references', label: 'Références', type: 'text' },
+      { key: 'formule_appel', label: 'Formule d’appel', type: 'text', default: 'Monsieur le Secrétaire Général,' },
       { key: 'corps', label: 'Corps de la lettre', type: 'textarea', required: true },
-      { key: 'pieces', label: 'Pièces transmises', type: 'list' },
+      { key: 'formule_finale', label: 'Formule finale', type: 'text', default: 'Veuillez agréer, Monsieur le Secrétaire Général, l’expression de ma haute considération.' },
+      { key: 'signataire_nom', label: 'Nom du signataire', type: 'text' },
+      { key: 'pieces', label: 'Pièces transmises (annexes)', type: 'list' },
+      { key: 'copies', label: 'Transmis copie pour information à', type: 'list', help: 'Une ligne par destinataire, avec sa formule de politesse.' },
     ],
   },
   {
-    code: 'COMMUNIQUE_SERVICE', libelle: 'Communiqué de service', description: 'Communication interne à l’ensemble ou à une partie du personnel.',
+    code: 'COMMUNIQUE_SERVICE', libelle: 'Communiqué de service', correspondance: true,
+    description: 'Communication interne à l’ensemble ou à une partie du personnel, émise par le Secrétariat de Direction ; numérotée à la validation.',
     sections: [
       { key: 'destinataires', label: 'Destinataires', type: 'text', required: true },
       { key: 'objet', label: 'Objet', type: 'text', required: true },
       { key: 'message', label: 'Message', type: 'textarea', required: true },
+    ],
+  },
+  {
+    code: 'TERMES_REFERENCE', libelle: 'Termes de référence',
+    description: 'Termes de référence d’une étude, d’une mission ou de l’élaboration d’un document de stratégie, conduite par phases.',
+    sections: [
+      { key: 'date_document', label: 'Date du document', type: 'text', help: 'Par exemple « Mars 2026 ».' },
+      { key: 'contexte', label: 'Contexte et justification', type: 'textarea', required: true },
+      { key: 'objectif_general', label: 'Objectif général', type: 'textarea', required: true },
+      { key: 'objectifs_specifiques', label: 'Objectifs spécifiques', type: 'list', required: true },
+      { key: 'mission', label: 'Mission et rôles des intervenants', type: 'textarea' },
+      { key: 'contenu_attendu', label: 'Contenu attendu', type: 'textarea' },
+      {
+        key: 'phases', label: 'Méthodologie par phases', type: 'table',
+        columns: [{ key: 'phase', label: 'Phase' }, { key: 'objectifs', label: 'Objectifs' }, { key: 'activites', label: 'Activités' }, { key: 'livrables', label: 'Livrables' }],
+      },
+      { key: 'livrables', label: 'Livrables', type: 'list' },
+      { key: 'duree', label: 'Durée et chronogramme', type: 'textarea' },
+      { key: 'budget', label: 'Budget et ressources', type: 'textarea' },
+      { key: 'lieu', label: 'Fait à', type: 'text', default: 'Kinshasa' },
     ],
   },
 ];
@@ -124,13 +167,15 @@ function isEmpty(v) {
 }
 
 /** Nettoie le contenu selon le modèle et retourne la liste des champs requis manquants. */
-function normalize(code, contenu = {}) {
+function normalize(code, contenu = {}, { defauts = false } = {}) {
   const t = BY_CODE[code];
   const out = {};
   const missing = [];
   for (const s of t.sections) {
     let v = contenu[s.key];
-    if (s.type === 'list') v = Array.isArray(v) ? v.map((x) => String(x).slice(0, 2000)).filter((x) => x.trim()) : [];
+    if (defauts && v === undefined && s.default !== undefined) v = s.default; // à la création seulement
+    if (s.type === 'select') v = v === undefined || v === null || v === '' ? '' : (s.options.includes(String(v)) ? String(v) : '');
+    else if (s.type === 'list') v = Array.isArray(v) ? v.map((x) => String(x).slice(0, 2000)).filter((x) => x.trim()) : [];
     else if (s.type === 'table') v = Array.isArray(v) ? v.slice(0, 500).map((r) => Object.fromEntries(s.columns.map((c) => [c.key, r && r[c.key] !== undefined && r[c.key] !== null ? (c.type === 'number' ? (r[c.key] === '' ? null : Number(r[c.key])) : String(r[c.key]).slice(0, 2000)) : null]))) : [];
     else if (s.type === 'number') v = v === '' || v === undefined || v === null ? null : Number(v);
     else v = v === undefined || v === null ? '' : String(v).slice(0, 50000);
@@ -141,4 +186,7 @@ function normalize(code, contenu = {}) {
   return { contenu: out, missing };
 }
 
-module.exports = { TYPES, BY_CODE, normalize };
+/** Variante d’en-tête d’une correspondance : 'SG' si signée par le Secrétaire Général. */
+const variante = (t, contenu = {}) => (t.correspondance && contenu.signataire === 'Secrétaire Général' ? 'SG' : 'DEP');
+
+module.exports = { TYPES, BY_CODE, normalize, variante, SIGNATAIRES };

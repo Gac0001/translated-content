@@ -7,6 +7,8 @@
  */
 const ExcelJS = require('exceljs');
 const db = require('../db/knex');
+const identite = require('./identite');
+const entete = require('./entete');
 
 const MOIS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
 const BLEU = 'FF17418A';
@@ -194,15 +196,17 @@ function feuillePtba(wb, p, nomFeuille) {
     c.font = { bold: true, size: opts.size || 11, color: opts.couleur ? { argb: opts.couleur } : undefined };
     c.alignment = { horizontal: opts.centre ? 'center' : 'left', vertical: 'middle', wrapText: true };
   };
-  titre(1, 'Plan de Travail Annuel Budgétisé', { size: 14, centre: true, couleur: BLEU });
-  titre(2, 'Ministère : ÉCONOMIE NUMÉRIQUE');
-  titre(3, 'Secrétariat : SECRÉTARIAT GÉNÉRAL AU NUMÉRIQUE');
-  titre(4, `Programme : ${p.programme_libelle || '—'}`);
-  titre(5, `Objectif global : ${p.objectif_global || '—'}`);
-  ws.getRow(5).height = 30;
-  titre(6, `Exercice ${p.annee} — ${p.service_sigle} (${p.service_libelle}) — ${p.reference}`);
+  // En-tête officiel de la Direction au-dessus du titre du modèle (modèle imposé : structure inchangée)
+  const o = entete.excelEntete(wb, ws, identite.courante(), N) - 1;
+  titre(o + 1, 'Plan de Travail Annuel Budgétisé', { size: 14, centre: true, couleur: BLEU });
+  titre(o + 2, 'Ministère : ÉCONOMIE NUMÉRIQUE');
+  titre(o + 3, 'Secrétariat : SECRÉTARIAT GÉNÉRAL AU NUMÉRIQUE');
+  titre(o + 4, `Programme : ${p.programme_libelle || '—'}`);
+  titre(o + 5, `Objectif global : ${p.objectif_global || '—'}`);
+  ws.getRow(o + 5).height = 30;
+  titre(o + 6, `Exercice ${p.annee} — ${p.service_sigle} (${p.service_libelle}) — ${p.reference}`);
   // En-têtes sur trois lignes, comme le modèle
-  const h = 7;
+  const h = o + 7;
   const fixes = [[1, 'N°'], [2, 'Activités principales'], [3, 'Tâches'], [4, 'Coût en CDF'], [17, 'Structures responsables'], [18, 'Résultats attendus'], [19, 'Indicateurs de réalisation'], [20, 'Source / moyen de vérification'], [21, 'Source de financement']];
   for (const [c, t] of fixes) { ws.mergeCells(h, c, h + 2, c); ws.getCell(h, c).value = t; }
   ws.mergeCells(h, 5, h, 16); ws.getCell(h, 5).value = 'Chronogramme';
@@ -260,10 +264,12 @@ async function classeur(ptbaIds, { synthese = false } = {}) {
   const tous = [];
   for (const id of ptbaIds) tous.push(await charger(id));
   if (synthese && tous.length) {
-    const ws = wb.addWorksheet('Synthèse');
-    ws.columns = [{ header: 'Service', width: 14 }, { header: 'Intitulé', width: 40 }, { header: 'Programme', width: 30 }, { header: 'Statut', width: 12 }, { header: 'Lignes', width: 8 },
-      { header: 'Coût total (CDF)', width: 20 }, { header: 'T1', width: 16 }, { header: 'T2', width: 16 }, { header: 'T3', width: 16 }, { header: 'T4', width: 16 }];
-    ws.getRow(1).eachCell((c) => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } }; });
+    const ws = wb.addWorksheet('Synthèse', { pageSetup: { orientation: 'landscape', paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
+    const cols = [['Service', 14], ['Intitulé', 40], ['Programme', 30], ['Statut', 12], ['Lignes', 8], ['Coût total (CDF)', 20], ['T1', 16], ['T2', 16], ['T3', 16], ['T4', 16]];
+    cols.forEach(([, w], i) => { ws.getColumn(i + 1).width = w; });
+    const ligne = entete.excelEntete(wb, ws, identite.courante(), cols.length);
+    ws.getRow(ligne).values = cols.map(([t]) => t);
+    ws.getRow(ligne).eachCell((c) => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } }; });
     const cumul = [0, 0, 0, 0, 0];
     for (const p of tous) {
       const t = coutParTrimestre(p.lignes);
@@ -274,6 +280,7 @@ async function classeur(ptbaIds, { synthese = false } = {}) {
     const tot = ws.addRow(['TOTAL', '', '', '', tous.reduce((x, p) => x + p.lignes.length, 0), ...cumul]);
     tot.font = { bold: true };
     for (const c of [6, 7, 8, 9, 10]) ws.getColumn(c).numFmt = '#,##0';
+    ws.getColumn(5).numFmt = '0';
   }
   for (const p of tous) feuillePtba(wb, p, `PTBA ${p.service_sigle}`);
   return wb;
