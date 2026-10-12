@@ -1,5 +1,15 @@
 # Journal des versions — SIG-DEP
 
+## 1.35.0
+
+### Documents officiels — étape 3 : PTBA en vue budgétaire détaillée et rapport d’anomalies
+- **Vue budgétaire détaillée** (format des feuilles DDCN et DCS du classeur du Ministère) lue à l’import : hiérarchie Ministère > Programme > service > Action > Activité > Tâche > **lignes de dépense** (désignation, structure destinataire, nature économique, section/chapitre, unité physique, chronogramme 1 à 12, coût, source, lieu d’exécution, mode de gestion). Chaque tâche devient une ligne du PTBA dont le coût et les mois découlent de ses lignes de dépense ; chaque action devient un objectif. Les lignes de dépense sont conservées, consultables sur la fiche, modifiables tant que le PTBA est en préparation, et intangibles après validation.
+- **Export** d’un PTBA importé en vue détaillée au même format (totaux de tâche et total général en formules) ; PDF avec les lignes de dépense par action.
+- **Rapport d’anomalies** à l’import, par feuille et par cellule, conservé avec le PTBA et affiché sur sa fiche : montants mal saisis (groupes de chiffres irréguliers, « 100 000 00 » lu comme 10 000 000), montants avec centimes, formules en erreur (#REF!), total de tâche différent de la somme de ses lignes, montant sans désignation (non repris), montant exceptionnel au regard de la feuille, programme non renseigné, intitulé incomplet, lignes sans coût, feuille masquée.
+- **Feuilles d’un autre ministère** signalées et non retenues par défaut : ministère déclaré différent de celui de l’identité en vigueur, ou aucune structure responsable parmi les services du Secrétariat Général. Elles restent importables sur décision explicite, la raison étant inscrite à l’historique.
+- Démonstration : PTBA de la Direction Cybersécurité en vue détaillée, avec son rapport d’anomalies.
+- Tests : 3 nouveaux côté API (lecture des montants, analyse d’un classeur détaillé avec anomalies et feuille étrangère, import, modification, export relu, intangibilité) ; 2 nouveaux côté interface.
+
 ## 1.34.0
 
 ### Documents officiels — étape 2 : fiche PIP au modèle du Ministère du Plan

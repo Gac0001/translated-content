@@ -180,6 +180,27 @@ async function planification(api, knex) {
   });
   await api('ag.prg2', 'POST', `/ptba/${ptbaInfra.id}/soumettre`);
   await api('ag.prg1', 'POST', '/ptba', { exercice_id: ex2.id, service_id: services.DEP.id, programme_id: progs[0].id, objectif_global: 'Avant-projet de l’exercice suivant' });
+  // PTBA en vue budgétaire détaillée, importé avec son rapport d’anomalies (données fictives)
+  const dep = (designation, cout, mois, extra = {}) => ({ designation, structure_destinataire: 'DCS', nature_economique: 'Autres prestations', section_chapitre: '71209-5', unite_physique: '1 lot', mois, cout, source: 'GVT', lieu: 'Kinshasa', mode_gestion: 'Régie', ...extra });
+  await api('ag.prg1', 'POST', '/ptba/import/confirmer', { exercice_id: ex.id, fichier: 'ptba-demonstration.xlsx', feuilles: [{
+    sigle: 'DCS', service_id: services.DCS.id, programme_id: progs[1].id, feuille: 'DCS', vue: 'DETAILLEE', objectif_global: 'Renforcer la cybersécurité des systèmes de l’administration',
+    objectifs: [{ libelle: 'ACTION 1 : Gouvernance de la cybersécurité (démonstration)', lignes: [
+      { numero: '1.1', activite: 'ACTIVITÉ 1 : Veille et réponse aux incidents', taches: 'Tâche 1.1. : Outil de corrélation des journaux', cout: 0, mois: [], details: [
+        dep('Primes et indemnités non permanentes', 60000000, [1, 2], { nature_economique: 'Primes', section_chapitre: '71209-3', unite_physique: '10 pers.' }),
+        dep('Fournitures et petits matériels', 120000000, [2, 3], { nature_economique: 'Fournitures', section_chapitre: '71209-4' }),
+        dep('Autres prestations', 45000000, [3]),
+      ] },
+      { numero: '1.2', activite: 'ACTIVITÉ 1 : Veille et réponse aux incidents', taches: 'Tâche 1.2. : Plan de réponse aux incidents', cout: 0, mois: [], details: [
+        dep('Atelier d’élaboration du plan', 35000000, [4], { unite_physique: '1 atelier' }),
+        dep('Exercice de simulation', 10000000, [], { lieu: 'Provinces', mode_gestion: 'Marché public' }),
+      ] },
+    ] }],
+    anomalies: [
+      { gravite: 'ERREUR', cellule: 'T14', message: 'Atelier d’élaboration du plan — montant mal saisi « 35 000 00 » : lu comme 3 500 000 CDF (corrigé à 35 000 000 dans la démonstration)' },
+      { gravite: 'ERREUR', cellule: 'T13', message: 'Tâche 1.2. : Plan de réponse aux incidents — formule en erreur (#REF!) : total à recalculer' },
+      { gravite: 'INFO', cellule: null, message: 'Exercice de simulation : chronogramme à compléter avant la soumission.' },
+    ],
+  }] });
   return { A, progs, ptbaDep };
 }
 

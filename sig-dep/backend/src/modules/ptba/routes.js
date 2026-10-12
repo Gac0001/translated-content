@@ -95,8 +95,10 @@ router.post('/import/analyser', requirePerm('ptba.preparer'), (req, res, next) =
   try {
     if (!req.file) throw badRequest('Aucun fichier transmis.');
     let r;
-    try { r = await ptba.analyser(req.file.buffer); } catch (e) { throw badRequest('Classeur illisible : vérifiez qu’il s’agit d’un fichier Excel (.xlsx).'); }
-    if (!r.feuilles.length) throw badRequest('Aucune feuille au format PTBA (colonnes « Activités principales », « Tâches », « Coût », chronogramme) n’a été trouvée.');
+    const contexte = { services: await db('plan_services').select('sigle', 'libelle') };
+    try { r = await ptba.analyser(req.file.buffer, contexte); } catch (e) { throw badRequest('Classeur illisible : vérifiez qu’il s’agit d’un fichier Excel (.xlsx).'); }
+    if (!r.feuilles.length) throw badRequest('Aucune feuille au format PTBA (vue standard : « Activités principales », « Tâches », « Coût », chronogramme ; vue détaillée : « Désignation », « Nature économique », « Coût ») n’a été trouvée.');
+    r.fichier = req.file.originalname;
     const services = await db('plan_services').select('id', 'sigle');
     const programmes = await db('plan_programmes').select('id', 'libelle');
     for (const f of r.feuilles) {
@@ -108,6 +110,13 @@ router.post('/import/analyser', requirePerm('ptba.preparer'), (req, res, next) =
   } catch (e) { return next(e); }
 }));
 
+const detailSchema = z.object({
+  designation: z.string().trim().min(1).max(2000), structure_destinataire: z.string().trim().max(200).optional().nullable(),
+  nature_economique: z.string().trim().max(200).optional().nullable(), section_chapitre: z.string().trim().max(60).optional().nullable(),
+  unite_physique: z.string().trim().max(100).optional().nullable(), mois: z.array(z.coerce.number().int().min(1).max(12)).max(12).default([]),
+  cout: z.coerce.number().min(0).max(1e15), source: z.string().trim().max(100).optional().nullable(),
+  lieu: z.string().trim().max(300).optional().nullable(), mode_gestion: z.string().trim().max(100).optional().nullable(),
+});
 const ligneSchema = z.object({
   id: z.coerce.number().int().positive().optional(),
   numero: z.string().trim().max(20).optional().nullable(),
@@ -121,28 +130,45 @@ const ligneSchema = z.object({
   source_verification: z.string().trim().max(5000).optional().nullable(),
   source_financement: z.string().trim().max(200).optional().nullable(),
   action_id: z.coerce.number().int().positive().optional().nullable(),
+  details: z.array(detailSchema).max(200).optional(),
 });
 const contenuSchema = z.object({
   objectifs: z.array(z.object({ libelle: z.string().trim().max(2000), lignes: z.array(ligneSchema).max(500) })).max(30),
 });
 
 async function ecrireContenu(trx, ptbaId, objectifs) {
+  await trx('ptba_details').where({ ptba_id: ptbaId }).del();
   await trx('ptba_lignes').where({ ptba_id: ptbaId }).del();
   await trx('ptba_objectifs').where({ ptba_id: ptbaId }).del();
   let ordre = 0;
   for (const [i, o] of objectifs.entries()) {
     const [obj] = o.libelle ? await trx('ptba_objectifs').insert({ ptba_id: ptbaId, ordre: i, libelle: o.libelle }).returning('*') : [null];
     for (const l of o.lignes) {
-      const { id, ...champs } = l;
+      const { id, details = [], ...champs } = l;
       ordre += 1;
-      await trx('ptba_lignes').insert({ ...champs, mois: [...new Set(l.mois)].sort((a, b) => a - b), ptba_id: ptbaId, objectif_id: obj ? obj.id : null, ordre });
+      // Vue détaillée : le coût et les mois de la tâche découlent de ses lignes de dépense
+      if (details.length) {
+        champs.cout = Math.round(details.reduce((x, d) => x + Number(d.cout), 0) * 100) / 100;
+        champs.mois = [...new Set(details.flatMap((d) => d.mois))];
+        const plusFrequent = (k) => Object.entries(details.reduce((acc, d) => (d[k] ? { ...acc, [d[k]]: (acc[d[k]] || 0) + 1 } : acc), {})).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+        champs.structure_responsable = champs.structure_responsable || plusFrequent('structure_destinataire');
+        champs.source_financement = champs.source_financement || plusFrequent('source') || plusFrequent('mode_gestion');
+      }
+      const [ligne] = await trx('ptba_lignes').insert({ ...champs, mois: [...new Set(champs.mois)].sort((a, b) => a - b), ptba_id: ptbaId, objectif_id: obj ? obj.id : null, ordre }).returning('id');
+      for (const [k, d] of details.entries()) {
+        await trx('ptba_details').insert({ ...d, mois: [...new Set(d.mois)].sort((a, b) => a - b), ptba_id: ptbaId, ligne_id: ligne.id, ordre: k + 1 });
+      }
     }
   }
 }
 
 router.post('/import/confirmer', requirePerm('ptba.preparer'), validate({ body: z.object({
   exercice_id: z.coerce.number().int().positive(),
+  fichier: z.string().trim().max(200).optional(),
   feuilles: z.array(contenuSchema.extend({
+    feuille: z.string().trim().max(60).optional(), vue: z.enum(['STANDARD', 'DETAILLEE']).default('STANDARD'),
+    anomalies: z.array(z.object({ gravite: z.enum(['ERREUR', 'ALERTE', 'INFO']), cellule: z.string().max(20).optional().nullable(), message: z.string().max(500) })).max(500).default([]),
+    autre_ministere: z.string().max(500).optional().nullable(),
     sigle: z.string().trim().min(2).max(30), service_libelle: z.string().trim().max(300).optional(), service_id: z.coerce.number().int().positive().optional().nullable(),
     programme_id: z.coerce.number().int().positive().optional().nullable(), objectif_global: z.string().trim().max(2000).optional().nullable(),
   })).min(1).max(30),
@@ -159,10 +185,12 @@ router.post('/import/confirmer', requirePerm('ptba.preparer'), validate({ body: 
       if (existe) throw conflict(`Un PTBA ${ex.annee} existe déjà pour ${service.sigle} : modifiez-le ou retirez cette feuille de l’import.`);
       const [p] = await trx('ptba').insert({
         reference: await nextReference('PTBA', 'DEP/PTBA', trx), exercice_id: exerciceId, service_id: service.id, programme_id: f.programme_id || null,
-        objectif_global: f.objectif_global || null, prepare_par: req.ctx.userId, detenteur_user_id: req.ctx.userId,
+        objectif_global: f.objectif_global || null, prepare_par: req.ctx.userId, detenteur_user_id: req.ctx.userId, vue: f.vue,
+        rapport_import: JSON.stringify({ fichier: req.valid.body.fichier || null, feuille: f.feuille || null, autre_ministere: f.autre_ministere || null, anomalies: f.anomalies, le: new Date().toISOString() }),
       }).returning('*');
       await ecrireContenu(trx, p.id, f.objectifs);
-      await addHistory('PTBA', p.id, req.ctx.userId, { action: 'IMPORT', nouveau: 'BROUILLON', commentaire: `Importé (${f.objectifs.reduce((s, o) => s + o.lignes.length, 0)} ligne(s))` }, trx);
+      const erreurs = f.anomalies.filter((a) => a.gravite === 'ERREUR').length;
+      await addHistory('PTBA', p.id, req.ctx.userId, { action: 'IMPORT', nouveau: 'BROUILLON', commentaire: `Importé${f.feuille ? ` de la feuille « ${f.feuille} »` : ''} (${f.objectifs.reduce((s, o) => s + o.lignes.length, 0)} ligne(s)${f.vue === 'DETAILLEE' ? ', vue budgétaire détaillée' : ''}${f.anomalies.length ? ` ; ${f.anomalies.length} anomalie(s) dont ${erreurs} erreur(s) à corriger` : ''})${f.autre_ministere ? ` — importée malgré l’avertissement : ${f.autre_ministere}` : ''}` }, trx);
       out.push(p);
     }
     return out;
@@ -312,6 +340,21 @@ router.get('/:id/export/:format', requirePerm('exports.generer'), validate({ par
   const { doc, finish } = pdf.createPdf(res, { filename: `${nom}.pdf`, titre: 'PLAN DE TRAVAIL ANNUEL BUDGÉTISÉ', sousTitre: `${p.service_libelle} (${p.service_sigle}) — exercice ${p.annee}`, reference: p.reference, landscape: true });
   pdf.keyValues(doc, [['Programme', p.programme_libelle || '—'], ['Objectif global', p.objectif_global || '—'], ['Statut', STATUTS[p.statut]], ['Coût total', `${fmt(p.lignes.reduce((s, l) => s + l.cout, 0))} CDF`]]);
   const groupes = [...p.objectifs.map((o) => ({ titre: o.libelle, lignes: p.lignes.filter((l) => l.objectif_id === o.id) })), { titre: null, lignes: p.lignes.filter((l) => !l.objectif_id) }].filter((g) => g.lignes.length);
+  if (p.vue === 'DETAILLEE') {
+    // Vue budgétaire détaillée : une table par action, lignes de dépense regroupées par tâche
+    groupes.forEach((g) => {
+      if (g.titre) pdf.section(doc, 'Action', g.titre);
+      const rows = g.lignes.flatMap((l) => [{ tache: true, designation: `${l.taches || l.activite}`, cout: l.cout }, ...(l.details || [])]);
+      pdf.table(doc, [
+        { header: 'Désignation', value: (d) => (d.tache ? d.designation.toUpperCase() : `   ${d.designation}`), width: 4 },
+        { header: 'Structure', value: (d) => d.structure_destinataire || '', width: 1.4 }, { header: 'Nature économique', value: (d) => d.nature_economique || '', width: 1.8 },
+        { header: 'Section / chapitre', value: (d) => d.section_chapitre || '', width: 1 }, { header: 'Unité', value: (d) => d.unite_physique || '', width: 0.9 },
+        { header: 'Chronogramme', value: (d) => (d.tache ? '' : ptba.MOIS.map((m, k) => ((d.mois || []).includes(k + 1) ? m : '·')).join(' ')), width: 2 },
+        { header: 'Coût (CDF)', value: (d) => fmt(d.cout), width: 1.5, align: 'right' }, { header: 'Lieu', value: (d) => d.lieu || '', width: 1.2 }, { header: 'Gestion', value: (d) => d.mode_gestion || '', width: 1.1 },
+      ], rows, { fontSize: 7.5 });
+    });
+    return finish();
+  }
   groupes.forEach((g, i) => {
     if (g.titre) pdf.section(doc, `Objectif spécifique ${i + 1}`, g.titre);
     pdf.table(doc, [

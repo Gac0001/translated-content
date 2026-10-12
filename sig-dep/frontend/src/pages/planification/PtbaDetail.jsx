@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { CheckCircle2, FileDown, FileSpreadsheet, Gauge, Pencil, Plus, Send, Trash2, Undo2, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, FileDown, FileSpreadsheet, Gauge, Pencil, Plus, Send, Trash2, Undo2, X } from 'lucide-react';
 import api, { download, errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import {
   useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, InfoAlert, Field, Progress, Button, WorkflowPanel, SimpleTable,
-  FormModal, FormSection, MoneyInput, ActionBar, EmptyState, runAction, toast, useConfirm,
+  FormModal, FormSection, MoneyInput, ActionBar, EmptyState, Badge, runAction, toast, useConfirm,
 } from '../../components/ui';
 import { Attachments, Timeline } from '../../components/shared';
 import { fmtDateTime } from '../../lib/format';
@@ -29,6 +29,36 @@ function Chronogramme({ mois, onToggle }) {
   );
 }
 
+const DETAIL_VIDE = { designation: '', structure_destinataire: '', nature_economique: '', section_chapitre: '', unite_physique: '', mois: [], cout: 0, source: '', lieu: '', mode_gestion: '' };
+const sansIds = ({ id: _i, ligne_id: _l, ordre: _o, ...d }) => d;
+
+/** Lignes de dépense d’une tâche (vue budgétaire détaillée) : le coût et les mois de la tâche en découlent. */
+function Depenses({ details, onChange, intitule }) {
+  const maj = (i, k, v) => onChange(details.map((d, j) => (j === i ? { ...d, [k]: v } : d)));
+  const champ = (d, i, k, label, cls = '') => <input className={`input py-1 text-xs ${cls}`} placeholder={label} aria-label={`${label}, ligne de dépense ${i + 1} (${intitule})`} value={d[k] || ''} onChange={(e) => maj(i, k, e.target.value)} />;
+  return (
+    <div className="space-y-2 rounded-md bg-slate-50 p-2 lg:col-span-12">
+      <div className="text-xs font-semibold uppercase text-slate-600">Lignes de dépense</div>
+      {details.map((d, i) => (
+        <div key={i} className="grid gap-1.5 rounded border border-slate-200 bg-white p-2 lg:grid-cols-12">
+          <div className="lg:col-span-4">{champ(d, i, 'designation', 'Désignation')}</div>
+          <div className="lg:col-span-2">{champ(d, i, 'structure_destinataire', 'Structure destinataire')}</div>
+          <div className="lg:col-span-2">{champ(d, i, 'nature_economique', 'Nature économique')}</div>
+          <div className="lg:col-span-1">{champ(d, i, 'section_chapitre', 'Section/chapitre')}</div>
+          <div className="lg:col-span-1">{champ(d, i, 'unite_physique', 'Unité physique')}</div>
+          <div className="lg:col-span-2"><MoneyInput value={d.cout === '' ? null : Number(d.cout)} onChange={(v) => maj(i, 'cout', v ?? 0)} aria-label={`Coût, ligne de dépense ${i + 1} (${intitule})`} placeholder="Coût" /></div>
+          <div className="flex items-center overflow-x-auto lg:col-span-4"><Chronogramme mois={d.mois || []} onToggle={(m) => maj(i, 'mois', (d.mois || []).includes(m) ? d.mois.filter((x) => x !== m) : [...(d.mois || []), m])} /></div>
+          <div className="lg:col-span-2">{champ(d, i, 'source', 'Source')}</div>
+          <div className="lg:col-span-3">{champ(d, i, 'lieu', 'Lieu d’exécution')}</div>
+          <div className="lg:col-span-2">{champ(d, i, 'mode_gestion', 'Mode de gestion')}</div>
+          <button type="button" className="btn-ghost justify-self-end px-2 text-red-700 lg:col-span-1" aria-label={`Retirer la ligne de dépense ${i + 1} (${intitule})`} onClick={() => onChange(details.filter((_, j) => j !== i))}><X size={15} aria-hidden /></button>
+        </div>
+      ))}
+      <button type="button" className="btn-ghost text-xs text-dep-700" onClick={() => onChange([...details, { ...DETAIL_VIDE }])}><Plus size={14} aria-hidden /> Ligne de dépense</button>
+    </div>
+  );
+}
+
 /** Éditeur du PTBA : objectifs spécifiques et lignes (activité, tâches, coût, chronogramme…). */
 function Editeur({ p, referentiel, onSaved, onCancel }) {
   const [initial] = useState(() => {
@@ -42,7 +72,14 @@ function Editeur({ p, referentiel, onSaved, onCancel }) {
   const [enCours, setEnCours] = useState(false);
   const modifie = JSON.stringify({ entete, objectifs }) !== JSON.stringify(initial);
   const total = objectifs.reduce((t, o) => t + o.lignes.reduce((u, l) => u + (Number(l.cout) || 0), 0), 0);
-  const majLigne = (oi, li, k, v) => setObjectifs(objectifs.map((o, i) => (i !== oi ? o : { ...o, lignes: o.lignes.map((l, j) => (j === li ? { ...l, [k]: v } : l)) })));
+  const majLigne = (oi, li, k, v) => setObjectifs(objectifs.map((o, i) => (i !== oi ? o : { ...o, lignes: o.lignes.map((l, j) => {
+    if (j !== li) return l;
+    const n = { ...l, [k]: v };
+    // Lignes de dépense : coût et mois de la tâche recalculés
+    if (k === 'details' && v.length) { n.cout = v.reduce((t, d) => t + (Number(d.cout) || 0), 0); n.mois = [...new Set(v.flatMap((d) => d.mois || []))].sort((a, b) => a - b); }
+    return n;
+  }) })));
+  const detaillee = p.vue === 'DETAILLEE';
   const toggle = (oi, li, m) => { const l = objectifs[oi].lignes[li]; majLigne(oi, li, 'mois', l.mois.includes(m) ? l.mois.filter((x) => x !== m) : [...l.mois, m]); };
   const enregistrer = async () => {
     const corps = {
@@ -50,6 +87,7 @@ function Editeur({ p, referentiel, onSaved, onCancel }) {
       objectifs: objectifs.map((o) => ({ libelle: o.libelle, lignes: o.lignes.filter((l) => l.activite.trim()).map((l) => ({
         numero: l.numero || null, activite: l.activite, taches: l.taches || null, cout: Number(l.cout) || 0, mois: l.mois, structure_responsable: l.structure_responsable || null,
         resultats_attendus: l.resultats_attendus || null, indicateur: l.indicateur || null, source_verification: l.source_verification || null, source_financement: l.source_financement || null,
+        details: (l.details || []).filter((d) => (d.designation || '').trim()).map((d) => ({ ...sansIds(d), cout: Number(d.cout) || 0, mois: d.mois || [] })),
       })) })).filter((o) => o.libelle || o.lignes.length),
     };
     setEnCours(true);
@@ -72,8 +110,8 @@ function Editeur({ p, referentiel, onSaved, onCancel }) {
               <fieldset key={li} className="grid gap-2 rounded-md border border-slate-200 p-3 lg:grid-cols-12">
                 <legend className="sr-only">Activité {li + 1} de l’objectif {oi + 1}</legend>
                 <input className="input lg:col-span-5" placeholder="Activité principale" aria-label="Activité principale" value={l.activite} onChange={(e) => majLigne(oi, li, 'activite', e.target.value)} />
-                <div className="lg:col-span-2"><MoneyInput value={l.cout === '' ? null : Number(l.cout)} onChange={(v) => majLigne(oi, li, 'cout', v ?? 0)} aria-label="Coût en CDF" placeholder="Coût" /></div>
-                <div className="flex items-center overflow-x-auto lg:col-span-4"><Chronogramme mois={l.mois} onToggle={(m) => toggle(oi, li, m)} /></div>
+                <div className="lg:col-span-2"><MoneyInput value={l.cout === '' ? null : Number(l.cout)} onChange={(v) => majLigne(oi, li, 'cout', v ?? 0)} aria-label="Coût en CDF" placeholder="Coût" disabled={(l.details || []).length > 0} /></div>
+                <div className="flex items-center overflow-x-auto lg:col-span-4"><Chronogramme mois={l.mois} onToggle={(l.details || []).length ? undefined : (m) => toggle(oi, li, m)} /></div>
                 <button type="button" className="btn-ghost justify-self-end px-2 text-red-700 lg:col-span-1" aria-label="Retirer la ligne" onClick={() => setObjectifs(objectifs.map((x, i) => (i === oi ? { ...x, lignes: x.lignes.filter((_, j) => j !== li) } : x)))}><X size={15} aria-hidden /></button>
                 <textarea className="input lg:col-span-6" rows={2} placeholder="Tâches" value={l.taches || ''} onChange={(e) => majLigne(oi, li, 'taches', e.target.value)} />
                 <textarea className="input lg:col-span-6" rows={2} placeholder="Résultats attendus" value={l.resultats_attendus || ''} onChange={(e) => majLigne(oi, li, 'resultats_attendus', e.target.value)} />
@@ -81,6 +119,7 @@ function Editeur({ p, referentiel, onSaved, onCancel }) {
                 <input className="input lg:col-span-3" placeholder="Indicateur de réalisation" value={l.indicateur || ''} onChange={(e) => majLigne(oi, li, 'indicateur', e.target.value)} />
                 <input className="input lg:col-span-3" placeholder="Source / moyen de vérification" value={l.source_verification || ''} onChange={(e) => majLigne(oi, li, 'source_verification', e.target.value)} />
                 <input className="input lg:col-span-3" placeholder="Source de financement" value={l.source_financement || ''} onChange={(e) => majLigne(oi, li, 'source_financement', e.target.value)} />
+                {(detaillee || (l.details || []).length > 0) && <Depenses details={l.details || []} intitule={l.taches || l.activite || `activité ${li + 1}`} onChange={(v) => majLigne(oi, li, 'details', v)} />}
               </fieldset>
             ))}
           </div>
@@ -121,6 +160,26 @@ function SuiviModal({ ligne, onClose, onSaved }) {
   );
 }
 
+const GRAVITES = { ERREUR: ['Erreur', 'rouge'], ALERTE: ['À vérifier', 'jaune'], INFO: ['Information', 'gris'] };
+
+/** Rapport d’anomalies relevées à l’import du classeur (conservé avec le PTBA). */
+function RapportImport({ rapport }) {
+  const a = rapport.anomalies;
+  const n = (g) => a.filter((x) => x.gravite === g).length;
+  return (
+    <Card title="Rapport d’anomalies de l’import" className="lg:col-span-3" bodyClass="p-0"
+      actions={<span className="flex gap-1.5">{['ERREUR', 'ALERTE', 'INFO'].map((g) => n(g) > 0 && <Badge key={g} tone={GRAVITES[g][1]}>{n(g)} {GRAVITES[g][0].toLowerCase()}{n(g) > 1 && g !== 'INFO' ? 's' : ''}</Badge>)}</span>}>
+      <p className="flex items-start gap-2 px-4 pt-3 text-sm text-slate-600"><AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600" aria-hidden />
+        Classeur {rapport.fichier ? `« ${rapport.fichier} »` : ''}{rapport.feuille ? `, feuille « ${rapport.feuille} »` : ''} : les erreurs portent sur des montants à corriger dans le PTBA avant sa soumission.{rapport.autre_ministere ? ` Importée malgré l’avertissement : ${rapport.autre_ministere}.` : ''}</p>
+      <SimpleTable label="Anomalies de l’import" dense rowKey="i" rows={a.map((x, i) => ({ ...x, i }))} columns={[
+        { key: 'gravite', header: 'Niveau', render: (x) => <Badge tone={GRAVITES[x.gravite][1]}>{GRAVITES[x.gravite][0]}</Badge> },
+        { key: 'cellule', header: 'Cellule', render: (x) => x.cellule || '—' },
+        { key: 'message', header: 'Constat', rowHeader: true, className: 'text-sm' },
+      ]} />
+    </Card>
+  );
+}
+
 function attente(p) {
   if (p.statut === 'VALIDE') return 'PTBA validé : il est intangible ; l’exécution trimestrielle se saisit ligne par ligne.';
   return {
@@ -155,7 +214,20 @@ export default function PtbaDetail() {
         const exporter = (format, nom) => download(`/ptba/${id}/export/${format}`, nom).catch((e) => toast.error(errorMessage(e)));
         const sauf = (f) => (l) => (l.pied ? '' : f(l)); // ligne de sous-total : cellules descriptives vides
         const colonnes = [
-          { key: 'activite', header: 'Activité et tâches', className: 'min-w-[16rem] max-w-md', render: (l) => <><div className="font-medium text-slate-900">{l.activite}</div>{l.taches && <div className="whitespace-pre-line text-xs text-slate-500">{l.taches}</div>}</> },
+          { key: 'activite', header: 'Activité et tâches', className: 'min-w-[16rem] max-w-md', render: (l) => <>
+            <div className="font-medium text-slate-900">{l.activite}</div>{l.taches && <div className="whitespace-pre-line text-xs text-slate-500">{l.taches}</div>}
+            {l.details && l.details.length > 0 && (
+              <details className="mt-1 text-xs">
+                <summary className="cursor-pointer text-dep-700">{l.details.length} ligne(s) de dépense</summary>
+                <ul className="mt-1 space-y-1">{l.details.map((d) => (
+                  <li key={d.id} className="rounded bg-slate-50 px-2 py-1">
+                    <span className="font-medium text-slate-800">{d.designation}</span> — <span className="tabular-nums">{cdf(d.cout)}</span>
+                    <span className="block text-slate-600">{[d.structure_destinataire, d.nature_economique, d.section_chapitre && `chap. ${d.section_chapitre}`, d.unite_physique, d.lieu, d.mode_gestion, d.source].filter(Boolean).join(' · ')}</span>
+                  </li>
+                ))}</ul>
+              </details>
+            )}
+          </> },
           { key: 'cout', header: 'Coût', align: 'right', className: 'whitespace-nowrap', render: (l) => cdf(l.cout) },
           { key: 'mois', header: 'Chronogramme', render: sauf((l) => <Chronogramme mois={l.mois} />) },
           { key: 'responsable', header: 'Responsable', render: sauf((l) => <>{l.structure_responsable || '—'}<div className="text-xs text-slate-500">{l.source_financement}</div></>) },
@@ -170,7 +242,7 @@ export default function PtbaDetail() {
         ].filter(Boolean);
         return (
           <>
-            <PageHeader title={`PTBA ${p.annee} — ${p.service_sigle}`} subtitle={`${p.service_libelle} · ${p.reference}`} breadcrumb={[{ label: 'Planification', to: '/planification' }, { label: `PTBA ${p.service_sigle}` }]}
+            <PageHeader title={`PTBA ${p.annee} — ${p.service_sigle}`} subtitle={`${p.service_libelle} · ${p.reference}${p.vue === 'DETAILLEE' ? ' · vue budgétaire détaillée' : ''}`} breadcrumb={[{ label: 'Planification', to: '/planification' }, { label: `PTBA ${p.service_sigle}` }]}
               actions={a.modifier && !edition && <button type="button" className="btn-secondary" onClick={() => setEdition(true)}><Pencil size={16} aria-hidden /> Modifier</button>}
               menu={can('exports.generer') ? [
                 { label: 'Excel', icon: FileSpreadsheet, onClick: () => exporter('xlsx', `PTBA-${p.annee}-${p.service_sigle}.xlsx`) },
@@ -210,6 +282,7 @@ export default function PtbaDetail() {
                   ))}
                   {!groupes.length && <div className="card"><EmptyState title="Aucune activité">{a.modifier ? 'Utilisez « Modifier » pour saisir le PTBA, ou importez un classeur au format du Ministère depuis la liste.' : 'Le PTBA n’a pas encore été saisi par le Bureau Programme.'}</EmptyState></div>}
                 </div>
+                {p.rapport_import && (p.rapport_import.anomalies || []).length > 0 && <RapportImport rapport={p.rapport_import} />}
                 <Card title="Pièces justificatives"><Attachments type="PTBA" id={id} canUpload={a.modifier || a.suivre} /></Card>
                 <Card title="Historique" className="lg:col-span-2"><Timeline items={p.historique} /></Card>
               </div>

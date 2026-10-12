@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FileSpreadsheet, Plus, Upload } from 'lucide-react';
 import api, { download, errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
-import { useApi, Loadable, PageHeader, Tabs, useOnglet, DataTable, StatusBadge, Card, Modal, FormModal, FormSection, Field, InfoAlert, Stat, Progress, SimpleTable, EmptyState, runAction, toast } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Tabs, useOnglet, DataTable, StatusBadge, Card, Modal, FormModal, FormSection, Field, InfoAlert, Stat, Progress, SimpleTable, EmptyState, Badge, runAction, toast } from '../../components/ui';
 
 import Performance from './Performance';
 import Credits from './Credits';
@@ -28,16 +28,17 @@ function ImportModal({ referentiel, onClose, onDone }) {
     try {
       const r = await api.post('/ptba/import/analyser', fd);
       setAnalyse(r.data);
-      setChoix(Object.fromEntries(r.data.feuilles.map((f, i) => [i, !!f.service_id])));
+      // Feuilles d’un autre ministère : non retenues par défaut
+      setChoix(Object.fromEntries(r.data.feuilles.map((f, i) => [i, !!f.service_id && !f.autre_ministere])));
     } catch (e) { toast.error(errorMessage(e)); } finally { setBusy(false); }
   };
   const maj = (i, k, v) => setAnalyse({ ...analyse, feuilles: analyse.feuilles.map((f, j) => (j === i ? { ...f, [k]: v } : f)) });
   const confirmer = async () => {
     const feuilles = analyse.feuilles.filter((_, i) => choix[i]).map((f) => ({
       sigle: f.sigle, service_id: f.service_id || null, service_libelle: f.service_libelle || f.sigle, programme_id: f.programme_id ? Number(f.programme_id) : null,
-      objectif_global: f.objectif_global || null, objectifs: f.objectifs,
+      objectif_global: f.objectif_global || null, objectifs: f.objectifs, feuille: f.feuille, vue: f.vue, anomalies: f.anomalies, autre_ministere: f.autre_ministere || null,
     }));
-    await runAction(() => api.post('/ptba/import/confirmer', { exercice_id: Number(exercice), feuilles }), `${feuilles.length} PTBA importé(s) en brouillon.`);
+    await runAction(() => api.post('/ptba/import/confirmer', { exercice_id: Number(exercice), fichier: analyse.fichier, feuilles }), `${feuilles.length} PTBA importé(s) en brouillon.`);
     onDone();
   };
   const nb = Object.values(choix).filter(Boolean).length;
@@ -46,22 +47,33 @@ function ImportModal({ referentiel, onClose, onDone }) {
       <div className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Exercice" required><select className="input" value={exercice} onChange={(e) => setExercice(e.target.value)}>{referentiel.exercices.map((x) => <option key={x.id} value={x.id}>{x.annee}</option>)}</select></Field>
-          <Field label="Classeur Excel (.xlsx)" required hint="Une feuille par service : activités principales, tâches, coût, chronogramme, structure responsable…"><input type="file" accept=".xlsx" className="input" disabled={busy} onChange={(e) => analyser(e.target.files[0])} /></Field>
+          <Field label="Classeur Excel (.xlsx)" required hint="Une feuille par service, en vue standard (activités, tâches, coût, chronogramme…) ou en vue budgétaire détaillée (désignation, nature économique, section/chapitre…)."><input type="file" accept=".xlsx" className="input" disabled={busy} onChange={(e) => analyser(e.target.files[0])} /></Field>
         </div>
         {busy && <p className="text-sm text-slate-500">Analyse du classeur…</p>}
         {analyse && (
           <>
-            {analyse.ignorees.length > 0 && <InfoAlert>Feuilles ignorées (autre format) : {analyse.ignorees.join(', ')}.</InfoAlert>}
+            {analyse.ignorees.length > 0 && <InfoAlert>Feuilles ignorées (ni vue standard ni vue budgétaire détaillée) : {analyse.ignorees.join(', ')}.</InfoAlert>}
             <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
               {analyse.feuilles.map((f, i) => (
                 <li key={f.feuille} className="grid gap-2 p-3 text-sm sm:grid-cols-12 sm:items-center">
-                  <label className="flex items-center gap-2 sm:col-span-3"><input type="checkbox" checked={!!choix[i]} onChange={(e) => setChoix({ ...choix, [i]: e.target.checked })} /><span><b>{f.feuille}</b><span className="block text-xs text-slate-500">{f.nb_lignes} ligne(s) · {cdf(f.cout_total)}</span></span></label>
+                  <label className="flex items-center gap-2 sm:col-span-3"><input type="checkbox" checked={!!choix[i]} onChange={(e) => setChoix({ ...choix, [i]: e.target.checked })} /><span><b>{f.feuille}</b>
+                    <span className="block text-xs text-slate-600">{f.nb_lignes} ligne(s){f.vue === 'DETAILLEE' ? `, ${f.nb_details} ligne(s) de dépense` : ''} · {cdf(f.cout_total)}</span>
+                    <span className="mt-0.5 flex flex-wrap gap-1">{f.vue === 'DETAILLEE' && <Badge tone="bleu">Vue détaillée</Badge>}{f.masquee && <Badge tone="gris">Masquée</Badge>}</span></span></label>
                   <div className="sm:col-span-3">{f.service_id ? <span>Service <b>{f.sigle}</b></span> : <input className="input" placeholder={`Intitulé du nouveau service ${f.sigle}`} value={f.service_libelle || ''} onChange={(e) => maj(i, 'service_libelle', e.target.value)} />}</div>
                   <select className="input sm:col-span-3" value={f.programme_id || ''} onChange={(e) => maj(i, 'programme_id', e.target.value)} aria-label="Programme">
                     <option value="">— Programme —</option>
                     {referentiel.programmes.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.libelle}</option>)}
                   </select>
                   <span className="truncate text-xs text-slate-500 sm:col-span-3" title={f.objectif_global}>{f.objectif_global || 'Objectif global non renseigné'}</span>
+                  {f.autre_ministere && <p className="rounded bg-amber-50 px-2 py-1 text-xs text-amber-900 sm:col-span-12" role="note"><b>Feuille d’un autre ministère ?</b> {f.autre_ministere}. Elle n’est pas retenue par défaut.</p>}
+                  {f.anomalies.length > 0 && (
+                    <details className="text-xs sm:col-span-12">
+                      <summary className="cursor-pointer text-slate-700">
+                        Rapport d’anomalies : {['ERREUR', 'ALERTE', 'INFO'].map((g) => [g, f.anomalies.filter((a) => a.gravite === g).length]).filter(([, n]) => n).map(([g, n]) => `${n} ${{ ERREUR: 'erreur(s)', ALERTE: 'à vérifier', INFO: 'information(s)' }[g]}`).join(', ')}
+                      </summary>
+                      <ul className="mt-1 max-h-40 list-disc space-y-0.5 overflow-y-auto pl-5">{f.anomalies.map((a, k) => <li key={k} className={a.gravite === 'ERREUR' ? 'text-red-800' : a.gravite === 'ALERTE' ? 'text-amber-900' : 'text-slate-600'}>{a.cellule ? `${a.cellule} — ` : ''}{a.message}</li>)}</ul>
+                    </details>
+                  )}
                 </li>
               ))}
             </ul>
