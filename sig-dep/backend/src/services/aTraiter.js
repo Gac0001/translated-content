@@ -3,7 +3,7 @@
  * Files « À traiter » du tableau de bord : ce qui attend l’utilisateur dans les circuits.
  * Chaque file reprend exactement la règle de droit de l’action correspondante sur la fiche
  * (ptba/routes actionsPour, programmation actionsDoc, donnees actionsCampagne/actionsReponse,
- * exploitation actions, reunions roles, actes droits, cartes, décisions, restaurations) :
+ * exploitation actions, reunions roles, actes droits, cartes, décisions, présences, restaurations) :
  * personne ne voit dans sa file un élément qu’il ne pourrait pas traiter.
  * Une file vide n’est pas renvoyée.
  */
@@ -196,6 +196,51 @@ async function cartes(ctx) {
   return out;
 }
 
+// ─── Présences ──────────────────────────────────────────────────────────────
+/**
+ * Directeur : rapports hebdomadaires transmis à examiner, rectificatifs à valider.
+ * Secrétariat de Direction : rapports rejetés à reprendre, rapports des semaines écoulées à
+ * transmettre, listes du jour à compléter (jour ouvrable non férié).
+ */
+async function presences(ctx, aujourdhui) {
+  if (ctx.perimetre === 'SUPERVISION_GLOBALE') return [];
+  const P = require('./presences');
+  const out = [];
+  const fr = (d) => String(d instanceof Date ? P.iso(d) : d).slice(0, 10).split('-').reverse().join('/');
+  const itemSemaine = (detail) => (s) => ({ id: `sem-${s.id}`, titre: `${s.reference} — semaine du ${fr(s.semaine_debut)}`, detail: detail(s), to: `/presences/semaines/${s.id}` });
+  if (ctx.can('presences.verrouiller')) {
+    const [transmis, rectificatifs] = await Promise.all([
+      db('presence_semaines').where('statut', 'TRANSMIS').orderBy('semaine_debut').select('id', 'reference', 'semaine_debut', 'transmis_at'),
+      db('presence_rectificatifs as r').join('presence_listes as l', 'l.id', 'r.liste_id').where('r.statut', 'PROPOSE').orderBy('r.cree_at')
+        .select('r.id', 'r.reference', 'r.motif', 'l.semaine_id', 'l.date', 'l.categorie'),
+    ]);
+    out.push(file('presences_examiner', 'presences', 'Rapports de présence à examiner', '/presences', transmis, itemSemaine(() => 'Transmis : à verrouiller ou rejeter')));
+    out.push(file('presences_rectificatifs', 'presences', 'Rectificatifs de présence à valider', '/presences?onglet=rectificatifs', rectificatifs,
+      (r) => ({ id: `rec-${r.id}`, titre: `${r.categorie === 'CADRES' ? 'Cadres' : 'Agents'} du ${fr(r.date)}`, detail: `${r.reference} · ${r.motif}`, to: `/presences/semaines/${r.semaine_id}` })));
+  }
+  if (ctx.can('presences.preparer_direction')) {
+    const lundi = P.lundiDe(aujourdhui);
+    const [rejetes, aTransmettre, feries] = await Promise.all([
+      db('presence_semaines').where('statut', 'REJETE').orderBy('semaine_debut').select('id', 'reference', 'semaine_debut', 'motif_rejet'),
+      db('presence_semaines').where('statut', 'EN_PREPARATION').where('semaine_debut', '<', lundi).orderBy('semaine_debut').select('id', 'reference', 'semaine_debut'),
+      P.feries(aujourdhui, aujourdhui),
+    ]);
+    out.push(file('presences_rejetes', 'presences', 'Rapports de présence rejetés à reprendre', '/presences', rejetes, (s) => ({ ...itemSemaine(() => s.motif_rejet)(s), alerte: true })));
+    out.push(file('presences_transmettre', 'presences', 'Rapports de présence à transmettre', '/presences', aTransmettre, itemSemaine(() => 'Semaine écoulée : compléter les listes puis transmettre')));
+    if (P.estOuvrable(aujourdhui) && !feries[aujourdhui]) {
+      const listes = await db('presence_listes').where('date', aujourdhui).select('id', 'statut');
+      const lignes = listes.length ? await db('presence_lignes').whereIn('liste_id', listes.map((l) => l.id)) : [];
+      const b = P.bilan(lignes);
+      const reste = listes.length ? b.non_renseignes + b.incomplets : null;
+      if (listes.length < 2 || (reste && listes.some((l) => l.statut === 'BROUILLON'))) {
+        out.push(file('presences_jour', 'presences', 'Présences du jour', `/presences/jour/${aujourdhui}`, [{ reste }],
+          (x) => ({ id: 'jour', titre: `Listes du ${fr(aujourdhui)}`, detail: x.reste === null ? 'Listes à ouvrir et renseigner' : `${x.reste} ligne(s) à compléter (arrivées ou départs)`, to: `/presences/jour/${aujourdhui}` })));
+      }
+    }
+  }
+  return out;
+}
+
 // ─── Système ────────────────────────────────────────────────────────────────
 async function systeme(ctx) {
   const out = [];
@@ -227,7 +272,7 @@ async function aTraiter(ctx) {
   const groupes = await Promise.all([
     ctx.can('planification.consulter') ? planification(ctx, aujourdhui) : [],
     ctx.can('donnees.consulter') ? donnees(ctx, aujourdhui) : [],
-    reunions(ctx), decisions(ctx, aujourdhui), actes(ctx), cartes(ctx), systeme(ctx),
+    reunions(ctx), decisions(ctx, aujourdhui), actes(ctx), cartes(ctx), presences(ctx, aujourdhui), systeme(ctx),
   ]);
   const files = groupes.flat().filter(Boolean);
   const parModule = {};

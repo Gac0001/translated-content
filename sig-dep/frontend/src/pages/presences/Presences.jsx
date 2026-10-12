@@ -8,6 +8,7 @@ import {
 } from '../../components/ui';
 import { aujourdhui, fmtDate, fmtDateTime } from '../../lib/format';
 import { StatutSemaine, StatutRectificatif, EtatPresence, MOTIFS, resumeBilan } from './commun';
+import Synthese from './Synthese';
 
 function Semaines({ data }) {
   const navigate = useNavigate();
@@ -163,6 +164,7 @@ export default function Presences() {
   const droits = state.data?.droits || {};
   const onglets = [
     { value: 'semaines', label: 'Rapports hebdomadaires' },
+    droits.consulter && { value: 'synthese', label: 'Synthèse mensuelle' },
     droits.global && { value: 'rectificatifs', label: 'Rectificatifs' },
     (droits.gerer || droits.directeur) && { value: 'parametres', label: 'Horaires et jours fériés' },
     { value: 'moi', label: 'Mes présences' },
@@ -183,6 +185,7 @@ export default function Presences() {
           ))}
         </Loadable>
       )}
+      {onglet === 'synthese' && <Synthese />}
       {onglet === 'rectificatifs' && <Rectificatifs />}
       {onglet === 'parametres' && <Parametres />}
       {onglet === 'moi' && <MesPresences />}

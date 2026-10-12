@@ -114,6 +114,7 @@ async function sgDashboard(ctx) {
     statistiques: { instructions: instrStats, taches: taskStats, documentsValides: Number(docsValides.n), courriers },
     pip: pip.map((p) => ({ statut: p.statut, nombre: Number(p.n), cout: Number(p.cout || 0) })),
     performance: perf,
+    presencesMois: await presencesMois(),
   };
 }
 
@@ -140,7 +141,7 @@ async function directeurDashboard(ctx) {
   ]);
   return {
     performance: perf, tachesEnRetard: tachesRetard, instructionsEnRetard: instructionsRetard, documentsAValider: docsAValider,
-    presencesSoumises, presencesSemaine: presSemaine, courriersARecevoir: courriersRecevoir, courriers: courriersCirculation,
+    presencesSoumises, presencesSemaine: presSemaine, presencesMois: await presencesMois(), courriersARecevoir: courriersRecevoir, courriers: courriersCirculation,
     pipAValider, instructionsRecues: instructionsSG,
     pip: await statutsCount('pip_projects'),
     effectif: await resumeEffectif(),
@@ -170,6 +171,13 @@ async function pilotageDecisions() {
 
 /** Synthèse du dernier rapport de présence transmis (valeurs effectives, rectificatifs compris). */
 const presenceSemaine = (filtre = {}) => presences.syntheseDerniereSemaine(filtre);
+/** Indicateurs de présence du mois en cours (listes transmises), sans détail nominatif. */
+async function presencesMois() {
+  const mois = presences.aujourdhui().slice(0, 7);
+  const d = await presences.syntheseMensuelle({ mois, nominatif: false });
+  if (!d.global.renseignes) return null;
+  return { mois, jours_couverts: d.jours_couverts, jours_ouvrables: d.jours_ouvrables, ...d.global };
+}
 /** Derniers rapports hebdomadaires transmis (consultation des Chefs). */
 const rapportsPresence = (limite) => db('presence_semaines').whereNot('statut', 'EN_PREPARATION').orderBy('semaine_debut', 'desc').limit(limite).select('id', 'reference', 'statut', 'semaine_debut');
 
@@ -261,29 +269,14 @@ router.get('/a-traiter', async (req, res) => {
   res.json(await aTraiter(req.ctx));
 });
 
-/** Présences en attente : rapports transmis et rectificatifs proposés (Directeur), rapports rejetés (Secrétariat). */
-async function compteurPresences(ctx) {
-  if (ctx.perimetre === 'SUPERVISION_GLOBALE') return { n: 0 };
-  if (ctx.can('presences.verrouiller')) {
-    const [s, r] = await Promise.all([
-      db('presence_semaines').where('statut', 'TRANSMIS').count('* as n').first(),
-      db('presence_rectificatifs').where('statut', 'PROPOSE').count('* as n').first(),
-    ]);
-    return { n: Number(s.n) + Number(r.n) };
-  }
-  if (ctx.can('presences.preparer_direction')) return db('presence_semaines').where('statut', 'REJETE').count('* as n').first();
-  return { n: 0 };
-}
-
 router.get('/compteurs', async (req, res) => {
   const ctx = req.ctx;
-  const [docs, instr, taches, courriers, pip, pres] = await Promise.all([
+  const [docs, instr, taches, courriers, pip] = await Promise.all([
     ctx.can('documents.consulter') ? scopeDocuments(db('documents as d'), ctx).where('d.detenteur_user_id', ctx.userId).whereIn('d.statut', ['EN_RELECTURE', 'VISE', 'A_CORRIGER']).count('* as n').first() : { n: 0 },
     ctx.can('instructions.consulter') ? scopeInstructions(db('instructions as i'), ctx).where('i.destinataire_user_id', ctx.userId).whereIn('i.statut', ['TRANSMISE', 'A_CORRIGER']).count('* as n').first() : { n: 0 },
     ctx.can('taches.consulter') ? scopeTasks(db('tasks as t'), ctx).where((w) => w.where((x) => x.where('t.agent_user_id', ctx.userId).whereIn('t.statut', ['TRANSMISE', 'A_CORRIGER'])).orWhere((x) => x.where('t.assigne_par_user_id', ctx.userId).where('t.statut', 'EXECUTEE'))).count('* as n').first() : { n: 0 },
     ctx.can('courriers.consulter') ? scopeCourriers(db('courriers as c'), ctx).whereExists(db('courrier_transmissions as t').whereRaw('t.courrier_id = c.id').where({ 't.to_user_id': ctx.userId, 't.etat_reception': 'EN_ATTENTE' })).count('* as n').first() : { n: 0 },
     ctx.can('pip.consulter') ? scopePip(db('pip_projects as p'), ctx).where('p.detenteur_user_id', ctx.userId).whereIn('p.statut', ['EN_VERIFICATION', 'VERIFIE', 'A_CORRIGER']).count('* as n').first() : { n: 0 },
-    compteurPresences(ctx),
   ]);
   const alertes = ctx.can('securite.superviser') ? await db('alertes_securite').whereNull('acquittee_at').whereIn('gravite', ['ATTENTION', 'CRITIQUE']).count('* as n').first() : { n: 0 };
   // Décisions attendues de l’émetteur : blocages signalés et demandes de prolongation
@@ -304,7 +297,7 @@ router.get('/compteurs', async (req, res) => {
     nonLues: Number(notif.n),
     systeme: { maintenance: { active: maintenance.active, message: maintenance.active ? maintenance.message : '', fin: maintenance.active ? maintenance.fin : '' }, demo: config.demo },
     documents: Number(docs.n), instructions: Number(instr.n) + instrAttente, taches: Number(taches.n) + tachesAttente, courriers: Number(courriers.n),
-    pip: Number(pip.n), presences: Number(pres.n), alertes: Number(alertes.n), demandesInfo,
+    pip: Number(pip.n), presences: parModule.presences || 0, alertes: Number(alertes.n), demandesInfo,
     planification: parModule.planification || 0, donnees: parModule.donnees || 0, reunions: parModule.reunions || 0,
     decisions: parModule.decisions || 0, actes: parModule.actes || 0, cartes: parModule.cartes || 0,
   });

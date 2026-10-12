@@ -9,7 +9,7 @@
  * et risques, données sectorielles (annuaire, campagnes, indicateurs, bulletins), correspondance
  * (note explicative signée, lettre de transmission), termes de référence et référentiels des fiches PIP
  * (PNSD et stratégie sectorielle, fictifs), présences journalières (listes Cadres et Agents,
- * rapports hebdomadaires verrouillé, transmis avec rectificatif, semaine en cours).
+ * rapports hebdomadaires verrouillés, transmis avec rectificatif, semaine en cours, synthèses mensuelles).
  * Les dates sont calculées à partir du jour du chargement : la démonstration paraît toujours à jour.
  */
 const config = require('../../config/env');
@@ -424,8 +424,8 @@ async function pipReferentiels(api) {
 
 
 /**
- * Présences journalières tenues par le Secrétariat de Direction : semaine d’avant-dernière
- * verrouillée par le Directeur, semaine dernière transmise avec un rectificatif à valider, semaine
+ * Présences journalières tenues par le Secrétariat de Direction : cinq semaines verrouillées par
+ * le Directeur (synthèses mensuelles), semaine dernière transmise avec un rectificatif à valider, semaine
  * en cours en préparation (jours écoulés renseignés, liste des Agents du jour à compléter).
  */
 async function presencesJournalieres(api) {
@@ -460,9 +460,12 @@ async function presencesJournalieres(api) {
     return (await api(sec, 'GET', '/presences/semaines')).data.find((s) => s.semaine_debut === debut);
   };
   const courant = P.lundiDe(P.aujourdhui());
-  const s2 = await semaine(P.ajouterJours(courant, -14));
-  await api(sec, 'POST', `/presences/semaines/${s2.id}/transmettre`, {});
-  await api('directeur', 'POST', `/presences/semaines/${s2.id}/verrouiller`, { commentaire: 'Rapport reçu.' });
+  // Cinq semaines verrouillées : synthèses mensuelles du mois en cours et du mois précédent
+  for (const k of [6, 5, 4, 3, 2]) {
+    const s = await semaine(P.ajouterJours(courant, -7 * k));
+    await api(sec, 'POST', `/presences/semaines/${s.id}/transmettre`, {});
+    await api('directeur', 'POST', `/presences/semaines/${s.id}/verrouiller`, { commentaire: 'Rapport reçu.' });
+  }
   const s1 = await semaine(P.ajouterJours(courant, -7));
   await api(sec, 'POST', `/presences/semaines/${s1.id}/transmettre`, {});
   // Rectificatif : un agent noté présent était en mission (ordre de mission reçu après transmission)

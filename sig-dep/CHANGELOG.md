@@ -1,5 +1,16 @@
 # Journal des versions — SIG-DEP
 
+## 1.39.0
+
+### Lot B — présences journalières (étape 2 : synthèses et pilotage)
+- **Synthèse mensuelle** (onglet « Synthèse mensuelle » des Présences) calculée sur les listes transmises au Directeur, rectificatifs validés compris : taux de présence (agent-jours de présence sur agent-jours renseignés), ponctualité (présences sans retard), retards et minutes de retard, absences par motif ; **par structure** (regroupement de l’annexe 11, barres de taux), **par agent** et **par jour** ; navigation d’un mois à l’autre.
+- Périmètre : toute la Direction pour le Secrétariat de Direction et le Directeur, la Division ou le Bureau pour un Chef, **agrégats sans nom** pour le Secrétaire Général.
+- **Exports** PDF et Excel de la synthèse (feuilles par structure, par agent, par jour ; en-tête et pied de page officiels, « Pour la DEP »).
+- **Files « À traiter »** : rapports de présence à examiner et rectificatifs à valider (Directeur) ; rapports rejetés à reprendre, rapports des semaines écoulées à transmettre et listes du jour à compléter (Secrétariat de Direction). Le compteur du menu « Présences » reprend ces files.
+- **Tableaux de bord** : taux de présence, retards et absences du mois sur la tuile du Directeur ; tuile « Taux de présence du mois » pour le Secrétaire Général.
+- Démonstration : cinq semaines verrouillées (synthèses du mois en cours et du mois précédent), une semaine transmise avec un rectificatif, la semaine en cours.
+- Tests : 2 nouveaux côté API (synthèse et périmètres, exports ; files et compteur) ; 2 nouveaux côté interface.
+
 ## 1.38.0
 
 ### Lot B — présences journalières (étape 1 : saisie, rapport hebdomadaire, rectificatifs)

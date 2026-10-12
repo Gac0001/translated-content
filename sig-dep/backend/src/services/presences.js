@@ -167,7 +167,64 @@ async function synthesePeriode({ du, au, divisionId = null, bureauId = null }, t
   return synthese(await lignesEffectives(ids, { divisionId, bureauId }, trx));
 }
 
+/** Agrégat d’agent-jours : présents (dont retards), minutes de retard, absences par motif, taux de présence. */
+function agreger(lignes) {
+  const a = { jours: 0, renseignes: 0, presents: 0, retards: 0, minutes_retard: 0, absents: 0, motifs: {} };
+  for (const l of lignes) {
+    a.jours += 1;
+    const e = etat(l);
+    if (e === 'NON_RENSEIGNE') continue;
+    a.renseignes += 1;
+    if (e === 'ABSENT') { a.absents += 1; a.motifs[l.motif] = (a.motifs[l.motif] || 0) + 1; continue; }
+    a.presents += 1;
+    if (l.retard_minutes > 0) { a.retards += 1; a.minutes_retard += l.retard_minutes; }
+  }
+  a.taux = a.renseignes ? Math.round((a.presents / a.renseignes) * 1000) / 10 : null;
+  a.taux_ponctualite = a.presents ? Math.round(((a.presents - a.retards) / a.presents) * 1000) / 10 : null;
+  return a;
+}
+
+/**
+ * Synthèse mensuelle des présences (listes transmises, valeurs effectives) : ensemble de la
+ * Direction, par structure (regroupement de l’annexe 11), par agent (si `nominatif`) et par jour.
+ * `divisionId` / `bureauId` limitent la synthèse à une structure (consultation des Chefs).
+ */
+async function syntheseMensuelle({ mois, divisionId = null, bureauId = null, nominatif = true }, trx = db) {
+  const du = `${mois}-01`;
+  const fin = new Date(Date.UTC(Number(mois.slice(0, 4)), Number(mois.slice(5, 7)), 0));
+  const au = iso(fin);
+  const [listes, feriesMois] = await Promise.all([
+    trx('presence_listes').whereBetween('date', [du, au]).whereNot('statut', 'BROUILLON').select('id', 'date', 'categorie'),
+    feries(du, au, trx),
+  ]);
+  const dateListe = new Map(listes.map((l) => [l.id, iso(new Date(l.date))]));
+  const lignes = await lignesEffectives(listes.map((l) => l.id), { divisionId, bureauId }, trx);
+  let ouvrables = 0;
+  for (let d = du; d <= au; d = ajouterJours(d, 1)) if (estOuvrable(d) && !feriesMois[d]) ouvrables += 1;
+  const grouper = (cle) => {
+    const m = new Map();
+    for (const l of lignes) { const k = cle(l); if (!m.has(k)) m.set(k, []); m.get(k).push(l); }
+    return m;
+  };
+  const structures = [...grouper((l) => `${l.structure_code}|${l.structure_libelle}`).entries()]
+    .map(([k, ls]) => { const [code, libelle] = k.split('|'); return { code, libelle, effectif: new Set(ls.map((x) => x.agent_id)).size, ...agreger(ls) }; })
+    .sort((a, b) => a.code.localeCompare(b.code, 'fr', { numeric: true }));
+  const jours = [...grouper((l) => dateListe.get(l.liste_id)).entries()].map(([date, ls]) => ({ date, ...agreger(ls) })).sort((a, b) => a.date.localeCompare(b.date));
+  let agents = null;
+  if (nominatif) {
+    const parAgent = grouper((l) => l.agent_id);
+    const noms = parAgent.size ? await trx('agents').whereIn('id', [...parAgent.keys()]).select('id', db.raw(`concat_ws(' ', nom, postnom, prenom) as nom_complet`)) : [];
+    const nom = new Map(noms.map((x) => [x.id, x.nom_complet]));
+    agents = [...parAgent.entries()].map(([id, ls]) => {
+      const der = ls[ls.length - 1];
+      return { agent_id: id, nom_complet: nom.get(id), grade_code: der.grade_code, structure_code: der.structure_code, structure_libelle: der.structure_libelle, ordre: der.ordre, ...agreger(ls) };
+    }).sort((a, b) => a.structure_code.localeCompare(b.structure_code, 'fr', { numeric: true }) || a.ordre - b.ordre);
+  }
+  return { mois, du, au, jours_ouvrables: ouvrables, feries: feriesMois, jours_couverts: new Set(listes.map((l) => dateListe.get(l.id))).size, global: agreger(lignes), structures, jours, agents };
+}
+
 module.exports = {
+  syntheseMensuelle, agreger,
   syntheseDerniereSemaine, synthesePeriode, lignesEffectives, synthese,
   JOURS, MOTIFS, CATEGORIES, NIVEAU_CADRE, lundiDe, joursOuvrables, semaineIso, estOuvrable, ajouterJours, aujourdhui, iso,
   horaires, feries, retard, etat, agentsEligibles, lignesListe, appliquerRectificatifs, bilan,

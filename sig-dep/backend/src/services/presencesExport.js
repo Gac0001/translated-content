@@ -11,6 +11,7 @@ const ExcelJS = require('exceljs');
 const db = require('../db/knex');
 const pdf = require('./pdf');
 const officiel = require('./entete');
+const { sendWorkbook } = require('./excel');
 const P = require('./presences');
 const { DEP_NOM } = require('../constants');
 
@@ -202,4 +203,61 @@ async function exportExcel(res, d) {
   res.end();
 }
 
-module.exports = { donneesSemaine, pdf: exportPdf, excel: exportExcel };
+// ─── Synthèse mensuelle ─────────────────────────────────────────────────────────────────────────
+const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+const libelleMois = (m) => `${MOIS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
+const pct = (v) => (v === null || v === undefined ? '—' : `${String(v).replace('.', ',')} %`);
+const motifsTexte = (motifs) => Object.entries(motifs || {}).map(([k, v]) => `${P.MOTIFS[k]} : ${v}`).join(' · ') || '—';
+const colonnesAgregat = (excel) => [
+  { header: 'Agent-jours', key: 'renseignes', width: 11, align: 'right' },
+  { header: 'Présents', key: 'presents', width: 10, align: 'right' },
+  { header: 'Retards', key: 'retards', width: 9, align: 'right' },
+  { header: 'Minutes de retard', key: 'minutes_retard', width: 11, align: 'right' },
+  { header: 'Absences', key: 'absents', width: 9, align: 'right' },
+  { header: 'Absences par motif', value: (r) => motifsTexte(r.motifs), width: excel ? 40 : 30 },
+  { header: 'Taux de présence', value: (r) => pct(r.taux), width: 11, align: 'right' },
+  { header: 'Ponctualité', value: (r) => pct(r.taux_ponctualite), width: 11, align: 'right' },
+];
+const colStructures = (excel) => [
+  { header: 'Code', key: 'code', width: 7 }, { header: 'Structure', key: 'libelle', width: excel ? 44 : 34 }, { header: 'Effectif', key: 'effectif', width: 8, align: 'right' }, ...colonnesAgregat(excel),
+];
+const colAgents = (excel) => [
+  { header: 'Structure', key: 'structure_code', width: 8 }, { header: 'Nom, postnom et prénom', key: 'nom_complet', width: excel ? 34 : 30 }, { header: 'Grade', key: 'grade_code', width: 7 }, ...colonnesAgregat(excel),
+];
+const colJours = [
+  { header: 'Date', value: (r) => fr(r.date), width: 12 }, { header: 'Agent-jours', key: 'renseignes', width: 11, align: 'right' }, { header: 'Présents', key: 'presents', width: 10, align: 'right' },
+  { header: 'Retards', key: 'retards', width: 9, align: 'right' }, { header: 'Absences', key: 'absents', width: 9, align: 'right' }, { header: 'Taux de présence', value: (r) => pct(r.taux), width: 12, align: 'right' },
+];
+const totalLigne = (d) => ({ code: '', libelle: `Ensemble (${d.portee === 'Direction' ? DEP_NOM : d.portee})`, effectif: d.agents ? d.agents.length : d.structures.reduce((t, x) => t + x.effectif, 0), ...d.global });
+const sousTitreSynthese = (d) => `Listes transmises du ${fr(d.du)} au ${fr(d.au)} — ${d.jours_couverts} jour(s) sur ${d.jours_ouvrables} jour(s) ouvrable(s)${Object.keys(d.feries).length ? `, ${Object.keys(d.feries).length} férié(s)` : ''} — valeurs rectifiées comprises`;
+
+function synthesePdf(res, d) {
+  const titre = `SYNTHÈSE MENSUELLE DES PRÉSENCES — ${libelleMois(d.mois).toUpperCase()}`;
+  const { doc, finish } = pdf.createPdf(res, { filename: `presences-synthese-${d.mois}.pdf`, titre, sousTitre: sousTitreSynthese(d), landscape: true });
+  pdf.keyValues(doc, [
+    ['Taux de présence', pct(d.global.taux)], ['Ponctualité des présents', pct(d.global.taux_ponctualite)],
+    ['Retards', `${d.global.retards} (${d.global.minutes_retard} minutes au total)`], ['Absences', `${d.global.absents} — ${motifsTexte(d.global.motifs)}`],
+  ]);
+  doc.font('Helvetica-Bold').fontSize(10.5).fillColor(pdf.BLUE).text('1. Par structure').fillColor('#000').moveDown(0.3);
+  pdf.table(doc, colStructures(false), [...d.structures, totalLigne(d)], { fontSize: 7.5 });
+  if (d.agents) {
+    doc.font('Helvetica-Bold').fontSize(10.5).fillColor(pdf.BLUE).text('2. Par agent').fillColor('#000').moveDown(0.3);
+    pdf.table(doc, colAgents(false), d.agents, { fontSize: 7.5 });
+  }
+  doc.font('Helvetica-Bold').fontSize(10.5).fillColor(pdf.BLUE).text(`${d.agents ? 3 : 2}. Par jour`).fillColor('#000').moveDown(0.3);
+  pdf.table(doc, colJours, d.jours, { fontSize: 7.5 });
+  pdf.ensureSpace(doc, 40);
+  doc.moveDown(0.5).font('Helvetica-Bold').fontSize(10).text('Pour la DEP', { align: 'right' });
+  return finish();
+}
+
+function syntheseExcel(res, d) {
+  const titre = `Synthèse mensuelle des présences — ${libelleMois(d.mois)}`;
+  return sendWorkbook(res, `presences-synthese-${d.mois}.xlsx`, [
+    { name: 'Par structure', titre, sousTitre: sousTitreSynthese(d), columns: colStructures(true), rows: [...d.structures, totalLigne(d)] },
+    ...(d.agents ? [{ name: 'Par agent', titre, sousTitre: sousTitreSynthese(d), columns: colAgents(true), rows: d.agents }] : []),
+    { name: 'Par jour', titre, sousTitre: sousTitreSynthese(d), columns: colJours, rows: d.jours },
+  ]);
+}
+
+module.exports = { donneesSemaine, pdf: exportPdf, excel: exportExcel, synthesePdf, syntheseExcel };

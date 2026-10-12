@@ -216,6 +216,62 @@ describe('Présences journalières', () => {
     expect((await dir.del(`/presences/feries/${f.body.id}`)).status).toBe(200);
   });
 
+  test('synthèse mensuelle : Direction, structure d’un Chef, agrégats du SG, exports', async () => {
+    const mois = lundi(2).slice(0, 7);
+    const dir = api(await login('directeur'));
+    const r = await dir.get(`/presences/synthese?mois=${mois}`);
+    expect(r.status).toBe(200);
+    const d = r.body;
+    expect(d.global.renseignes).toBeGreaterThan(0);
+    expect(d.structures.reduce((t, x) => t + x.renseignes, 0)).toBe(d.global.renseignes);
+    expect(d.agents.reduce((t, x) => t + x.retards, 0)).toBe(d.global.retards);
+    expect(d.global.taux).toBeGreaterThan(0);
+    expect(d.structures.map((x) => x.code)).toEqual(expect.arrayContaining(['I.1']));
+    // Valeur rectifiée (rectificatif validé du scénario précédent) comptée comme absence pour formation
+    expect(d.global.motifs.FORMATION).toBeGreaterThanOrEqual(1);
+    // Chef de Bureau : son Bureau seulement ; SG : agrégats sans nom ; Agent : refus
+    const bureau = await db('bureaux').where({ code: 'BUR-COI' }).first();
+    const cb = (await api(await login('cb.coi')).get(`/presences/synthese?mois=${mois}`)).body;
+    expect(cb.portee).toBe('Bureau');
+    expect(cb.agents.length).toBeGreaterThan(0);
+    expect(cb.structures.every((x) => x.code === cb.structures[0].code)).toBe(true);
+    const lignesCoi = await db('presence_lignes').where({ bureau_id: bureau.id }).first();
+    expect(cb.structures[0].code).toBe(lignesCoi.structure_code);
+    const sg = (await api(await login('sg')).get(`/presences/synthese?mois=${mois}`)).body;
+    expect(sg.agents).toBeNull();
+    expect(sg.global.renseignes).toBe(d.global.renseignes);
+    expect((await api(await login('ag.coi1')).get('/presences/synthese')).status).toBe(403);
+    expect((await dir.get('/presences/synthese?mois=2026-13')).status).toBe(400);
+    const pdf = await binaire(dir.get(`/presences/synthese/export/pdf?mois=${mois}`));
+    expect(pdf.body.slice(0, 4).toString()).toBe('%PDF');
+    const xlsx = await binaire(dir.get(`/presences/synthese/export/xlsx?mois=${mois}`));
+    const ExcelJS = require('exceljs');
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(xlsx.body);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(['Par structure', 'Par agent', 'Par jour']);
+    const wbSg = new ExcelJS.Workbook();
+    await wbSg.xlsx.load((await binaire(api(await login('sg')).get(`/presences/synthese/export/xlsx?mois=${mois}`))).body);
+    expect(wbSg.worksheets.map((w) => w.name)).toEqual(['Par structure', 'Par jour']);
+  });
+
+  test('files « À traiter » et compteur du menu', async () => {
+    const dir = api(await login('directeur'));
+    const files = (await dir.get('/dashboard/a-traiter')).body.files;
+    const examiner = files.find((f) => f.cle === 'presences_examiner');
+    expect(examiner.total).toBeGreaterThan(0);
+    expect(examiner.items[0].to).toMatch(/^\/presences\/semaines\/\d+$/);
+    const transmis = Number((await db('presence_semaines').where('statut', 'TRANSMIS').count('* as n').first()).n);
+    const proposes = Number((await db('presence_rectificatifs').where('statut', 'PROPOSE').count('* as n').first()).n);
+    expect((await dir.get('/dashboard/compteurs')).body.presences).toBe(transmis + proposes);
+    // Secrétariat : semaine écoulée encore en préparation à transmettre
+    const sec = (await api(await login('cb.secretariat')).get('/dashboard/a-traiter')).body.files;
+    expect(sec.find((f) => f.cle === 'presences_transmettre').items.map((i) => i.titre).join(' ')).toMatch(/DEP\/PRES/);
+    // Le SG n’a pas de file de présences ; le tableau de bord du Directeur porte les indicateurs du mois
+    expect((await api(await login('sg')).get('/dashboard/a-traiter')).body.files.some((f) => f.module === 'presences')).toBe(false);
+    const tdb = (await dir.get('/dashboard')).body;
+    if (tdb.presencesMois) expect(tdb.presencesMois).toMatchObject({ mois: P.aujourdhui().slice(0, 7) });
+  });
+
   test('droits : l’Admin et les Agents hors Secrétariat n’ont pas accès', async () => {
     const ag = api(await login('ag.coi1'));
     expect((await ag.get('/presences/semaines')).status).toBe(403);

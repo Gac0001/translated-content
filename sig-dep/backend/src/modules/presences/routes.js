@@ -516,6 +516,32 @@ router.post('/rectificatifs/:id/decision', requirePerm('presences.verrouiller'),
   res.json({ ...(await db('presence_rectificatifs').where({ id: r.id }).first()), actions: { decider: false } });
 });
 
+// ─── Synthèse mensuelle ─────────────────────────────────────────────────────────────────────────
+const moisParam = z.object({ mois: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Mois attendu au format AAAA-MM.').optional() });
+/** Périmètre de la synthèse : toute la Direction (Secrétariat, Directeur), la structure d’un Chef, agrégats seuls pour le SG. */
+function perimetreSynthese(ctx, a) {
+  if (a.global) return { nominatif: true, portee: 'Direction' };
+  if (a.sg) return { nominatif: false, portee: 'Direction' };
+  return ctx.perimetre === 'DIVISION' ? { divisionId: ctx.divisionId, nominatif: true, portee: 'Division' } : { bureauId: ctx.bureauId, nominatif: true, portee: 'Bureau' };
+}
+async function synthese(req) {
+  const a = exigerConsultation(req.ctx);
+  const mois = req.valid.query.mois || P.aujourdhui().slice(0, 7);
+  const p = perimetreSynthese(req.ctx, a);
+  return { ...(await P.syntheseMensuelle({ mois, ...p })), portee: p.portee, motifs: P.MOTIFS };
+}
+
+router.get('/synthese', validate({ query: moisParam }), async (req, res) => {
+  res.json(await synthese(req));
+});
+
+router.get('/synthese/export/:format', requirePerm('exports.generer'), validate({ params: z.object({ format: z.enum(['pdf', 'xlsx']) }), query: moisParam }), async (req, res) => {
+  const d = await synthese(req);
+  await audit(req, { action: 'EXPORT', module: 'presences', entite: 'presence_synthese', message: `Synthèse ${d.mois} (${req.valid.params.format.toUpperCase()})` });
+  if (req.valid.params.format === 'xlsx') return exportsPresences.syntheseExcel(res, d);
+  return exportsPresences.synthesePdf(res, d);
+});
+
 // ─── Présences personnelles ─────────────────────────────────────────────────────────────────────
 /** Présences de l’agent connecté sur les rapports transmis (valeurs effectives, rectificatifs compris). */
 router.get('/moi', validate({ query: z.object({ mois: z.string().regex(/^\d{4}-\d{2}$/).optional() }) }), async (req, res) => {

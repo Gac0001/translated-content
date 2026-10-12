@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import { useApi, Loadable, PageHeader, Card, Stat, StatusBadge, Progress, Empty, Badge, RangBadge, InfoAlert, BarList, MiniStats, CardLink, DataTable, WorkQueue } from '../components/ui';
-import { fmtDate, fmtDateTime, fmtMontant, isOverdue } from '../lib/format';
+import { fmtDate, fmtDateTime, fmtMontant, fmtNombre, isOverdue } from '../lib/format';
 import { DEP_NOM, ROLES, STATUTS, PERIMETRES, NOTIF_TYPES, DELEGATIONS } from '../lib/labels';
 import { Progression } from './comptes/ListeDeclarative';
 import { EtatBadge } from './systeme/Sante';
@@ -189,15 +189,22 @@ function AdminPanel({ a }) {
   );
 }
 
+/** Indicateurs de présence du mois (listes transmises) en une ligne. */
+function presenceMoisTexte(p, avecTaux = true) {
+  if (!p) return 'Aucune liste transmise ce mois-ci';
+  return `${avecTaux ? `Mois : ${fmtNombre(p.taux, 1)} % de présence · ` : ''}${p.retards} retard(s), ${p.absents} absence(s)`;
+}
+
 function SGPanel({ d }) {
   const s = d.statistiques;
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Stat label="Divisions" value={d.vueGlobale.divisions} icon={Building2} to="/organigramme" />
         <Stat label="Bureaux" value={d.vueGlobale.bureaux} hint={`dont ${d.vueGlobale.bureauxRattachesDirection} rattaché(s) au Directeur`} icon={Building2} tone="gris" />
         <Stat label="Agents en fonction" value={d.vueGlobale.agents} icon={Users} tone="vert" />
         <Stat label="Documents validés" value={s.documentsValides} icon={FileText} tone="violet" to="/documents" />
+        <Stat label="Taux de présence du mois" value={d.presencesMois ? `${fmtNombre(d.presencesMois.taux, 1)} %` : '—'} hint={presenceMoisTexte(d.presencesMois, false)} icon={CalendarCheck} tone="vert" to="/presences?onglet=synthese" />
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card title="Instructions adressées au Directeur" actions={<Link to="/instructions/nouvelle" className="btn-primary py-1.5"><Send size={14} /> Nouvelle instruction</Link>}>
@@ -233,7 +240,7 @@ function DirecteurPanel({ d }) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Documents à valider" value={d.documentsAValider.length} icon={FileText} tone={d.documentsAValider.length ? 'jaune' : 'gris'} to="/documents" />
         <Stat label="Travaux en retard" value={retard} icon={AlertTriangle} tone={retard ? 'rouge' : 'gris'} to="/taches?statut=EN_RETARD" />
-        <Stat label="Rapports de présence transmis" value={d.presencesSoumises.length} hint={d.presencesSemaine ? `Taux de présence : ${d.presencesSemaine.tauxPresence ?? '—'} %` : null} icon={CalendarCheck} tone="violet" to="/presences" />
+        <Stat label="Rapports de présence à examiner" value={d.presencesSoumises.length} hint={presenceMoisTexte(d.presencesMois)} icon={CalendarCheck} tone="violet" to={d.presencesSoumises.length ? '/presences' : '/presences?onglet=synthese'} />
         <Stat label="Courriers à réceptionner" value={d.courriersARecevoir.length} icon={Mail} tone={d.courriersARecevoir.length ? 'jaune' : 'gris'} to="/courriers?onglet=recevoir" />
       </div>
       {d.decisions && <PilotageCard d={d} />}

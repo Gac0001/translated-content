@@ -66,4 +66,24 @@ test.describe('Présences journalières (ordinateur)', () => {
     await expect(page.getByRole('table', { name: 'Mes présences' }).locator('tbody tr').first()).toBeVisible();
     await capture(page, 'mes-presences');
   });
+
+  test('synthèse mensuelle et files « À traiter » du Directeur', async ({ page }) => {
+    await connexion(page, 'directeur');
+    await expect(page.getByRole('heading', { name: 'À traiter' })).toBeVisible();
+    await expect(page.getByText('Rectificatifs de présence à valider')).toBeVisible();
+    await page.goto('/presences?onglet=synthese');
+    await expect(page.getByText('Taux de présence', { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('table', { name: 'Synthèse par agent' }).locator('tbody tr').first()).toBeVisible();
+    await expect(page.getByRole('list', { name: 'Taux de présence par structure' }).locator('li').first()).toBeVisible();
+    await capture(page, 'synthese-mensuelle');
+    await page.getByRole('button', { name: 'Mois précédent' }).click();
+    await expect(page.getByRole('table', { name: 'Synthèse par structure' })).toBeVisible();
+  });
+
+  test('le Secrétaire Général ne voit que les agrégats', async ({ page }) => {
+    await connexion(page, 'sg');
+    await page.goto('/presences?onglet=synthese');
+    await expect(page.getByRole('table', { name: 'Synthèse par structure' })).toBeVisible();
+    await expect(page.getByRole('table', { name: 'Synthèse par agent' })).toHaveCount(0);
+  });
 });
