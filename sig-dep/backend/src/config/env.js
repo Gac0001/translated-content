@@ -50,7 +50,6 @@ const config = {
   uploadDir: path.resolve(root, process.env.UPLOAD_DIR || './storage/uploads'),
   backupDir: path.resolve(root, process.env.BACKUP_DIR || './storage/backups'),
   maxUploadBytes: Number(process.env.MAX_UPLOAD_MB || 15) * 1024 * 1024,
-  presenceAutolockHours: Number(process.env.PRESENCE_AUTOLOCK_HOURS || 24),
   seedDemo: process.env.SEED_DEMO !== 'false',
   // Mode démonstration (présentation, formation) : bandeau, comptes affichés à la connexion,
   // double authentification par code connu. Interdit en production.

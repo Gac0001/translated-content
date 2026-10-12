@@ -26,6 +26,8 @@ const CONSERVEES = [
   'plan_programmes', 'plan_actions', 'plan_services', 'plan_rattachements', 'plan_postes_budgetaires',
   // Provinces et catégories d’acteurs (référentiel des données sectorielles)
   'sect_zones', 'sect_categories',
+  // Jours fériés (référentiel des présences)
+  'jours_feries',
 ];
 
 async function volumes(trx = db) {
@@ -33,7 +35,7 @@ async function volumes(trx = db) {
     (select count(*) from agents) as agents, (select count(*) from users) as comptes,
     (select count(*) from instructions) as instructions, (select count(*) from tasks) as taches,
     (select count(*) from courriers) as courriers, (select count(*) from documents) as documents,
-    (select count(*) from pip_projects) as pip, (select count(*) from presence_sheets) as presences,
+    (select count(*) from pip_projects) as pip, (select count(*) from presence_listes) as presences,
     (select count(*) from attachments) as pieces, (select count(*) from audit_logs) as audit`);
   return Object.fromEntries(Object.entries(r.rows[0]).map(([k, v]) => [k, Number(v)]));
 }

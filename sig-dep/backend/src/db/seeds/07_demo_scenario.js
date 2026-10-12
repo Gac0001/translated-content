@@ -8,7 +8,8 @@
  * du Secrétaire Général, planification (PTBA, performance, crédits, PAP/RAP), banque des projets
  * et risques, données sectorielles (annuaire, campagnes, indicateurs, bulletins), correspondance
  * (note explicative signée, lettre de transmission), termes de référence et référentiels des fiches PIP
- * (PNSD et stratégie sectorielle, fictifs).
+ * (PNSD et stratégie sectorielle, fictifs), présences journalières (listes Cadres et Agents,
+ * rapports hebdomadaires verrouillé, transmis avec rectificatif, semaine en cours).
  * Les dates sont calculées à partir du jour du chargement : la démonstration paraît toujours à jour.
  */
 const config = require('../../config/env');
@@ -52,6 +53,7 @@ exports.seed = async function seed(knex) {
     await donneesSectorielles(api, knex, uid);
     await correspondance(api);
     await pipReferentiels(api);
+    await presencesJournalieres(api);
   } finally {
     await new Promise((ok) => server.close(ok));
     await require('../../db/knex').destroy();
@@ -420,3 +422,55 @@ async function pipReferentiels(api) {
   await api('ag.coi1', 'POST', '/pip', { donnees: vide });
 }
 
+
+/**
+ * Présences journalières tenues par le Secrétariat de Direction : semaine d’avant-dernière
+ * verrouillée par le Directeur, semaine dernière transmise avec un rectificatif à valider, semaine
+ * en cours en préparation (jours écoulés renseignés, liste des Agents du jour à compléter).
+ */
+async function presencesJournalieres(api) {
+  const P = require('../../services/presences');
+  const sec = 'ag.secretariat1';
+  const annee = Number(P.aujourdhui().slice(0, 4));
+  for (const [md, libelle] of [['01-01', 'Nouvel an'], ['01-04', 'Journée des martyrs de l’indépendance'], ['05-01', 'Fête du travail'], ['06-30', 'Fête de l’indépendance'], ['08-01', 'Fête des parents'], ['12-25', 'Noël']]) {
+    const date = `${annee}-${md}`;
+    if (P.estOuvrable(date)) await api('directeur', 'POST', '/presences/feries', { date, libelle });
+  }
+  const MOTIFS = ['MISSION', 'CONGE', 'MALADIE', 'PERMISSION', 'FORMATION'];
+  // Valeurs fictives et reproductibles : quelques retards et absences chaque jour
+  const valeur = (n) => {
+    if (n % 23 === 7) return { motif: MOTIFS[n % MOTIFS.length], observation: 'Pièce justificative au dossier' };
+    if (n % 31 === 5) return { motif: 'ABSENT_NON_JUSTIFIE' };
+    const retard = n % 9 === 4 ? 20 + (n % 4) * 10 : n % 5;
+    return { heure_arrivee: `0${8 + Math.floor((retard) / 60)}:${String(retard % 60).padStart(2, '0')}`, heure_depart: n % 7 === 3 ? '15:00' : '15:30' };
+  };
+  let n = 0;
+  async function remplirJour(date, { partiel = false } = {}) {
+    const j = await api(sec, 'GET', `/presences/jour/${date}`);
+    n += 5; // décalage quotidien : retards et absences ne touchent pas chaque jour les mêmes agents
+    for (const l of j.listes) {
+      const lignes = l.lignes.map((x) => ({ agent_id: x.agent_id, ...valeur(n += 1) }));
+      const saisies = partiel && l.categorie === 'AGENTS' ? lignes.slice(0, Math.ceil(lignes.length / 2)).map(({ heure_depart, ...x }) => x) : lignes;
+      if (saisies.length) await api(sec, 'PUT', `/presences/listes/${l.id}`, { lignes: saisies });
+    }
+    return j;
+  }
+  const semaine = async (debut) => {
+    for (const date of P.joursOuvrables(debut)) await remplirJour(date);
+    return (await api(sec, 'GET', '/presences/semaines')).data.find((s) => s.semaine_debut === debut);
+  };
+  const courant = P.lundiDe(P.aujourdhui());
+  const s2 = await semaine(P.ajouterJours(courant, -14));
+  await api(sec, 'POST', `/presences/semaines/${s2.id}/transmettre`, {});
+  await api('directeur', 'POST', `/presences/semaines/${s2.id}/verrouiller`, { commentaire: 'Rapport reçu.' });
+  const s1 = await semaine(P.ajouterJours(courant, -7));
+  await api(sec, 'POST', `/presences/semaines/${s1.id}/transmettre`, {});
+  // Rectificatif : un agent noté présent était en mission (ordre de mission reçu après transmission)
+  const detail = await api(sec, 'GET', `/presences/semaines/${s1.id}`);
+  const liste = await api(sec, 'GET', `/presences/listes/${detail.jours[0].listes[1].id}`);
+  const cible = liste.lignes.find((l) => !l.motif);
+  if (cible) await api(sec, 'POST', `/presences/listes/${liste.id}/rectificatifs`, { motif: 'Ordre de mission reçu après la transmission du rapport.', lignes: [{ agent_id: cible.agent_id, motif: 'MISSION', observation: 'Mission à Kisangani (fictive)' }] });
+  // Semaine en cours : jours écoulés renseignés, aujourd’hui à compléter
+  for (const date of P.joursOuvrables(courant).filter((d) => d < P.aujourdhui())) await remplirJour(date);
+  if (P.estOuvrable(P.aujourdhui())) await remplirJour(P.aujourdhui(), { partiel: true });
+}

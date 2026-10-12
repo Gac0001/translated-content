@@ -154,6 +154,13 @@ const LOADERS = {
     table: 'actes_administratifs as x', alias: 'x', scope: (qb, ctx) => require('./actes').scopeActes(qb, ctx),
     writers: (r) => (r.statut === 'BROUILLON' ? [r.prepare_par] : []), strict: true,
   },
+  // Présences journalières : pièces justificatives d’absence (ordre de mission, certificat médical…),
+  // jointes par le Secrétariat de Direction pendant la saisie ou pour un rectificatif.
+  PRESENCE_LISTE: {
+    table: 'presence_listes as x', alias: 'x',
+    scope: (qb, ctx) => ((ctx.can('presences.preparer_direction') || ctx.can('presences.verrouiller')) && ctx.perimetre !== 'SUPERVISION_GLOBALE' ? qb : qb.whereRaw('false')),
+    writers: (r, ctx) => (ctx.can('presences.preparer_direction') ? [ctx.userId] : []), strict: true,
+  },
 };
 
 /** Charge un élément en vérifiant le périmètre ; mode 'write' exige d’être partie prenante. */
@@ -178,9 +185,9 @@ async function loadEntity(ctx, type, id, mode = 'read') {
   }
   if (mode === 'write') {
     if (ctx.perimetre === 'SUPERVISION_GLOBALE' && !['INSTRUCTION', 'ACTE', 'DEMANDE_INFO'].includes(type)) throw forbidden('Accès en lecture seule.', 'LECTURE_SEULE');
-    const writers = L.writers(row).filter(Boolean);
+    const writers = L.writers(row, ctx).filter(Boolean);
     const courrierRegistrar = type === 'COURRIER' && ctx.can('courriers.enregistrer');
-    if (L.strict && !writers.includes(ctx.userId)) throw forbidden('Les pièces d’un acte se joignent pendant sa préparation, par la personne qui le prépare.');
+    if (L.strict && !writers.includes(ctx.userId)) throw forbidden(type === 'PRESENCE_LISTE' ? 'Les pièces des présences se joignent par le Secrétariat de Direction.' : 'Les pièces d’un acte se joignent pendant sa préparation, par la personne qui le prépare.');
     if (!writers.includes(ctx.userId) && !courrierRegistrar && ctx.perimetre !== 'DIRECTION') {
       throw forbidden('Seules les personnes en charge de cet élément peuvent y joindre ou modifier des fichiers.');
     }

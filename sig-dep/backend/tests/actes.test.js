@@ -184,11 +184,11 @@ describe('Actes administratifs, intérims et désignations', () => {
     // Désignation échue : aucun droit, puis passage à l’état « expiré » par la tâche planifiée.
     const echue = await preparerEtSoumettre(secTok, {
       type: 'DESIGNATION', objet: 'Désignation échue (régularisation)', agent_id: ben,
-      permissions: ['presences.preparer_direction'], date_debut: decale(-10), date_fin: decale(-1),
+      permissions: ['personnel.suivre'], date_debut: decale(-10), date_fin: decale(-1),
     });
     const v = await dir.post(`/actes/${echue.id}/decision`, { decision: 'VALIDE' });
     expect(v.body.effet).toBe('ECHU');
-    expect((await api(await login('ag.secretariat2')).get('/auth/me')).body.user.permissions).not.toContain('presences.preparer_direction');
+    expect((await api(await login('ag.secretariat2')).get('/auth/me')).body.user.permissions).not.toContain('personnel.suivre');
     await jobs.echeancesActes();
     expect((await db('actes_administratifs').where({ id: echue.id }).first()).statut).toBe('EXPIRE');
     expect((await db('user_permissions').where({ acte_id: echue.id }).first()).revoked_at).not.toBeNull();

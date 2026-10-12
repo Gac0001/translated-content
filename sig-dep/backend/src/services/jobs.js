@@ -8,7 +8,6 @@
  *  - comptes inactifs (désactivation automatique si la politique le prévoit).
  */
 const db = require('../db/knex');
-const config = require('../config/env');
 const { notify } = require('./notifications');
 const { addHistory } = require('./history');
 const mailer = require('./mailer');
@@ -48,15 +47,6 @@ async function remindDeadlines() {
       await db(table).where({ id: r.id }).update({ rappel_envoye: true });
       await notify([r[userCol]], { type: 'ECHEANCE', titre: `Échéance proche — ${label} ${r.reference}`, message: `Échéance : ${new Date(r.echeance).toLocaleDateString('fr-FR')}`, lien: `${lien}${r.id}` });
     }
-  }
-}
-
-async function autolockPresences() {
-  const rows = await db('presence_sheets').where({ statut: 'SOUMISE' })
-    .where('submitted_at', '<', db.raw(`now() - make_interval(hours => ?)`, [config.presenceAutolockHours]));
-  for (const s of rows) {
-    await db('presence_sheets').where({ id: s.id }).update({ statut: 'VERROUILLEE', locked_at: db.fn.now() });
-    await addHistory('PRESENCE', s.id, null, { action: 'VERROUILLAGE_AUTO', ancien: 'SOUMISE', nouveau: 'VERROUILLEE', commentaire: 'Verrouillage automatique après soumission' });
   }
 }
 
@@ -132,7 +122,7 @@ async function rappelsAgenda() { return require('./agenda').rappels(); }
 
 async function runAll() {
   if (maintenance.operationEnCours()) return; // restauration en cours
-  for (const fn of [markOverdue, remindDeadlines, autolockPresences, purgeTokens, purgeDefis, desactiverInactifs, purgeSupervision, rapportMensuel, echeancesActes, gouvernancePeriodique, expirerCartes, suiviDecisions, rappelsAgenda]) {
+  for (const fn of [markOverdue, remindDeadlines, purgeTokens, purgeDefis, desactiverInactifs, purgeSupervision, rapportMensuel, echeancesActes, gouvernancePeriodique, expirerCartes, suiviDecisions, rappelsAgenda]) {
     try { await fn(); } catch (e) {
       console.error(`[JOBS] ${fn.name} :`, e.message);
       require('./erreurs').enregistrer(Object.assign(e, { contexte: `tâche ${fn.name}` }));
@@ -173,4 +163,4 @@ function start(intervalMs = 10 * 60000) {
   setTimeout(tacheSauvegardes, 20000);
 }
 
-module.exports = { start, runAll, echeancesActes, gouvernancePeriodique, expirerCartes, sendMails, markOverdue, remindDeadlines, autolockPresences, desactiverInactifs, purgeSupervision, rapportMensuel, controleSante };
+module.exports = { start, runAll, echeancesActes, gouvernancePeriodique, expirerCartes, sendMails, markOverdue, remindDeadlines, desactiverInactifs, purgeSupervision, rapportMensuel, controleSante };

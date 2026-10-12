@@ -119,6 +119,10 @@ async function loadContext(userId, trx = db) {
       permissions.add('agenda.consulter');
       permissions.add('agenda.gerer');
       permissions.add('reunions.preparer_direction');
+      // Seul le Secrétariat de Direction gère les présences : listes journalières, rapport
+      // hebdomadaire et rectificatifs (cahier des charges, section 25).
+      permissions.add('presences.preparer_direction');
+      permissions.add('presences.consulter');
     }
   }
   // Planification (cadre organique) : le Bureau Programme prépare les PTBA, son Chef les vérifie ;

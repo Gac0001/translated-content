@@ -48,10 +48,10 @@ const PERMISSIONS = [
   // Présences
   ['presences.consulter', 'presences', 'Consulter les présences du périmètre'],
   ['presences.saisir', 'presences', 'Créer et saisir les listes de présence du Bureau'],
-  ['presences.preparer_direction', 'presences', 'Préparer les listes de présence de la Direction', { delegable: true }],
+  ['presences.preparer_direction', 'presences', 'Gérer les présences de la Direction (listes journalières, rapport hebdomadaire, rectificatifs)', { delegable: true }],
   ['presences.verifier', 'presences', 'Vérifier les listes de présence'],
   ['presences.soumettre', 'presences', 'Soumettre les listes de présence au Directeur'],
-  ['presences.verrouiller', 'presences', 'Réceptionner et verrouiller les listes de présence'],
+  ['presences.verrouiller', 'presences', 'Verrouiller ou rejeter le rapport hebdomadaire de présence, valider les rectificatifs'],
   // Courriers
   ['courriers.consulter', 'courriers', 'Consulter les courriers du périmètre'],
   ['courriers.enregistrer', 'courriers', 'Enregistrer les courriers entrants et sortants', { delegable: true }],
@@ -169,7 +169,7 @@ const MATRICE = {
   ],
   CHEF_DIVISION: [
     'organisation.consulter', 'personnel.consulter',
-    'presences.consulter', 'presences.verifier',
+    'presences.consulter',
     'courriers.consulter', 'courriers.transmettre', 'courriers.annoter',
     'instructions.consulter', 'instructions.emettre', 'instructions.executer', 'instructions.valider',
     'taches.consulter',
@@ -180,7 +180,7 @@ const MATRICE = {
   ],
   CHEF_BUREAU: [
     'organisation.consulter', 'personnel.consulter',
-    'presences.consulter', 'presences.saisir', 'presences.verifier', 'presences.soumettre',
+    'presences.consulter',
     'courriers.consulter', 'courriers.transmettre', 'courriers.annoter',
     'instructions.consulter', 'instructions.executer',
     'taches.consulter', 'taches.attribuer',

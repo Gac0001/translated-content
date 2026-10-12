@@ -1,47 +1,6 @@
 'use strict';
-/** Présences, courriers, documents, PIP, comptes, audit, exports. */
+/** Courriers, documents, PIP, comptes, audit, exports. */
 const { db, login, loginAdmin, api, userId, enroler } = require('./helpers');
-
-describe('Présences hebdomadaires', () => {
-  test('workflow Brouillon → Vérifiée → Soumise → Verrouillée et rectificatif', async () => {
-    const cb = api(await login('cb.coi'));
-    const dir = api(await login('directeur'));
-    const s = await cb.post('/presences', { structure_type: 'BUREAU', semaine_debut: '2030-01-07' });
-    expect(s.status).toBe(201);
-    expect((await cb.post('/presences', { structure_type: 'BUREAU', semaine_debut: '2030-01-08' })).status).toBe(400);
-    const d = await cb.get(`/presences/${s.body.id}`);
-    const e = d.body.entries[0];
-    const entry = { agent_id: e.agent_id, lundi: 'PRESENT', mardi: 'RETARD', mercredi: 'CONGE', jeudi: 'MALADIE', vendredi: 'MISSION', observation: 'RAS' };
-    expect((await cb.put(`/presences/${s.body.id}/entries`, { entries: [entry] })).status).toBe(200);
-    expect((await cb.post(`/presences/${s.body.id}/soumettre`)).status).toBe(400);
-    expect((await cb.post(`/presences/${s.body.id}/verifier`)).body.statut).toBe('VERIFIEE');
-    expect((await cb.post(`/presences/${s.body.id}/soumettre`)).body.statut).toBe('SOUMISE');
-    const locked = await cb.put(`/presences/${s.body.id}/entries`, { entries: [{ ...entry, lundi: 'ABSENT' }] });
-    expect(locked.status).toBe(400);
-    await expect(db('presence_entries').where({ sheet_id: s.body.id }).update({ lundi: 'ABSENT' })).rejects.toThrow(/PRESENCE_LOCKED/);
-    expect((await dir.post(`/presences/${s.body.id}/verrouiller`)).body.statut).toBe('VERROUILLEE');
-    const r = await cb.post(`/presences/${s.body.id}/rectificatif`, { motif: 'Correction du lundi' });
-    expect(r.status).toBe(201);
-    expect(r.body.rectifie_sheet_id).toBe(s.body.id);
-    expect(r.body.statut).toBe('BROUILLON');
-    const pdf = await cb.get(`/presences/${s.body.id}/export/pdf`);
-    expect(pdf.headers['content-type']).toBe('application/pdf');
-    const xlsx = await cb.get(`/presences/${s.body.id}/export/xlsx`);
-    expect(xlsx.headers['content-type']).toMatch(/spreadsheetml/);
-  });
-
-  test('un Chef de Bureau ne crée pas la liste d’un autre Bureau', async () => {
-    const other = await db('bureaux').where({ code: 'BUR-EAP' }).first();
-    const r = await api(await login('cb.coi')).post('/presences', { structure_type: 'BUREAU', bureau_id: other.id, semaine_debut: '2026-09-07' });
-    expect(r.status).toBe(403);
-  });
-
-  test('le Bureau Secrétariat prépare la liste de la Direction par désignation', async () => {
-    const r = await api(await login('cb.secretariat')).post('/presences', { structure_type: 'DIRECTION', semaine_debut: '2026-09-07' });
-    expect(r.status).toBe(201);
-    expect(r.body.structure_type).toBe('DIRECTION');
-  });
-});
 
 describe('Courriers', () => {
   test('enregistrement, transmission hiérarchique, accusé de réception, classement', async () => {
