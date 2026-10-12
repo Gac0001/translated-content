@@ -1,7 +1,8 @@
 'use strict';
 /**
  * Référentiel de la planification : exercices budgétaires, maquette programmatique (programmes
- * et actions) et services du Ministère, structures responsables des PTBA.
+ * et actions), services du Secrétariat Général (structures responsables des PTBA et des projets) et
+ * rattachements stratégiques des fiches PIP (PNSD, stratégie sectorielle).
  * Tenu par le Bureau Programme, la Division Programme et Suivi et le Directeur.
  */
 const express = require('express');
@@ -16,14 +17,15 @@ const router = express.Router();
 const idParam = z.object({ id: z.coerce.number().int().positive() });
 
 router.get('/referentiel', requirePerm('planification.consulter'), async (req, res) => {
-  const [exercices, programmes, actions, services] = await Promise.all([
+  const [exercices, programmes, actions, services, rattachements] = await Promise.all([
     db('exercices').orderBy('annee', 'desc'),
     db('plan_programmes').orderBy(['ordre', 'code']),
     db('plan_actions').orderBy(['programme_id', 'code']),
-    db('plan_services').orderBy('sigle'),
+    db('plan_services').orderBy(['ordre', 'sigle']),
+    db('plan_rattachements').orderBy(['referentiel', 'ordre', 'libelle']),
   ]);
   res.json({
-    exercices, services,
+    exercices, services, rattachements,
     programmes: programmes.map((p) => ({ ...p, actions: actions.filter((a) => a.programme_id === p.id) })),
     droits: { gerer: req.ctx.can('planification.referentiel') },
   });
@@ -71,8 +73,33 @@ async function controlerProgramme(req, res, next) {
 router.post('/actions', requirePerm('planification.referentiel'), validate({ body: actionSchema }), controlerProgramme, (req, res) => enregistrer(req, res, 'plan_actions', 'action', req.valid.body, 'Ce code d’action existe déjà dans le programme.'));
 router.put('/actions/:id', requirePerm('planification.referentiel'), validate({ params: idParam, body: actionSchema }), controlerProgramme, (req, res) => enregistrer(req, res, 'plan_actions', 'action', req.valid.body, 'Ce code d’action existe déjà dans le programme.'));
 
-const serviceSchema = z.object({ sigle: z.string().trim().min(2).max(30).transform((s) => s.toUpperCase()), libelle: z.string().trim().min(2).max(300), actif: z.boolean().default(true) });
+const serviceSchema = z.object({
+  sigle: z.string().trim().min(2).max(30).transform((s) => s.toUpperCase()), libelle: z.string().trim().min(2).max(300), actif: z.boolean().default(true),
+  programme_id: z.coerce.number().int().positive().optional().nullable(), ordre: z.coerce.number().int().min(0).default(0),
+});
 router.post('/services', requirePerm('planification.referentiel'), validate({ body: serviceSchema }), (req, res) => enregistrer(req, res, 'plan_services', 'service', req.valid.body, 'Ce sigle de service existe déjà.'));
 router.put('/services/:id', requirePerm('planification.referentiel'), validate({ params: idParam, body: serviceSchema }), (req, res) => enregistrer(req, res, 'plan_services', 'service', req.valid.body, 'Ce sigle de service existe déjà.'));
+
+// Rattachements stratégiques : PNSD (pilier > thématique > domaine > objectif spécifique) et stratégie
+// sectorielle (programme > action). Le parent doit appartenir au même référentiel, au niveau supérieur.
+const NIVEAUX = { PNSD: ['PILIER', 'THEMATIQUE', 'DOMAINE', 'OBJECTIF'], STRATEGIE: ['PROGRAMME', 'ACTION'] };
+const rattachementSchema = z.object({
+  referentiel: z.enum(['PNSD', 'STRATEGIE']), niveau: z.enum(['PILIER', 'THEMATIQUE', 'DOMAINE', 'OBJECTIF', 'PROGRAMME', 'ACTION']),
+  parent_id: z.coerce.number().int().positive().optional().nullable(), code: z.string().trim().max(30).optional().nullable(),
+  libelle: z.string().trim().min(3).max(500), edition: z.string().trim().max(60).optional().nullable(), ordre: z.coerce.number().int().min(0).default(0), actif: z.boolean().default(true),
+});
+async function controlerRattachement(req, res, next) {
+  const b = req.valid.body;
+  const niveaux = NIVEAUX[b.referentiel];
+  const rang = niveaux.indexOf(b.niveau);
+  if (rang < 0) return next(badRequest(`Niveau « ${b.niveau} » inconnu pour ce référentiel.`));
+  if (rang === 0) { b.parent_id = null; return next(); }
+  const parent = b.parent_id ? await db('plan_rattachements').where({ id: b.parent_id }).first() : null;
+  if (!parent || parent.referentiel !== b.referentiel || parent.niveau !== niveaux[rang - 1]) return next(badRequest(`Choisissez l’élément de niveau « ${niveaux[rang - 1].toLowerCase()} » auquel il se rattache.`));
+  if (req.valid.params?.id && Number(b.parent_id) === Number(req.valid.params.id)) return next(badRequest('Un élément ne peut pas se rattacher à lui-même.'));
+  return next();
+}
+router.post('/rattachements', requirePerm('planification.referentiel'), validate({ body: rattachementSchema }), controlerRattachement, (req, res) => enregistrer(req, res, 'plan_rattachements', 'rattachement', req.valid.body, 'Cet élément existe déjà.'));
+router.put('/rattachements/:id', requirePerm('planification.referentiel'), validate({ params: idParam, body: rattachementSchema }), controlerRattachement, (req, res) => enregistrer(req, res, 'plan_rattachements', 'rattachement', req.valid.body, 'Cet élément existe déjà.'));
 
 module.exports = router;

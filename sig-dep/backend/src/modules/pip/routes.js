@@ -1,10 +1,12 @@
 'use strict';
 /**
- * Fiches de projets PIP.
+ * Fiches de projets PIP, au modèle du Ministère du Plan (classeur de six feuilles, importable et
+ * exportable à l’identique).
  * Workflow : Brouillon → En vérification (Chef de Division, ou Directeur pour les structures
  * directement rattachées) → Vérifiée → Validée (Directeur) → Archivée ; retour « À corriger » possible.
  */
 const express = require('express');
+const multer = require('multer');
 const { z } = require('zod');
 const db = require('../../db/knex');
 const validate = require('../../middleware/validate');
@@ -17,7 +19,9 @@ const { loadAllNodes, ctxNode } = require('../../services/hierarchy');
 const { scopePip, loadEntity } = require('../../services/access');
 const pdf = require('../../services/pdf');
 const { sendWorkbook } = require('../../services/excel');
-const { SECTIONS, normalize } = require('./model');
+const pipExcel = require('../../services/pipExcel');
+const identite = require('../../services/identite');
+const { SECTIONS, normalize, ficheVide } = require('./model');
 const { badRequest, forbidden, notFound } = require('../../utils/errors');
 const { DEP_NOM, ROLE_LIBELLES } = require('../../constants');
 
@@ -25,7 +29,33 @@ const router = express.Router();
 const idParam = z.object({ id: z.coerce.number().int().positive() });
 const STATUT_LIBELLES = { BROUILLON: 'Brouillon', EN_VERIFICATION: 'En vérification', A_CORRIGER: 'À corriger', VERIFIE: 'Vérifiée', VALIDE: 'Validée', ARCHIVE: 'Archivée' };
 
-router.get('/modele', (req, res) => res.json({ sections: SECTIONS }));
+const PROVINCES = ['Kinshasa', 'Kongo-Central', 'Kwango', 'Kwilu', 'Mai-Ndombe', 'Équateur', 'Sud-Ubangi', 'Nord-Ubangi', 'Mongala', 'Tshuapa', 'Tshopo',
+  'Bas-Uele', 'Haut-Uele', 'Ituri', 'Nord-Kivu', 'Sud-Kivu', 'Maniema', 'Haut-Katanga', 'Lualaba', 'Haut-Lomami', 'Tanganyika', 'Lomami', 'Kasaï',
+  'Kasaï-Central', 'Kasaï-Oriental', 'Sankuru'];
+const upload = multer({
+  storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter: (req, file, cb) => (/\.xlsx$/i.test(file.originalname) ? cb(null, true) : cb(badRequest('Format attendu : classeur Excel (.xlsx) au modèle de fiche de projet du Ministère du Plan.'))),
+});
+
+/** Valeurs proposées par les rubriques de la fiche (référentiels et valeurs déjà employées). */
+async function suggestions() {
+  const [services, rattachements, deja] = await Promise.all([
+    db('plan_services').where({ actif: true }).orderBy(['ordre', 'sigle']),
+    db('plan_rattachements').where({ actif: true }).orderBy(['referentiel', 'niveau', 'ordre', 'libelle']),
+    db.raw(`SELECT DISTINCT donnees->'identification'->>'secteur' AS secteur, donnees->'identification'->>'nature_investissement' AS nature FROM pip_projects`),
+  ]);
+  const libelles = Object.fromEntries(rattachements.map((r) => [r.id, r.libelle]));
+  const out = {
+    SERVICES: services.map((x) => `${x.libelle} (${x.sigle})`),
+    PROVINCES,
+    SECTEURS: [...new Set(['Gouvernance', 'Infrastructures', 'Numérique', ...deja.rows.map((r) => r.secteur).filter(Boolean)])],
+    NATURES: [...new Set(['Immobilisation corporelle', 'Immobilisation incorporelle', ...deja.rows.map((r) => r.nature).filter(Boolean)])],
+  };
+  for (const r of rattachements) (out[`${r.referentiel}:${r.niveau}`] ||= []).push({ libelle: r.libelle, parent: r.parent_id ? libelles[r.parent_id] : null });
+  return out;
+}
+
+router.get('/modele', async (req, res) => res.json({ sections: SECTIONS, vide: ficheVide(), suggestions: await suggestions() }));
 
 function baseQuery() {
   return db('pip_projects as p')
@@ -75,9 +105,9 @@ async function detail(ctx, id) {
   ]);
   const verif = p.verifie_par ? await db('users as u').leftJoin('agents as a', 'a.id', 'u.agent_id').where('u.id', p.verifie_par).first(db.raw(`concat_ws(' ', a.prenom, a.nom) as nom`)) : null;
   const valid = p.valide_par ? await db('users as u').leftJoin('agents as a', 'a.id', 'u.agent_id').where('u.id', p.valide_par).first(db.raw(`concat_ws(' ', a.prenom, a.nom) as nom`)) : null;
-  const { missing } = normalize(p.donnees);
+  const { missing, incoherences, synthese } = normalize(p.donnees);
   return {
-    ...p, historique, pieces, versions, rubriquesManquantes: missing,
+    ...p, historique, pieces, versions, rubriquesManquantes: missing, incoherences, synthese,
     pageControle: {
       elaborePar: p.auteur_nom, elaboreLe: p.created_at, structure: p.bureau_nom || p.division_nom || DEP_NOM,
       verifiePar: verif ? verif.nom : null, verifieLe: p.verifie_at, validePar: valid ? valid.nom : null, valideLe: p.valide_at,
@@ -105,26 +135,26 @@ router.get('/:id', requirePerm('pip.consulter'), validate({ params: idParam }), 
   res.json({ ...p, actions: actionsFor(req.ctx, p) });
 });
 
-const bodySchema = z.object({ donnees: z.record(z.string(), z.any()) });
+const bodySchema = z.object({ donnees: z.record(z.string(), z.any()), importe: z.string().trim().max(200).optional() });
 
 router.post('/', requirePerm('pip.rediger'), validate({ body: bodySchema }), async (req, res) => {
   if (req.ctx.perimetre === 'SUPERVISION_GLOBALE' || !ctxNode(req.ctx)) throw forbidden('Votre compte ne peut pas rédiger de fiche PIP.');
   const { donnees, coutTotal } = normalize(req.valid.body.donnees);
   const id = donnees.identification;
-  if (!id.intitule || id.intitule.trim().length < 3) throw badRequest('L’intitulé du projet est obligatoire.');
+  if (!id.libelle || id.libelle.trim().length < 3) throw badRequest('Le libellé du projet est obligatoire.');
   const dep = await db('directions').where({ code: 'DEP' }).first();
   const row = await db.transaction(async (trx) => {
     const code = await nextReference('PIP', 'DEP/PIP', trx);
     const [p] = await trx('pip_projects').insert({
-      code, intitule: id.intitule, secteur: id.secteur, donnees: JSON.stringify(donnees), cout_total: coutTotal, devise: donnees.cout.devise || 'USD',
-      duree_mois: id.duree_mois, date_debut: id.date_demarrage || null, auteur_user_id: req.ctx.userId, detenteur_user_id: req.ctx.userId,
+      code, intitule: id.libelle, secteur: id.secteur, donnees: JSON.stringify(donnees), cout_total: coutTotal, devise: 'CDF', modele: 'PLAN',
+      duree_mois: donnees.calendrier.duree_mois, date_debut: donnees.calendrier.date_debut || null, auteur_user_id: req.ctx.userId, detenteur_user_id: req.ctx.userId,
       direction_id: dep.id, division_id: req.ctx.divisionId, bureau_id: req.ctx.bureauId,
     }).returning('*');
     await trx('pip_versions').insert({ pip_id: p.id, numero: 1, donnees: JSON.stringify(donnees), created_by: req.ctx.userId });
-    await addHistory('PIP', p.id, req.ctx.userId, { action: 'CREATION', nouveau: 'BROUILLON' }, trx);
+    await addHistory('PIP', p.id, req.ctx.userId, { action: 'CREATION', nouveau: 'BROUILLON', commentaire: req.valid.body.importe ? `Fiche importée du classeur « ${req.valid.body.importe} »` : null }, trx);
     return p;
   });
-  await audit(req, { action: 'CREATION', module: 'pip', entite: 'pip', entiteId: row.id, apres: { code: row.code, intitule: row.intitule } });
+  await audit(req, { action: req.valid.body.importe ? 'IMPORT' : 'CREATION', module: 'pip', entite: 'pip', entiteId: row.id, apres: { code: row.code, intitule: row.intitule }, message: req.valid.body.importe || undefined });
   res.status(201).json(row);
 });
 
@@ -136,8 +166,8 @@ router.put('/:id', requirePerm('pip.rediger'), validate({ params: idParam, body:
   const numero = p.version + 1;
   const u = await db.transaction(async (trx) => {
     const [r] = await trx('pip_projects').where({ id: p.id }).update({
-      intitule: id.intitule || p.intitule, secteur: id.secteur, donnees: JSON.stringify(donnees), cout_total: coutTotal, devise: donnees.cout.devise || 'USD',
-      duree_mois: id.duree_mois, date_debut: id.date_demarrage || null, version: numero, updated_at: trx.fn.now(),
+      intitule: id.libelle || p.intitule, secteur: id.secteur, donnees: JSON.stringify(donnees), cout_total: coutTotal, devise: 'CDF', modele: 'PLAN',
+      duree_mois: donnees.calendrier.duree_mois, date_debut: donnees.calendrier.date_debut || null, version: numero, updated_at: trx.fn.now(),
     }).returning('*');
     await trx('pip_versions').insert({ pip_id: p.id, numero, donnees: JSON.stringify(donnees), created_by: req.ctx.userId });
     await addHistory('PIP', p.id, req.ctx.userId, { action: 'NOUVELLE_VERSION', commentaire: `Version ${numero}` }, trx);
@@ -165,8 +195,10 @@ async function move(req, p, patch, action, commentaire, notifyTo, titre) {
 router.post('/:id/soumettre', requirePerm('pip.rediger'), validate({ params: idParam }), async (req, res) => {
   const p = await loadEntity(req.ctx, 'PIP', req.valid.params.id, 'write');
   if (!actionsFor(req.ctx, p).soumettre) throw forbidden();
-  const { missing } = normalize(p.donnees);
+  const { missing, incoherences } = normalize(p.donnees);
   if (missing.length) throw badRequest(`Rubriques obligatoires à compléter : ${missing.slice(0, 8).join(' ; ')}${missing.length > 8 ? ` (et ${missing.length - 8} autre(s))` : ''}.`);
+  const bloquantes = incoherences.filter((x) => x.bloquant);
+  if (bloquantes.length) throw badRequest(`Incohérences à corriger avant la soumission : ${bloquantes.map((x) => x.message).join(' ')}`);
   const { verificateur, directeur } = await verificateurPour(p);
   if (req.ctx.primaryRole === 'DIRECTEUR' || (verificateur && verificateur.userId === req.ctx.userId)) {
     // Le vérificateur naturel est l’auteur : passage direct au Directeur
@@ -212,32 +244,41 @@ function fieldText(f, v) {
   return v;
 }
 
+/** Libellés des colonnes « Année n » avec les années réelles de la fiche. */
+function colonnesAnnees(f, s, sy) {
+  const base = s.key === 'financier' && f.key === 'recurrents' ? (sy.anneeFin ? sy.anneeFin + 1 : null) : sy.anneeDebut;
+  return f.columns.map((c) => {
+    const m = c.key.match(/^annee(\d)$/);
+    return { header: m && base ? String(base + Number(m[1]) - 1) : c.label, key: c.key, width: c.key === f.columns[0].key ? 3 : 1, align: c.type === 'number' ? 'right' : undefined,
+      value: c.type === 'number' ? (r) => (r[c.key] === null || r[c.key] === undefined ? '' : Number(r[c.key]).toLocaleString('fr-FR')) : c.type === 'date' ? (r) => pdf.fmtDate(r[c.key]) : undefined };
+  });
+}
+
 router.get('/:id/export/:format', requirePerm('exports.generer'), validate({ params: z.object({ id: z.coerce.number().int(), format: z.enum(['pdf', 'xlsx']) }) }), async (req, res) => {
   const p = await detail(req.ctx, req.valid.params.id);
   await audit(req, { action: 'EXPORT', module: 'pip', entite: 'pip', entiteId: p.id, message: req.valid.params.format.toUpperCase() });
   const fname = p.code.replace(/\//g, '-');
   if (req.valid.params.format === 'xlsx') {
-    const sheets = [{
-      name: 'Fiche', titre: `FICHE DE PROJET PIP — ${p.intitule}`, sousTitre: p.code,
-      columns: [{ header: 'Section', key: 's', width: 30 }, { header: 'Rubrique', key: 'f', width: 40 }, { header: 'Contenu', key: 'v', width: 90 }],
-      rows: SECTIONS.flatMap((s) => s.fields.filter((f) => f.type !== 'table').map((f) => ({ s: `${s.numero}. ${s.label}`, f: f.label, v: fieldText(f, p.donnees[s.key]?.[f.key]) }))),
-    }];
-    for (const s of SECTIONS) for (const f of s.fields.filter((x) => x.type === 'table')) {
-      sheets.push({ name: `${s.numero}-${f.label}`.slice(0, 31).replace(/[\\/?*[\]:]/g, ' '), titre: `${s.numero}. ${s.label}`, sousTitre: `${p.code} — ${f.label}`, columns: f.columns.map((c) => ({ header: c.label, key: c.key, width: 20 })), rows: p.donnees[s.key]?.[f.key] || [] });
-    }
-    return sendWorkbook(res, `${fname}.xlsx`, sheets);
+    // Classeur au modèle du Ministère du Plan (six feuilles), à transmettre tel quel
+    const buf = await pipExcel.exporter(p.donnees, identite.courante());
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${fname}.xlsx"`);
+    return res.send(Buffer.from(buf));
   }
+  const sy = p.synthese;
   const { doc, finish } = pdf.createPdf(res, { filename: `${fname}.pdf`, titre: 'FICHE DE PROJET — PROGRAMME D’INVESTISSEMENTS PUBLICS (PIP)', sousTitre: p.intitule, reference: p.code });
-  pdf.keyValues(doc, [['Code', p.code], ['Coût total', `${Number(p.cout_total).toLocaleString('fr-FR')} ${p.devise}`], ['Statut', STATUT_LIBELLES[p.statut]], ['Version', p.version]]);
+  pdf.keyValues(doc, [['Code', p.code], ['Étape', p.donnees.identification?.etape], ['Coût du projet', `${Number(sy.coutTotal).toLocaleString('fr-FR')} CDF`],
+    ['Plan de financement', `${Number(sy.financementTotal).toLocaleString('fr-FR')} CDF`], ['Statut', STATUT_LIBELLES[p.statut]], ['Version', p.version]]);
   for (const s of SECTIONS) {
     pdf.ensureSpace(doc, 50);
     doc.font('Helvetica-Bold').fontSize(11.5).fillColor(pdf.BLUE).text(`${s.numero}. ${s.label.toUpperCase()}`).fillColor('#000').moveDown(0.3);
     for (const f of s.fields) {
       const v = p.donnees[s.key]?.[f.key];
       if (f.type === 'table') {
+        if (!v || !v.length) continue;
         doc.font('Helvetica-Bold').fontSize(9.5).text(f.label).moveDown(0.2);
-        pdf.table(doc, f.columns.map((c) => ({ header: c.label, key: c.key, width: 1 })), v || []);
-      } else pdf.section(doc, f.label, fieldText(f, v));
+        pdf.table(doc, colonnesAnnees(f, s, sy), v);
+      } else if (v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && !v.length)) pdf.section(doc, f.label, fieldText(f, v));
     }
   }
   doc.addPage();
@@ -249,6 +290,14 @@ router.get('/:id/export/:format', requirePerm('exports.generer'), validate({ par
     ['Validée par', pc.validePar ? `${pc.validePar} (Directeur)` : null], ['Date de validation', pdf.fmtDateTime(pc.valideLe)],
     ['Complétude', pc.completude],
   ]);
+  const annees = [0, 1, 2, 3].map((i) => (sy.anneeDebut ? String(sy.anneeDebut + i) : `Année ${i + 1}`));
+  pdf.table(doc, [{ header: 'Totaux par année (CDF)', key: 'l', width: 2.5 }, ...annees.map((a, i) => ({ header: i === 3 ? `${a} / autres` : a, key: `a${i}`, width: 1.3, align: 'right' })), { header: 'Total', key: 't', width: 1.4, align: 'right' }], [
+    { l: 'Répartition des coûts', ...Object.fromEntries(sy.coutsParAnnee.map((x, i) => [`a${i}`, x.toLocaleString('fr-FR')])), t: sy.coutTotal.toLocaleString('fr-FR') },
+    { l: 'Plan de financement', ...Object.fromEntries(sy.financementParAnnee.map((x, i) => [`a${i}`, x.toLocaleString('fr-FR')])), t: sy.financementTotal.toLocaleString('fr-FR') },
+  ]);
+  if (p.rubriquesManquantes.length || p.incoherences.length) {
+    pdf.section(doc, 'Points à corriger', [...p.rubriquesManquantes.map((m) => `• Rubrique manquante : ${m}`), ...p.incoherences.map((x) => `• ${x.bloquant ? 'Incohérence' : 'À vérifier'} : ${x.message}`)].join('\n'));
+  }
   pdf.table(doc, [
     { header: 'Date', value: (h) => pdf.fmtDateTime(h.created_at), width: 2 }, { header: 'Intervenant', value: (h) => h.auteur || h.username, width: 2 },
     { header: 'Étape', key: 'action', width: 2 }, { header: 'Statut', value: (h) => STATUT_LIBELLES[h.nouveau_statut] || '', width: 1.5 }, { header: 'Observations', key: 'commentaire', width: 4 },
@@ -256,6 +305,19 @@ router.get('/:id/export/:format', requirePerm('exports.generer'), validate({ par
   pdf.signatureBlock(doc, [{ libelle: 'Élaborée par', nom: pc.elaborePar }, { libelle: 'Vérifiée par', nom: pc.verifiePar || '' }, { libelle: `Le ${ROLE_LIBELLES.DIRECTEUR}`, nom: pc.validePar || '' }]);
   return finish();
 });
+
+/** Lecture d’un classeur au modèle du Ministère du Plan : la fiche est renvoyée pour relecture, sans être enregistrée. */
+router.post('/import/analyser', requirePerm('pip.rediger'), (req, res, next) => upload.single('fichier')(req, res, async (err) => {
+  if (err) return next(err);
+  try {
+    if (!req.file) throw badRequest('Aucun fichier transmis.');
+    let r;
+    try { r = await pipExcel.analyser(req.file.buffer); } catch { throw badRequest('Classeur illisible : vérifiez qu’il s’agit d’un fichier Excel (.xlsx).'); }
+    if (!r.donnees.identification.libelle) throw badRequest('Aucun libellé de projet n’a été trouvé : le classeur ne semble pas suivre le modèle de fiche de projet du Ministère du Plan.');
+    await audit(req, { action: 'IMPORT_ANALYSE', module: 'pip', message: `${req.file.originalname} : ${r.missing.length} rubrique(s) manquante(s), ${r.incoherences.length} incohérence(s)` });
+    return res.json({ fichier: req.file.originalname, ...r });
+  } catch (e) { return next(e); }
+}));
 
 router.get('/:id/versions/:numero', requirePerm('pip.consulter'), validate({ params: z.object({ id: z.coerce.number().int(), numero: z.coerce.number().int() }) }), async (req, res) => {
   await loadEntity(req.ctx, 'PIP', req.valid.params.id);

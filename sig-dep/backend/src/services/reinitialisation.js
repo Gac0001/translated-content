@@ -23,7 +23,7 @@ const CONSERVEES = [
   // Identité du Ministère (en-tête et pied de page officiels, versions datées)
   'identite_versions',
   // Maquette programmatique et services du Ministère (référentiel de la planification)
-  'plan_programmes', 'plan_actions', 'plan_services', 'plan_postes_budgetaires',
+  'plan_programmes', 'plan_actions', 'plan_services', 'plan_rattachements', 'plan_postes_budgetaires',
   // Provinces et catégories d’acteurs (référentiel des données sectorielles)
   'sect_zones', 'sect_categories',
 ];

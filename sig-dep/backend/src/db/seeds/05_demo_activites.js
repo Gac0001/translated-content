@@ -172,37 +172,45 @@ exports.chargerActivites = async function chargerActivites(knex) {
 
   // ─── Fiches PIP ──────────────────────────────────────────────────────────
   const pipAuteur = U('ag.coi1');
-  const donnees = {
-    identification: { intitule: 'Backbone national en fibre optique — phase 2', code_pip: '', secteur: 'Économie numérique', sous_secteur: 'Infrastructures numériques', ministere_tutelle: 'Ministère des Postes, Télécommunications et Numérique', organisme_execution: 'Secrétariat Général au Numérique', nature: 'Extension', type_projet: 'Infrastructure', date_demarrage: day(120), duree_mois: 36 },
-    contexte: { contexte: 'Le réseau de transport national demeure insuffisant pour soutenir la transformation numérique.', problematique: 'Coût élevé et faible disponibilité de la connectivité hors des grands centres.', justification: 'L’extension du backbone réduira les coûts de transit et favorisera l’inclusion numérique.', alignement: 'Plan national du numérique ; PNSD.' },
-    objectifs: { objectif_general: 'Étendre le réseau national de fibre optique vers les provinces non desservies.', objectifs_specifiques: ['Déployer 2 000 km de fibre', 'Raccorder 10 chefs-lieux de province'] },
-    resultats: { resultats_attendus: ['2 000 km de fibre déployés', 'Coût de la bande passante réduit de 30 %'] },
-    activites: { activites: [{ code: 'A1', activite: 'Études techniques et environnementales', resultat: 'R1', debut: day(120), fin: day(300), cout: 1500000 }, { code: 'A2', activite: 'Travaux de pose de la fibre', resultat: 'R1', debut: day(300), fin: day(1000), cout: 42000000 }] },
-    indicateurs: { indicateurs: [{ indicateur: 'Kilomètres de fibre posés', reference: '0', cible: '2000', annee_cible: '2029', source: 'Rapports de chantier' }] },
-    beneficiaires: { directs: 'Opérateurs, administrations provinciales, universités', indirects: 'Population des provinces raccordées', nombre: 12000000, genre: 'Accès renforcé des femmes aux services numériques via les points d’accès publics.' },
-    localisation: { sites: [{ province: 'Kasaï-Central', territoire: 'Kananga', site: 'Nœud régional' }, { province: 'Tshopo', territoire: 'Kisangani', site: 'Nœud régional' }] },
-    chronogramme: { chronogramme: [{ activite: 'A1', annee: '2027', t1: 'X', t2: 'X', t3: '', t4: '' }] },
-    cout: { devise: 'USD', couts: [{ rubrique: 'Études', annee1: 1500000, annee2: 0, annee3: 0, total: 1500000 }, { rubrique: 'Travaux', annee1: 12000000, annee2: 18000000, annee3: 12000000, total: 42000000 }] },
-    financement: { sources: [{ source: 'Trésor public', montant: 13500000, pourcentage: 31, statut: 'Acquis' }, { source: 'Partenaires techniques et financiers', montant: 30000000, pourcentage: 69, statut: 'À rechercher' }] },
-    risques: { risques: [{ risque: 'Retards d’approvisionnement', probabilite: 'Moyenne', impact: 'Élevé', mesure: 'Contrats-cadres et stock tampon' }] },
-    impacts: { economique: 'Baisse des coûts de connectivité et développement des services numériques.', social: 'Meilleur accès à l’éducation et à la santé en ligne.', environnemental: 'Impacts limités ; plan de gestion environnementale prévu.', institutionnel: 'Renforcement de la gouvernance du secteur.' },
-    gains: { van: 18500000, tri: 14.2, ratio_bc: 1.6, emplois: 1500, description: 'Gains liés à la réduction du coût de transit et aux nouveaux services.' },
-    etudes: { etudes: [{ etude: 'Étude de faisabilité', date: '2025', auteur: 'Consultant', statut: 'Disponible' }] },
-    responsables: { structure_responsable: 'Direction d’Études et Planification', chef_projet: 'À désigner', contacts: 'dep@economie-numerique.gouv.cd', partenaires: ['Banque mondiale'] },
-  };
+  // Fiche au modèle du Ministère du Plan (données fictives, montants en CDF)
+  const a0 = Number(day(120).slice(0, 4));
+  const { normalize: normaliserPip } = require('../../modules/pip/model');
+  const donnees = normaliserPip({
+    identification: { etape: 'Identification', ministere: '01 Ministère de l’Économie Numérique', service: 'Direction Infrastructures Numériques (DIN)', numero_projet: '', libelle: 'Backbone national en fibre optique — phase 2',
+      competence: 'Pouvoir central', secteur: 'Infrastructures', sous_secteur: 'Numérique', nature_investissement: 'Immobilisation corporelle', province: 'Kasaï-Central', ville_territoire: 'Kananga', commune: '' },
+    rattachement: { pnsd_pilier: 'Pilier de démonstration : infrastructures', pnsd_thematique: 'Connectivité', pnsd_domaine: 'Réseaux de transport', pnsd_objectif: 'Étendre la couverture du réseau national',
+      strategie_programme: 'Programme de démonstration : transformation numérique', strategie_action: 'Extension du réseau de fibre optique' },
+    justification: { probleme: 'Coût élevé et faible disponibilité de la connectivité hors des grands centres.', situation_actuelle: 'Le réseau de transport national demeure insuffisant pour soutenir la transformation numérique.',
+      situation_visee: 'Un réseau national de fibre optique reliant les chefs-lieux de province à un coût de transit réduit.' },
+    objectifs: { objectif_general: 'Étendre le réseau national de fibre optique vers les provinces non desservies.', objectifs_specifiques: ['Déployer 2 000 km de fibre', 'Raccorder 10 chefs-lieux de province'],
+      resultats: ['2 000 km de fibre déployés', 'Coût de la bande passante réduit de 30 %'], directs_descriptif: 'Opérateurs, administrations provinciales, universités',
+      directs_genre: 'Accès renforcé des femmes aux services numériques via les points d’accès publics.', indirects_descriptif: 'Population des provinces raccordées', effets: ['Baisse des coûts de connectivité', 'Meilleur accès à l’éducation et à la santé en ligne'] },
+    calendrier: { date_debut: `${a0}-01-01`, date_fin: `${a0 + 2}-12-31`,
+      activites: [{ activite: 'Études techniques et environnementales', annee1: 'Janvier-Juin' }, { activite: 'Travaux de pose de la fibre', annee1: 'Juillet-Décembre', annee2: 'Janvier-Décembre', annee3: 'Janvier-Septembre' }],
+      indicateurs_resultats: [{ indicateur: 'Kilomètres de fibre posés', annee1: '300', annee2: '1 200', annee3: '2 000' }],
+      indicateurs_effets: [{ indicateur: 'Prix moyen du Mbit/s de transit (CDF)', reference: '100', annee1: '95', annee2: '80', annee3: '70' }] },
+    financier: {
+      couts: [{ rubrique: 'Etudes', annee1: 4200000000 }, { rubrique: 'Acquisition de terrains' }, { rubrique: 'Construction/réhabilitation', annee1: 33600000000, annee2: 50400000000, annee3: 33600000000 }, { rubrique: 'Equipements' }, { rubrique: 'Frais de mise en œuvre' }, { rubrique: 'Autres' }],
+      financement: [{ source: 'Etat', annee1: 12600000000, annee2: 12600000000, annee3: 12600000000 }, { source: 'Partenaires', pret_don: 'Prêt', annee1: 25200000000, annee2: 37800000000, annee3: 21000000000 }],
+      recurrents: [{ rubrique: 'Maintenance', annee1: 1400000000 }] },
+    institutionnel: { maitre_ouvrage: 'Ministère de l’Économie Numérique', maitre_oeuvre: 'Entreprise sélectionnée par appel d’offres', structure_responsable: 'Direction Infrastructures Numériques (DIN)',
+      emplois: 1500, emplois_femmes: 300, risques: [{ risque: 'Retards d’approvisionnement', mitigation: 'Contrats-cadres et stock tampon' }],
+      impacts_environnementaux: [{ impact: 'Travaux de tranchées', mitigation: 'Plan de gestion environnementale et remise en état des sites' }] },
+    controle: { commentaire: 'Texte de démonstration.', responsable: 'Direction Infrastructures Numériques', email: 'din@example.cd' },
+  }).donnees;
   const [p1] = await knex('pip_projects').insert({
-    code: await ref('PIP', 'DEP/PIP'), intitule: donnees.identification.intitule, secteur: 'Économie numérique', statut: 'VALIDE', donnees: JSON.stringify(donnees), cout_total: 43500000,
-    duree_mois: 36, date_debut: day(120), auteur_user_id: pipAuteur.id, detenteur_user_id: U('directeur').id, verifie_par: U('cd.sci').id, verifie_at: ts(-6),
+    code: await ref('PIP', 'DEP/PIP'), intitule: donnees.identification.libelle, secteur: 'Infrastructures', statut: 'VALIDE', donnees: JSON.stringify(donnees), cout_total: 121800000000, devise: 'CDF',
+    duree_mois: 36, date_debut: donnees.calendrier.date_debut, auteur_user_id: pipAuteur.id, detenteur_user_id: U('directeur').id, verifie_par: U('cd.sci').id, verifie_at: ts(-6),
     valide_par: U('directeur').id, valide_at: ts(-4), direction_id: dep.id, division_id: pipAuteur.division_id, bureau_id: pipAuteur.bureau_id, created_at: ts(-15),
   }).returning('*');
   await knex('pip_versions').insert({ pip_id: p1.id, numero: 1, donnees: JSON.stringify(donnees), created_by: pipAuteur.id });
   for (const [u, action, statut, j] of [['ag.coi1', 'CREATION', 'BROUILLON', -15], ['ag.coi1', 'SOUMISSION', 'EN_VERIFICATION', -8], ['cd.sci', 'VERIFICATION', 'VERIFIE', -6], ['directeur', 'VALIDATION', 'VALIDE', -4]]) {
     await hist('PIP', p1.id, U(u).id, action, statut, null, ts(j));
   }
-  const brouillon = { ...donnees, identification: { ...donnees.identification, intitule: 'Centres communautaires numériques', nature: 'Nouveau projet', duree_mois: 24 } };
+  const brouillon = { ...donnees, identification: { ...donnees.identification, libelle: 'Centres communautaires numériques' } };
   const [p2] = await knex('pip_projects').insert({
-    code: await ref('PIP', 'DEP/PIP'), intitule: brouillon.identification.intitule, secteur: 'Économie numérique', statut: 'EN_VERIFICATION', donnees: JSON.stringify(brouillon), cout_total: 43500000,
-    duree_mois: 24, auteur_user_id: pipAuteur.id, detenteur_user_id: U('cd.sci').id, direction_id: dep.id, division_id: pipAuteur.division_id, bureau_id: pipAuteur.bureau_id, created_at: ts(-5),
+    code: await ref('PIP', 'DEP/PIP'), intitule: brouillon.identification.libelle, secteur: 'Infrastructures', statut: 'EN_VERIFICATION', donnees: JSON.stringify(brouillon), cout_total: 121800000000, devise: 'CDF',
+    duree_mois: 36, auteur_user_id: pipAuteur.id, detenteur_user_id: U('cd.sci').id, direction_id: dep.id, division_id: pipAuteur.division_id, bureau_id: pipAuteur.bureau_id, created_at: ts(-5),
   }).returning('*');
   await knex('pip_versions').insert({ pip_id: p2.id, numero: 1, donnees: JSON.stringify(brouillon), created_by: pipAuteur.id });
   await hist('PIP', p2.id, pipAuteur.id, 'SOUMISSION', 'EN_VERIFICATION', 'Soumise au Chef de Division pour vérification', ts(-2));

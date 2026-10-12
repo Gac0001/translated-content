@@ -151,24 +151,11 @@ describe('Documents de service', () => {
 describe('Projets PIP', () => {
   test('rédaction, vérification par le Chef de Division, validation par le Directeur, exports', async () => {
     const ag = api(await login('ag.coi1'));
-    const donnees = {
-      identification: { intitule: 'Backbone national en fibre optique — phase 2', secteur: 'Économie numérique', ministere_tutelle: 'Ministère du Numérique', organisme_execution: 'SG Économie Numérique', nature: 'Nouveau projet', date_demarrage: '2027-01-01', duree_mois: 36 },
-      contexte: { contexte: 'C', problematique: 'P', justification: 'J' },
-      objectifs: { objectif_general: 'OG', objectifs_specifiques: ['OS1'] },
-      resultats: { resultats_attendus: ['R1'] },
-      activites: { activites: [{ code: 'A1', activite: 'Études', cout: 100000 }] },
-      indicateurs: { indicateurs: [{ indicateur: 'Km posés', reference: '0', cible: '2000' }] },
-      beneficiaires: { directs: 'Population' },
-      localisation: { sites: [{ province: 'Kinshasa', territoire: 'Gombe', site: 'Centre' }] },
-      cout: { devise: 'USD', couts: [{ rubrique: 'Travaux', annee1: 1000000, annee2: 2000000, annee3: 500000 }] },
-      financement: { sources: [{ source: 'Trésor public', montant: 3500000, pourcentage: 100, statut: 'Acquis' }] },
-      risques: { risques: [{ risque: 'Retard', probabilite: 'Moyenne', impact: 'Élevé', mesure: 'Suivi' }] },
-      impacts: { economique: 'Croissance' },
-      responsables: { structure_responsable: 'DEP', chef_projet: 'X' },
-    };
+    const donnees = require('./pipFiche').fiche();
     const p = await ag.post('/pip', { donnees });
     expect(p.status).toBe(201);
     expect(Number(p.body.cout_total)).toBe(3500000);
+    expect(p.body).toMatchObject({ devise: 'CDF', modele: 'PLAN', duree_mois: 36 });
     const s = await ag.post(`/pip/${p.body.id}/soumettre`);
     expect(s.body.statut).toBe('EN_VERIFICATION');
     expect(s.body.detenteur_user_id).toBe(await userId('cd.sci'));
