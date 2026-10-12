@@ -21,6 +21,7 @@ const { notify } = require('./notifications');
 const { directeursActifs } = require('./alertes');
 const { comptesExercant, aujourdhui, ROLES_COMMANDEMENT, LIBELLES_INTERIM } = require('./interims');
 const { badRequest, forbidden, notFound, conflict } = require('../utils/errors');
+const carriere = require('./carriere');
 
 const TYPES = {
   NOMINATION: 'Nomination',
@@ -28,6 +29,7 @@ const TYPES = {
   INTERIM: 'Intérim',
   DESIGNATION: 'Désignation',
   FIN_FONCTION: 'Fin de fonction',
+  ELEVATION_GRADE: 'Élévation en grade',
   AUTRE: 'Autre acte',
 };
 const STATUTS = ['BROUILLON', 'SOUMIS', 'VALIDE', 'REFUSE', 'REVOQUE', 'EXPIRE', 'REMPLACE'];
@@ -59,14 +61,16 @@ function baseQuery(trx = db) {
     .leftJoin('users as up', 'up.id', 'x.prepare_par')
     .leftJoin('users as ud', 'ud.id', 'x.decide_par')
     .leftJoin('actes_administratifs as r', 'r.id', 'x.rectifie_acte_id')
+    .leftJoin('grades as ng', 'ng.id', 'x.grade_id')
     .select('x.*', 'ag.nom', 'ag.postnom', 'ag.prenom', 'ag.matricule', 'ti.nom as ti_nom', 'ti.postnom as ti_postnom', 'ti.prenom as ti_prenom',
       'p.libelle as poste_libelle', 'p.role_associe', 'up.username as prepare_par_username', 'ud.username as decide_par_username',
-      'r.numero as rectifie_numero',
+      'r.numero as rectifie_numero', 'ng.code_officiel as nouveau_grade_code', 'ng.libelle as nouveau_grade_libelle',
       db.raw(`(SELECT count(*)::int FROM attachments a WHERE a.entity_type = 'ACTE' AND a.entity_id = x.id AND a.deleted_at IS NULL) as pieces`));
 }
 
 /** État d’effet d’un acte à la date du jour. */
 function effet(a, jour = aujourdhui()) {
+  if (carriere.PERMANENTS.includes(a.type) && ['VALIDE', 'EXPIRE'].includes(a.statut)) return a.effet_applique_at ? 'APPLIQUE' : 'A_VENIR';
   if (a.statut !== 'VALIDE' || !['INTERIM', 'DESIGNATION'].includes(a.type)) return null;
   const debut = String(a.date_debut).slice(0, 10);
   const fin = String(a.date_fin).slice(0, 10);
@@ -138,6 +142,16 @@ async function controler(a, trx = db) {
   if (a.type === 'INTERIM') {
     const p = await trx('postes_organiques').where({ id: a.poste_id, actif: true }).first();
     if (!p || !ROLES_COMMANDEMENT.includes(p.role_associe)) throw badRequest('L’intérim porte sur un poste de commandement actif (Directeur, Chef de Division ou Chef de Bureau).');
+    // Cahier, § 12 : le grade de l’intérimaire est inférieur au grade requis ; sinon, c’est une nomination.
+    if (p.grade_minimum_id) {
+      const [requis, interimaire] = await Promise.all([
+        trx('grades').where({ id: p.grade_minimum_id }).first(),
+        trx('agents as ag').leftJoin('grades as g', 'g.id', 'ag.grade_id').where('ag.id', a.agent_id).first('g.niveau'),
+      ]);
+      if (requis && interimaire && interimaire.niveau !== null && interimaire.niveau >= requis.niveau) {
+        throw badRequest(`L’intérimaire a déjà le grade requis par ce poste (${requis.code_officiel} — ${requis.libelle}) : il s’agit d’une nomination, non d’un intérim.`);
+      }
+    }
     const occupant = await trx('affectations').where({ poste_id: p.id, est_active: true }).first('agent_id');
     if (occupant && occupant.agent_id === a.agent_id) throw badRequest('Le titulaire du poste ne peut pas en être l’intérimaire.');
     // L’acte rectifié est remplacé par son rectificatif : il n’entre pas en concurrence avec lui.
@@ -150,6 +164,7 @@ async function controler(a, trx = db) {
         : `Cette personne exerce déjà un intérim pendant cette période (acte ${chevauche.numero}).`, 'INTERIM_CONCURRENT');
     }
   }
+  await carriere.controler(a, trx);
   if (a.type === 'DESIGNATION') {
     const codes = Array.isArray(a.permissions) ? a.permissions : [];
     if (!codes.length) throw badRequest('Indiquez au moins une opération désignée.');
@@ -160,12 +175,15 @@ async function controler(a, trx = db) {
 }
 
 // ─── Opérations ─────────────────────────────────────────────────────────────
-const CHAMPS = ['type', 'reference', 'date_acte', 'autorite', 'objet', 'motif', 'agent_id', 'poste_id', 'permissions', 'date_debut', 'date_fin'];
+const CHAMPS = ['type', 'reference', 'date_acte', 'autorite', 'objet', 'motif', 'agent_id', 'poste_id', 'grade_id', 'permissions', 'date_debut', 'date_fin'];
 
 function nettoyer(body) {
   const d = {};
   for (const k of CHAMPS) if (body[k] !== undefined) d[k] = body[k] === '' ? null : body[k];
-  if (d.type === 'DESIGNATION') d.poste_id = null;
+  if (d.type === 'DESIGNATION' || d.type === 'ELEVATION_GRADE') d.poste_id = null;
+  if (d.type && d.type !== 'ELEVATION_GRADE') d.grade_id = null;
+  // Actes permanents : une date d’effet, sans date de fin.
+  if (carriere.PERMANENTS.includes(d.type)) d.date_fin = null;
   if (d.type && d.type !== 'DESIGNATION') d.permissions = [];
   if (d.permissions) d.permissions = JSON.stringify([...new Set(d.permissions)]);
   return d;
@@ -263,6 +281,7 @@ async function decider(ctx, id, { decision, commentaire }) {
     await notify(a.prepare_par, { type: 'ACTE', titre: `Acte refusé : ${a.objet}`, message: commentaire, lien: `/actes/${id}`, expediteur: ctx.userId });
     return charger(ctx, id);
   }
+  let effetsCarriere = null;
   await db.transaction(async (trx) => {
     // Le rectificatif remplace l’acte d’origine (et en fait cesser les effets) avant d’être validé.
     if (a.rectifie_acte_id) {
@@ -284,15 +303,19 @@ async function decider(ctx, id, { decision, commentaire }) {
       titulaire_agent_id: titulaire, updated_at: trx.fn.now(),
     });
     if (a.type === 'DESIGNATION') await appliquerDesignation(trx, v, ctx.userId);
+    // Actes permanents : effets immédiats si la date d’effet est atteinte, sinon le jour venu.
+    if (carriere.PERMANENTS.includes(a.type) && v.date_debut <= aujourdhui()) {
+      effetsCarriere = await carriere.appliquer(trx, { ...(await trx('actes_administratifs').where({ id }).first()), typeLibelle: TYPES[a.type] }, ctx.userId);
+    }
   }).catch((e) => {
     if (/INTERIM_CONCURRENT/.test(e.message)) throw conflict('Un autre intérim couvre déjà ce poste ou cet intérimaire sur la période.', 'INTERIM_CONCURRENT');
     throw e;
   });
   const valide = vue(await charger(ctx, id));
   const libelle = a.type === 'INTERIM' ? `${LIBELLES_INTERIM[a.role_associe] || 'Intérim'} — ${a.poste_libelle}` : `${TYPES[a.type]} — ${a.objet}`;
-  await notify(await concernes(valide), {
+  await notify([...await concernes(valide), ...(effetsCarriere ? [...effetsCarriere.aNotifier, ...await directeursActifs()] : [])], {
     type: 'ACTE', titre: `Acte validé : ${libelle}`,
-    message: valide.date_debut ? `Du ${valide.date_debut} au ${valide.date_fin} · ${valide.reference}` : valide.reference,
+    message: effetsCarriere ? `${effetsCarriere.detail} · ${valide.reference}` : valide.date_fin ? `Du ${valide.date_debut} au ${valide.date_fin} · ${valide.reference}` : valide.reference,
     lien: `/actes/${id}`, expediteur: ctx.userId,
   });
   return valide;
@@ -301,6 +324,7 @@ async function decider(ctx, id, { decision, commentaire }) {
 async function revoquer(ctx, id, motif) {
   const a = await charger(ctx, id);
   if (a.statut !== 'VALIDE') throw badRequest('Seul un acte validé peut être révoqué.');
+  if (carriere.PERMANENTS.includes(a.type) && a.effet_applique_at) throw badRequest('Les effets de cet acte sont appliqués : sa correction passe par un nouvel acte (nomination, affectation, fin de fonction).');
   if (!peutDecider(ctx, a)) throw forbidden('La révocation relève de l’autorité qui a validé l’acte.', 'VALIDATION_NON_AUTORISEE');
   await db.transaction(async (trx) => {
     await trx('actes_administratifs').where({ id }).update({ statut: 'REVOQUE', revoque_par: ctx.userId, revoque_at: trx.fn.now(), motif_revocation: motif, updated_at: trx.fn.now() });
@@ -314,6 +338,7 @@ async function revoquer(ctx, id, motif) {
 async function rectifier(ctx, id) {
   const a = await charger(ctx, id);
   if (!['VALIDE', 'REFUSE'].includes(a.statut)) throw badRequest('Seul un acte validé (rectificatif) ou refusé (reprise) peut être repris.');
+  if (carriere.PERMANENTS.includes(a.type) && a.effet_applique_at) throw badRequest('Les effets de cet acte sont appliqués : sa correction passe par un nouvel acte.');
   const enCours = await db('actes_administratifs').where({ rectifie_acte_id: id }).whereIn('statut', ['BROUILLON', 'SOUMIS']).first('numero');
   if (enCours) throw conflict(`Un rectificatif est déjà en préparation (${enCours.numero}).`);
   const v = vue(a);
@@ -344,6 +369,17 @@ async function tacheQuotidienne() {
       await cesserEffets(trx, a, null, `Échéance de l’acte ${a.numero}`);
     });
     await notify(await concernes(a), { type: 'ACTE', titre: `Échéance : ${titre(a)}`, message: 'Les droits temporaires ont pris fin.', lien: `/actes/${a.id}` });
+  }
+  // Actes permanents validés dont la date d’effet est atteinte : effets appliqués ce jour.
+  for (const a of await db('actes_administratifs').whereIn('type', carriere.PERMANENTS).where('statut', 'VALIDE').whereNull('effet_applique_at').where('date_debut', '<=', jour)
+    .where((w) => w.whereNull('effet_detail').orWhereNot('effet_detail', 'like', 'Effet impossible%')).orderBy('date_debut')) {
+    try {
+      const r = await db.transaction((trx) => carriere.appliquer(trx, { ...a, typeLibelle: TYPES[a.type] }, null));
+      await notify([...r.aNotifier, ...await directeursActifs(), a.prepare_par], { type: 'ACTE', titre: `Prise d’effet : ${TYPES[a.type]} — ${a.objet}`, message: r.detail, lien: `/actes/${a.id}` });
+    } catch (e) {
+      await db('actes_administratifs').where({ id: a.id }).update({ effet_detail: `Effet impossible à la date prévue : ${e.message}` });
+      await notify([...await directeursActifs(), a.prepare_par], { type: 'ACTE', titre: `Effet impossible : ${TYPES[a.type]} — ${a.objet}`, message: e.message, lien: `/actes/${a.id}` });
+    }
   }
   // Droits accordés sans acte, non régularisés dans le délai : retirés.
   const echus = await db('user_permissions').whereNull('revoked_at').whereNull('acte_id').where('a_regulariser_avant', '<=', db.fn.now());

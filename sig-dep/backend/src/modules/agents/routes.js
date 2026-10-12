@@ -16,6 +16,7 @@ const pdf = require('../../services/pdf');
 const { sendWorkbook } = require('../../services/excel');
 const { notFound, badRequest, forbidden } = require('../../utils/errors');
 const { DEP_NOM, ROLE_LIBELLES } = require('../../constants');
+const carriere = require('../../services/carriere');
 
 const router = express.Router();
 const idParam = z.object({ id: z.coerce.number().int().positive() });
@@ -40,7 +41,7 @@ function baseQuery() {
 }
 
 const listColumns = ['ag.id', 'ag.matricule', 'ag.nom', 'ag.postnom', 'ag.prenom', 'ag.sexe', 'ag.telephone', 'ag.email', 'ag.statut',
-  'ag.est_autorite', 'ag.photo_path', 'g.libelle as grade', 'f.libelle as fonction', 'a.niveau', 'a.division_id', 'a.bureau_id',
+  'ag.est_autorite', 'ag.photo_path', 'g.libelle as grade', 'g.code_officiel as grade_code_officiel', 'f.libelle as fonction', 'a.niveau', 'a.division_id', 'a.bureau_id',
   'a.date_debut as date_affectation', 'b.nom as bureau_nom', 'b.est_secretariat_direction', 'd.nom as division_nom',
   'p.libelle as poste', 'p.role_associe', 'u.id as user_id', 'u.username', 'u.statut as compte_statut'];
 
@@ -129,6 +130,7 @@ async function fiche(agentId) {
     roles: roles.map((r) => ({ code: r, libelle: ROLE_LIBELLES[r] })),
     superieur: await superieurOf(agentId),
     historique_affectations: historique,
+    carriere: await carriere.carriere(agentId),
     attributions_structure: attrs,
     responsabilites_poste: roleResp,
   };

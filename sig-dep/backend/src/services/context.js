@@ -22,7 +22,8 @@ const ROLES_RENFORCES = ['ADMIN_SYSTEME', 'DIRECTEUR', 'SECRETAIRE_GENERAL'];
  * Étapes de sécurité à accomplir avant d’accéder à l’application, dans l’ordre :
  * mot de passe (temporaire ou expiré), double authentification, e-mail de récupération, règles.
  */
-function calculerExigences(user, roles, pol) {
+/** `chefSecretariat` : Chef du Bureau Secrétariat de Direction (cahier, § 23 : authentification renforcée). */
+function calculerExigences(user, roles, pol, { chefSecretariat = false } = {}) {
   const ex = [];
   const expire = pol.mdp_expiration_jours > 0 && user.password_changed_at
     && (Date.now() - new Date(user.password_changed_at).getTime()) > pol.mdp_expiration_jours * 86400000;
@@ -30,7 +31,7 @@ function calculerExigences(user, roles, pol) {
   if (user.compte_urgence) {
     // Compte d’urgence : nouveau mot de passe et double authentification à chaque activation.
     if (!user.totp_actif) ex.push('DEUX_FACTEURS');
-  } else if (roles.some((r) => ROLES_RENFORCES.includes(r))) {
+  } else if (roles.some((r) => ROLES_RENFORCES.includes(r)) || chefSecretariat) {
     if (!user.totp_actif) ex.push('DEUX_FACTEURS');
     // Adresse de récupération obligatoire ; sa vérification (code par e-mail) est demandée lorsque la
     // messagerie est active, sans bloquer le compte (elle conditionne la récupération par e-mail).
@@ -100,7 +101,8 @@ async function loadContext(userId, trx = db) {
   const inSecretariat = !!(aff && aff.est_secretariat_direction);
   const pol = await politique();
   // Exigences renforcées dès que le rôle est détenu, à titre permanent ou par intérim.
-  const { exigences, mdpExpire } = calculerExigences(user, [...new Set([...rolesPermanents, ...roles])], pol);
+  const chefSecretariat = inSecretariat && roles.includes('CHEF_BUREAU') && aff.role_associe === 'CHEF_BUREAU';
+  const { exigences, mdpExpire } = calculerExigences(user, [...new Set([...rolesPermanents, ...roles])], pol, { chefSecretariat });
 
   if (inSecretariat) {
     for (const p of DIVISION_ONLY_PERMISSIONS) permissions.delete(p);

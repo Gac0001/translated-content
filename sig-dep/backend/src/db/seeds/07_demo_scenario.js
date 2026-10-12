@@ -9,7 +9,8 @@
  * et risques, données sectorielles (annuaire, campagnes, indicateurs, bulletins), correspondance
  * (note explicative signée, lettre de transmission), termes de référence et référentiels des fiches PIP
  * (PNSD et stratégie sectorielle, fictifs), présences journalières (listes Cadres et Agents,
- * rapports hebdomadaires verrouillés, transmis avec rectificatif, semaine en cours, synthèses mensuelles).
+ * rapports hebdomadaires verrouillés, transmis avec rectificatif, semaine en cours, synthèses mensuelles),
+ * carrière (élévation en grade d’un agent, promu en attente de poste).
  * Les dates sont calculées à partir du jour du chargement : la démonstration paraît toujours à jour.
  */
 const config = require('../../config/env');
@@ -30,7 +31,11 @@ function client(base) {
     return jetons[u];
   }
   return async function appel(u, methode, url, body) {
-    const r = await fetch(`${base}${url}`, { method: methode, headers: { 'content-type': 'application/json', authorization: `Bearer ${await jeton(u)}` }, body: body === undefined ? undefined : JSON.stringify(body) });
+    const multipart = body instanceof FormData;
+    const r = await fetch(`${base}${url}`, {
+      method: methode, headers: { ...(multipart ? {} : { 'content-type': 'application/json' }), authorization: `Bearer ${await jeton(u)}` },
+      body: body === undefined ? undefined : multipart ? body : JSON.stringify(body),
+    });
     const j = await r.json().catch(() => ({}));
     if (r.status >= 400) throw new Error(`${u} ${methode} ${url} → ${r.status} ${JSON.stringify(j).slice(0, 300)}`);
     return j;
@@ -54,6 +59,7 @@ exports.seed = async function seed(knex) {
     await correspondance(api);
     await pipReferentiels(api);
     await presencesJournalieres(api);
+    await carriere(api, knex);
   } finally {
     await new Promise((ok) => server.close(ok));
     await require('../../db/knex').destroy();
@@ -476,4 +482,20 @@ async function presencesJournalieres(api) {
   // Semaine en cours : jours écoulés renseignés, aujourd’hui à compléter
   for (const date of P.joursOuvrables(courant).filter((d) => d < P.aujourdhui())) await remplirJour(date);
   if (P.estOuvrable(P.aujourdhui())) await remplirJour(P.aujourdhui(), { partiel: true });
+}
+
+/** Carrière : élévation d’un Attaché au grade de Chef de Bureau, sans Bureau vacant (promu en attente de poste). */
+async function carriere(api, knex) {
+  const agent = await knex('agents').where({ nom: 'BOLAMBA' }).first();
+  const cb = await knex('grades').where({ code: 'CB' }).first();
+  if (!agent || !cb) return;
+  const a = await api('cb.secretariat', 'POST', '/actes', {
+    type: 'ELEVATION_GRADE', reference: 'Arrêté n° 045/2026 (démonstration)', date_acte: D(-20), autorite: 'Le Ministre (fictif)',
+    objet: 'Élévation au grade de Chef de Bureau (140)', agent_id: agent.id, grade_id: cb.id, date_debut: D(-15),
+  });
+  const fd = new FormData();
+  fd.append('fichiers', new Blob([Buffer.from('%PDF-1.4\n% acte de démonstration\n%%EOF\n')], { type: 'application/pdf' }), 'arrete-demonstration.pdf');
+  await api('cb.secretariat', 'POST', `/attachments/ACTE/${a.id}`, fd);
+  await api('cb.secretariat', 'POST', `/actes/${a.id}/soumettre`);
+  await api('directeur', 'POST', `/actes/${a.id}/decision`, { decision: 'VALIDE', commentaire: 'Acte conforme.' });
 }

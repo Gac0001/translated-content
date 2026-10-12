@@ -450,9 +450,13 @@ router.post('/postes/:id/desactiver', requirePerm('cadre.gerer'), validate({ par
   res.json({ message: 'Poste désactivé (conservé dans l’historique).' });
 });
 
-const gradeSchema = z.object({ code: z.string().trim().min(1).max(20), libelle: z.string().trim().min(2).max(150), categorie: z.string().max(80).optional().nullable(), niveau: z.coerce.number().int().default(0) });
+const gradeSchema = z.object({
+  code: z.string().trim().min(1).max(20), code_officiel: z.string().trim().min(1).max(10).optional(), abreviation: z.string().trim().max(20).optional().nullable(),
+  libelle: z.string().trim().min(2).max(150), categorie: z.string().max(80).optional().nullable(), niveau: z.coerce.number().int().default(0),
+});
 router.post('/grades', requirePerm('cadre.gerer'), validate({ body: gradeSchema }), async (req, res) => {
-  const [row] = await db('grades').insert(req.valid.body).returning('*');
+  const b = req.valid.body;
+  const [row] = await db('grades').insert({ ...b, code_officiel: b.code_officiel || b.code.slice(0, 10), abreviation: b.abreviation || b.code }).returning('*');
   await audit(req, { action: 'CREATION', module: 'cadre', entite: 'grade', entiteId: row.id, apres: row });
   res.status(201).json(row);
 });

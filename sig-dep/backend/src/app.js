@@ -53,11 +53,12 @@ if (config.demo) {
     const nodes = (await loadAllNodes()).filter((n) => n.node && ordre.includes(n.primaryRole)).sort((a, b) => ordre.indexOf(a.primaryRole) - ordre.indexOf(b.primaryRole) || String(a.structure).localeCompare(String(b.structure)));
     const autres = await db('users as u').join('user_roles as ur', 'ur.user_id', 'u.id').join('roles as r', 'r.id', 'ur.role_id').leftJoin('agents as a', 'a.id', 'u.agent_id')
       .whereIn('r.code', ['SECRETAIRE_GENERAL', 'ADMIN_SYSTEME']).where('u.statut', 'ACTIF').select('u.username', 'r.code', 'r.libelle', db.raw(`concat_ws(' ', a.prenom, a.nom) as nom`));
+    const chefs = (await demo.chefsSecretariat(db)).map((c) => c.username);
     res.json({
       demo: true, motDePasse: demo.MOT_DE_PASSE, code: demo.codeActuel(), secondes: demo.secondesRestantes(),
       comptes: [
         ...autres.filter((u) => u.code === 'SECRETAIRE_GENERAL').map((u) => ({ username: u.username, nom: u.nom || 'Secrétaire Général', fonction: u.libelle, structure: 'Secrétariat Général', deuxFacteurs: true })),
-        ...nodes.map((n) => ({ username: n.username, nom: n.nomComplet, fonction: n.roleLibelle, structure: n.structure, deuxFacteurs: demo.ROLES_RENFORCES.includes(n.primaryRole) })),
+        ...nodes.map((n) => ({ username: n.username, nom: n.nomComplet, fonction: n.roleLibelle, structure: n.structure, deuxFacteurs: demo.ROLES_RENFORCES.includes(n.primaryRole) || chefs.includes(n.username) })),
         ...autres.filter((u) => u.code === 'ADMIN_SYSTEME').map((u) => ({ username: u.username, nom: 'Administrateur Système', fonction: u.libelle, structure: 'Administration technique', deuxFacteurs: true })),
       ],
     });

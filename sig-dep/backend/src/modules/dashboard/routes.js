@@ -141,7 +141,8 @@ async function directeurDashboard(ctx) {
   ]);
   return {
     performance: perf, tachesEnRetard: tachesRetard, instructionsEnRetard: instructionsRetard, documentsAValider: docsAValider,
-    presencesSoumises, presencesSemaine: presSemaine, presencesMois: await presencesMois(), courriersARecevoir: courriersRecevoir, courriers: courriersCirculation,
+    presencesSoumises, presencesSemaine: presSemaine, presencesMois: await presencesMois(),
+    promusEnAttente: await require('../../services/carriere').promusEnAttente(), courriersARecevoir: courriersRecevoir, courriers: courriersCirculation,
     pipAValider, instructionsRecues: instructionsSG,
     pip: await statutsCount('pip_projects'),
     effectif: await resumeEffectif(),

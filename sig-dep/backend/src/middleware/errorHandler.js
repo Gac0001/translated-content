@@ -33,7 +33,7 @@ module.exports = function errorHandler(err, req, res, next) {
   // Erreurs PostgreSQL
   if (err && typeof err.code === 'string' && /^[0-9A-Z]{5}$/.test(err.code)) {
     const msg = String(err.message || '');
-    const custom = msg.match(/(SECRETARIAT_DIVISION_PERMISSION|PRESENCE_LOCKED|APPEND_ONLY): (.*)$/m);
+    const custom = msg.match(/(SECRETARIAT_DIVISION_PERMISSION|PRESENCE_LOCKED|APPEND_ONLY|TITULAIRE_UNIQUE): (.*)$/m);
     if (custom) {
       return res.status(custom[1] === 'SECRETARIAT_DIVISION_PERMISSION' ? 403 : 409)
         .json({ error: { code: custom[1], message: custom[2] } });
