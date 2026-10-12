@@ -1,9 +1,12 @@
 import { Link } from 'react-router-dom';
 import { FileCheck2 } from 'lucide-react';
 import { download } from '../../lib/api';
-import { Card, KeyValues, StatusBadge, Badge, RangBadge, toast, ZoneDefilante } from '../../components/ui';
+import { Card, KeyValues, StatusBadge, Badge, RangBadge, toast, SimpleTable } from '../../components/ui';
 import { fmtDate } from '../../lib/format';
 import AgentPhoto from './AgentPhoto';
+
+const LIBELLES_CARRIERE = { AFFECTATION: 'Affectation', GRADE: 'Grade', NOMINATION: 'Nomination', INTERIM: 'Intérim', DESIGNATION: 'Désignation', FIN_FONCTION: 'Fin de fonction' };
+const TONS_CARRIERE = { AFFECTATION: 'info', GRADE: 'succes', NOMINATION: 'marine', INTERIM: 'attention', DESIGNATION: 'violet', FIN_FONCTION: 'neutre' };
 
 /** Fiche complète d’un Agent (utilisée par la fiche Personnel et le profil). */
 export default function AgentView({ a, photoVersion, extraActions }) {
@@ -16,7 +19,7 @@ export default function AgentView({ a, photoVersion, extraActions }) {
           <div className="flex-1">
             <KeyValues items={[
               ['Nom', a.nom], ['Postnom', a.postnom], ['Prénom', a.prenom], ['Sexe', a.sexe === 'F' ? 'Féminin' : a.sexe === 'M' ? 'Masculin' : 'Non renseigné'],
-              ['Matricule', a.matricule], ['Date de naissance', fmtDate(a.date_naissance)], a.lieu_naissance && ['Lieu de naissance', a.lieu_naissance], ['Grade', a.grade], ['Fonction', a.fonction],
+              ['Matricule', a.matricule], ['Date de naissance', fmtDate(a.date_naissance)], a.lieu_naissance && ['Lieu de naissance', a.lieu_naissance], ['Grade', a.grade ? `${a.grade_code_officiel ? `${a.grade_code_officiel} — ` : ''}${a.grade}` : '—'], ['Fonction', a.fonction],
               ['Date de mise en service', fmtDate(a.date_mise_en_service)], ['N° carte IGAP', a.numero_carte_igap],
               a.commission_attachment_id && ['Commission d’affectation', <button key="c" type="button" className="inline-flex items-center gap-1 link" onClick={() => download(`/agents/${a.id}/commission`, 'commission.pdf').catch(() => toast.error('Téléchargement impossible.'))}><FileCheck2 size={14} /> Télécharger</button>],
               ['Liste déclarative', a.liste_declarative ? (a.enrole_at ? `Inscrit — enrôlé le ${fmtDate(a.enrole_at)}` : 'Inscrit — non enrôlé') : 'Non inscrit'],
@@ -43,24 +46,16 @@ export default function AgentView({ a, photoVersion, extraActions }) {
       <Card title="Responsabilités du poste">
         {a.responsabilites_poste.length ? <ul className="list-disc space-y-1 pl-5 text-sm">{a.responsabilites_poste.map((x) => <li key={x.id}>{x.libelle}</li>)}</ul> : <p className="text-sm text-slate-500">—</p>}
       </Card>
-      <Card title="Historique des affectations" className="lg:col-span-3" bodyClass="p-0">
-        <ZoneDefilante label="Historique des affectations">
-          <table className="min-w-full">
-            <thead><tr><th className="th">Période</th><th className="th">Structure</th><th className="th">Poste</th><th className="th">Motif</th><th className="th">État</th></tr></thead>
-            <tbody>
-              {a.historique_affectations.map((h) => (
-                <tr key={h.id}>
-                  <td className="td whitespace-nowrap">{fmtDate(h.date_debut)} → {h.date_fin ? fmtDate(h.date_fin) : 'en cours'}</td>
-                  <td className="td">{h.bureau_nom ? `${h.bureau_nom}${h.est_secretariat_direction ? ' (rattaché au Directeur)' : h.division_nom ? ` — ${h.division_nom}` : ''}` : h.division_nom || 'Direction'}</td>
-                  <td className="td">{h.poste || '—'}</td>
-                  <td className="td text-xs">{h.motif}{h.motif_cloture ? <div className="text-slate-500">Clôture : {h.motif_cloture}</div> : null}</td>
-                  <td className="td">{h.est_active ? <Badge tone="succes">Active</Badge> : <Badge>Clôturée</Badge>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {!a.historique_affectations.length && <p className="p-4 text-sm text-slate-500">Aucune affectation.</p>}
-        </ZoneDefilante>
+      <Card title="Carrière" className="lg:col-span-3" bodyClass="p-0">
+        <SimpleTable label="Carrière" rowKey="cle" empty="Aucun événement de carrière."
+          rows={(a.carriere || []).map((e, i) => ({ ...e, cle: `${e.type}-${e.date}-${i}` }))}
+          columns={[
+            { key: 'date', header: 'Date', render: (e) => <span className="whitespace-nowrap">{fmtDate(e.date)}</span> },
+            { key: 'type', header: 'Événement', render: (e) => <Badge tone={TONS_CARRIERE[e.type]}>{LIBELLES_CARRIERE[e.type] || e.type}</Badge> },
+            { key: 'titre', header: 'Objet', render: (e) => <span>{e.titre}{e.en_cours && <Badge tone="succes" className="ml-2">En cours</Badge>}</span> },
+            { key: 'detail', header: 'Détail', render: (e) => <span className="text-xs">{e.detail}</span> },
+            { key: 'acte', header: 'Acte', render: (e) => (e.acte_id ? <Link className="link whitespace-nowrap" to={`/actes/${e.acte_id}`}>{e.acte_numero}</Link> : '—') },
+          ]} />
       </Card>
     </div>
   );

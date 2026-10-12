@@ -128,8 +128,8 @@ router.get('/:id', validate({ params: idParam }), async (req, res) => {
       modifier: a.statut === 'BROUILLON' && a.prepare_par === req.ctx.userId,
       decider: a.statut === 'SOUMIS' && (a.validation_par === 'SECRETAIRE_GENERAL' ? req.ctx.can('actes.valider_direction') : req.ctx.can('actes.valider'))
         && !(req.ctx.agentId && [a.agent_id, a.titulaire_agent_id].includes(req.ctx.agentId)),
-      revoquer: a.statut === 'VALIDE' && (a.validation_par === 'SECRETAIRE_GENERAL' ? req.ctx.can('actes.valider_direction') : req.ctx.can('actes.valider')),
-      rectifier: ['VALIDE', 'REFUSE'].includes(a.statut) && (a.validation_par === 'SECRETAIRE_GENERAL' ? req.ctx.can('actes.enregistrer_direction') : req.ctx.can('actes.preparer')),
+      revoquer: a.statut === 'VALIDE' && !a.effet_applique_at && (a.validation_par === 'SECRETAIRE_GENERAL' ? req.ctx.can('actes.valider_direction') : req.ctx.can('actes.valider')),
+      rectifier: (a.statut === 'REFUSE' || (a.statut === 'VALIDE' && !a.effet_applique_at)) && (a.validation_par === 'SECRETAIRE_GENERAL' ? req.ctx.can('actes.enregistrer_direction') : req.ctx.can('actes.preparer')),
     },
   });
 });

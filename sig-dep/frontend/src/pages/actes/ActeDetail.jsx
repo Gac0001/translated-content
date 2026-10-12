@@ -75,7 +75,7 @@ export default function ActeDetail() {
               attente={{
                 BROUILLON: `Acte en préparation : joignez la copie scannée de l’acte signé, puis soumettez-le à la validation ${a.validation_par === 'SECRETAIRE_GENERAL' ? 'du Secrétaire Général' : 'du Directeur'}.`,
                 SOUMIS: `En attente de la décision ${a.validation_par === 'SECRETAIRE_GENERAL' ? 'du Secrétaire Général' : 'du Directeur'}.`,
-                VALIDE: 'Acte validé : il ne se modifie plus ; il se corrige par un rectificatif ou se révoque.',
+                VALIDE: a.effet === 'APPLIQUE' ? 'Acte validé, effets appliqués : sa correction passe par un nouvel acte.' : 'Acte validé : il ne se modifie plus ; il se corrige par un rectificatif ou se révoque.',
                 REFUSE: 'Acte refusé : il peut être repris en un nouvel acte.', REVOQUE: 'Acte révoqué : ses effets ont cessé.',
                 EXPIRE: 'Période échue : les droits temporaires ont expiré.', REMPLACE: 'Acte remplacé par un rectificatif validé.',
               }[a.statut]}
@@ -97,7 +97,8 @@ export default function ActeDetail() {
                     ['Date de l’acte', fmtDate(a.date_acte)], ['Autorité signataire', a.autorite],
                     ['Personne concernée', a.personne || '—'], a.poste_libelle && ['Poste', a.poste_libelle],
                     a.titulaire && ['Titulaire remplacé', a.titulaire],
-                    a.date_debut && ['Période', `du ${fmtDate(a.date_debut)} au ${fmtDate(a.date_fin)}`],
+                    a.nouveau_grade_code && ['Nouveau grade', `${a.nouveau_grade_code} — ${a.nouveau_grade_libelle}`],
+                    a.date_debut && (a.date_fin ? ['Période', `du ${fmtDate(a.date_debut)} au ${fmtDate(a.date_fin)}`] : ['Date d’effet', fmtDate(a.date_debut)]),
                     ['Validation', a.validation_par === 'SECRETAIRE_GENERAL' ? 'Secrétaire Général' : 'Directeur'],
                     ['Préparé par', a.prepare_par_username || '—'],
                     a.decide_at && ['Décision', `${a.statut === 'REFUSE' ? 'Refusé' : 'Validé'} le ${fmtDateTime(a.decide_at)} par ${a.decide_par_username}`],
@@ -105,6 +106,8 @@ export default function ActeDetail() {
                   ]} />
                   {a.motif && <p className="mt-3 whitespace-pre-line text-sm text-slate-700"><b>Motif :</b> {a.motif}</p>}
                   {a.commentaire_decision && <p className="mt-2 whitespace-pre-line text-sm text-slate-700"><b>Observation :</b> {a.commentaire_decision}</p>}
+                  {a.effet_detail && <div className="mt-3"><InfoAlert tone={/^Effet impossible/.test(a.effet_detail) ? 'warning' : 'info'}><b>Effets :</b> {a.effet_detail}</InfoAlert></div>}
+                  {a.effet === 'A_VENIR' && !a.effet_detail && <div className="mt-3"><InfoAlert>Les effets s’appliqueront le {fmtDate(a.date_debut)}.</InfoAlert></div>}
                 </Card>
                 {a.type === 'DESIGNATION' && (
                   <Card title="Opérations désignées">

@@ -1,5 +1,22 @@
 # Journal des versions — SIG-DEP
 
+## 1.40.0
+
+### Lot C — personnel et comptes (étape 1 : grades, actes de carrière, cohérence poste-grade-rôle)
+- **Grades au format du cahier des charges** (§ 9) : codes 110 (Secrétaire Général, hors effectif) à 340, plus le **Huissier** (catégorie à part) ; catégories Commandement, Collaboration, Exécution et Huissier ; abréviations (ATA 1, AGA 2…) ; les abréviations des grades 330 et 340 sont marquées « à confirmer par la Direction des Ressources Humaines ». Conversion automatique des grades existants ; la fonction Huissier est rattachée au grade Huissier.
+- **Historique des grades** en ajout seul : grade à l’enregistrement de l’agent, élévations (liées à leur acte), corrections de fiche.
+- **Acte d’élévation en grade** : à la date d’effet, le nouveau grade s’applique et l’ancien est conservé ; ni la fonction, ni l’affectation, ni le rôle ne changent. Un agent de grade de commandement sans poste de commandement apparaît **« promu en attente de poste »** au tableau de bord du Directeur.
+- **Nomination, affectation et fin de fonction désormais suivies d’effets**, à la validation si la date d’effet est atteinte, sinon le jour venu (tâche quotidienne) :
+  - nomination : poste de commandement **vacant**, agent ayant le **grade requis** ; l’intérim en cours sur le poste prend fin ; affectation, fonction et rôle du poste attribués, droits recalculés ; notification de l’agent, de son nouveau supérieur et du Directeur ;
+  - affectation sur un poste d’exécution (un rôle de commandement cesse) ;
+  - fin de fonction : l’agent reste dans la structure comme agent, son grade est conservé, le poste devient vacant.
+  Un acte dont les effets sont appliqués ne se révoque ni ne se rectifie : sa correction passe par un nouvel acte.
+- **Un seul titulaire** par poste de commandement (contrôle en base) ; l’intérimaire doit avoir un grade inférieur au grade requis (sinon c’est une nomination).
+- **Carrière** sur la fiche de l’agent : affectations, grades, nominations, intérims, désignations et fins de fonction, chacun lié à son acte.
+- **Double authentification obligatoire pour le Chef du Bureau Secrétariat de Direction** (cahier, § 23), comme pour l’Admin, le Directeur et le Secrétaire Général.
+- Démonstration : élévation d’un agent au grade de Chef de Bureau (promu en attente de poste).
+- Tests : 6 nouveaux côté API, 1 adapté ; 3 nouveaux côté interface.
+
 ## 1.39.0
 
 ### Lot B — présences journalières (étape 2 : synthèses et pilotage)

@@ -150,7 +150,7 @@ export default function Cadre() {
               )}
               {tab === 'grades' && (
                 <div className="grid gap-4 lg:grid-cols-2">
-                  <DataTable rows={c.grades} searchable={false} columns={[{ key: 'code', header: 'Code' }, { key: 'libelle', header: 'Grade' }, { key: 'categorie', header: 'Catégorie' }]} />
+                  <DataTable rows={c.grades} searchable={false} columns={[{ key: 'code_officiel', header: 'Code' }, { key: 'abreviation', header: 'Abréviation' }, { key: 'libelle', header: 'Grade' }, { key: 'categorie', header: 'Catégorie' }, { key: 'observation', header: 'Observation', render: (g) => <span className="text-xs">{g.observation || '—'}</span> }]} />
                   <DataTable rows={c.fonctions} searchable={false} columns={[{ key: 'libelle', header: 'Fonction' }, { key: 'grade_libelle', header: 'Grade correspondant' }]} />
                 </div>
               )}

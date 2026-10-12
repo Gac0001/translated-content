@@ -261,6 +261,9 @@ function DirecteurPanel({ d }) {
           <MiniList rows={d.courriersARecevoir} to="/courriers" empty="Aucun courrier à réceptionner." render={(c) => <div className="text-sm"><div className="truncate font-medium">{c.objet}</div><div className="text-xs text-slate-500">{c.numero_enregistrement} · {fmtDateTime(c.created_at)}</div></div>} />
           <div className="mt-2 flex flex-wrap gap-2 border-t pt-2 text-xs">{Object.entries(d.courriers).map(([k, v]) => <Badge key={k}>{STATUTS[k]?.[0] || k} : {v}</Badge>)}</div>
         </Card>
+        <Card title="Promus en attente de poste" actions={<CardLink to="/actes?type=NOMINATION">Actes de nomination</CardLink>}>
+          <MiniList rows={d.promusEnAttente || []} to="/personnel" empty="Aucun agent promu en attente de poste." render={(p) => <div className="text-sm"><div className="truncate font-medium">{[p.prenom, p.nom, p.postnom].filter(Boolean).join(' ')}</div><div className="text-xs text-slate-600">Grade {p.code_officiel} — {p.grade} depuis le {fmtDate(p.depuis)} · {p.structure}</div></div>} />
+        </Card>
         <Card title="Projets PIP à valider" actions={<CardLink to="/pip?statut=VERIFIE" />}>
           <MiniList rows={d.pipAValider} to="/pip" empty="Aucune fiche à valider." render={(p) => <div className="text-sm"><div className="truncate font-medium">{p.intitule}</div><div className="text-xs text-slate-500">{p.code} · {fmtMontant(p.cout_total, p.devise)}</div></div>} />
           <div className="mt-2 flex flex-wrap gap-2 border-t pt-2 text-xs">{Object.entries(d.pip).map(([k, v]) => <Badge key={k}>{STATUTS[k]?.[0] || k} : {v}</Badge>)}</div>

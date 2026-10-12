@@ -120,4 +120,5 @@ export const EFFETS_ACTE = {
   EN_VIGUEUR: ['En vigueur', 'bg-emerald-50 text-emerald-800 ring-emerald-200'],
   A_VENIR: ['À venir', 'bg-sky-50 text-sky-800 ring-sky-200'],
   ECHU: ['Échu', 'bg-slate-100 text-slate-700 ring-slate-200'],
+  APPLIQUE: ['Effets appliqués', 'bg-emerald-50 text-emerald-800 ring-emerald-200'],
 };

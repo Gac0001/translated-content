@@ -203,7 +203,7 @@ async function carriere(agentId, trx = db) {
     ev.push({ date: iso(a.date_debut), type: 'AFFECTATION', titre: `Affectation : ${a.poste || 'sans poste'}`, detail: [a.bureau || a.division || 'Direction', a.date_fin ? `jusqu’au ${fr(a.date_fin)}` : 'en cours'].join(' · '), acte_id: a.acte_id, acte_numero: a.acte_numero, en_cours: a.est_active });
   }
   for (const g of grades) {
-    ev.push({ date: iso(g.date_effet), type: 'GRADE', titre: `Grade ${g.code_officiel} — ${g.libelle}`, detail: g.ancien_code ? `${g.motif} (précédent : ${g.ancien_code} — ${g.ancien_libelle})` : g.motif, acte_id: g.acte_id, acte_numero: g.acte_numero });
+    ev.push({ ordre: g.id, date: iso(g.date_effet), type: 'GRADE', titre: `Grade ${g.code_officiel} — ${g.libelle}`, detail: g.ancien_code ? `${g.motif} (précédent : ${g.ancien_code} — ${g.ancien_libelle})` : g.motif, acte_id: g.acte_id, acte_numero: g.acte_numero });
   }
   const TITRES = { INTERIM: 'Intérim', DESIGNATION: 'Désignation', FIN_FONCTION: 'Fin de fonction', NOMINATION: 'Nomination' };
   for (const x of actes) {
@@ -214,7 +214,8 @@ async function carriere(agentId, trx = db) {
       acte_id: x.id, acte_numero: x.numero,
     });
   }
-  return ev.sort((a, b) => b.date.localeCompare(a.date) || (a.type === 'GRADE' ? 1 : -1));
+  // Plus récent d’abord ; à date égale, l’inscription de grade la plus récente d’abord.
+  return ev.sort((a, b) => b.date.localeCompare(a.date) || (b.ordre || 0) - (a.ordre || 0));
 }
 
 module.exports = { PERMANENTS, controler, appliquer, promusEnAttente, carriere };

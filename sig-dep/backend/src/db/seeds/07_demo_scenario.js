@@ -490,8 +490,8 @@ async function carriere(api, knex) {
   const cb = await knex('grades').where({ code: 'CB' }).first();
   if (!agent || !cb) return;
   const a = await api('cb.secretariat', 'POST', '/actes', {
-    type: 'ELEVATION_GRADE', reference: 'Arrêté n° 045/2026 (démonstration)', date_acte: D(-20), autorite: 'Le Ministre (fictif)',
-    objet: 'Élévation au grade de Chef de Bureau (140)', agent_id: agent.id, grade_id: cb.id, date_debut: D(-15),
+    type: 'ELEVATION_GRADE', reference: 'Arrêté n° 045/2026 (démonstration)', date_acte: D(-5), autorite: 'Le Ministre (fictif)',
+    objet: 'Élévation au grade de Chef de Bureau (140)', agent_id: agent.id, grade_id: cb.id, date_debut: D(0),
   });
   const fd = new FormData();
   fd.append('fichiers', new Blob([Buffer.from('%PDF-1.4\n% acte de démonstration\n%%EOF\n')], { type: 'application/pdf' }), 'arrete-demonstration.pdf');
