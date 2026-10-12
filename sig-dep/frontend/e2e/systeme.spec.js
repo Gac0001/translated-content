@@ -102,8 +102,15 @@ test.describe('Correspondance', () => {
     await connexion(page, 'ag.sev1');
     await page.goto('/documents/nouveau');
     await page.getByRole('button', { name: /Note explicative/ }).click();
-    await expect(page.getByLabel('Formule d’appel')).toHaveValue('Excellence Monsieur le Ministre,');
     await expect(page.getByLabel('Signataire', { exact: true })).toHaveValue('Secrétaire Général');
+    // Version courte en trois étapes, avec l’aperçu de la lettre à côté
+    await expect(page.getByRole('navigation', { name: 'Étapes du document' }).getByRole('button')).toHaveCount(4);
+    const apercu = page.getByRole('article', { name: 'Aperçu de la correspondance' });
+    await expect(apercu.getByText(/^N° …\/MIN-ECN\/SG\//)).toBeVisible();
+    await page.getByLabel('Concerne', { exact: true }).fill('Objet d’essai de l’aperçu');
+    await expect(apercu.getByText('Objet d’essai de l’aperçu')).toBeVisible();
+    await page.getByRole('button', { name: 'Suivant' }).click();
+    await expect(page.getByLabel('Formule d’appel')).toHaveValue('Excellence Monsieur le Ministre,');
     await capture(page, 'note-explicative-formulaire');
   });
 });

@@ -153,3 +153,16 @@ describe('Correspondance : numéro officiel à la signature', () => {
   });
 });
 
+
+describe('Formulaire par étapes des documents de service', () => {
+  test('chaque modèle a ses étapes, sans rubrique oubliée ; identité pour l’aperçu de la correspondance', async () => {
+    const r = (await api(await login('ag.sev1')).get('/documents/types')).body;
+    for (const t of r.data) {
+      const cles = t.etapes.flatMap((e) => e.cles);
+      expect(cles.sort()).toEqual(t.sections.map((s) => s.key).sort());
+    }
+    const note = r.data.find((t) => t.code === 'NOTE_EXPLICATIVE');
+    expect(note.etapes.map((e) => e.label)).toEqual(['Destinataire et objet', 'Corps de la note', 'Signature et copies']);
+    expect(r.identite).toMatchObject({ direction: 'Direction Etudes et Planification', reference_dep: expect.stringMatching(/^N° …\/MIN-ECN\/SGN\/DEP\//), reference_sg: expect.stringMatching(/\/SG\//) });
+  });
+});

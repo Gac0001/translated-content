@@ -157,6 +157,32 @@ const TYPES = [
   },
 ];
 
+/**
+ * Étapes du formulaire guidé (même mode de remplissage que la fiche PIP) : chaque étape regroupe des
+ * rubriques ; l’interface ajoute une dernière étape de contrôle. La correspondance est en version
+ * courte (trois étapes) avec aperçu de la lettre.
+ */
+const ETAPES = {
+  RAPPORT: [['Cadre du rapport', ['periode', 'introduction']], ['Réalisations', ['activites_realisees', 'resultats']], ['Difficultés et suite', ['difficultes', 'recommandations', 'conclusion']]],
+  COMPTE_RENDU: [['Réunion', ['date', 'lieu', 'participants', 'ordre_du_jour']], ['Déroulement et décisions', ['deroulement', 'decisions']]],
+  NOTE_TECHNIQUE: [['Destinataire et contexte', ['destinataire', 'contexte']], ['Analyse et propositions', ['analyse', 'propositions']]],
+  NOTE_EXPLICATIVE: [['Destinataire et objet', ['signataire', 'destinataire', 'concerne']], ['Corps de la note', ['formule_appel', 'corps', 'formule_finale', 'objet_explication', 'explications', 'conclusion']], ['Signature et copies', ['signataire_nom', 'annexes', 'copies']]],
+  FICHE_PROJET: [['Projet', ['intitule', 'contexte', 'objectifs']], ['Mise en œuvre', ['activites', 'duree_mois', 'budget', 'responsable']]],
+  PLAN_ACTIONS: [['Cadre', ['periode', 'objectif_general']], ['Actions', ['actions']]],
+  FICHE_SUIVI_EVALUATION: [['Projet suivi', ['projet', 'periode']], ['Indicateurs', ['indicateurs']], ['Analyse', ['analyse', 'recommandations']]],
+  PROCES_VERBAL: [['Séance', ['date', 'lieu', 'president', 'presents', 'ordre_du_jour']], ['Délibérations', ['deliberations', 'resolutions']]],
+  LETTRE_TRANSMISSION: [['Destinataire et objet', ['signataire', 'destinataire', 'adresse', 'objet', 'references']], ['Corps de la lettre', ['formule_appel', 'corps', 'formule_finale']], ['Signature, pièces et copies', ['signataire_nom', 'pieces', 'copies']]],
+  COMMUNIQUE_SERVICE: [['Destinataires et objet', ['destinataires', 'objet']], ['Message', ['message']]],
+  TERMES_REFERENCE: [['Contexte et objectifs', ['date_document', 'contexte', 'objectif_general', 'objectifs_specifiques']], ['Mission et phases', ['mission', 'contenu_attendu', 'phases']], ['Livrables et moyens', ['livrables', 'duree', 'budget', 'lieu']]],
+};
+for (const t of TYPES) {
+  const def = ETAPES[t.code] || [['Contenu', t.sections.map((x) => x.key)]];
+  const vues = new Set(def.flatMap(([, cles]) => cles));
+  t.etapes = def.map(([label, cles], i) => ({ numero: i + 1, label, cles: cles.filter((k) => t.sections.some((x) => x.key === k)) }));
+  // Rubrique non classée : dernière étape (aucune rubrique ne doit disparaître du formulaire)
+  t.etapes[t.etapes.length - 1].cles.push(...t.sections.filter((x) => !vues.has(x.key)).map((x) => x.key));
+}
+
 const BY_CODE = Object.fromEntries(TYPES.map((t) => [t.code, t]));
 
 function isEmpty(v) {

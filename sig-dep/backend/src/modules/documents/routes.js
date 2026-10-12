@@ -29,12 +29,26 @@ const correspondance = require('../../services/correspondance');
 const { notFound, badRequest, forbidden } = require('../../utils/errors');
 const { ROLE_LIBELLES } = require('../../constants');
 
+const identiteMinistere = require('../../services/identite');
+
 const router = express.Router();
 const idParam = z.object({ id: z.coerce.number().int().positive() });
 const STATUT_LIBELLES = { BROUILLON: 'Brouillon', EN_RELECTURE: 'En relecture', A_CORRIGER: 'À corriger', VISE: 'Visé', VALIDE: 'Validé', PUBLIE: 'Publié', REJETE: 'Rejeté', ARCHIVE: 'Archivé' };
 const NIVEAU = { AGENT: 'AUTEUR', CHEF_BUREAU: 'BUREAU', CHEF_DIVISION: 'DIVISION', DIRECTEUR: 'DIRECTION' };
 
-router.get('/types', (req, res) => res.json({ data: TYPES }));
+// Modèles de documents, et identité en vigueur pour l’aperçu de la correspondance (en-tête, référence du projet)
+router.get('/types', (req, res) => {
+  const i = identiteMinistere.courante();
+  const annee = new Date().getFullYear();
+  res.json({
+    data: TYPES,
+    identite: {
+      ministere: i.ministere, secretariat_general: i.secretariat_general, direction: i.direction, secretaire_general_titre: i.secretaire_general_titre,
+      adresse: i.adresse, courriel: i.courriel, site_web: i.site_web,
+      reference_dep: identiteMinistere.reference(i, { annee }), reference_sg: identiteMinistere.reference(i, { annee, variante: 'SG' }),
+    },
+  });
+});
 
 function baseQuery() {
   return db('documents as d')

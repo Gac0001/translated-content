@@ -1,5 +1,14 @@
 # Journal des versions — SIG-DEP
 
+## 1.36.0
+
+### Même mode de remplissage pour tous les documents — étape A : documents de service et correspondance
+- **Formulaire par étapes commun** (`FormulaireEtapes`), extrait de la fiche PIP : navigation à gauche avec le compteur de rubriques obligatoires de chaque étape (pastille verte une fois complète), contrôle en continu sous la navigation, Précédent / Suivant, enregistrement à tout moment, et une dernière étape **Contrôle** qui liste les rubriques manquantes (avec un lien vers l’étape concernée) et les incohérences.
+- **Documents de service** : chaque modèle est découpé en étapes (rapport, compte rendu, note technique, fiche projet, plan d’actions, fiche de suivi, procès-verbal, termes de référence) ; titre et confidentialité en première étape ; commentaire de version à l’étape de contrôle.
+- **Correspondance en version courte** (note explicative, lettre de transmission, communiqué) : trois étapes (destinataire et objet, corps, signature et copies) avec l’**aperçu de la lettre en direct** à côté — en-tête officiel (variante du Secrétaire Général s’il signe), référence du projet « N° … », lieu et date, destinataire, objet, corps, signature, annexes et copies, pied de page.
+- **Fiche PIP** passée sur le composant commun, avec la même étape de contrôle (rubriques, financement, dates, emplois).
+- Tests : 1 nouveau côté API (étapes sans rubrique oubliée, identité de l’aperçu) ; 2 nouveaux côté interface, 2 adaptés.
+
 ## 1.35.0
 
 ### Documents officiels — étape 3 : PTBA en vue budgétaire détaillée et rapport d’anomalies

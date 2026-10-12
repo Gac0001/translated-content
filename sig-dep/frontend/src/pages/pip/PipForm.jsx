@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Save } from 'lucide-react';
 import api from '../../lib/api';
-import { useApi, PageHeader, Card, Field, runAction, Spinner, InfoAlert, UnsavedChangesGuard } from '../../components/ui';
+import { useApi, PageHeader, Card, Field, runAction, Spinner, UnsavedChangesGuard } from '../../components/ui';
+import { FormulaireEtapes, PageControle } from '../../components/FormulaireEtapes';
 import { DynamicField } from '../../components/shared';
 import { fmtCdf } from '../../lib/format';
 
@@ -76,53 +76,49 @@ export default function PipForm() {
   };
   if (modele.loading || (id && existing.loading) || !data) return <Spinner />;
   const s = sections[step];
+  const controle = step === sections.length;
   const ecart = Math.round(cout - financement);
+  const manquantes = sections.flatMap((x, i) => x.fields.filter((fd) => requis(x, fd) && !isFilled(d[x.key]?.[fd.key])).map((fd) => ({ etape: i, label: `${x.label} — ${fd.label}` })));
+  const incoherences = [
+    ...(ecart !== 0 && (cout > 0 || financement > 0) ? [{ bloquant: true, message: `Le plan de financement (${fmtCdf(financement)}) ne couvre pas exactement le coût du projet (${fmtCdf(cout)}).` }] : []),
+    ...(d.calendrier?.date_debut && d.calendrier?.date_fin && d.calendrier.date_fin < d.calendrier.date_debut ? [{ bloquant: true, message: 'La date de fin prévue précède la date de début.' }] : []),
+    ...(Number(d.institutionnel?.emplois_femmes) > Number(d.institutionnel?.emplois ?? Infinity) ? [{ bloquant: true, message: 'Le nombre d’emplois occupés par des femmes dépasse le nombre d’emplois créés.' }] : []),
+  ];
+  const etapes = [
+    ...sections.map((x) => { const [ok, total] = completude(x); return { key: x.key, numero: x.numero, label: x.label, ok, total }; }),
+    { key: 'controle', numero: sections.length + 1, label: 'Contrôle', ok: 0, total: 0, alerte: manquantes.length > 0 || incoherences.some((x) => x.bloquant) },
+  ];
   return (
     <>
       <UnsavedChangesGuard when={modifie && !saving} />
       <PageHeader title={id ? 'Modifier la fiche PIP' : 'Nouvelle fiche de projet PIP'} subtitle="Modèle de fiche de projet du Ministère du Plan (Direction de la Programmation et Budgétisation) ; montants en francs congolais." breadcrumb={[{ label: 'Projets PIP', to: '/pip' }, { label: id ? 'Modification' : 'Nouvelle fiche' }]} />
-      <div className="grid gap-4 lg:grid-cols-[270px_1fr]">
-        <nav className="card h-max p-2 lg:sticky lg:top-20" aria-label="Étapes de la fiche">
-          <ol className="space-y-0.5">
-            {sections.map((x, i) => {
-              const [ok, total] = completude(x);
-              return (
-                <li key={x.key}>
-                  <button type="button" onClick={() => setStep(i)} aria-current={i === step ? 'step' : undefined} className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm ${i === step ? 'bg-dep-50 font-medium text-dep-800' : 'hover:bg-slate-50'}`}>
-                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs ${total && ok === total ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'}`}>{x.numero}</span>
-                    <span className="flex-1 truncate">{x.label}</span>
-                    {total > 0 && <span className="text-xs text-slate-600">{ok}/{total}<span className="sr-only"> rubriques obligatoires renseignées</span></span>}
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-          <dl className="mt-2 space-y-1 border-t px-2 pt-2 text-xs text-slate-600">
+      <FormulaireEtapes etapes={etapes} etape={step} onEtape={setStep} navigation="Étapes de la fiche"
+        onEnregistrer={save} enregistrement={saving} peutEnregistrer={isFilled(d.identification?.libelle)}
+        aide="Vous pouvez enregistrer à tout moment. Avant la soumission, toutes les rubriques obligatoires doivent être renseignées et le plan de financement doit couvrir exactement le coût du projet."
+        resume={(
+          <dl className="space-y-1">
             <div className="flex justify-between gap-2"><dt>Coût du projet</dt><dd className="font-semibold tabular-nums text-slate-800">{fmtCdf(cout)}</dd></div>
             <div className="flex justify-between gap-2"><dt>Financement</dt><dd className="font-semibold tabular-nums text-slate-800">{fmtCdf(financement)}</dd></div>
             {ecart !== 0 && (cout > 0 || financement > 0) && <div className="rounded bg-amber-50 px-1.5 py-1 text-amber-800" role="status">Écart à résorber : {fmtCdf(Math.abs(ecart))} {ecart > 0 ? 'non financés' : 'de financement en trop'}</div>}
           </dl>
-        </nav>
-        <div className="space-y-4">
-          {s && (
-            <Card title={`${s.numero}. ${s.label}`}>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {s.fields.map((fd) => (
-                  <Field key={fd.key} label={fd.label} required={requis(s, fd)} hint={fd.help} className={['textarea', 'list', 'table'].includes(fd.type) ? 'sm:col-span-2' : ''}>
-                    <DynamicField field={fd} value={d[s.key]?.[fd.key]} onChange={(v) => set(s.key, fd.key, v)} suggestions={suggestions(s, fd)} libelles={fd.type === 'table' ? libelles(s, fd) : undefined} />
-                  </Field>
-                ))}
-              </div>
-            </Card>
-          )}
-          <InfoAlert>Vous pouvez enregistrer à tout moment. Avant la soumission, toutes les rubriques obligatoires doivent être renseignées et le plan de financement doit couvrir exactement le coût du projet.</InfoAlert>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn-secondary" disabled={step === 0} onClick={() => setStep(step - 1)}><ChevronLeft size={16} aria-hidden /> Précédent</button>
-            <button type="button" className="btn-secondary" disabled={step >= sections.length - 1} onClick={() => setStep(step + 1)}>Suivant <ChevronRight size={16} aria-hidden /></button>
-            <button type="button" className="btn-primary ml-auto" disabled={saving || !isFilled(d.identification?.libelle)} onClick={save}><Save size={16} aria-hidden /> Enregistrer</button>
-          </div>
-        </div>
-      </div>
+        )}>
+        {s && !controle && (
+          <Card title={`${s.numero}. ${s.label}`}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {s.fields.map((fd) => (
+                <Field key={fd.key} label={fd.label} required={requis(s, fd)} hint={fd.help} className={['textarea', 'list', 'table'].includes(fd.type) ? 'sm:col-span-2' : ''}>
+                  <DynamicField field={fd} value={d[s.key]?.[fd.key]} onChange={(v) => set(s.key, fd.key, v)} suggestions={suggestions(s, fd)} libelles={fd.type === 'table' ? libelles(s, fd) : undefined} />
+                </Field>
+              ))}
+            </div>
+          </Card>
+        )}
+        {controle && (
+          <Card title={`${sections.length + 1}. Contrôle`}>
+            <PageControle manquantes={manquantes} incoherences={incoherences} etapes={etapes} onAller={setStep} />
+          </Card>
+        )}
+      </FormulaireEtapes>
     </>
   );
 }

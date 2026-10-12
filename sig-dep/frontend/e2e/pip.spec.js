@@ -17,7 +17,7 @@ test.describe('Fiche PIP (ordinateur)', () => {
     await connexion(page, 'ag.coi1');
     await page.goto('/pip/nouveau');
     const etapes = page.getByRole('navigation', { name: 'Étapes de la fiche' }).getByRole('button');
-    await expect(etapes).toHaveCount(8);
+    await expect(etapes).toHaveCount(9); // huit étapes du modèle et le contrôle
     await page.getByLabel('Libellé du projet').fill('Projet de saisie (essai)');
     await expect(page.locator('datalist option[value="Direction Cybersécurité (DCS)"]')).toHaveCount(1); // service (étape 1)
     await etapes.filter({ hasText: 'Aspect financier' }).click();
