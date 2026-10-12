@@ -29,6 +29,11 @@ export default function DocumentForm() {
     if (d) { setTypeCode(d.type_document); setContenu(d.contenu || {}); reset({ titre: d.titre, confidentialite: d.confidentialite, commentaire: '' }); }
   }, [existing.data, reset]);
   const type = (types.data?.data || []).find((t) => t.code === typeCode);
+  // Nouveau document : rubriques préremplies par les valeurs du modèle (destinataire, formules…).
+  const choisir = (t) => { setTypeCode(t.code); setContenu(Object.fromEntries(t.sections.filter((s) => s.default !== undefined).map((s) => [s.key, s.default]))); };
+  // Rubriques des anciennes versions du modèle : affichées seulement si elles sont renseignées.
+  const vide = (v) => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length);
+  const sections = type ? type.sections.filter((s) => !s.ancien || !vide(contenu[s.key])) : [];
   const submit = async (v) => {
     const body = { ...v, contenu };
     const r = await runAction(() => (id ? api.put(`/documents/${id}`, body) : api.post('/documents', { ...body, type_document: typeCode, task_id: params.get('tache') ? Number(params.get('tache')) : null, instruction_id: params.get('instruction') ? Number(params.get('instruction')) : null })), id ? 'Nouvelle version enregistrée.' : 'Brouillon créé.');
@@ -41,7 +46,7 @@ export default function DocumentForm() {
         <PageHeader title="Nouveau document de service" subtitle="Choisissez le modèle de document." breadcrumb={[{ label: 'Documents', to: '/documents' }, { label: 'Nouveau' }]} />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {types.data.data.map((t) => (
-            <button key={t.code} type="button" onClick={() => setTypeCode(t.code)} className="card p-4 text-left transition hover:border-dep-400 hover:shadow">
+            <button key={t.code} type="button" onClick={() => choisir(t)} className="card p-4 text-left transition hover:border-dep-400 hover:shadow">
               <div className="font-semibold text-dep-800">{t.libelle}</div>
               <p className="mt-1 text-sm text-slate-600">{t.description}</p>
               <p className="mt-2 text-xs text-slate-500">{t.sections.length} rubriques</p>
@@ -64,8 +69,8 @@ export default function DocumentForm() {
             <Field label="Confidentialité"><select className="input" {...register('confidentialite')}><option value="ORDINAIRE">Ordinaire</option><option value="CONFIDENTIEL">Confidentiel</option><option value="SECRET">Secret</option></select></Field>
           </div>
         </Card>
-        <InfoAlert>Les rubriques marquées * sont obligatoires pour transmettre le document. Vous pouvez enregistrer un brouillon incomplet.</InfoAlert>
-        {type.sections.map((s, i) => (
+        <InfoAlert>Les rubriques marquées * sont obligatoires pour transmettre le document. Vous pouvez enregistrer un brouillon incomplet.{type.correspondance && ' Le numéro officiel et la date sont attribués à la signature du Directeur ; le document porte l’en-tête officiel (celui du Secrétariat Général si le Secrétaire Général signe).'}</InfoAlert>
+        {sections.map((s, i) => (
           <Card key={s.key} title={`${i + 1}. ${s.label}${s.required ? ' *' : ''}`}>
             {s.help && <p className="mb-2 text-xs text-slate-500">{s.help}</p>}
             <DynamicField field={s} aria-label={s.label} value={contenu[s.key]} onChange={(v) => { setContenu((c) => ({ ...c, [s.key]: v })); setContenuModifie(true); }} />

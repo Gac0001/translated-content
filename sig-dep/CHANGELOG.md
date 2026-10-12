@@ -1,5 +1,16 @@
 # Journal des versions — SIG-DEP
 
+## 1.33.0
+
+### Documents officiels — étape 1 : en-tête, pied de page, correspondance et termes de référence
+- **En-tête et pied de page officiels sur tous les documents produits** (PDF, Word, Excel), d’après le modèle ENTETE_DEP : sceau aux armoiries, « MINISTERE DE L’ECONOMIE NUMERIQUE » en Cooper Hewitt, Secrétariat Général et Direction en Great Vibes soulignés ; pied de page avec adresse, courriel, site, QR code et bande tricolore ; numéro de page ; rappel discret (Direction et référence) sur les pages suivantes. **Variante du Secrétaire Général** (« Le Secrétaire Général ») pour les correspondances qu’il signe. Polices libres incorporées (PDF et Word) ; en Excel, en-tête dans les premières lignes, pied de page et ligne d’intitulés répétés à l’impression.
+- **Identité du Ministère** (Sécurité et système → Identité et en-tête) : appellation, sigle **MIN-ECN**, Secrétariat Général, Direction, adresse, courriel, site, contenu du QR code, sceau et formats de référence, en **versions datées en ajout seul**. Nouvelle version proposée par l’Admin Système et **confirmée par le Directeur** (opération critique, Gouvernance) ; aperçu PDF des deux variantes ; un document signé garde l’identité en vigueur à sa date de signature. Le sceau n’est pas fourni : l’Admin le dépose dans l’application.
+- **Correspondance** (note explicative, lettre de transmission, communiqué de service) : **numéro officiel attribué à la signature** du Directeur, sur une séquence annuelle commune jamais réutilisée — `N° 012/MIN-ECN/SGN/DEP/{signataire}/{rédacteur}/2026`, ou `N° 012/MIN-ECN/SG/{signataire}/DEP/{rédacteur}/2026` quand le Secrétaire Général signe (initiales calculées) ; le projet porte « N° … ». Export PDF et Word **en lettre** : référence, « Kinshasa, le … », destinataire, objet ou « Concerne », corps, formules, signataire, annexes ou pièces jointes, copies. Note explicative au modèle du Ministère (signataire, destinataire, formules d’appel et finale préremplies) ; les rubriques des anciennes versions ne s’affichent que si elles sont renseignées.
+- **Nouveau modèle : termes de référence** (contexte, objectifs général et spécifiques, mission, contenu attendu, phases avec objectifs, activités et livrables, durée, budget, lieu).
+- Formulaires : rubriques préremplies à la création ; référence officielle affichée sur la fiche du document.
+- Démonstration : termes de référence en brouillon, note explicative signée (numéro 001) et lettre de transmission en relecture.
+- Tests : 6 nouveaux côté API (identité, confirmation, numérotation, exports en lettre et termes de référence) ; 4 nouveaux côté interface. Tests d’exports rendus indépendants de la position des lignes.
+
 ## 1.32.0
 
 ### Préparation de la mise en production (Windows et Linux, hébergement local)

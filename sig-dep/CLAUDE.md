@@ -57,6 +57,11 @@ Général au Numérique (RDC). Interface et documentation **en français** ; ré
    l’API) pour rester démontrable et servir à la formation.
 6. **Consulter avant d’améliorer** : présenter à l’utilisateur toute amélioration ou tout nouveau
    lot (contenu, rôles, choix) et attendre son accord avant de l’implémenter.
+7. **Documents produits** : tout export PDF passe par `createPdf` (`services/pdf.js`), tout Word par
+   `documentWord` / `buildDocx` (`services/word.js`), toute feuille Excel par `addSheet` / `sendWorkbook`
+   (`services/excel.js`) ou `feuilleOfficielle` (`services/entete.js`) : en-tête et pied de page
+   officiels, d’après l’identité du Ministère en vigueur (`services/identite.js`). Le sceau n’est
+   jamais versionné : l’Admin le dépose dans l’application.
 
 ## Refonte de l’interface (terminée)
 

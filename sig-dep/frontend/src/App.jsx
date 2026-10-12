@@ -85,6 +85,7 @@ const MaCarte = p(() => import('./pages/cartes/MaCarte'));
 const Maintenance = p(() => import('./pages/systeme/Maintenance'));
 const JournalTechnique = p(() => import('./pages/systeme/JournalTechnique'));
 const RapportsSecurite = p(() => import('./pages/RapportsSecurite'));
+const Identite = p(() => import('./pages/systeme/Identite'));
 const Reinitialisation = p(() => import('./pages/systeme/Reinitialisation'));
 const Rapports = p(() => import('./pages/Rapports'));
 
@@ -217,6 +218,7 @@ export default function App() {
             <Route path="systeme/erreurs" element={G(['systeme.consulter'], <JournalTechnique />)} />
             <Route path="rapports-securite" element={G(['rapport_securite.consulter'], <RapportsSecurite />)} />
             <Route path="securite" element={G(['securite.superviser', 'session.consulter'], <Securite />)} />
+            <Route path="systeme/identite" element={G(['systeme.configurer', 'operations.confirmer'], <Identite />)} />
             <Route path="systeme/reinitialisation" element={G(['systeme.maintenir'], <Reinitialisation />)} />
             <Route path="acces-refuse" element={<Forbidden />} />
             <Route path="*" element={<NotFound />} />

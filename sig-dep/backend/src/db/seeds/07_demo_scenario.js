@@ -6,7 +6,8 @@
  * notifications, contrôles de qualité), une activité réaliste et entièrement fictive couvrant les
  * modules ajoutés depuis la version 1.13 : réunions et décisions, agenda du Directeur, demandes
  * du Secrétaire Général, planification (PTBA, performance, crédits, PAP/RAP), banque des projets
- * et risques, données sectorielles (annuaire, campagnes, indicateurs, bulletins).
+ * et risques, données sectorielles (annuaire, campagnes, indicateurs, bulletins), correspondance
+ * (note explicative signée, lettre de transmission) et termes de référence.
  * Les dates sont calculées à partir du jour du chargement : la démonstration paraît toujours à jour.
  */
 const config = require('../../config/env');
@@ -48,6 +49,7 @@ exports.seed = async function seed(knex) {
     const plan = await planification(api, knex);
     await programmation(api, knex, plan);
     await donneesSectorielles(api, knex, uid);
+    await correspondance(api);
   } finally {
     await new Promise((ok) => server.close(ok));
     await require('../../db/knex').destroy();
@@ -323,3 +325,39 @@ async function donneesSectorielles(api, knex, uid) {
   const bar = await api('ag.doi1', 'POST', '/donnees/bulletins', { type: 'BAROMETRE', titre: 'Baromètre de l’accès à Internet', periode: `Année ${A - 1}`, indicateurs: [ind[0].id, ind[2].id], contenu: { analyse: 'Projet de baromètre en attente de visa (démonstration du circuit).' } });
   await api('ag.doi1', 'POST', `/donnees/bulletins/${bar.id}/soumettre`);
 }
+
+// ─── Correspondance et termes de référence (documents officiels) ─────────────
+async function correspondance(api) {
+  const signer = async (id) => {
+    await api('ag.sev1', 'POST', `/documents/${id}/transmettre`, {});
+    await api('cb.sev', 'POST', `/documents/${id}/transmettre`, {});
+    await api('cd.ps', 'POST', `/documents/${id}/viser`, {});
+    await api('cd.ps', 'POST', `/documents/${id}/transmettre`, {});
+    await api('directeur', 'POST', `/documents/${id}/valider`, {});
+  };
+  const tdr = await api('ag.sev1', 'POST', '/documents', { type_document: 'TERMES_REFERENCE', titre: 'Termes de référence — atelier de revue du plan d’actions', contenu: {
+    date_document: D(-3),
+    contexte: 'Texte de démonstration : la Direction organise chaque année une revue de son plan d’actions afin d’en mesurer l’avancement et d’ajuster la programmation de l’exercice suivant.',
+    objectif_general: 'Faire le point de l’exécution du plan d’actions et arrêter les ajustements nécessaires.',
+    objectifs_specifiques: ['Présenter l’état d’exécution par Division', 'Identifier les difficultés rencontrées', 'Proposer des mesures correctives'],
+    phases: [
+      { phase: 'Préparation', objectifs: 'Collecter les rapports des Divisions', activites: 'Relances, consolidation', livrables: 'Rapport consolidé' },
+      { phase: 'Atelier', objectifs: 'Examiner les résultats', activites: 'Présentations, travaux en groupes', livrables: 'Compte rendu de l’atelier' },
+      { phase: 'Restitution', objectifs: 'Valider les ajustements', activites: 'Séance de restitution', livrables: 'Plan d’actions ajusté' },
+    ],
+    livrables: 'Compte rendu de l’atelier et plan d’actions ajusté.', duree: 'Trois semaines', budget: 'Texte de démonstration : à préciser.',
+  } });
+  const note = await api('ag.sev1', 'POST', '/documents', { type_document: 'NOTE_EXPLICATIVE', titre: 'Note explicative — atelier de revue du plan d’actions', contenu: {
+    concerne: 'Organisation de l’atelier annuel de revue du plan d’actions',
+    corps: 'Texte de démonstration : j’ai l’honneur de vous informer de l’organisation, par la Direction d’Études et Planification, de l’atelier annuel de revue de son plan d’actions.\n\nLes termes de référence de l’atelier sont joints à la présente note.',
+    signataire_nom: 'Jean-Pierre KABONGO MUKENDI', annexes: ['Termes de référence de l’atelier'], copies: ['Cabinet du Ministre'],
+  } });
+  await signer(note.id);
+  const lettre = await api('ag.sev1', 'POST', '/documents', { type_document: 'LETTRE_TRANSMISSION', titre: 'Transmission des termes de référence', contenu: {
+    destinataire: 'Monsieur le Secrétaire Général au Numérique', objet: `Transmission des termes de référence (${tdr.reference})`,
+    corps: 'Texte de démonstration : j’ai l’honneur de vous transmettre, pour examen, les termes de référence de l’atelier annuel de revue du plan d’actions.',
+    pieces: ['Termes de référence'],
+  } });
+  await api('ag.sev1', 'POST', `/documents/${lettre.id}/transmettre`, {});
+}
+

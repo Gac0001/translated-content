@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-do
 import { fmtDate } from '../../lib/format';
 import {
   LayoutDashboard, Network, BookOpen, Users, UserCog, CalendarCheck, Mail, Send, ListTodo, FileText, FolderKanban,
-  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2, Landmark, IdCard, MessageCircleQuestion,
+  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2, Landmark, IdCard, BadgeCheck, MessageCircleQuestion,
   Search, CalendarDays, Gavel, Presentation, Target, Database, ChevronDown,
 } from 'lucide-react';
 import api, { MODIFICATION } from '../../lib/api';
@@ -52,6 +52,7 @@ const MENU = [
   { to: '/systeme/sauvegardes', label: 'Sauvegardes', icon: DatabaseBackup, perms: ['sauvegarde.creer'] },
   { to: '/gouvernance', label: 'Gouvernance', icon: Landmark, perms: ['operations.confirmer', 'systeme.maintenir', 'acces_support.demander', 'acces_support.valider', 'urgence.activer', 'urgence.desactiver'] },
   { to: '/restaurations', label: 'Restaurations', icon: History, perms: ['sauvegarde.restaurer', 'sauvegarde.valider_restauration'] },
+  { to: '/systeme/identite', label: 'Identité et en-tête', icon: BadgeCheck, perms: ['systeme.configurer', 'operations.confirmer'] },
   { to: '/systeme/maintenance', label: 'Maintenance', icon: Wrench, perms: ['systeme.maintenir'] },
   { to: '/systeme/sante', label: 'Santé du système', icon: HeartPulse, perms: ['systeme.consulter'] },
   { to: '/systeme/erreurs', label: 'Journal technique', icon: Bug, perms: ['systeme.consulter'] },

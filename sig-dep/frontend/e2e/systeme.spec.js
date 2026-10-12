@@ -65,4 +65,45 @@ test.describe('Système (ordinateur)', () => {
     expect((await page.locator('main [role=alert]').allInnerTexts()).filter((t) => t.trim())).toEqual([]);
     await capture(page, 'reinitialisation');
   });
+
+  test('identité et en-tête : version en vigueur, proposition par l’Admin', async ({ page }) => {
+    await connexion(page, 'admin');
+    await page.goto('/systeme/identite');
+    await expect(page.getByRole('heading', { name: /Version en vigueur : \d+/ })).toBeVisible();
+    await expect(page.getByText('MIN-ECN', { exact: true }).first()).toBeVisible();
+    const proposer = page.getByRole('button', { name: 'Proposer la nouvelle version' });
+    await expect(proposer).toBeDisabled();
+    await page.getByLabel(/^Motif/).fill('Essai de saisie sans envoi');
+    await expect(proposer).toBeEnabled();
+    await capture(page, 'identite-admin');
+    await page.getByRole('button', { name: 'Annuler' }).click();
+  });
+
+  test('identité et en-tête : lecture seule pour le Directeur', async ({ page }) => {
+    await connexion(page, 'directeur');
+    await page.goto('/systeme/identite');
+    await expect(page.getByText(/soumises à votre confirmation/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Proposer la nouvelle version' })).toHaveCount(0);
+  });
+});
+
+test.describe('Correspondance', () => {
+  test.use({ viewport: { width: 1366, height: 900 } });
+
+  test('note explicative signée : référence officielle', async ({ page }) => {
+    await connexion(page, 'directeur');
+    await page.goto('/documents');
+    await page.getByRole('row', { name: /Note explicative — atelier/ }).first().click();
+    await expect(page.getByText(/N° \d{3}\/MIN-ECN\/SG\//).first()).toBeVisible();
+    await capture(page, 'note-explicative');
+  });
+
+  test('nouvelle note explicative : rubriques préremplies', async ({ page }) => {
+    await connexion(page, 'ag.sev1');
+    await page.goto('/documents/nouveau');
+    await page.getByRole('button', { name: /Note explicative/ }).click();
+    await expect(page.getByLabel('Formule d’appel')).toHaveValue('Excellence Monsieur le Ministre,');
+    await expect(page.getByLabel('Signataire', { exact: true })).toHaveValue('Secrétaire Général');
+    await capture(page, 'note-explicative-formulaire');
+  });
 });

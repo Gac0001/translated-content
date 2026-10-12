@@ -32,9 +32,10 @@ async function numeroter(trx, d, t, signataireUserId, date = new Date()) {
     `INSERT INTO sequences (cle, annee, valeur) VALUES ('CORRESPONDANCE', ?, 1)
      ON CONFLICT (cle, annee) DO UPDATE SET valeur = sequences.valeur + 1 RETURNING valeur`, [annee],
   );
-  const signataire = v === 'SG'
-    ? identite.initiales(d.contenu.signataire_nom) || '…'
-    : identite.initiales(d.contenu.signataire_nom || await nomComplet(signataireUserId, trx)) || '…';
+  // Signataire : nom saisi, sinon le Secrétaire Général en fonction (variante SG) ou le Directeur qui signe.
+  const sg = async () => nomComplet((await trx('users as u').join('user_roles as ur', 'ur.user_id', 'u.id').join('roles as r', 'r.id', 'ur.role_id')
+    .where({ 'r.code': 'SECRETAIRE_GENERAL', 'u.statut': 'ACTIF' }).orderBy('u.id').first('u.id'))?.id, trx);
+  const signataire = identite.initiales(d.contenu.signataire_nom || (v === 'SG' ? await sg() : await nomComplet(signataireUserId, trx))) || '…';
   const redacteur = identite.initiales(await nomComplet(d.auteur_user_id, trx)) || '…';
   return {
     numero_officiel: identite.reference(ident, { seq: r.rows[0].valeur, signataire, redacteur, annee, variante: v }),
