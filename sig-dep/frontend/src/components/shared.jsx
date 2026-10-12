@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { Download, FileDown, FileSpreadsheet, FileText, Paperclip, Plus, Printer, Trash2, Upload, X } from 'lucide-react';
 import api, { download, errorMessage } from '../lib/api';
-import { fmtDate, fmtDateTime, fmtTaille } from '../lib/format';
+import { fmtDate, fmtDateTime, fmtNombre, fmtTaille } from '../lib/format';
 import { ACTIONS_HISTO } from '../lib/labels';
 import { useAuth } from '../store/auth';
 import { StatusBadge, Badge, toast, useApi, useConfirm, Empty, Button, IconButton, DropdownMenu } from './ui';
@@ -119,26 +119,47 @@ function ListInput({ value = [], onChange, disabled, libelle }) {
   );
 }
 
-function TableInput({ columns, value = [], onChange, disabled }) {
+/**
+ * Tableau saisissable. `lignesFixes` : rubriques imposées par le modèle (libellé non modifiable, ligne
+ * non supprimable) ; `libelles` : en-têtes remplacés (années réelles) ; les colonnes chiffrées
+ * reçoivent une ligne de total, et une colonne de total quand il y en a plusieurs.
+ */
+function TableInput({ columns, value = [], onChange, disabled, lignesFixes = [], libelles = {} }) {
   const rows = value;
   const set = (i, k, v) => { const n = rows.map((r) => ({ ...r })); n[i][k] = v; onChange(n); };
+  const chiffrees = columns.filter((c) => c.type === 'number');
+  const total = (vals) => vals.reduce((t, v) => t + (Number(v) || 0), 0);
+  const fixe = (r) => lignesFixes.includes(r[columns[0].key]);
+  const totalLigne = chiffrees.length > 1;
   return (
     <div className="overflow-x-auto rounded-md border border-slate-200">
       <table className="min-w-full">
-        <thead><tr>{columns.map((c) => <th key={c.key} scope="col" className="th whitespace-nowrap">{c.label}</th>)}{!disabled && <th className="th w-10"><span className="sr-only">Actions</span></th>}</tr></thead>
+        <thead><tr>{columns.map((c) => <th key={c.key} scope="col" className="th whitespace-nowrap">{libelles[c.key] || c.label}</th>)}{totalLigne && <th scope="col" className="th text-right">Total</th>}{!disabled && <th className="th w-10"><span className="sr-only">Actions</span></th>}</tr></thead>
         <tbody>
           {rows.map((r, i) => (
             <tr key={i}>
-              {columns.map((c) => (
+              {columns.map((c, ci) => (
                 <td key={c.key} className="border-b border-slate-100 p-1">
-                  <input className="input min-w-[110px] py-1.5" type={c.type === 'number' ? 'number' : c.type === 'date' ? 'date' : 'text'} step="any" disabled={disabled}
-                    aria-label={`${c.label}, ligne ${i + 1}`} value={r[c.key] ?? ''} onChange={(e) => set(i, c.key, e.target.value)} />
+                  {ci === 0 && fixe(r)
+                    ? <span className="block min-w-[160px] px-2 py-1.5 text-sm font-medium text-slate-700">{r[c.key]}</span>
+                    : <input className={`input py-1.5 ${c.type === 'number' ? 'min-w-[130px] text-right tabular-nums' : 'min-w-[110px]'}`} type={c.type === 'number' ? 'number' : c.type === 'date' ? 'date' : 'text'} step="any" disabled={disabled}
+                      aria-label={`${libelles[c.key] || c.label}, ligne ${i + 1}${fixe(r) ? ` (${r[columns[0].key]})` : ''}`} value={r[c.key] ?? ''} onChange={(e) => set(i, c.key, e.target.value)} />}
                 </td>
               ))}
-              {!disabled && <td className="border-b border-slate-100 p-1"><IconButton label={`Supprimer la ligne ${i + 1}`} icon={X} className="px-2" onClick={() => onChange(rows.filter((_, j) => j !== i))} /></td>}
+              {totalLigne && <td className="border-b border-slate-100 px-2 text-right text-sm tabular-nums text-slate-700">{fmtNombre(total(chiffrees.map((c) => r[c.key])))}</td>}
+              {!disabled && <td className="border-b border-slate-100 p-1">{!fixe(r) && <IconButton label={`Supprimer la ligne ${i + 1}`} icon={X} className="px-2" onClick={() => onChange(rows.filter((_, j) => j !== i))} />}</td>}
             </tr>
           ))}
         </tbody>
+        {chiffrees.length > 0 && rows.length > 0 && (
+          <tfoot>
+            <tr className="bg-slate-50 font-semibold">
+              {columns.map((c, ci) => <td key={c.key} className="px-2 py-1.5 text-sm tabular-nums text-right">{ci === 0 ? <span className="block text-left">Total</span> : c.type === 'number' ? fmtNombre(total(rows.map((r) => r[c.key]))) : ''}</td>)}
+              {totalLigne && <td className="px-2 py-1.5 text-right text-sm tabular-nums">{fmtNombre(total(rows.flatMap((r) => chiffrees.map((c) => r[c.key]))))}</td>}
+              {!disabled && <td />}
+            </tr>
+          </tfoot>
+        )}
       </table>
       {!rows.length && <p className="p-3 text-sm text-slate-500">Aucune ligne.</p>}
       {!disabled && <div className="border-t border-slate-100 p-2"><button type="button" className="btn-ghost text-dep-700" onClick={() => onChange([...rows, {}])}><Plus size={16} aria-hidden /> Ajouter une ligne</button></div>}
@@ -150,8 +171,9 @@ function TableInput({ columns, value = [], onChange, disabled }) {
  * Champ unique d’un formulaire guidé. Placé dans un <Field>, il reçoit id, labelId et les attributs aria ;
  * sinon, passer `aria-label`.
  */
-export function DynamicField({ field, value, onChange, disabled, id, labelId, ...aria }) {
-  const common = { id, ...aria, disabled, className: 'input', value: value ?? '', onChange: (e) => onChange(e.target.value) };
+export function DynamicField({ field, value, onChange, disabled, id, labelId, suggestions, libelles, ...aria }) {
+  const liste = useId();
+  const common = { id, ...aria, disabled: disabled || field.calcule, className: 'input', value: value ?? '', onChange: (e) => onChange(e.target.value) };
   const groupe = (contenu) => <div role="group" aria-labelledby={labelId} aria-label={labelId ? undefined : aria['aria-label']}>{contenu}</div>;
   switch (field.type) {
     case 'textarea': return <textarea rows={5} {...common} />;
@@ -159,8 +181,12 @@ export function DynamicField({ field, value, onChange, disabled, id, labelId, ..
     case 'number': return <input type="number" step="any" {...common} />;
     case 'select': return <select {...common}><option value="">— Choisir —</option>{field.options.map((o) => <option key={o} value={o}>{o}</option>)}</select>;
     case 'list': return groupe(<ListInput value={Array.isArray(value) ? value : []} onChange={onChange} disabled={disabled} libelle={field.label} />);
-    case 'table': return groupe(<TableInput columns={field.columns} value={Array.isArray(value) ? value : []} onChange={onChange} disabled={disabled} />);
-    default: return <input type="text" {...common} />;
+    case 'table': return groupe(<TableInput columns={field.columns} value={Array.isArray(value) ? value : []} onChange={onChange} disabled={disabled} lignesFixes={field.lignesFixes} libelles={libelles} />);
+    default:
+      // Valeurs proposées (référentiels) sans être imposées
+      return suggestions && suggestions.length
+        ? <><input type="text" list={liste} autoComplete="off" {...common} /><datalist id={liste}>{suggestions.map((o) => <option key={o} value={o} />)}</datalist></>
+        : <input type="text" {...common} />;
   }
 }
 DynamicField.champ = true;

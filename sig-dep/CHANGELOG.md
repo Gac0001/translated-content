@@ -1,5 +1,17 @@
 # Journal des versions — SIG-DEP
 
+## 1.34.0
+
+### Documents officiels — étape 2 : fiche PIP au modèle du Ministère du Plan
+- **Nouveau formulaire en huit étapes**, dans l’ordre du classeur du Ministère du Plan (annexe 6) : identification (étape Identification ou Sélection, ministère, service, n° et libellé, compétence, secteur, nature d’investissement, localisation) ; rattachement au PNSD (pilier, thématique, domaine, objectif spécifique) et à la stratégie sectorielle (programme, action) ; justification (problème, situation actuelle, situation visée) ; objectifs, résultats, bénéficiaires et effets ; calendrier (durée calculée), planning des activités et indicateurs ; aspect financier en CDF (six grandes masses imposées, plan de financement, coûts récurrents) ; aspects institutionnel, économique et environnemental (emplois dont femmes, gains, impacts, risques) ; contrôle et signature (études réalisées, responsable).
+- **Page de contrôle** : rubriques manquantes (études obligatoires à l’étape de Sélection), totaux par année, incohérences ; un financement qui ne couvre pas exactement le coût, une date de fin antérieure au début ou plus d’emplois de femmes que d’emplois **bloquent la soumission** ; les écarts par année sont signalés. Le formulaire affiche en continu le coût, le financement et l’écart à résorber ; les tableaux chiffrés ont leurs totaux.
+- **Export Excel identique au modèle du Plan** : six feuilles « Feuil1 » à « Feuil6 », mêmes libellés et mêmes cellules, années réelles en en-tête, totaux en formules ; un tableau plus long que le modèle ajoute des lignes ; pied de page officiel à l’impression.
+- **Import d’une fiche remplie** (Projets PIP → Importer une fiche) : les rubriques sont repérées par leur libellé (lignes ajoutées ou retirées, montants écrits en texte « 15,000,000,000 », dates « Jan-25 ») ; relecture (coût, financement, alertes, rubriques manquantes) avant la création du brouillon.
+- **Référentiels** (Planification → Référentiel, Directeur) : les **13 services du Secrétariat Général** (CAB, SG, CTA, CGPMP, DRH, DAF, DEP, DANTIC, DIN, DACN, DEN, DDCN, DCS), chacun rattaché à un programme budgétaire ; **PNSD** et **stratégie sectorielle** hiérarchisés (le parent est contrôlé). Les rubriques de la fiche proposent ces valeurs, filtrées par le niveau supérieur choisi, sans les imposer.
+- **Fiches existantes converties** au nouveau modèle par la migration ; leurs versions antérieures restent conservées telles quelles.
+- Démonstration : référentiels PNSD et stratégie fictifs, services rattachés aux programmes, fiches en CDF et un brouillon à compléter.
+- Tests : 7 nouveaux côté API (contrôles, export cellule par cellule et relecture identique, import d’un classeur rempli à la main, référentiels, conversion) ; 3 nouveaux côté interface.
+
 ## 1.33.0
 
 ### Documents officiels — étape 1 : en-tête, pied de page, correspondance et termes de référence

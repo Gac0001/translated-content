@@ -7,7 +7,8 @@
  * modules ajoutés depuis la version 1.13 : réunions et décisions, agenda du Directeur, demandes
  * du Secrétaire Général, planification (PTBA, performance, crédits, PAP/RAP), banque des projets
  * et risques, données sectorielles (annuaire, campagnes, indicateurs, bulletins), correspondance
- * (note explicative signée, lettre de transmission) et termes de référence.
+ * (note explicative signée, lettre de transmission), termes de référence et référentiels des fiches PIP
+ * (PNSD et stratégie sectorielle, fictifs).
  * Les dates sont calculées à partir du jour du chargement : la démonstration paraît toujours à jour.
  */
 const config = require('../../config/env');
@@ -50,6 +51,7 @@ exports.seed = async function seed(knex) {
     await programmation(api, knex, plan);
     await donneesSectorielles(api, knex, uid);
     await correspondance(api);
+    await pipReferentiels(api);
   } finally {
     await new Promise((ok) => server.close(ok));
     await require('../../db/knex').destroy();
@@ -133,10 +135,15 @@ async function planification(api, knex) {
     for (const [c, l] of actions) p.actions.push(await api(prg, 'POST', '/planification/actions', { programme_id: p.id, code: c, libelle: l, services_normatifs: 'DEP', operateurs: '—' }));
     progs.push(p);
   }
-  const services = {};
-  for (const [sigle, libelle] of [['DEP', 'Direction d’Études et Planification'], ['DINFRA', 'Direction des infrastructures numériques (démo)'], ['DUSAGES', 'Direction des usages numériques (démo)']]) {
-    services[sigle] = await api(prg, 'POST', '/planification/services', { sigle, libelle });
+  // Services du Secrétariat Général : référentiel installé par les migrations ; chacun est rattaché à un programme
+  const services = Object.fromEntries((await api(prg, 'GET', '/planification/referentiel')).services.map((x) => [x.sigle, x]));
+  for (const [k, sigles] of [[0, ['CAB', 'SG', 'CTA', 'CGPMP', 'DRH', 'DAF', 'DEP', 'DANTIC']], [1, ['DIN', 'DCS']], [2, ['DACN', 'DEN', 'DDCN']]]) {
+    for (const sg of sigles) {
+      const x = services[sg];
+      if (x) await api(prg, 'PUT', `/planification/services/${x.id}`, { sigle: x.sigle, libelle: x.libelle, actif: x.actif, ordre: x.ordre, programme_id: progs[k].id });
+    }
   }
+  services.DINFRA = services.DIN;
   const ligne = (activite, cout, mois, extra = {}) => ({ activite, cout, mois, structure_responsable: 'DEP', source_financement: 'Trésor Public', ...extra });
   const ptbaDep = await api('ag.prg1', 'POST', '/ptba', { exercice_id: ex.id, service_id: services.DEP.id, programme_id: progs[0].id, objectif_global: 'Renforcer la planification et le suivi-évaluation des politiques du secteur numérique' });
   await api('ag.prg1', 'PUT', `/ptba/${ptbaDep.id}`, {
@@ -167,8 +174,8 @@ async function planification(api, knex) {
   await api('ag.prg2', 'PUT', `/ptba/${ptbaInfra.id}`, {
     programme_id: progs[1].id, objectif_global: 'Étendre la couverture des réseaux à haut débit',
     objectifs: [{ libelle: 'Suivre le déploiement de la dorsale à fibre optique', lignes: [
-      ligne('Missions de suivi des chantiers de la dorsale', 120000000, [2, 5, 8, 11], { structure_responsable: 'DINFRA' }),
-      ligne('Étude de faisabilité de points d’accès publics', 90000000, [4, 5, 6], { structure_responsable: 'DINFRA' }),
+      ligne('Missions de suivi des chantiers de la dorsale', 120000000, [2, 5, 8, 11], { structure_responsable: 'DIN' }),
+      ligne('Étude de faisabilité de points d’accès publics', 90000000, [4, 5, 6], { structure_responsable: 'DIN' }),
     ] }],
   });
   await api('ag.prg2', 'POST', `/ptba/${ptbaInfra.id}/soumettre`);
@@ -359,5 +366,36 @@ async function correspondance(api) {
     pieces: ['Termes de référence'],
   } });
   await api('ag.sev1', 'POST', `/documents/${lettre.id}/transmettre`, {});
+}
+
+// ─── Fiches PIP : référentiels de rattachement (fictifs) et brouillon au modèle du Plan ──────
+async function pipReferentiels(api) {
+  const post = (b) => api('directeur', 'POST', '/planification/rattachements', b);
+  const ed = 'Édition de démonstration';
+  for (const [pilier, thematique, domaine, objectif] of [
+    ['Pilier de démonstration : infrastructures', 'Connectivité', 'Réseaux de transport', 'Étendre la couverture du réseau national'],
+    ['Pilier de démonstration : gouvernance', 'Modernisation de l’administration', 'Administration électronique', 'Dématérialiser les procédures administratives'],
+  ]) {
+    const p = await post({ referentiel: 'PNSD', niveau: 'PILIER', libelle: pilier, edition: ed });
+    const t = await post({ referentiel: 'PNSD', niveau: 'THEMATIQUE', parent_id: p.id, libelle: thematique, edition: ed });
+    const d = await post({ referentiel: 'PNSD', niveau: 'DOMAINE', parent_id: t.id, libelle: domaine, edition: ed });
+    await post({ referentiel: 'PNSD', niveau: 'OBJECTIF', parent_id: d.id, libelle: objectif, edition: ed });
+  }
+  for (const [programme, actions] of [
+    ['Programme de démonstration : transformation numérique', ['Extension du réseau de fibre optique', 'Services publics en ligne']],
+    ['Programme de démonstration : culture numérique', ['Points d’accès communautaires']],
+  ]) {
+    const p = await post({ referentiel: 'STRATEGIE', niveau: 'PROGRAMME', libelle: programme, edition: ed });
+    for (const a of actions) await post({ referentiel: 'STRATEGIE', niveau: 'ACTION', parent_id: p.id, libelle: a, edition: ed });
+  }
+  // Brouillon incomplet, pour la formation à la saisie et à la page de contrôle
+  const vide = (await api('ag.coi1', 'GET', '/pip/modele')).vide;
+  const annee = new Date().getFullYear() + 1;
+  vide.identification = { ...vide.identification, libelle: 'Guichet unique des services publics en ligne', service: 'Direction Applicatifs et Contenus Numériques (DACN)', secteur: 'Gouvernance', nature_investissement: 'Immobilisation incorporelle', province: 'Kinshasa' };
+  vide.rattachement = { ...vide.rattachement, pnsd_pilier: 'Pilier de démonstration : gouvernance', strategie_programme: 'Programme de démonstration : transformation numérique', strategie_action: 'Services publics en ligne' };
+  vide.calendrier = { ...vide.calendrier, date_debut: `${annee}-01-01`, date_fin: `${annee + 1}-12-31` };
+  vide.financier.couts = vide.financier.couts.map((r) => (r.rubrique === 'Equipements' ? { ...r, annee1: 2500000000, annee2: 1000000000 } : r));
+  vide.financier.financement = [{ source: 'Etat', annee1: 2500000000 }];
+  await api('ag.coi1', 'POST', '/pip', { donnees: vide });
 }
 

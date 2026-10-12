@@ -1,9 +1,9 @@
 import { Link, useParams } from 'react-router-dom';
 import { Archive, CheckCircle2, Pencil, Send, ShieldCheck, Undo2 } from 'lucide-react';
 import api from '../../lib/api';
-import { useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, runAction, useConfirm, InfoAlert, Button, WorkflowPanel, DetailLayout } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, runAction, useConfirm, InfoAlert, Button, WorkflowPanel, DetailLayout, SimpleTable } from '../../components/ui';
 import { Attachments, DynamicValue, ExportButtons, Timeline } from '../../components/shared';
-import { fmtDateTime, fmtMontant } from '../../lib/format';
+import { fmtCdf, fmtDateTime, fmtMontant, fmtNombre } from '../../lib/format';
 import { circuitPip } from '../../lib/workflows';
 
 function attente(p) {
@@ -36,7 +36,12 @@ export default function PipDetail() {
                 {a.modifier && <Link to={`/pip/${id}/modifier`} className="btn-secondary"><Pencil size={16} aria-hidden /> Modifier</Link>}
               </>} />
             <WorkflowPanel circuit={circuitPip(p)} attente={attente(p)}
-              message={p.rubriquesManquantes.length > 0 && a.modifier && <InfoAlert tone="warning">{p.rubriquesManquantes.length} rubrique(s) obligatoire(s) à compléter avant soumission : {p.rubriquesManquantes.slice(0, 5).join(' ; ')}{p.rubriquesManquantes.length > 5 ? '…' : ''}</InfoAlert>}
+              message={a.modifier && (p.rubriquesManquantes.length > 0 || p.incoherences.length > 0) && (
+                <InfoAlert tone="warning">
+                  {p.rubriquesManquantes.length > 0 && <p>{p.rubriquesManquantes.length} rubrique(s) obligatoire(s) à compléter avant soumission : {p.rubriquesManquantes.slice(0, 5).join(' ; ')}{p.rubriquesManquantes.length > 5 ? '…' : ''}</p>}
+                  {p.incoherences.map((x) => <p key={x.message}>{x.bloquant ? 'Incohérence à corriger' : 'À vérifier'} : {x.message}</p>)}
+                </InfoAlert>
+              )}
               actions={[
                 a.soumettre && <Button key="so" variant="primary" icon={Send} onClick={() => act('soumettre', 'Fiche soumise pour vérification.')}>Soumettre</Button>,
                 a.verifier && <Button key="ve" variant="success" icon={ShieldCheck} onClick={() => act('verifier', 'Fiche vérifiée.', { title: 'Vérifier la fiche', message: 'La fiche sera marquée vérifiée et transmise au Directeur pour validation.', input: { label: 'Observations (facultatif)' } })}>Vérifier</Button>,
@@ -45,13 +50,24 @@ export default function PipDetail() {
                 a.archiver && <Button key="ar" icon={Archive} onClick={() => act('archiver', 'Fiche archivée.')}>Archiver</Button>,
               ]} />
             <DetailLayout
-              main={(modele.data?.sections || []).map((s) => (
+              main={[
+                <Card key="synthese" title="Synthèse financière (CDF)">
+                  <SimpleTable label="Synthèse financière" dense rowKey="l" columns={[
+                    { key: 'l', label: 'Montants', rowHeader: true },
+                    ...[0, 1, 2, 3].map((i) => ({ key: `a${i}`, label: p.synthese.anneeDebut ? String(p.synthese.anneeDebut + i) : `Année ${i + 1}`, align: 'right' })),
+                    { key: 't', label: 'Total', align: 'right' },
+                  ]} rows={[
+                    { l: 'Répartition des coûts', ...Object.fromEntries(p.synthese.coutsParAnnee.map((x, i) => [`a${i}`, fmtNombre(x)])), t: fmtCdf(p.synthese.coutTotal) },
+                    { l: 'Plan de financement (4ᵉ colonne : autres)', ...Object.fromEntries(p.synthese.financementParAnnee.map((x, i) => [`a${i}`, fmtNombre(x)])), t: fmtCdf(p.synthese.financementTotal) },
+                  ]} />
+                </Card>,
+                ...(modele.data?.sections || []).map((s) => (
                 <Card key={s.key} title={`${s.numero}. ${s.label}`}>
                   <div className="grid gap-4 sm:grid-cols-2">
                     {s.fields.map((f) => <div key={f.key} className={['textarea', 'list', 'table'].includes(f.type) ? 'sm:col-span-2' : ''}><div className="mb-1 text-xs font-medium uppercase text-slate-500">{f.label}</div><DynamicValue field={f} value={p.donnees[s.key]?.[f.key]} /></div>)}
                   </div>
                 </Card>
-              ))}
+              ))]}
               aside={<>
                 <Card title="Page de contrôle">
                   <KeyValues cols={1} items={[

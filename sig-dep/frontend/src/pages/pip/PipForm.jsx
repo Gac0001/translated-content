@@ -4,56 +4,91 @@ import { ChevronLeft, ChevronRight, Save } from 'lucide-react';
 import api from '../../lib/api';
 import { useApi, PageHeader, Card, Field, runAction, Spinner, InfoAlert, UnsavedChangesGuard } from '../../components/ui';
 import { DynamicField } from '../../components/shared';
-import { fmtMontant } from '../../lib/format';
+import { fmtCdf } from '../../lib/format';
 
 function isFilled(v) {
   if (v === null || v === undefined) return false;
   if (Array.isArray(v)) return v.length > 0;
   return String(v).trim() !== '';
 }
+const somme = (lignes, cles) => (lignes || []).reduce((t, r) => t + cles.reduce((u, k) => u + (Number(r[k]) || 0), 0), 0);
+const annee = (iso) => (iso ? Number(String(iso).slice(0, 4)) : null);
 
+/** Durée en mois entre deux dates (fin incluse au mois près), comme le calcule l’API. */
+function duree(debut, fin) {
+  if (!debut || !fin) return null;
+  const [a1, m1] = debut.split('-').map(Number); const [a2, m2] = fin.split('-').map(Number);
+  const n = (a2 - a1) * 12 + (m2 - m1) + 1;
+  return n > 0 ? n : null;
+}
+
+/** Fiche de projet PIP au modèle du Ministère du Plan : formulaire guidé en huit étapes. */
 export default function PipForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const modele = useApi('/pip/modele');
   const existing = useApi(id ? `/pip/${id}` : null);
-  const [data, setData] = useState({});
+  const [data, setData] = useState(null);
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [modifie, setModifie] = useState(false);
   useEffect(() => { if (existing.data) setData(existing.data.donnees || {}); }, [existing.data]);
+  useEffect(() => { if (!id && modele.data && !data) setData(modele.data.vide); }, [id, modele.data, data]);
   const sections = useMemo(() => modele.data?.sections || [], [modele.data]);
-  useEffect(() => {
-    if (!id && sections.length && !data.identification) {
-      const init = {};
-      for (const s of sections) { init[s.key] = {}; for (const f of s.fields) if (f.default) init[s.key][f.key] = f.default; }
-      setData(init);
-    }
-  }, [sections, id, data.identification]);
-  const set = (sk, fk, v) => { setData((d) => ({ ...d, [sk]: { ...(d[sk] || {}), [fk]: v } })); setModifie(true); };
-  const cout = useMemo(() => (data.cout?.couts || []).reduce((s, r) => s + (Number(r.total) || (Number(r.annee1) || 0) + (Number(r.annee2) || 0) + (Number(r.annee3) || 0)), 0), [data]);
-  const completude = (s) => { const req = s.fields.filter((f) => f.required); const ok = req.filter((f) => isFilled(data[s.key]?.[f.key])).length; return [ok, req.length]; };
+  const sugg = modele.data?.suggestions || {};
+  const d = data || {};
+  const set = (sk, fk, v) => {
+    setData((x) => {
+      const n = { ...x, [sk]: { ...(x[sk] || {}), [fk]: v } };
+      if (sk === 'calendrier' && ['date_debut', 'date_fin'].includes(fk)) n.calendrier.duree_mois = duree(n.calendrier.date_debut, n.calendrier.date_fin);
+      return n;
+    });
+    setModifie(true);
+  };
+  const f = d.financier || {};
+  const cout = somme(f.couts, ['annee1', 'annee2', 'annee3', 'annee4']);
+  const financement = somme(f.financement, ['annee1', 'annee2', 'annee3', 'autres']);
+  const a0 = annee(d.calendrier?.date_debut); const aFin = annee(d.calendrier?.date_fin);
+  /** En-têtes « Année n » remplacés par les années réelles. */
+  const libelles = (s, fd) => {
+    const base = fd.key === 'recurrents' ? (aFin ? aFin + 1 : null) : a0;
+    if (!base) return {};
+    return Object.fromEntries(fd.columns.filter((c) => /^annee\d$/.test(c.key)).map((c) => [c.key, String(base + Number(c.key.slice(5)) - 1)]));
+  };
+  /** Suggestions d’une rubrique ; pour un niveau du PNSD ou de la stratégie, filtrées par le niveau supérieur choisi. */
+  const suggestions = (s, fd) => {
+    const liste = sugg[fd.suggestions];
+    if (!liste) return null;
+    if (typeof liste[0] === 'string') return liste;
+    const parent = fd.parent ? d[s.key]?.[fd.parent] : null;
+    const filtre = parent && liste.some((x) => x.parent === parent) ? liste.filter((x) => x.parent === parent) : liste;
+    return [...new Set(filtre.map((x) => x.libelle))];
+  };
+  const requis = (s, fd) => fd.required || (fd.key === 'etudes' && d.identification?.etape === 'Sélection');
+  const completude = (s) => { const req = s.fields.filter((fd) => requis(s, fd)); const ok = req.filter((fd) => isFilled(d[s.key]?.[fd.key])).length; return [ok, req.length]; };
   const save = async () => {
     setSaving(true);
     try {
       const r = await runAction(() => (id ? api.put(`/pip/${id}`, { donnees: data }) : api.post('/pip', { donnees: data })), id ? 'Nouvelle version enregistrée.' : 'Fiche PIP créée.');
+      setModifie(false);
       navigate(`/pip/${r.data.id}`);
     } catch { /* message affiché */ } finally { setSaving(false); }
   };
-  if (modele.loading || (id && existing.loading)) return <Spinner />;
+  if (modele.loading || (id && existing.loading) || !data) return <Spinner />;
   const s = sections[step];
+  const ecart = Math.round(cout - financement);
   return (
     <>
       <UnsavedChangesGuard when={modifie && !saving} />
-      <PageHeader title={id ? 'Modifier la fiche PIP' : 'Nouvelle fiche de projet PIP'} subtitle="Formulaire guidé conforme au modèle de fiche projet du Ministère du Plan." breadcrumb={[{ label: 'Projets PIP', to: '/pip' }, { label: id ? 'Modification' : 'Nouvelle fiche' }]} />
-      <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
-        <nav className="card h-max p-2 lg:sticky lg:top-20" aria-label="Sections de la fiche">
+      <PageHeader title={id ? 'Modifier la fiche PIP' : 'Nouvelle fiche de projet PIP'} subtitle="Modèle de fiche de projet du Ministère du Plan (Direction de la Programmation et Budgétisation) ; montants en francs congolais." breadcrumb={[{ label: 'Projets PIP', to: '/pip' }, { label: id ? 'Modification' : 'Nouvelle fiche' }]} />
+      <div className="grid gap-4 lg:grid-cols-[270px_1fr]">
+        <nav className="card h-max p-2 lg:sticky lg:top-20" aria-label="Étapes de la fiche">
           <ol className="space-y-0.5">
             {sections.map((x, i) => {
               const [ok, total] = completude(x);
               return (
                 <li key={x.key}>
-                  <button type="button" onClick={() => setStep(i)} className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm ${i === step ? 'bg-dep-50 font-medium text-dep-800' : 'hover:bg-slate-50'}`}>
+                  <button type="button" onClick={() => setStep(i)} aria-current={i === step ? 'step' : undefined} className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm ${i === step ? 'bg-dep-50 font-medium text-dep-800' : 'hover:bg-slate-50'}`}>
                     <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs ${total && ok === total ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'}`}>{x.numero}</span>
                     <span className="flex-1 truncate">{x.label}</span>
                     {total > 0 && <span className="text-xs text-slate-600">{ok}/{total}<span className="sr-only"> rubriques obligatoires renseignées</span></span>}
@@ -62,25 +97,29 @@ export default function PipForm() {
               );
             })}
           </ol>
-          <div className="mt-2 border-t px-2 pt-2 text-xs text-slate-600">Coût total calculé : <b>{fmtMontant(cout, data.cout?.devise || 'USD')}</b></div>
+          <dl className="mt-2 space-y-1 border-t px-2 pt-2 text-xs text-slate-600">
+            <div className="flex justify-between gap-2"><dt>Coût du projet</dt><dd className="font-semibold tabular-nums text-slate-800">{fmtCdf(cout)}</dd></div>
+            <div className="flex justify-between gap-2"><dt>Financement</dt><dd className="font-semibold tabular-nums text-slate-800">{fmtCdf(financement)}</dd></div>
+            {ecart !== 0 && (cout > 0 || financement > 0) && <div className="rounded bg-amber-50 px-1.5 py-1 text-amber-800" role="status">Écart à résorber : {fmtCdf(Math.abs(ecart))} {ecart > 0 ? 'non financés' : 'de financement en trop'}</div>}
+          </dl>
         </nav>
         <div className="space-y-4">
           {s && (
             <Card title={`${s.numero}. ${s.label}`}>
               <div className="grid gap-4 sm:grid-cols-2">
-                {s.fields.map((f) => (
-                  <Field key={f.key} label={f.label} required={f.required} className={['textarea', 'list', 'table'].includes(f.type) ? 'sm:col-span-2' : ''}>
-                    <DynamicField field={f} value={data[s.key]?.[f.key]} onChange={(v) => set(s.key, f.key, v)} />
+                {s.fields.map((fd) => (
+                  <Field key={fd.key} label={fd.label} required={requis(s, fd)} hint={fd.help} className={['textarea', 'list', 'table'].includes(fd.type) ? 'sm:col-span-2' : ''}>
+                    <DynamicField field={fd} value={d[s.key]?.[fd.key]} onChange={(v) => set(s.key, fd.key, v)} suggestions={suggestions(s, fd)} libelles={fd.type === 'table' ? libelles(s, fd) : undefined} />
                   </Field>
                 ))}
               </div>
             </Card>
           )}
-          <InfoAlert>Vous pouvez enregistrer à tout moment. Toutes les rubriques obligatoires doivent être renseignées avant la soumission pour vérification.</InfoAlert>
+          <InfoAlert>Vous pouvez enregistrer à tout moment. Avant la soumission, toutes les rubriques obligatoires doivent être renseignées et le plan de financement doit couvrir exactement le coût du projet.</InfoAlert>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn-secondary" disabled={step === 0} onClick={() => setStep(step - 1)}><ChevronLeft size={16} /> Précédent</button>
-            <button type="button" className="btn-secondary" disabled={step >= sections.length - 1} onClick={() => setStep(step + 1)}>Suivant <ChevronRight size={16} /></button>
-            <button type="button" className="btn-primary ml-auto" disabled={saving || !isFilled(data.identification?.intitule)} onClick={save}><Save size={16} /> Enregistrer</button>
+            <button type="button" className="btn-secondary" disabled={step === 0} onClick={() => setStep(step - 1)}><ChevronLeft size={16} aria-hidden /> Précédent</button>
+            <button type="button" className="btn-secondary" disabled={step >= sections.length - 1} onClick={() => setStep(step + 1)}>Suivant <ChevronRight size={16} aria-hidden /></button>
+            <button type="button" className="btn-primary ml-auto" disabled={saving || !isFilled(d.identification?.libelle)} onClick={save}><Save size={16} aria-hidden /> Enregistrer</button>
           </div>
         </div>
       </div>

@@ -182,7 +182,7 @@ exports.chargerActivites = async function chargerActivites(knex) {
       strategie_programme: 'Programme de démonstration : transformation numérique', strategie_action: 'Extension du réseau de fibre optique' },
     justification: { probleme: 'Coût élevé et faible disponibilité de la connectivité hors des grands centres.', situation_actuelle: 'Le réseau de transport national demeure insuffisant pour soutenir la transformation numérique.',
       situation_visee: 'Un réseau national de fibre optique reliant les chefs-lieux de province à un coût de transit réduit.' },
-    objectifs: { objectif_general: 'Étendre le réseau national de fibre optique vers les provinces non desservies.', objectifs_specifiques: ['Déployer 2 000 km de fibre', 'Raccorder 10 chefs-lieux de province'],
+    objectifs: { objectif_global: 'Étendre le réseau national de fibre optique vers les provinces non desservies.', objectifs_specifiques: ['Déployer 2 000 km de fibre', 'Raccorder 10 chefs-lieux de province'],
       resultats: ['2 000 km de fibre déployés', 'Coût de la bande passante réduit de 30 %'], directs_descriptif: 'Opérateurs, administrations provinciales, universités',
       directs_genre: 'Accès renforcé des femmes aux services numériques via les points d’accès publics.', indirects_descriptif: 'Population des provinces raccordées', effets: ['Baisse des coûts de connectivité', 'Meilleur accès à l’éducation et à la santé en ligne'] },
     calendrier: { date_debut: `${a0}-01-01`, date_fin: `${a0 + 2}-12-31`,

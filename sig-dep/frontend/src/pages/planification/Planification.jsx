@@ -162,9 +162,11 @@ function Referentiel({ referentiel, reload }) {
   const ouvrir = (e) => { setEdition(e); setInitial(e); };
   const enregistrer = async () => {
     const { type, id, ...body } = edition;
-    const chemins = { exercice: 'exercices', programme: 'programmes', action: 'actions', service: 'services' };
+    const chemins = { exercice: 'exercices', programme: 'programmes', action: 'actions', service: 'services', rattachement: 'rattachements' };
     if (body.annee) body.annee = Number(body.annee);
-    if (body.programme_id) body.programme_id = Number(body.programme_id);
+    body.programme_id = body.programme_id ? Number(body.programme_id) : (type === 'service' ? null : body.programme_id);
+    if (type !== 'service' && type !== 'action') delete body.programme_id;
+    if (type === 'rattachement') delete body.niveauLibelle;
     await (id ? api.put(`/planification/${chemins[type]}/${id}`, body) : api.post(`/planification/${chemins[type]}`, body));
     toast.success('Référentiel mis à jour.');
     setEdition(null); reload();
@@ -184,22 +186,58 @@ function Referentiel({ referentiel, reload }) {
           </div>
         )) : <EmptyState title="Aucun programme">Saisissez la maquette programmatique du Ministère : programmes, puis leurs actions.</EmptyState>}
       </Card>
-      <Card title="Services du Ministère" className="lg:col-span-3" actions={gerer && <button type="button" className="btn-secondary" onClick={() => ouvrir({ type: 'service', sigle: '', libelle: '' })}><Plus size={16} aria-hidden /> Service</button>}>
-        <div className="grid gap-1 text-sm sm:grid-cols-2 lg:grid-cols-3">{referentiel.services.map((s) => <button key={s.id} type="button" disabled={!gerer} className="text-left" onClick={() => ouvrir({ type: 'service', id: s.id, sigle: s.sigle, libelle: s.libelle, actif: s.actif })}><b>{s.sigle}</b> — {s.libelle}{!s.actif && ' (inactif)'}</button>)}</div>
+      <Card title="Services du Secrétariat Général" className="lg:col-span-3" actions={gerer && <button type="button" className="btn-secondary" onClick={() => ouvrir({ type: 'service', sigle: '', libelle: '', programme_id: '', ordre: referentiel.services.length + 1 })}><Plus size={16} aria-hidden /> Service</button>}>
+        <div className="grid gap-1 text-sm sm:grid-cols-2 lg:grid-cols-3">{referentiel.services.map((s) => {
+          const prog = referentiel.programmes.find((p) => p.id === s.programme_id);
+          return <button key={s.id} type="button" disabled={!gerer} className="text-left" onClick={() => ouvrir({ type: 'service', id: s.id, sigle: s.sigle, libelle: s.libelle, actif: s.actif, programme_id: s.programme_id || '', ordre: s.ordre })}><b>{s.sigle}</b> — {s.libelle}{!s.actif && ' (inactif)'}<span className="block text-xs text-slate-600">{prog ? `Programme ${prog.code}` : 'Programme non précisé'}</span></button>;
+        })}</div>
       </Card>
+      {[['PNSD', 'Rattachement au PNSD (fiches PIP)'], ['STRATEGIE', 'Stratégie sectorielle (fiches PIP)']].map(([ref, titre]) => {
+        const niveaux = NIVEAUX[ref];
+        const elements = (referentiel.rattachements || []).filter((r) => r.referentiel === ref);
+        const branche = (parentId, rang) => elements.filter((r) => (r.parent_id || null) === parentId && r.niveau === niveaux[rang].code);
+        const noeud = (r, rang) => (
+          <li key={r.id}>
+            <span className="flex flex-wrap items-baseline gap-2">
+              <button type="button" disabled={!gerer} className={`text-left ${rang === 0 ? 'font-semibold text-dep-800' : ''}`} onClick={() => ouvrir({ type: 'rattachement', id: r.id, referentiel: ref, niveau: r.niveau, parent_id: r.parent_id, code: r.code || '', libelle: r.libelle, edition: r.edition || '', ordre: r.ordre, actif: r.actif })}>
+                <span className="text-xs uppercase text-slate-600">{niveaux[rang].libelle}</span> {r.libelle}{!r.actif && ' (inactif)'}
+              </button>
+              {gerer && niveaux[rang + 1] && <button type="button" className="text-xs text-dep-700 hover:underline" onClick={() => ouvrir({ type: 'rattachement', referentiel: ref, niveau: niveaux[rang + 1].code, parent_id: r.id, code: '', libelle: '', edition: r.edition || '', ordre: 0, actif: true })}>+ {niveaux[rang + 1].libelle.toLowerCase()}</button>}
+            </span>
+            {niveaux[rang + 1] && <ul className="ml-4 mt-0.5 space-y-0.5 border-l border-slate-100 pl-3">{branche(r.id, rang + 1).map((x) => noeud(x, rang + 1))}</ul>}
+          </li>
+        );
+        return (
+          <Card key={ref} title={titre} className="lg:col-span-3 xl:col-span-3" actions={gerer && <button type="button" className="btn-secondary" onClick={() => ouvrir({ type: 'rattachement', referentiel: ref, niveau: niveaux[0].code, parent_id: null, code: '', libelle: '', edition: '', ordre: 0, actif: true })}><Plus size={16} aria-hidden /> {niveaux[0].libelle}</button>}>
+            {elements.length ? <ul className="space-y-1 text-sm">{branche(null, 0).map((r) => noeud(r, 0))}</ul>
+              : <EmptyState title="Référentiel vide" compact>Saisissez les {niveaux.map((n) => n.libelle.toLowerCase()).join(', ')} : ils seront proposés dans les fiches PIP.</EmptyState>}
+          </Card>
+        );
+      })}
       {edition && (
-        <FormModal open title={`${edition.id ? '' : 'Nouveau : '}${{ exercice: 'Exercice', programme: 'Programme', action: 'Action', service: 'Service du Ministère' }[edition.type]}`} onClose={() => setEdition(null)} onSubmit={enregistrer} dirty={JSON.stringify(edition) !== JSON.stringify(initial)}>
+        <FormModal open title={`${edition.id ? '' : 'Nouveau : '}${{ exercice: 'Exercice', programme: 'Programme', action: 'Action', service: 'Service du Secrétariat Général', rattachement: 'Rattachement stratégique' }[edition.type]}`} onClose={() => setEdition(null)} onSubmit={enregistrer} dirty={JSON.stringify(edition) !== JSON.stringify(initial)}>
           <FormSection cols={1}>
             {edition.type === 'exercice' && <>{champ('annee', 'Année', { type: 'number', required: true })}<Field label="État"><select className="input" value={edition.statut} onChange={(e) => setEdition({ ...edition, statut: e.target.value })}><option value="PREPARATION">En préparation</option><option value="EXECUTION">En exécution</option><option value="CLOTURE">Clôturé</option></select></Field></>}
             {edition.type === 'programme' && <>{champ('code', 'Code', { required: true })}{champ('libelle', 'Intitulé', { required: true })}<Field label="Objectif global"><textarea className="input" rows={3} value={edition.objectif_global} onChange={(e) => setEdition({ ...edition, objectif_global: e.target.value })} /></Field></>}
             {edition.type === 'action' && <>{champ('code', 'Code', { required: true })}{champ('libelle', 'Intitulé', { required: true })}{champ('services_normatifs', 'Services normatifs')}{champ('operateurs', 'Opérateurs')}</>}
-            {edition.type === 'service' && <>{champ('sigle', 'Sigle', { required: true })}{champ('libelle', 'Intitulé', { required: true })}</>}
+            {edition.type === 'service' && <>{champ('sigle', 'Sigle', { required: true })}{champ('libelle', 'Intitulé', { required: true })}
+              <Field label="Programme budgétaire de rattachement"><select className="input" value={edition.programme_id ?? ''} onChange={(e) => setEdition({ ...edition, programme_id: e.target.value })}><option value="">— Non précisé —</option>{referentiel.programmes.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.libelle}</option>)}</select></Field></>}
+            {edition.type === 'rattachement' && <>
+              <p className="text-sm text-slate-600">{edition.referentiel === 'PNSD' ? 'PNSD' : 'Stratégie sectorielle'} — niveau : <b>{NIVEAUX[edition.referentiel].find((n) => n.code === edition.niveau)?.libelle}</b></p>
+              {champ('libelle', 'Intitulé', { required: true })}{champ('code', 'Code')}{champ('edition', 'Édition (ex. PNSD 2024-2028)')}
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={edition.actif !== false} onChange={(e) => setEdition({ ...edition, actif: e.target.checked })} /> Proposé dans les fiches</label>
+            </>}
           </FormSection>
         </FormModal>
       )}
     </div>
   );
 }
+
+const NIVEAUX = {
+  PNSD: [{ code: 'PILIER', libelle: 'Pilier' }, { code: 'THEMATIQUE', libelle: 'Thématique' }, { code: 'DOMAINE', libelle: 'Domaine' }, { code: 'OBJECTIF', libelle: 'Objectif spécifique' }],
+  STRATEGIE: [{ code: 'PROGRAMME', libelle: 'Programme' }, { code: 'ACTION', libelle: 'Action' }],
+};
 
 const ONGLETS = [{ value: 'ptba', label: 'PTBA' }, { value: 'execution', label: 'Exécution' }, { value: 'performance', label: 'Performance' }, { value: 'credits', label: 'Crédits' }, { value: 'documents', label: 'CBMT · PAP · RAP · CDMT' }, { value: 'banque', label: 'Banque des projets' }, { value: 'risques', label: 'Risques' }, { value: 'referentiel', label: 'Référentiel' }];
 
