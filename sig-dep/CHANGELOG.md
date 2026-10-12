@@ -1,5 +1,15 @@
 # Journal des versions — SIG-DEP
 
+## 1.37.0
+
+### Même mode de remplissage pour tous les documents — étapes B et C : programmation et PTBA
+- **PAP, RAP et CDMT** rédigés par étapes : page de garde, une étape par partie rédigée, une étape par programme (périmètre, stratégie, analyse des résultats), puis le contrôle — rubriques non rédigées avec lien vers l’étape, et respect des plafonds du CBMT (PAP, CDMT) avec le tableau des plafonds et des prévisions. Compteur « rubriques rédigées » et dépassements suivis en continu.
+- **CBMT** en cinq étapes : document et orientations, plafonds par nature, hypothèses macroéconomiques, actions prioritaires (programme et projets de la banque), contrôle ; total des plafonds par année suivi en continu ; dépassements des plafonds par les prévisions signalés.
+- **Éditeur du PTBA** par étapes : en-tête, une étape par objectif spécifique (ou par action en vue budgétaire détaillée, avec ses lignes de dépense), contrôle ; coût total et coût par trimestre en continu ; les lignes sans chronogramme, qui bloquent la soumission, sont signalées avant l’envoi ; coûts nuls à vérifier.
+- La page de contrôle distingue les documents dont la transmission est bloquée (documents de service, fiche PIP, PTBA) de ceux où les points relevés sont des recommandations (programmation).
+- **Correction** : un écran qui change rapidement de filtre (par exemple l’exercice de la Planification) n’affiche plus la réponse d’une requête dépassée arrivée en retard.
+- Tests de l’interface : 1 nouveau (CBMT par étapes), 2 adaptés (rédaction d’un document de programmation, éditeur du PTBA).
+
 ## 1.36.0
 
 ### Même mode de remplissage pour tous les documents — étape A : documents de service et correspondance

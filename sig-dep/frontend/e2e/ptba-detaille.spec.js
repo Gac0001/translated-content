@@ -47,8 +47,18 @@ test.describe('PTBA — vue budgétaire détaillée (ordinateur)', () => {
     await expect(page.getByText('Fournitures et petits matériels')).toBeVisible();
     await capture(page, 'ptba-detaille');
     await page.getByRole('button', { name: 'Modifier' }).click();
+    // Éditeur par étapes : en-tête, une étape par action, contrôle
+    const nav = page.getByRole('navigation', { name: 'Étapes du PTBA' });
+    await expect(nav.getByRole('button')).toHaveCount(3);
+    await nav.getByRole('button').nth(1).click();
     await expect(page.getByLabel(/^Désignation, ligne de dépense 1 \(Tâche 1\.1/)).toHaveValue('Primes et indemnités non permanentes');
     await expect(page.getByRole('textbox', { name: 'Coût en CDF' }).first()).toBeDisabled();
+    // Contrôle : une ligne sans chronogramme est signalée avant la soumission
+    await page.getByRole('button', { name: /^Mois 1$/ }).first().click(); // décoche J de la première ligne de dépense
+    await page.getByRole('button', { name: /^Mois 2$/ }).first().click();
+    await nav.getByRole('button', { name: /Contrôle/ }).click();
+    await expect(page.getByRole('heading', { name: /Contrôle/ })).toBeVisible();
+    await capture(page, 'ptba-editeur-controle');
   });
 
   test('import : feuille d’un autre ministère non retenue, rapport d’anomalies affiché', async ({ page }) => {

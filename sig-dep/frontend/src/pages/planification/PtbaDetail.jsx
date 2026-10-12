@@ -5,8 +5,9 @@ import api, { download, errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
 import {
   useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, InfoAlert, Field, Progress, Button, WorkflowPanel, SimpleTable,
-  FormModal, FormSection, MoneyInput, ActionBar, EmptyState, Badge, runAction, toast, useConfirm,
+  FormModal, FormSection, MoneyInput, EmptyState, Badge, UnsavedChangesGuard, runAction, toast, useConfirm,
 } from '../../components/ui';
+import { FormulaireEtapes, PageControle, renseigne } from '../../components/FormulaireEtapes';
 import { Attachments, Timeline } from '../../components/shared';
 import { fmtDateTime } from '../../lib/format';
 import { circuitProgrammation } from '../../lib/workflows';
@@ -91,21 +92,49 @@ function Editeur({ p, referentiel, onSaved, onCancel }) {
       })) })).filter((o) => o.libelle || o.lignes.length),
     };
     setEnCours(true);
-    try { await runAction(() => api.put(`/ptba/${p.id}`, corps), 'PTBA enregistré.'); } finally { setEnCours(false); }
-    onSaved();
+    try { await runAction(() => api.put(`/ptba/${p.id}`, corps), 'PTBA enregistré.'); onSaved(); } catch { /* message affiché */ } finally { setEnCours(false); }
   };
+  // Étapes : en-tête, un objectif (ou une action) par étape, contrôle
+  const [etape, setEtape] = useState(0);
+  const nom = detaillee ? 'Action' : 'Objectif spécifique';
+  const lignesDe = (o) => o.lignes.filter((l) => (l.activite || '').trim());
+  const trimestres = [0, 0, 0, 0];
+  for (const o of objectifs) for (const l of lignesDe(o)) { const m = l.mois.length ? l.mois : []; for (const x of m) trimestres[Math.floor((x - 1) / 3)] += (Number(l.cout) || 0) / m.length; }
+  const sansChrono = objectifs.flatMap((o, oi) => lignesDe(o).filter((l) => !l.mois.length).map((l) => ({ etape: oi + 1, label: `${l.taches || l.activite} : aucun mois coché au chronogramme` })));
+  const sansCout = objectifs.flatMap((o) => lignesDe(o).filter((l) => !(Number(l.cout) > 0)).map((l) => ({ bloquant: false, message: `${l.taches || l.activite} : coût nul.` })));
+  const etapes = [
+    { key: 'entete', numero: 1, label: 'En-tête', ok: [entete.programme_id, entete.objectif_global].filter(renseigne).length, total: 2 },
+    ...objectifs.map((o, oi) => ({ key: `o${oi}`, numero: oi + 2, label: o.libelle ? o.libelle.replace(/^(ACTION|Objectif spécifique)\s*[\d.]*\s*:\s*/i, '') : `${nom} ${oi + 1}`, ok: lignesDe(o).filter((l) => l.mois.length).length, total: lignesDe(o).length })),
+    { key: 'controle', numero: objectifs.length + 2, label: 'Contrôle', ok: 0, total: 0, alerte: sansChrono.length > 0 },
+  ];
+  const oi = etape - 1;
+  const o = objectifs[oi];
+  const controle = etape === etapes.length - 1;
+  const ajouterObjectif = () => { setObjectifs([...objectifs, { libelle: '', lignes: [{ ...LIGNE_VIDE }] }]); setEtape(objectifs.length + 1); };
   return (
-    <div className="space-y-4">
-      <Card title="En-tête">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Programme"><select className="input" value={entete.programme_id} onChange={(e) => setEntete({ ...entete, programme_id: e.target.value })}><option value="">—</option>{referentiel.programmes.map((x) => <option key={x.id} value={x.id}>{x.code} — {x.libelle}</option>)}</select></Field>
-          <Field label="Objectif global"><textarea className="input" rows={2} value={entete.objectif_global} onChange={(e) => setEntete({ ...entete, objectif_global: e.target.value })} /></Field>
-        </div>
-      </Card>
-      {objectifs.map((o, oi) => (
-        <Card key={oi} title={`Objectif spécifique ${oi + 1}`} actions={<button type="button" className="btn-ghost px-2 text-red-700" aria-label={`Retirer l’objectif spécifique ${oi + 1}`} onClick={() => setObjectifs(objectifs.filter((_, i) => i !== oi))}><Trash2 size={15} aria-hidden /></button>}>
-          <input className="input mb-3" placeholder="Libellé de l’objectif spécifique" aria-label={`Libellé de l’objectif spécifique ${oi + 1}`} value={o.libelle} onChange={(e) => setObjectifs(objectifs.map((x, i) => (i === oi ? { ...x, libelle: e.target.value } : x)))} />
-          <div className="space-y-3">
+    <>
+      <UnsavedChangesGuard when={modifie && !enCours} />
+      <FormulaireEtapes etapes={etapes} etape={Math.min(etape, etapes.length - 1)} onEtape={setEtape} navigation="Étapes du PTBA"
+        onEnregistrer={enregistrer} enregistrement={enCours} onAnnuler={onCancel} libelleEnregistrer="Enregistrer le PTBA"
+        resume={(
+          <dl className="space-y-1">
+            <div className="flex justify-between gap-2"><dt>Coût total</dt><dd className="font-semibold tabular-nums text-slate-800">{cdf(total)}</dd></div>
+            {trimestres.map((t, i) => <div key={i} className="flex justify-between gap-2"><dt>T{i + 1}</dt><dd className="tabular-nums">{cdf(Math.round(t))}</dd></div>)}
+            {sansChrono.length > 0 && <div className="rounded bg-amber-50 px-1.5 py-1 text-amber-800" role="status">{sansChrono.length} ligne(s) sans chronogramme : la soumission sera refusée</div>}
+          </dl>
+        )}>
+        {etape === 0 && (
+          <Card title="1. En-tête" actions={<button type="button" className="btn-secondary" onClick={ajouterObjectif}><Plus size={16} aria-hidden /> {nom}</button>}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Programme"><select className="input" value={entete.programme_id} onChange={(e) => setEntete({ ...entete, programme_id: e.target.value })}><option value="">—</option>{referentiel.programmes.map((x) => <option key={x.id} value={x.id}>{x.code} — {x.libelle}</option>)}</select></Field>
+              <Field label="Objectif global"><textarea className="input" rows={3} value={entete.objectif_global} onChange={(e) => setEntete({ ...entete, objectif_global: e.target.value })} /></Field>
+            </div>
+          </Card>
+        )}
+        {o && !controle && (
+          <Card title={`${etape + 1}. ${nom} ${oi + 1}`} actions={<span className="flex gap-1"><button type="button" className="btn-secondary" onClick={ajouterObjectif}><Plus size={16} aria-hidden /> {nom}</button><button type="button" className="btn-ghost px-2 text-red-700" aria-label={`Retirer : ${nom} ${oi + 1}`} onClick={() => { setObjectifs(objectifs.filter((_, i) => i !== oi)); setEtape(Math.max(0, etape - 1)); }}><Trash2 size={15} aria-hidden /></button></span>}>
+            <input className="input mb-3" placeholder={`Libellé : ${nom.toLowerCase()}`} aria-label={`Libellé : ${nom.toLowerCase()} ${oi + 1}`} value={o.libelle} onChange={(e) => setObjectifs(objectifs.map((x, i) => (i === oi ? { ...x, libelle: e.target.value } : x)))} />
+            <div className="space-y-3">
             {o.lignes.map((l, li) => (
               <fieldset key={li} className="grid gap-2 rounded-md border border-slate-200 p-3 lg:grid-cols-12">
                 <legend className="sr-only">Activité {li + 1} de l’objectif {oi + 1}</legend>
@@ -122,15 +151,19 @@ function Editeur({ p, referentiel, onSaved, onCancel }) {
                 {(detaillee || (l.details || []).length > 0) && <Depenses details={l.details || []} intitule={l.taches || l.activite || `activité ${li + 1}`} onChange={(v) => majLigne(oi, li, 'details', v)} />}
               </fieldset>
             ))}
-          </div>
-          <button type="button" className="btn-secondary mt-3" onClick={() => setObjectifs(objectifs.map((x, i) => (i === oi ? { ...x, lignes: [...x.lignes, { ...LIGNE_VIDE }] } : x)))}><Plus size={16} aria-hidden /> Activité</button>
-        </Card>
-      ))}
-      <button type="button" className="btn-secondary" onClick={() => setObjectifs([...objectifs, { libelle: '', lignes: [{ ...LIGNE_VIDE }] }])}><Plus size={16} aria-hidden /> Objectif spécifique</button>
-      <ActionBar dirty={modifie} saving={enCours} onSave={enregistrer} onCancel={onCancel} saveLabel="Enregistrer le PTBA">
-        <span className="hidden text-sm tabular-nums text-slate-600 sm:inline">Coût total : <b>{cdf(total)}</b></span>
-      </ActionBar>
-    </div>
+            </div>
+            <button type="button" className="btn-secondary mt-3" onClick={() => setObjectifs(objectifs.map((x, i) => (i === oi ? { ...x, lignes: [...x.lignes, { ...LIGNE_VIDE }] } : x)))}><Plus size={16} aria-hidden /> {detaillee ? 'Tâche' : 'Activité'}</button>
+          </Card>
+        )}
+        {controle && (
+          <Card title={`${etapes.length}. Contrôle`}>
+            <PageControle manquantes={sansChrono} incoherences={sansCout} etapes={etapes} onAller={setEtape}>
+              <p className="text-sm text-slate-600">Le coût d’une ligne est réparti sur ses mois cochés pour le calcul par trimestre ; une ligne sans chronogramme empêche la soumission.</p>
+            </PageControle>
+          </Card>
+        )}
+      </FormulaireEtapes>
+    </>
   );
 }
 

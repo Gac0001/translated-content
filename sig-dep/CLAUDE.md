@@ -76,7 +76,7 @@ Cooper Hewitt** (police de la charte, embarquée ; classe `font-display`), texte
 Composants à employer pour tout écran nouveau ou repris (catalogue vivant : page `/composants`) :
 `NumberInput` / `MoneyInput` pour les nombres et montants, `EditableGrid` pour les grilles chiffrées,
 `FormModal` + `FormSection` pour les fenêtres de saisie, `ActionBar` pour les formulaires de page,
-`SimpleTable` pour les tableaux sans recherche (jamais de `<table>` brute), `EmptyState`, `KpiTile`,
+`SimpleTable` pour les tableaux sans recherche (jamais de `<table>` brute), `FormulaireEtapes` + `PageControle` pour toute saisie d’un document (même mode de remplissage que la fiche PIP ; aperçu à droite pour la correspondance), `EmptyState`, `KpiTile`,
 `WorkQueue`, `FilterBar`, onglets par `useOnglet` (dans l’adresse), actions secondaires par `menu` de
 `PageHeader`, circuits par `WorkflowPanel` et `lib/workflows.js` ; formats et dates par `lib/format.js`
 uniquement (jamais `toISOString().slice(0, 10)` pour une date du jour : c’est la date UTC).

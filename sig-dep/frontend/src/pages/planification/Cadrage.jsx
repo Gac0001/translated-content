@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import api from '../../lib/api';
 import { fmtNombre } from '../../lib/format';
-import { useApi, Card, Field, InfoAlert, Badge, SimpleTable, EditableGrid, EmptyState, ActionBar, runAction } from '../../components/ui';
+import { useApi, Card, Field, InfoAlert, Badge, SimpleTable, EditableGrid, EmptyState, UnsavedChangesGuard, runAction } from '../../components/ui';
+import { FormulaireEtapes, PageControle, renseigne } from '../../components/FormulaireEtapes';
 
 const nombre = (v) => fmtNombre(v, 2);
 const cdf = (v) => fmtNombre(v === null || v === undefined ? v : Math.round(v));
@@ -103,46 +104,89 @@ export function EditeurCbmt({ doc, programmes, onSaved, onCancel }) {
   const enregistrer = async () => {
     const contenu = { ...c, date_publication: c.date_publication || null, hypotheses: parAnnee(hyp, annees), plafonds: parAnnee(pla, annees), actions: c.actions.filter((a) => a.libelle.trim()).map((a) => ({ libelle: a.libelle, programme_id: a.programme_id ? Number(a.programme_id) : null, pips: a.pips })) };
     setEnCours(true);
-    try { await runAction(() => api.put(`/programmation/documents/${doc.id}`, { contenu }), 'CBMT enregistré.'); } finally { setEnCours(false); }
-    onSaved();
+    try { await runAction(() => api.put(`/programmation/documents/${doc.id}`, { contenu }), 'CBMT enregistré.'); onSaved(); } catch { /* message affiché */ } finally { setEnCours(false); }
   };
   const maj = (set) => (l, a, v) => set((g) => ({ ...g, [l]: { ...g[l], [a]: v } }));
+  const [etape, setEtape] = useState(0);
+  const totalAnnee = (a) => Object.values(pla).reduce((t, v) => t + (Number(v[a]) || 0), 0);
+  const hypComplete = HYPOTHESES.filter(([k]) => annees.every((a) => hyp[k]?.[a] !== null && hyp[k]?.[a] !== undefined && hyp[k]?.[a] !== '')).length;
+  const actionsOk = c.actions.filter((x) => x.libelle.trim() && x.programme_id).length;
+  const etapes = [
+    { key: 'document', numero: 1, label: 'Document et orientations', ok: [c.source, c.orientations].filter(renseigne).length, total: 2 },
+    { key: 'plafonds', numero: 2, label: 'Plafonds par nature', ok: annees.filter((a) => totalAnnee(a) > 0).length, total: annees.length },
+    { key: 'hypotheses', numero: 3, label: 'Hypothèses macroéconomiques', ok: hypComplete, total: HYPOTHESES.length },
+    { key: 'actions', numero: 4, label: 'Actions prioritaires', ok: actionsOk, total: Math.max(c.actions.length, 1) },
+  ];
+  const manquantes = [
+    ...(!renseigne(c.source) ? [{ etape: 0, label: 'Source du cadrage' }] : []),
+    ...(!renseigne(c.orientations) ? [{ etape: 0, label: 'Orientations de la politique du secteur' }] : []),
+    ...annees.filter((a) => !totalAnnee(a)).map((a) => ({ etape: 1, label: `Plafonds ${a}` })),
+    ...HYPOTHESES.filter(([k]) => !annees.every((a) => hyp[k]?.[a] !== null && hyp[k]?.[a] !== undefined && hyp[k]?.[a] !== '')).map(([, l]) => ({ etape: 2, label: l })),
+    ...(c.actions.length ? c.actions.map((x, i) => (!x.libelle.trim() || !x.programme_id ? { etape: 3, label: `Action prioritaire ${i + 1} : intitulé et programme` } : null)).filter(Boolean) : [{ etape: 3, label: 'Au moins une action prioritaire' }]),
+  ];
+  const incoherences = (doc.controle?.annees || []).flatMap((y) => y.lignes.filter((l) => l.depasse).map((l) => ({ bloquant: false, message: `${y.annee} — ${l.libelle} : prévisions des programmes supérieures au plafond enregistré.` })));
+  const toutes = [...etapes, { key: 'controle', numero: 5, label: 'Contrôle', ok: 0, total: 0, alerte: incoherences.length > 0 }];
   return (
-    <div className="space-y-4">
-      <Card title="Document">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Source" className="sm:col-span-2"><input className="input" value={c.source || ''} onChange={(e) => setC({ ...c, source: e.target.value })} /></Field>
-          <Field label="Date de publication"><input className="input" type="date" value={c.date_publication || ''} onChange={(e) => setC({ ...c, date_publication: e.target.value })} /></Field>
-          <Field label="Orientations de la politique du secteur Numérique" className="sm:col-span-3"><textarea className="input" rows={4} value={c.orientations || ''} onChange={(e) => setC({ ...c, orientations: e.target.value })} /></Field>
-        </div>
-        <p className="mt-2 text-xs text-slate-500">Joignez le document du Ministère du Budget dans les pièces du CBMT. Les plafonds du Ministère figurent dans l’annexe « cadre des dépenses sectorielles » ou dans la lettre de cadrage.</p>
-      </Card>
-      <Card title="Plafonds du Ministère par nature (CDF)" bodyClass="p-0">
-        <EditableGrid label="Plafonds du Ministère par nature" entete="Rubrique" unite="CDF" totaux="colonnes" colonnes={colonnes}
-          lignes={doc.rubriques.map((r) => ({ key: r.code, label: r.libelle }))} valeurs={pla} onChange={maj(setPla)} />
-      </Card>
-      <Card title="Hypothèses macroéconomiques" bodyClass="p-0">
-        <EditableGrid label="Hypothèses macroéconomiques" entete="Indicateur" decimales={2} totaux={null} colonnes={colonnes}
-          lignes={HYPOTHESES.map(([k, l]) => ({ key: k, label: l }))} valeurs={hyp} onChange={maj(setHyp)} />
-      </Card>
-      <Card title="Actions prioritaires du secteur" actions={<button type="button" className="btn-secondary" onClick={() => setC({ ...c, actions: [...c.actions, { libelle: '', programme_id: '', pips: [] }] })}><Plus size={16} aria-hidden /> Action</button>}>
-        {!c.actions.length && <p className="text-sm text-slate-500">Aucune action : ajoutez les actions prioritaires retenues par le cadrage.</p>}
-        <div className="space-y-3">
-          {c.actions.map((a, i) => (
-            <fieldset key={i} className="grid gap-2 rounded-md border border-slate-200 p-3 lg:grid-cols-12">
-              <legend className="sr-only">Action prioritaire {i + 1}</legend>
-              <input className="input lg:col-span-6" placeholder="Action prioritaire" value={a.libelle} onChange={(e) => majAction(i, 'libelle', e.target.value)} aria-label={`Action prioritaire ${i + 1}`} />
-              <select className="input lg:col-span-5" value={a.programme_id || ''} onChange={(e) => majAction(i, 'programme_id', e.target.value)} aria-label={`Programme de l’action ${i + 1}`}><option value="">— Programme —</option>{programmes.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.libelle}</option>)}</select>
-              <button type="button" className="btn-ghost justify-self-end px-2 text-red-700 lg:col-span-1" aria-label={`Retirer l’action ${i + 1}`} onClick={() => setC({ ...c, actions: c.actions.filter((_, j) => j !== i) })}><Trash2 size={15} aria-hidden /></button>
-              <div className="flex flex-wrap gap-1.5 lg:col-span-12" role="group" aria-label={`Projets de la banque liés à l’action ${i + 1}`}>{(banque.data?.data || []).map((p) => {
-                const on = a.pips.includes(p.id);
-                return <button key={p.id} type="button" aria-pressed={on} className={`rounded-full border px-2 py-0.5 text-xs ${on ? 'border-dep-600 bg-dep-50 text-dep-800' : 'border-slate-300 text-slate-600'}`} onClick={() => majAction(i, 'pips', on ? a.pips.filter((x) => x !== p.id) : [...a.pips, p.id])}>{p.code} — {p.intitule}</button>;
-              })}</div>
-            </fieldset>
-          ))}
-        </div>
-      </Card>
-      <ActionBar dirty={modifie} saving={enCours} onSave={enregistrer} onCancel={onCancel} saveLabel="Enregistrer le CBMT" />
-    </div>
+    <>
+      <UnsavedChangesGuard when={modifie && !enCours} />
+      <FormulaireEtapes etapes={toutes} etape={etape} onEtape={setEtape} navigation="Étapes du CBMT"
+        onEnregistrer={enregistrer} enregistrement={enCours} onAnnuler={onCancel} libelleEnregistrer="Enregistrer le CBMT"
+        resume={(
+          <dl className="space-y-1">
+            {annees.map((a) => <div key={a} className="flex justify-between gap-2"><dt>Plafonds {a}</dt><dd className="font-semibold tabular-nums text-slate-800">{cdf(totalAnnee(a))}</dd></div>)}
+            {incoherences.length > 0 && <div className="rounded bg-amber-50 px-1.5 py-1 text-amber-800" role="status">{incoherences.length} dépassement(s) des plafonds par les prévisions</div>}
+          </dl>
+        )}>
+        {etape === 0 && (
+          <Card title="1. Document et orientations">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Field label="Source" className="sm:col-span-2"><input className="input" value={c.source || ''} onChange={(e) => setC({ ...c, source: e.target.value })} /></Field>
+              <Field label="Date de publication"><input className="input" type="date" value={c.date_publication || ''} onChange={(e) => setC({ ...c, date_publication: e.target.value })} /></Field>
+              <Field label="Orientations de la politique du secteur Numérique" className="sm:col-span-3"><textarea className="input" rows={6} value={c.orientations || ''} onChange={(e) => setC({ ...c, orientations: e.target.value })} /></Field>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">Joignez le document du Ministère du Budget dans les pièces du CBMT. Les plafonds du Ministère figurent dans l’annexe « cadre des dépenses sectorielles » ou dans la lettre de cadrage.</p>
+          </Card>
+        )}
+        {etape === 1 && (
+          <Card title="2. Plafonds du Ministère par nature (CDF)" bodyClass="p-0">
+            <EditableGrid label="Plafonds du Ministère par nature" entete="Rubrique" unite="CDF" totaux="colonnes" colonnes={colonnes}
+              lignes={doc.rubriques.map((r) => ({ key: r.code, label: r.libelle }))} valeurs={pla} onChange={maj(setPla)} />
+          </Card>
+        )}
+        {etape === 2 && (
+          <Card title="3. Hypothèses macroéconomiques" bodyClass="p-0">
+            <EditableGrid label="Hypothèses macroéconomiques" entete="Indicateur" decimales={2} totaux={null} colonnes={colonnes}
+              lignes={HYPOTHESES.map(([k, l]) => ({ key: k, label: l }))} valeurs={hyp} onChange={maj(setHyp)} />
+          </Card>
+        )}
+        {etape === 3 && (
+          <Card title="4. Actions prioritaires du secteur" actions={<button type="button" className="btn-secondary" onClick={() => setC({ ...c, actions: [...c.actions, { libelle: '', programme_id: '', pips: [] }] })}><Plus size={16} aria-hidden /> Action</button>}>
+            {!c.actions.length && <p className="text-sm text-slate-500">Aucune action : ajoutez les actions prioritaires retenues par le cadrage.</p>}
+            <div className="space-y-3">
+              {c.actions.map((a, i) => (
+                <fieldset key={i} className="grid gap-2 rounded-md border border-slate-200 p-3 lg:grid-cols-12">
+                  <legend className="sr-only">Action prioritaire {i + 1}</legend>
+                  <input className="input lg:col-span-6" placeholder="Action prioritaire" value={a.libelle} onChange={(e) => majAction(i, 'libelle', e.target.value)} aria-label={`Action prioritaire ${i + 1}`} />
+                  <select className="input lg:col-span-5" value={a.programme_id || ''} onChange={(e) => majAction(i, 'programme_id', e.target.value)} aria-label={`Programme de l’action ${i + 1}`}><option value="">— Programme —</option>{programmes.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.libelle}</option>)}</select>
+                  <button type="button" className="btn-ghost justify-self-end px-2 text-red-700 lg:col-span-1" aria-label={`Retirer l’action ${i + 1}`} onClick={() => setC({ ...c, actions: c.actions.filter((_, j) => j !== i) })}><Trash2 size={15} aria-hidden /></button>
+                  <div className="flex flex-wrap gap-1.5 lg:col-span-12" role="group" aria-label={`Projets de la banque liés à l’action ${i + 1}`}>{(banque.data?.data || []).map((p) => {
+                    const on = a.pips.includes(p.id);
+                    return <button key={p.id} type="button" aria-pressed={on} className={`rounded-full border px-2 py-0.5 text-xs ${on ? 'border-dep-600 bg-dep-50 text-dep-800' : 'border-slate-300 text-slate-600'}`} onClick={() => majAction(i, 'pips', on ? a.pips.filter((x) => x !== p.id) : [...a.pips, p.id])}>{p.code} — {p.intitule}</button>;
+                  })}</div>
+                </fieldset>
+              ))}
+            </div>
+          </Card>
+        )}
+        {etape === 4 && (
+          <Card title="5. Contrôle">
+            <PageControle strict={false} manquantes={manquantes} incoherences={incoherences} etapes={toutes} onAller={setEtape}>
+              {doc.controle && <div className="-mx-4"><TableauCadrage controle={doc.controle} compact /></div>}
+              <p className="text-xs text-slate-500">Le respect des plafonds est recalculé à chaque enregistrement, à partir des prévisions saisies dans l’onglet Crédits.</p>
+            </PageControle>
+          </Card>
+        )}
+      </FormulaireEtapes>
+    </>
   );
 }

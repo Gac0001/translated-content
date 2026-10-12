@@ -19,7 +19,7 @@ export function renseigne(v) {
  */
 export function FormulaireEtapes({
   etapes, etape, onEtape, resume, apercu, children, onEnregistrer, enregistrement = false, peutEnregistrer = true,
-  libelleEnregistrer = 'Enregistrer', aide, navigation = 'Étapes du formulaire',
+  libelleEnregistrer = 'Enregistrer', aide, navigation = 'Étapes du formulaire', onAnnuler,
 }) {
   const courante = etapes[etape];
   return (
@@ -45,7 +45,8 @@ export function FormulaireEtapes({
         <div className="flex flex-wrap gap-2">
           <button type="button" className="btn-secondary" disabled={etape === 0} onClick={() => onEtape(etape - 1)}><ChevronLeft size={16} aria-hidden /> Précédent</button>
           <button type="button" className="btn-secondary" disabled={etape >= etapes.length - 1} onClick={() => onEtape(etape + 1)}>Suivant <ChevronRight size={16} aria-hidden /></button>
-          {onEnregistrer && <button type="button" className="btn-primary ml-auto" disabled={enregistrement || !peutEnregistrer} onClick={onEnregistrer}><Save size={16} aria-hidden /> {enregistrement ? 'Enregistrement…' : libelleEnregistrer}</button>}
+          {onAnnuler && <button type="button" className="btn-ghost ml-auto" onClick={onAnnuler}>Annuler</button>}
+          {onEnregistrer && <button type="button" className={`btn-primary ${onAnnuler ? '' : 'ml-auto'}`} disabled={enregistrement || !peutEnregistrer} onClick={onEnregistrer}><Save size={16} aria-hidden /> {enregistrement ? 'Enregistrement…' : libelleEnregistrer}</button>}
         </div>
         {courante && <p className="sr-only" aria-live="polite">Étape {courante.numero} sur {etapes.length} : {courante.label}</p>}
       </div>
@@ -58,16 +59,18 @@ export function FormulaireEtapes({
  * Dernière étape : page de contrôle. `manquantes` : [{ etape (index), label }] ; `incoherences` :
  * [{ bloquant, message }] ; `onAller(i)` ouvre l’étape concernée.
  */
-export function PageControle({ manquantes = [], incoherences = [], etapes = [], onAller, children }) {
+export function PageControle({ manquantes = [], incoherences = [], etapes = [], onAller, children, strict = true }) {
   const bloquantes = incoherences.filter((x) => x.bloquant);
   return (
     <div className="space-y-3">
       {!manquantes.length && !bloquantes.length
         ? <Alert tone="succes" statique>Toutes les rubriques obligatoires sont renseignées{incoherences.length ? ' ; quelques points restent à vérifier' : ' et aucune incohérence n’a été relevée'}. Enregistrez, puis transmettez depuis la fiche.</Alert>
-        : <Alert tone="attention" statique>Le document peut être enregistré en brouillon, mais il ne pourra être transmis qu’une fois les points ci-dessous corrigés.</Alert>}
+        : <Alert tone="attention" statique>{strict
+          ? 'Le document peut être enregistré en brouillon, mais il ne pourra être transmis qu’une fois les points ci-dessous corrigés.'
+          : 'Le document peut être enregistré et transmis ; il est recommandé de compléter d’abord les points ci-dessous.'}</Alert>}
       {manquantes.length > 0 && (
         <section aria-label="Rubriques obligatoires manquantes">
-          <h3 className="mb-1 text-sm font-semibold text-slate-800">Rubriques obligatoires manquantes ({manquantes.length})</h3>
+          <h3 className="mb-1 text-sm font-semibold text-slate-800">{strict ? 'Rubriques obligatoires manquantes' : 'Rubriques à compléter'} ({manquantes.length})</h3>
           <ul className="space-y-1 text-sm">
             {manquantes.map((m) => (
               <li key={`${m.etape}-${m.label}`} className="flex flex-wrap items-baseline gap-2">

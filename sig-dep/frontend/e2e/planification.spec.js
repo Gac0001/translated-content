@@ -50,18 +50,42 @@ test.describe('Planification (ordinateur)', () => {
     await capture(page, 'ptba-soumis');
   });
 
-  test('document en préparation : éditeur avec barre d’enregistrement', async ({ page }) => {
+  test('document en préparation : rédaction par étapes avec contrôle', async ({ page }) => {
     await connexion(page, 'cb.prg');
     await page.goto('/planification?onglet=documents');
-    await page.locator('main tbody tr', { hasText: /Brouillon|À corriger/ }).first().click();
+    await page.locator('main tbody tr', { hasText: /Brouillon|À corriger/ }).filter({ hasNotText: 'CBMT' }).first().click();
     await page.waitForURL(/\/planification\/documents\//);
     await page.getByRole('button', { name: 'Rédiger' }).click();
-    await expect(page.getByText('Aucune modification en attente.')).toBeVisible();
+    const nav = page.getByRole('navigation', { name: /^Étapes du / });
+    await expect(nav).toBeVisible();
     await page.getByLabel('Responsable').fill('Responsable fictif non enregistré');
-    await expect(page.getByText('Modifications non enregistrées')).toBeVisible();
+    await nav.getByRole('button', { name: /Contrôle/ }).click();
+    await expect(page.getByRole('heading', { name: /Contrôle/ })).toBeVisible();
     await capture(page, 'document-edition');
     await page.getByRole('button', { name: 'Annuler' }).click();
     await expect(page.getByRole('region', { name: 'Circuit de traitement' })).toBeVisible();
+  });
+});
+
+test.describe('Programmation par étapes (ordinateur)', () => {
+  test.use({ viewport: { width: 1366, height: 900 } });
+
+  test('CBMT : rédaction en cinq étapes, plafonds suivis en continu, contrôle', async ({ page }) => {
+    await connexion(page, 'ag.prg1');
+    await page.goto('/planification?onglet=documents');
+    await page.getByRole('button', { name: 'Nouveau document' }).click();
+    const dialogue = page.getByRole('dialog');
+    await dialogue.getByLabel('Document').selectOption('CBMT');
+    await dialogue.getByLabel('Exercice').fill(String(2040 + Math.floor(Math.random() * 50)));
+    await dialogue.getByRole('button', { name: /Créer/ }).click();
+    await page.waitForURL(/\/planification\/documents\/\d+/);
+    await page.getByRole('button', { name: 'Rédiger' }).click();
+    const nav = page.getByRole('navigation', { name: 'Étapes du CBMT' });
+    await expect(nav.getByRole('button')).toHaveCount(5);
+    await nav.getByRole('button', { name: /Contrôle/ }).click();
+    await expect(page.getByRole('region', { name: 'Rubriques obligatoires manquantes' }).getByText(/Plafonds 20\d\d/).first()).toBeVisible();
+    await capture(page, 'cbmt-etapes');
+    await page.getByRole('button', { name: 'Annuler' }).click();
   });
 });
 
