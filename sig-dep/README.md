@@ -2,7 +2,7 @@
 
 Application web de gestion de la **Direction d’Études et Planification (DEP)** du Secrétariat Général au Numérique — République Démocratique du Congo.
 
-Elle couvre l’organisation, le personnel et les affectations, les comptes, les présences hebdomadaires, les courriers, les instructions et tâches, les documents de service, les fiches de projets PIP, les notifications, le journal d’audit, les tableaux de bord et les rapports, avec des exports PDF, Excel et Word.
+Elle couvre l’organisation, le personnel et les affectations, les comptes, les présences journalières (listes des Cadres et des Agents, rapport hebdomadaire au Directeur), les courriers, les instructions et tâches, les documents de service, les fiches de projets PIP, les notifications, le journal d’audit, les tableaux de bord et les rapports, avec des exports PDF, Excel et Word.
 
 ```
 sig-dep/
@@ -147,7 +147,7 @@ Les comptes **`directeur`** et **`sg`** configurent leur **double authentificati
 
 La liste déclarative de démonstration est **déjà validée** par le Directeur. Trois agents fictifs y figurent **sans compte**, pour essayer l’enrôlement : un agent du Bureau Secrétariat de Direction (enrôlable par l’Admin), un agent du Bureau Stratégies et un agent sans affectation (enrôlables par le Secrétariat).
 
-Le seed `05_demo_activites.js` ajoute aussi une activité de démonstration, avec des dates relatives au jour du seed : instructions, tâches (dont une en retard), courriers, documents avec visas, présences de la semaine précédente et fiches PIP. Les tableaux de bord et les rapports sont ainsi parlants dès l’installation.
+Le seed `05_demo_activites.js` ajoute aussi une activité de démonstration, avec des dates relatives au jour du seed : instructions, tâches (dont une en retard), courriers, documents avec visas, anciennes listes de présence et fiches PIP ; le scénario `07_demo_scenario.js` joue les présences journalières (semaine verrouillée, semaine transmise avec un rectificatif, semaine en cours). Les tableaux de bord et les rapports sont ainsi parlants dès l’installation.
 
 L’organigramme créé par le seed est **celui de la DEP** (liste officielle des agents, 2026) :
 
@@ -272,7 +272,7 @@ Navigateur ──► Frontend React (Vite)  ──/api──►  API Express  �
 | `services/identite.js`, `entete.js` | Identité du Ministère versionnée ; en-tête et pied de page officiels (PDF, Word, Excel) |
 | `services/correspondance.js` | Numéro officiel à la signature, mise en page en lettre |
 | `services/pipExcel.js` | Fiche PIP : export et import du classeur du Ministère du Plan |
-| `services/jobs.js` | Retards, rappels d’échéance, verrouillage automatique des présences, purge des sessions |
+| `services/jobs.js` | Retards, rappels d’échéance, purge des sessions |
 | `modules/*` | Une route par module : `auth`, `organisation`, `agents`, `users`, `presences`, `courriers`, `instructions`, `tasks`, `documents`, `pip`, `notifications`, `audit`, `attachments`, `dashboard`, `rapports`, `systeme`, `hierarchie`, `recherche` |
 
 **Frontend** (`frontend/src`)
@@ -350,9 +350,9 @@ Une autorisation dépend à la fois du **rôle**, des **permissions**, de l’**
 |---|---|---|
 | Admin | `SYSTEME` | paramètres, état du système, sauvegardes, audit, comptes initiaux (SG et Directeur), validation de la liste déclarative, enrôlement de tous les agents (d’abord le Bureau Secrétariat de Direction), activation, réinitialisation, déverrouillage, révocation des sessions, gestion des rôles. **Aucune** permission de validation fonctionnelle. Le rôle ADMIN ne peut pas recevoir de permission métier. |
 | Secrétaire Général | `SUPERVISION_GLOBALE` (lecture) | consultation de toute la DEP (documents : validés uniquement), instructions **au Directeur uniquement**, validation et clôture de ses propres instructions |
-| Directeur | `DIRECTION` | tout le fonctionnel de la DEP : organisation, cadre organique, personnel, affectations, validation de la liste déclarative des agents, activation des comptes, délégations, courriers, instructions, validation finale des documents et PIP, verrouillage des présences, rapports |
-| Chef de Division | `DIVISION` | sa Division et ses Bureaux : instructions aux Chefs de Bureau, examen et validation au niveau Division, vérification des PIP, présences du périmètre, rapports |
-| Chef de Bureau | `BUREAU` | son Bureau : tâches aux Agents, présences (saisie, vérification, soumission), examen et transmission des documents, rapports du Bureau |
+| Directeur | `DIRECTION` | tout le fonctionnel de la DEP : organisation, cadre organique, personnel, affectations, validation de la liste déclarative des agents, activation des comptes, délégations, courriers, instructions, validation finale des documents et PIP, verrouillage ou rejet du rapport hebdomadaire de présence et validation des rectificatifs, rapports |
+| Chef de Division | `DIVISION` | sa Division et ses Bureaux : instructions aux Chefs de Bureau, examen et validation au niveau Division, vérification des PIP, consultation des présences de sa Division, rapports |
+| Chef de Bureau | `BUREAU` | son Bureau : tâches aux Agents, consultation des présences de son Bureau (le Bureau Secrétariat de Direction tient les présences de toute la Direction), examen et transmission des documents, rapports du Bureau |
 | Agent | `PERSONNEL` | ses tâches, ses documents, son profil, ses notifications, informations collectives validées du Bureau |
 
 **Désignations** (table `user_permissions`, écran « Désignations ») fondées sur un acte validé, pour une période : `personnel.suivre`, `presences.preparer_direction`, `courriers.enregistrer`, `dossiers.transmettre`. Elles ne changent ni le rang ni le périmètre du bénéficiaire et expirent d’elles-mêmes. L’enrôlement (`compte.enroler`) et la préparation des actes (`actes.preparer`) ne sont pas des désignations : il est accordé à tous les membres actifs du Bureau Secrétariat de Direction du fait de leur affectation, pour les agents des autres structures uniquement.
@@ -379,7 +379,7 @@ Directeur → Chef du Bureau Secrétariat de Direction → Agents du Bureau Secr
 | Tableaux de bord « À traiter » | En tête de chaque tableau de bord, une carte par file de travail : nombre d’éléments, les cinq plus urgents (retards en rouge) et « Voir tout ». Les files sont calculées par l’API avec les mêmes règles que les boutons des fiches : chacun ne voit que ce qu’il peut traiter, à l’étape où il intervient (PTBA et documents de programmation à vérifier, consolider ou valider, dépassements du CBMT, exécution trimestrielle à saisir, jalons en retard, risques critiques pour le Suivi-Évaluation ; réponses à contrôler ou à corriger, campagnes proches de l’échéance, bulletins à viser ou autoriser ; réunions à convoquer, déclarer tenues, comptes rendus à rédiger ou valider ; décisions à mettre en œuvre ; actes et cartes de service à décider ou reprendre ; confirmations et restaurations). Une file vide n’est pas affichée ; les entrées du menu correspondantes portent le compteur. |
 | Comptes | Admin → comptes initiaux (SG, Directeur). Directeur → validation de la liste déclarative. Admin → enrôlement du Bureau Secrétariat de Direction. Bureau Secrétariat → enrôlement des agents des Divisions et des autres Bureaux (voir section 1). Mot de passe temporaire à changer, verrouillage après 5 échecs pendant 15 min (déverrouillage automatique ou par l’Admin), historique des connexions, révocation des sessions. |
 | Affectations | Une nouvelle affectation **clôture** la précédente (date de fin et motif) sans rien supprimer. Un seul responsable par structure. Notification à l’Agent. |
-| Présences | `Brouillon → Vérifiée → Soumise → Verrouillée`. La soumission verrouille la liste en écriture (API et déclencheur PostgreSQL). Le Directeur réceptionne ; à défaut, verrouillage automatique après `PRESENCE_AUTOLOCK_HOURS`. Toute correction passe par un **rectificatif** lié à l’original. |
+| Présences | Listes journalières Cadres et Agents (H-A, H-D ou motif d’absence) tenues par le Bureau Secrétariat de Direction ; rapport hebdomadaire `En préparation → Transmis → Verrouillé` (ou `Rejeté`, puis retransmis). La transmission verrouille les listes (API et déclencheurs PostgreSQL) ; toute correction passe par un **rectificatif** validé par le Directeur, l’original restant intact. Exports au format de l’annexe 11. |
 | Courriers | Enregistrement numéroté (`DEP/CE/2026/0001`, `DEP/CS/…`), transmissions horodatées avec accusé de réception, annotations, statut « Traité », classement, archivage. Les courriers confidentiels ne sont visibles que de leur chaîne de transmission, du Directeur et du SG. |
 | Instructions | `Brouillon → Transmise → Reçue → En cours → Exécutée → Validée → Clôturée`, avec `À corriger`, `En retard` (automatique), `Bloquée` (blocage motivé signalé par l’exécutant), `Rapport intermédiaire` et `Annulée` (par l’émetteur, motif obligatoire). Prolongation motivée : demandée par l’exécutant, accordée (éventuellement à une autre date) ou refusée par l’émetteur, qui peut aussi prolonger directement ; l’échéance initiale est conservée. Déclinaison en sous-instructions ou en tâches. **Instruction exceptionnelle** : le Directeur peut écrire à tout agent hors de la chaîne, avec une justification obligatoire et une copie automatique au supérieur immédiat du destinataire. |
 | Tâches | Même cycle, entre le Chef de Bureau et un Agent de son Bureau ; sous-tâches (la tâche parente n’est rendue qu’après elles), dépendances (une tâche n’avance qu’après celles dont elle dépend, sans cycle possible) et preuves d’exécution jointes. |
@@ -413,7 +413,7 @@ Les exports disponibles : présences (PDF, Excel), registre des courriers et fic
 | Organisation | `directions`, `divisions`, `bureaux` (+ vue `v_structures`), `grades`, `fonctions`, `postes_organiques`, `attributions` (missions, attributions, responsabilités) |
 | Personnel | `agents`, `affectations` (une seule active par Agent, historique conservé) |
 | Sécurité | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `user_permissions` (désignations), `actes_administratifs`, `refresh_tokens` (rotation par famille), `login_history`, `parametres` |
-| Présences | `presence_sheets`, `presence_entries` |
+| Présences | `presence_semaines`, `presence_listes`, `presence_lignes`, `presence_rectificatifs`, `jours_feries` (anciennes listes : `presence_sheets`, `presence_entries`) |
 | Courriers | `courriers`, `courrier_transmissions`, `courrier_annotations` |
 | Activités | `instructions`, `tasks`, `task_dependances`, `prolongations`, `demandes_information`, `reunions`, `reunion_participants`, `decisions`, `agenda_evenements`, `historiques` |
 | Documents | `documents`, `document_versions`, `document_comments`, `document_diffusions` |
@@ -433,7 +433,7 @@ Principes appliqués :
 
 ## 7. Notifications par e-mail
 
-Les notifications internes (cloche de l’en-tête) peuvent aussi être envoyées par e-mail : nouvelle instruction ou tâche, compte rendu, transmission de courrier, document à examiner, retourné ou validé, échéance proche, retard, liste de présence soumise, fiche PIP à traiter, changement d’affectation, compte créé, mot de passe réinitialisé.
+Les notifications internes (cloche de l’en-tête) peuvent aussi être envoyées par e-mail : nouvelle instruction ou tâche, compte rendu, transmission de courrier, document à examiner, retourné ou validé, échéance proche, retard, rapport de présence transmis, rejeté ou verrouillé, rectificatif à valider ou décidé, fiche PIP à traiter, changement d’affectation, compte créé, mot de passe réinitialisé.
 
 **Activation** (dans `backend/.env`, puis redémarrer l’API) :
 

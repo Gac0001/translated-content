@@ -1,5 +1,19 @@
 # Journal des versions — SIG-DEP
 
+## 1.38.0
+
+### Lot B — présences journalières (étape 1 : saisie, rapport hebdomadaire, rectificatifs)
+- **Listes journalières** tenues par le **Secrétariat de Direction** (cahier des charges, section 25, annexe 11) : chaque jour ouvrable, une liste des **Cadres** (Chef de Bureau et au-dessus) et une liste des **Agents**, regroupés par structure dans l’ordre de l’organigramme (I. Direction, I.1 Secrétariat de Direction, I.2 Division et ses Bureaux…). Pour chaque agent : heure d’arrivée (H-A) et heure de départ (H-D), ou un **motif d’absence** (mission, congé, maladie, permission, formation, absent non justifié) avec, au besoin, une **pièce justificative** jointe en un clic.
+- **Saisie par étapes** (Cadres, Agents, Contrôle), comme les documents : « Tous présents à l’heure », « Départ à l’heure pour les présents », retard calculé à la volée, page de contrôle (lignes à saisir, départs manquants, retards, absences sans pièce).
+- **Horaires de référence** (arrivée, départ, tolérance de retard) et **jours fériés** paramétrables par le Directeur ou le Secrétariat ; les horaires en vigueur à l’ouverture d’une liste restent attachés à cette liste.
+- **Rapport hebdomadaire** : transmission au Directeur une fois les dix listes de la semaine complètes (jours fériés exceptés), ce qui les verrouille ; le Directeur **verrouille** définitivement ou **rejette** avec un motif ; retransmission après rectificatifs.
+- **Rectificatifs** : toute correction d’une liste transmise est proposée par le Secrétariat (valeurs avant et après, motif) et **validée ou refusée par le Directeur** ; l’original reste intact (déclencheurs PostgreSQL) ; les valeurs rectifiées sont marquées d’un astérisque.
+- **Droits** : seul le Secrétariat de Direction gère les présences (accordé par la structure d’affectation, désignable) ; les Chefs de Division et de Bureau consultent les présences de leur structure ; le Secrétaire Général ne reçoit que des agrégats ; chaque agent consulte **Mes présences**.
+- **Exports PDF et Excel au format de l’annexe 11** : « Liste des présences des Cadres / Agents affectés à la Direction d’Études et Planification », « Semaine du … au … », H-A et H-D du lundi au vendredi, motif à la place des heures, « Pour la DEP », en-tête et pied de page officiels.
+- Tableaux de bord (rapports transmis, rectificatifs à valider, taux de présence du dernier rapport), compteur du menu et rapports d’activités calculés sur les nouvelles listes ; fin du verrouillage automatique (`PRESENCE_AUTOLOCK_HOURS` retiré) ; les **anciennes listes hebdomadaires par Bureau** restent consultables en lecture seule.
+- Démonstration : semaine verrouillée, semaine transmise avec un rectificatif à valider, semaine en cours en saisie, jours fériés nationaux.
+- Tests : 5 nouveaux côté API ; 4 nouveaux côté interface.
+
 ## 1.37.0
 
 ### Même mode de remplissage pour tous les documents — étapes B et C : programmation et PTBA

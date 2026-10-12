@@ -9,6 +9,7 @@ import { fmtDate, fmtDateTime, fmtMontant, isOverdue } from '../lib/format';
 import { DEP_NOM, ROLES, STATUTS, PERIMETRES, NOTIF_TYPES, DELEGATIONS } from '../lib/labels';
 import { Progression } from './comptes/ListeDeclarative';
 import { EtatBadge } from './systeme/Sante';
+import { StatutSemaine } from './presences/commun';
 
 const sum = (obj = {}, keys) => keys.reduce((s, k) => s + (obj[k] || 0), 0);
 const ACTIVE = ['TRANSMISE', 'RECUE', 'EN_COURS', 'BLOQUEE', 'RAPPORT_INTERMEDIAIRE', 'A_CORRIGER', 'EN_RETARD'];
@@ -232,7 +233,7 @@ function DirecteurPanel({ d }) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Documents à valider" value={d.documentsAValider.length} icon={FileText} tone={d.documentsAValider.length ? 'jaune' : 'gris'} to="/documents" />
         <Stat label="Travaux en retard" value={retard} icon={AlertTriangle} tone={retard ? 'rouge' : 'gris'} to="/taches?statut=EN_RETARD" />
-        <Stat label="Présences soumises" value={d.presencesSoumises.length} hint={d.presencesSemaine ? `Taux de présence : ${d.presencesSemaine.tauxPresence ?? '—'} %` : null} icon={CalendarCheck} tone="violet" to="/presences?statut=SOUMISE" />
+        <Stat label="Rapports de présence transmis" value={d.presencesSoumises.length} hint={d.presencesSemaine ? `Taux de présence : ${d.presencesSemaine.tauxPresence ?? '—'} %` : null} icon={CalendarCheck} tone="violet" to="/presences" />
         <Stat label="Courriers à réceptionner" value={d.courriersARecevoir.length} icon={Mail} tone={d.courriersARecevoir.length ? 'jaune' : 'gris'} to="/courriers?onglet=recevoir" />
       </div>
       {d.decisions && <PilotageCard d={d} />}
@@ -246,8 +247,8 @@ function DirecteurPanel({ d }) {
         <Card title="Instructions du Secrétaire Général" actions={<CardLink to="/instructions?boite=recues" />}>
           <MiniList rows={d.instructionsRecues} to="/instructions" empty="Aucune instruction reçue." render={(i) => <div className="space-y-1 text-sm"><div className="flex justify-between gap-2"><span className="truncate">{i.objet}</span><StatusBadge value={i.statut} /></div><Progress value={i.avancement} /></div>} />
         </Card>
-        <Card title="Présences soumises" actions={<CardLink to="/presences?statut=SOUMISE" />}>
-          <MiniList rows={d.presencesSoumises} to="/presences" empty="Aucune liste en attente." render={(p) => <div className="text-sm"><div className="font-medium">{p.bureau || 'Direction (toutes structures)'}</div><div className="text-xs text-slate-500">{p.reference} · soumise le {fmtDateTime(p.submitted_at)}</div></div>} />
+        <Card title="Rapports de présence transmis" actions={<CardLink to="/presences" />}>
+          <MiniList rows={d.presencesSoumises} to="/presences/semaines" empty="Aucun rapport en attente." render={(p) => <div className="text-sm"><div className="font-medium">Semaine du {fmtDate(p.semaine_debut)}{p.rectificatifs_en_attente ? ` · ${p.rectificatifs_en_attente} rectificatif(s) à valider` : ''}</div><div className="text-xs text-slate-500">{p.reference} · transmis le {fmtDateTime(p.transmis_at)}</div></div>} />
         </Card>
         <Card title="Courriers" actions={<CardLink to="/courriers?onglet=recevoir">À réceptionner</CardLink>}>
           <MiniList rows={d.courriersARecevoir} to="/courriers" empty="Aucun courrier à réceptionner." render={(c) => <div className="text-sm"><div className="truncate font-medium">{c.objet}</div><div className="text-xs text-slate-500">{c.numero_enregistrement} · {fmtDateTime(c.created_at)}</div></div>} />
@@ -333,7 +334,7 @@ function ChefDivisionPanel({ d }) {
           <MiniList rows={d.instructionsRecues} to="/instructions" render={(i) => <div className="space-y-1 text-sm"><div className="flex justify-between gap-2"><span className="truncate">{i.objet}</span><StatusBadge value={i.statut} /></div><Progress value={i.avancement} /></div>} />
         </Card>
         <Card title="Présences du périmètre">
-          <MiniList rows={d.presences} to="/presences" empty="Aucune liste." render={(p) => <div className="flex justify-between gap-2 text-sm"><span className="truncate">{p.bureau || 'Direction'} — {p.reference}</span><StatusBadge value={p.statut} /></div>} />
+          <MiniList rows={d.presences} to="/presences/semaines" empty="Aucun rapport transmis." render={(p) => <div className="flex justify-between gap-2 text-sm"><span className="truncate">Semaine du {fmtDate(p.semaine_debut)} — {p.reference}</span><StatutSemaine value={p.statut} /></div>} />
         </Card>
       </div>
     </>
@@ -364,8 +365,9 @@ function ChefBureauPanel({ d }) {
         <Card title="Tâches et échéances">
           <MiniList rows={d.tachesEnCours} to="/taches" empty="Aucune tâche." render={(t) => <div className="space-y-1 text-sm"><div className="flex justify-between gap-2"><span className="truncate">{t.titre} <span className="text-xs text-slate-500">— {t.nom}</span></span><StatusBadge value={t.statut} /></div><div className="flex items-center gap-3"><div className="flex-1"><Progress value={t.avancement} /></div><span className={`text-xs ${isOverdue(t.echeance, t.statut) ? 'text-red-700' : 'text-slate-500'}`}>{fmtDate(t.echeance)}</span></div></div>} />
         </Card>
-        <Card title="Présences du Bureau" actions={<CardLink to="/presences/nouvelle">Nouvelle liste</CardLink>}>
-          <MiniList rows={d.presences} to="/presences" empty="Aucune liste." render={(p) => <div className="flex justify-between gap-2 text-sm"><span>Semaine du {fmtDate(p.semaine_debut)}</span><StatusBadge value={p.statut} /></div>} />
+        <Card title="Présences du Bureau" actions={<CardLink to="/presences" />}>
+          {d.presencesSemaine && <p className="mb-2 text-xs text-slate-600">Dernier rapport : taux de présence {d.presencesSemaine.tauxPresence ?? '—'} %, {d.presencesSemaine.bilan.retards} retard(s), {d.presencesSemaine.bilan.absents} absence(s).</p>}
+          <MiniList rows={d.presences} to="/presences/semaines" empty="Aucun rapport transmis." render={(p) => <div className="flex justify-between gap-2 text-sm"><span>Semaine du {fmtDate(p.semaine_debut)}</span><StatutSemaine value={p.statut} /></div>} />
         </Card>
         <Card title="Instructions reçues">
           <MiniList rows={d.instructionsRecues} to="/instructions" render={(i) => <div className="flex justify-between gap-2 text-sm"><span className="truncate">{i.objet}</span><StatusBadge value={i.statut} /></div>} />

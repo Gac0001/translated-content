@@ -15,7 +15,7 @@ const TYPES = {
   COMPTE_CREE: 'Compte créé',
   MDP_REINITIALISE: 'Mot de passe réinitialisé',
   AFFECTATION: 'Changement d’affectation',
-  PRESENCE: 'Liste de présence',
+  PRESENCE: 'Présences',
   PIP: 'Fiche PIP',
   INSTRUCTION_REPONSE: 'Compte rendu d’instruction',
   SECURITE: 'Alerte de sécurité',

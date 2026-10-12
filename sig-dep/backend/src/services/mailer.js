@@ -26,7 +26,7 @@ const EMAIL_TYPES = {
   DOCUMENT_VALIDE: 'Document validé',
   ECHEANCE: 'Échéance proche',
   RETARD: 'Tâche ou instruction en retard',
-  PRESENCE: 'Liste de présence soumise',
+  PRESENCE: 'Présences (rapport hebdomadaire, rectificatif)',
   PIP: 'Fiche PIP à traiter',
   AFFECTATION: 'Changement d’affectation',
   COMPTE_CREE: 'Compte créé ou activé',

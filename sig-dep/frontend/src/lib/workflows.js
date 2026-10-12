@@ -93,11 +93,14 @@ export function circuitPip(p) {
   };
 }
 
-/** Listes de présence : circuit strict, la soumission verrouille la liste en écriture. */
+/** Rapport hebdomadaire de présence : préparation (Secrétariat) → transmis au Directeur → verrouillé. */
 export function circuitPresence(s) {
-  const etapes = ['Brouillon', 'Vérifiée', 'Soumise au Directeur', 'Verrouillée'];
-  const pos = { BROUILLON: 0, VERIFIEE: 1, SOUMISE: 2, VERROUILLEE: 3 }[s.statut] ?? 0;
-  return { etapes, courante: pos, termine: s.statut === 'VERROUILLEE' };
+  const etapes = ['Saisie des listes journalières', 'Transmis au Directeur', 'Verrouillé'];
+  const pos = { EN_PREPARATION: 0, REJETE: 0, TRANSMIS: 1, VERROUILLE: 2 }[s.statut] ?? 0;
+  return {
+    etapes, courante: pos, termine: s.statut === 'VERROUILLE',
+    alerte: s.statut === 'REJETE' ? { tone: 'attention', label: 'Rejeté par le Directeur : rectificatifs puis retransmission' } : undefined,
+  };
 }
 
 /** Courriers : un courrier peut être classé sans avoir circulé ni été marqué comme traité. */

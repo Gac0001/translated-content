@@ -220,6 +220,7 @@ async function detailSemaine(s, ctx, a) {
       verrouiller: a.directeur && s.statut === 'TRANSMIS',
       rejeter: a.directeur && s.statut === 'TRANSMIS',
       exporter: a.global && ctx.can('exports.generer'),
+      voir_rectificatifs: a.global,
       rectificatifs_en_attente: enAttente,
     },
   };
