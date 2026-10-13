@@ -86,7 +86,7 @@ export const ACTIONS_HISTO = {
   AVANCEMENT: 'Mise à jour de l’avancement', COMPTE_RENDU: 'Compte rendu', VALIDATION: 'Validation', RETOUR_CORRECTION: 'Retour pour correction',
   CLOTURE: 'Clôture', RETARD: 'Passage en retard', ATTRIBUTION: 'Attribution', NOUVELLE_VERSION: 'Nouvelle version', VALIDATION_DIVISION: 'Validation au niveau de la Division',
   REJET: 'Rejet', ARCHIVAGE: 'Archivage', SAISIE: 'Saisie', VERIFICATION: 'Vérification', SOUMISSION: 'Soumission', VERROUILLAGE: 'Verrouillage',
-  VERROUILLAGE_AUTO: 'Verrouillage automatique', CREATION_RECTIFICATIF: 'Création du rectificatif', RECTIFICATIF: 'Rectificatif établi', RECTIFICATIF_VALIDE: 'Rectificatif validé', RECTIFICATIF_REFUSE: 'Rectificatif refusé', RETRANSMISSION: 'Retransmission',
+  VERROUILLAGE_AUTO: 'Verrouillage automatique', CREATION_RECTIFICATIF: 'Création du rectificatif', RECTIFICATIF: 'Rectificatif établi', RECTIFICATIF_VALIDE: 'Rectificatif validé', RECTIFICATIF_REFUSE: 'Rectificatif refusé', RETRANSMISSION: 'Retransmission', MEMBRE_AJOUTE: 'Membre ajouté', MEMBRE_RETIRE: 'Membre retiré', PARTICIPANT_AJOUTE: 'Participant externe ajouté', PARTICIPANT_RETIRE: 'Participant externe retiré',
   SELECTION_AGENTS: 'Sélection des Agents', ENREGISTREMENT: 'Enregistrement', ANNOTATION: 'Annotation', ACCUSE_RECEPTION: 'Accusé de réception',
   TRAITEMENT: 'Traitement', CLASSEMENT: 'Classement',
   BLOCAGE: 'Blocage signalé', DEBLOCAGE: 'Blocage levé', RAPPORT_INTERMEDIAIRE: 'Rapport intermédiaire', ANNULATION: 'Annulation',

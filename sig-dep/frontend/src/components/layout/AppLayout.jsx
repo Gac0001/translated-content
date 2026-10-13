@@ -2,7 +2,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import { fmtDate } from '../../lib/format';
 import {
-  LayoutDashboard, Network, BookOpen, Users, UserCog, CalendarCheck, Mail, Send, ListTodo, FileText, FolderKanban,
+  LayoutDashboard, Network, BookOpen, Users, UsersRound, UserCog, CalendarCheck, Mail, Send, ListTodo, FileText, FolderKanban,
   Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2, Landmark, IdCard, BadgeCheck, MessageCircleQuestion,
   Search, CalendarDays, Gavel, Presentation, Target, Database, ChevronDown,
 } from 'lucide-react';
@@ -26,6 +26,7 @@ const MENU = [
   { to: '/organigramme', label: 'Organigramme', icon: Network, perms: ['organisation.consulter'] },
   { to: '/cadre-organique', label: 'Cadre organique', icon: BookOpen, perms: ['organisation.consulter'] },
   { to: '/personnel', label: 'Personnel', icon: Users, perms: ['personnel.consulter', 'personnel.suivre'] },
+  { to: '/groupes', label: 'Groupes de travail', icon: UsersRound, agent: true },
   { section: 'Activités' },
   { to: '/instructions', label: 'Instructions', icon: Send, perms: ['instructions.consulter'], counter: 'instructions' },
   { to: '/reunions', label: 'Réunions', icon: Presentation, agent: true, counter: 'reunions' },

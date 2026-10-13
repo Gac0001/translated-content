@@ -1,5 +1,16 @@
 # Journal des versions — SIG-DEP
 
+## 1.41.0
+
+### Lot C — personnel et comptes (étape 2 : effectifs, groupes de travail, données personnelles, import, référentiel versionné)
+- **Effectif par structure et par grade** (cahier, §§ 10 et 11 ; Cadre organique → « Effectif par structure ») : postes d’emploi du cadre organique pour chaque structure (20 au total) comparés à l’effectif réel, tableau croisé structure × grade (« réel / organique »), vacances et sureffectifs par structure, agents promus en attente de poste et intérims actifs ; exports PDF et Excel ; totaux repris au tableau de bord du Directeur. Les postes d’emploi se modifient avec leur source (acte ou décision).
+- **Référentiel versionné** (Cadre organique → « Versions du référentiel ») : grades, postes organiques, effectif de référence et postes d’emploi par structure consignés en versions intangibles, chacune avec sa source et sa date d’application ; version 1 issue du cadre organique ; les modifications non encore consignées sont listées (ajouts, modifications, retraits) jusqu’à la consignation d’une nouvelle version.
+- **Groupes de travail** (cahier, § 14 ; menu Organisation) : objet, acte ou décision de création, dates, membres (coordonnateur, membre, rapporteur), participants externes sans compte, dossiers du groupe, historique, clôture. Création et composition par le Directeur et le Secrétariat de Direction ; un agent ne voit que les groupes dont il est membre ; l’appartenance ne modifie ni l’affectation, ni le grade, ni le rôle ; un groupe ne compte jamais dans l’effectif ; il est proposé comme structure responsable des activités du PTBA.
+- **Données personnelles masquées** selon le rôle (cahier, § 24) : date et lieu de naissance, adresse, téléphone, carte IGAP et commission d’affectation réservés à l’agent, au Directeur et au Secrétariat de Direction ; les Chefs, le Secrétaire Général et l’Admin voient les coordonnées professionnelles.
+- **Import du personnel** : rapport d’anomalies enrichi — grades reconnus par leur code officiel (210), leur abréviation (ATA 1) ou leur libellé, doublons possibles (même nom sous un autre matricule, dans le fichier ou déjà enregistré), appellations de structure rapprochées, grade de commandement incohérent avec le poste, Directeur et Secrétaire Général à traiter manuellement.
+- Démonstration : Cellule Genre (fictive) avec coordonnatrice, rapporteur, membre, participant externe et compte rendu.
+- Tests : 7 nouveaux côté API ; 4 nouveaux côté interface.
+
 ## 1.40.0
 
 ### Lot C — personnel et comptes (étape 1 : grades, actes de carrière, cohérence poste-grade-rôle)

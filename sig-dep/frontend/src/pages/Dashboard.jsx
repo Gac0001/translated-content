@@ -303,6 +303,7 @@ function EffectifCard({ e }) {
         <div className="text-sm">
           <div className="text-2xl font-semibold">{t.reel} <span className="text-base font-normal text-slate-500">/ {t.prevu} prévus</span></div>
           <div className="text-xs text-slate-500">dont {t.horsReference} hors cadre de référence · {t.vacances} vacance(s) · {t.sureffectifs} sureffectif(s)</div>
+          {e.parStructure && <div className="mt-2 text-xs text-slate-600">Par structure : {e.parStructure.vacances} vacance(s), {e.parStructure.sureffectifs} sureffectif(s) · {e.parStructure.promus} promu(s) en attente · {e.parStructure.interims} intérim(s) actif(s) · <Link className="link" to="/cadre-organique?onglet=effectif-structures">tableau par structure</Link></div>}
         </div>
         <div className="text-sm">
           <div className="mb-1 font-medium">Écarts</div>

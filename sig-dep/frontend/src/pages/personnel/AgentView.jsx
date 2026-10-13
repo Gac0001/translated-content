@@ -17,6 +17,7 @@ export default function AgentView({ a, photoVersion, extraActions }) {
         <div className="flex flex-col gap-4 sm:flex-row">
           <div className="shrink-0"><AgentPhoto agentId={a.id} hasPhoto={a.has_photo} size={120} version={photoVersion} />{extraActions}</div>
           <div className="flex-1">
+            {a.donnees_masquees && <p className="mb-2 rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700">Données personnelles (naissance, adresse, téléphone, carte IGAP, commission) réservées à l’agent, au Directeur et au Secrétariat de Direction.</p>}
             <KeyValues items={[
               ['Nom', a.nom], ['Postnom', a.postnom], ['Prénom', a.prenom], ['Sexe', a.sexe === 'F' ? 'Féminin' : a.sexe === 'M' ? 'Masculin' : 'Non renseigné'],
               ['Matricule', a.matricule], ['Date de naissance', fmtDate(a.date_naissance)], a.lieu_naissance && ['Lieu de naissance', a.lieu_naissance], ['Grade', a.grade ? `${a.grade_code_officiel ? `${a.grade_code_officiel} — ` : ''}${a.grade}` : '—'], ['Fonction', a.fonction],

@@ -71,6 +71,8 @@ function Editeur({ p, referentiel, onSaved, onCancel }) {
   const [entete, setEntete] = useState(initial.entete);
   const [objectifs, setObjectifs] = useState(initial.objectifs);
   const [enCours, setEnCours] = useState(false);
+  // Structures responsables proposées : Bureaux, Divisions et groupes de travail actifs (Cellule Genre…)
+  const responsables = useApi('/groupes/responsables');
   const modifie = JSON.stringify({ entete, objectifs }) !== JSON.stringify(initial);
   const total = objectifs.reduce((t, o) => t + o.lignes.reduce((u, l) => u + (Number(l.cout) || 0), 0), 0);
   const majLigne = (oi, li, k, v) => setObjectifs(objectifs.map((o, i) => (i !== oi ? o : { ...o, lignes: o.lignes.map((l, j) => {
@@ -114,6 +116,7 @@ function Editeur({ p, referentiel, onSaved, onCancel }) {
   return (
     <>
       <UnsavedChangesGuard when={modifie && !enCours} />
+      <datalist id="structures-responsables">{(responsables.data?.data || []).map((x) => <option key={`${x.type}-${x.nom}`} value={x.nom}>{x.type === 'GROUPE' ? 'Groupe de travail' : x.type === 'DIVISION' ? 'Division' : 'Bureau'}</option>)}</datalist>
       <FormulaireEtapes etapes={etapes} etape={Math.min(etape, etapes.length - 1)} onEtape={setEtape} navigation="Étapes du PTBA"
         onEnregistrer={enregistrer} enregistrement={enCours} onAnnuler={onCancel} libelleEnregistrer="Enregistrer le PTBA"
         resume={(
@@ -144,7 +147,7 @@ function Editeur({ p, referentiel, onSaved, onCancel }) {
                 <button type="button" className="btn-ghost justify-self-end px-2 text-red-700 lg:col-span-1" aria-label="Retirer la ligne" onClick={() => setObjectifs(objectifs.map((x, i) => (i === oi ? { ...x, lignes: x.lignes.filter((_, j) => j !== li) } : x)))}><X size={15} aria-hidden /></button>
                 <textarea className="input lg:col-span-6" rows={2} placeholder="Tâches" value={l.taches || ''} onChange={(e) => majLigne(oi, li, 'taches', e.target.value)} />
                 <textarea className="input lg:col-span-6" rows={2} placeholder="Résultats attendus" value={l.resultats_attendus || ''} onChange={(e) => majLigne(oi, li, 'resultats_attendus', e.target.value)} />
-                <input className="input lg:col-span-3" placeholder="Structure responsable" value={l.structure_responsable || ''} onChange={(e) => majLigne(oi, li, 'structure_responsable', e.target.value)} />
+                <input className="input lg:col-span-3" placeholder="Structure responsable" list="structures-responsables" value={l.structure_responsable || ''} onChange={(e) => majLigne(oi, li, 'structure_responsable', e.target.value)} />
                 <input className="input lg:col-span-3" placeholder="Indicateur de réalisation" value={l.indicateur || ''} onChange={(e) => majLigne(oi, li, 'indicateur', e.target.value)} />
                 <input className="input lg:col-span-3" placeholder="Source / moyen de vérification" value={l.source_verification || ''} onChange={(e) => majLigne(oi, li, 'source_verification', e.target.value)} />
                 <input className="input lg:col-span-3" placeholder="Source de financement" value={l.source_financement || ''} onChange={(e) => majLigne(oi, li, 'source_financement', e.target.value)} />
