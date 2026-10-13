@@ -1,5 +1,21 @@
 # Journal des versions — SIG-DEP
 
+## 1.42.0
+
+### Lot E — évaluation des politiques sectorielles et budgétaires (étape 1 : dossier et annexes)
+- **Dossier d’évaluation de l’exercice** (cahier, §§ 34 et 51 ; menu Planification et données → « Évaluation des politiques ») : ouvert par le **Bureau Suivi-Évaluation** à réception de la convocation du Ministère du Budget (référence, date, échéance), numéroté `DEP/EVAL/2026/0001`, un par exercice ; la convocation et les états de la Direction des Ressources Humaines (montants des primes et salaires) sont joints comme pièces.
+- **Annexes reprises des données du SIG-DEP** :
+  - **I — politiques sectorielles** : PTBA validés de l’exercice regroupés par action budgétaire (à défaut, par objectif spécifique) ; prévision, exécution financière (décaissé au dernier suivi), taux d’exécution, exécution physique et niveau (total, partiel, non entamé) ; cible ou bénéficiaires et reconduction à renseigner ;
+  - **II — projection sur trois ans** : prévisions de crédits par action (à défaut, par programme) ; étude de faisabilité, objectif visé en lien avec le PAG et impact environnemental à renseigner, par le Bureau Programme ;
+  - **III et IV — politique salariale** (primes, salaire de base) : effectif organique et affecté par grade ; payé et non payé saisis d’après les états de la DRH ;
+  - **V — exécution des dépenses** : par programme, dotation (crédits votés), engagé et payé (suivi des PTBA validés), non payé et pourcentage (engagé / dotation), observation.
+- **Contrôle des formules** : taux, totaux, écarts et montants non payés recalculés par le SIG-DEP, jamais saisis ; erreurs (payé + non payé ≠ affecté, payé supérieur à l’engagé, champ obligatoire manquant…) et alertes (exécution supérieure à la prévision, niveau physique incohérent avec le taux, exécution inférieure à 50 % sans observation…) ; page de synthèse des contrôles.
+- **Valeurs modifiées tracées** : chaque ligne garde les valeurs reprises ; une valeur modifiée est signalée (valeur d’origine au survol) et conservée lorsque l’annexe est reprise à nouveau du SIG-DEP ; lignes ajoutées, lignes reprises écartées puis rétablies, lignes dont la source a disparu.
+- **Files « À traiter »** : dossier à compléter (Bureau Suivi-Évaluation), projection à compléter (Bureau Programme, notifié à l’ouverture) ; compteur du menu.
+- Dossier validé ou transmis intangible en base (étape suivante : note de présentation, circuit, lettre de transmission, exports).
+- Démonstration : dossier de l’exercice en cours, en partie complété, avec ses anomalies restant à lever.
+- Tests : 6 nouveaux côté API ; 3 nouveaux côté interface.
+
 ## 1.41.0
 
 ### Lot C — personnel et comptes (étape 2 : effectifs, groupes de travail, données personnelles, import, référentiel versionné)

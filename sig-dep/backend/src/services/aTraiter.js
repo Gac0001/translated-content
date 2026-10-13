@@ -82,6 +82,27 @@ async function planification(ctx, aujourdhui) {
   return out;
 }
 
+// ─── Évaluation des politiques sectorielles et budgétaires ──────────────────
+/**
+ * Dossiers en préparation : le Bureau Suivi-Évaluation les complète tant qu’une anomalie bloque ;
+ * le Bureau Programme, tant que la projection (annexe II) n’est pas complète.
+ */
+async function evaluations(ctx) {
+  const preparer = ctx.can('evaluation.preparer'); const contribuer = ctx.can('evaluation.contribuer');
+  if (!preparer && !contribuer) return [];
+  const evaluation = require('./evaluation');
+  const rows = await db('evaluations').whereIn('statut', ['PREPARATION', 'A_CORRIGER']).orderByRaw('date_limite NULLS LAST').orderBy('annee');
+  const lignes = [];
+  for (const e of rows) {
+    const d = await evaluation.dossier(e);
+    const erreurs = d.anomalies.filter((a) => a.gravite === 'ERREUR' && (preparer || a.annexe === 'II')).length;
+    if (erreurs || (preparer && e.statut === 'A_CORRIGER')) lignes.push({ e, erreurs });
+  }
+  const echeance = (e) => (e.date_limite instanceof Date ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kinshasa' }).format(e.date_limite) : e.date_limite ? String(e.date_limite).slice(0, 10) : null);
+  return [file(preparer ? 'evaluations_preparer' : 'evaluations_projection', 'evaluations', preparer ? 'Dossiers d’évaluation à compléter' : 'Projection sur trois ans à compléter (évaluation)', '/evaluations', lignes,
+    ({ e, erreurs }) => ({ id: `eval-${e.id}`, titre: `Évaluation des politiques ${e.annee}`, detail: `${e.reference} — ${erreurs} anomalie(s) bloquante(s)${preparer ? '' : ' dans l’annexe II'}`, echeance: echeance(e), to: `/evaluations/${e.id}${preparer ? '' : '?onglet=II'}`, statut: e.statut }))];
+}
+
 // ─── Données sectorielles ───────────────────────────────────────────────────
 async function donnees(ctx, aujourdhui) {
   const out = [];
@@ -271,6 +292,7 @@ async function aTraiter(ctx) {
   const aujourdhui = kinshasaDate();
   const groupes = await Promise.all([
     ctx.can('planification.consulter') ? planification(ctx, aujourdhui) : [],
+    ctx.can('planification.consulter') ? evaluations(ctx) : [],
     ctx.can('donnees.consulter') ? donnees(ctx, aujourdhui) : [],
     reunions(ctx), decisions(ctx, aujourdhui), actes(ctx), cartes(ctx), presences(ctx, aujourdhui), systeme(ctx),
   ]);

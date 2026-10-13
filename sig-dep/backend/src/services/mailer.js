@@ -42,6 +42,7 @@ const EMAIL_TYPES = {
   AGENDA: 'Agenda du Directeur (rendez-vous et rappels)',
   PTBA: 'PTBA à vérifier, consolider, valider ou corriger',
   DONNEES: 'Campagne de collecte ouverte ou à valider, réponse à contrôler ou à corriger',
+  EVALUATION: 'Dossier d’évaluation des politiques sectorielles et budgétaires à compléter, vérifier ou valider',
 };
 
 const RETRY_MINUTES = [1, 5, 15, 60, 240];

@@ -58,6 +58,8 @@ export const STATUTS = {
   // Données sectorielles
   OUVERTE: ['Ouverte', C.bleu], DIFFUSE: ['Diffusé', C.vert], SAISIE: ['Saisie', C.indigo], CONTROLEE: ['Contrôlée', C.vert], PUBLIEE: ['Publiée', C.vert], CESSE: ['Cessé', C.gris], MAITRISE: ['Maîtrisé', C.indigo], CLOS: ['Clos', C.gris],
   PREVU: ['Prévu', C.bleu], CONFIRME: ['Confirmé', C.vert], TENU: ['Tenu', C.marine], ANNULE: ['Annulé', C.gris],
+  // Évaluation des politiques
+  PREPARATION: ['En préparation', C.jaune], TRANSMIS: ['Transmis', C.marine],
 };
 
 /**
@@ -97,13 +99,14 @@ export const ACTIONS_HISTO = {
   DECISION: 'Décision', MISE_EN_OEUVRE: 'Mise en œuvre', EXECUTION: 'Exécution', ABANDON: 'Abandon', MISE_EN_OEUVRE_ANNULEE: 'Mise en œuvre annulée', ENVOI: 'Envoi', REPONSE: 'Réponse', COMPLEMENT_REPONSE: 'Complément de réponse', RELANCE: 'Relance',
   DIFFUSION: 'Diffusion interne autorisée', CIBLAGE: 'Ciblage', OUVERTURE: 'Ouverture de la collecte', REOUVERTURE: 'Réouverture', CONTROLE: 'Contrôle de qualité',
   SOUMETTRE: 'Soumission', VERIFIER: 'Vérification', CONSOLIDER: 'Consolidation', VALIDER: 'Validation',
+  ACTUALISATION: 'Reprise des données du SIG-DEP', LIGNE_AJOUTEE: 'Ligne ajoutée', LIGNE_ECARTEE: 'Ligne écartée', LIGNE_RETABLIE: 'Ligne rétablie', LIGNE_SUPPRIMEE: 'Ligne supprimée',
 };
 
 export const NOTIF_TYPES = {
   INSTRUCTION: 'Instruction', TACHE: 'Tâche', COURRIER: 'Courrier', DOCUMENT_RETOURNE: 'Document retourné', DOCUMENT_VALIDE: 'Document validé',
   DOCUMENT_A_EXAMINER: 'Document à examiner', ECHEANCE: 'Échéance proche', RETARD: 'Retard', COMPTE_CREE: 'Compte', MDP_REINITIALISE: 'Mot de passe',
   AFFECTATION: 'Affectation', PRESENCE: 'Présences', PIP: 'PIP', INSTRUCTION_REPONSE: 'Compte rendu', SECURITE: 'Sécurité', SYSTEME: 'Annonce', ACTE: 'Acte administratif', CARTE: 'Carte de service', CONNEXION: 'Nouvelle connexion',
-  DEMANDE_INFO: 'Demande d’information', REUNION: 'Réunion', DECISION: 'Décision', AGENDA: 'Agenda', PTBA: 'PTBA', DONNEES: 'Données sectorielles',
+  DEMANDE_INFO: 'Demande d’information', REUNION: 'Réunion', DECISION: 'Décision', AGENDA: 'Agenda', PTBA: 'PTBA', DONNEES: 'Données sectorielles', EVALUATION: 'Évaluation des politiques',
 };
 
 export const DELEGATIONS = {

@@ -11,7 +11,8 @@
  * (PNSD et stratégie sectorielle, fictifs), présences journalières (listes Cadres et Agents,
  * rapports hebdomadaires verrouillés, transmis avec rectificatif, semaine en cours, synthèses mensuelles),
  * carrière (élévation en grade d’un agent, promu en attente de poste), groupe de travail
- * (Cellule Genre, fictive).
+ * (Cellule Genre, fictive), dossier d’évaluation des politiques sectorielles et budgétaires
+ * (annexes reprises du SIG-DEP, en partie complétées).
  * Les dates sont calculées à partir du jour du chargement : la démonstration paraît toujours à jour.
  */
 const config = require('../../config/env');
@@ -62,6 +63,7 @@ exports.seed = async function seed(knex) {
     await presencesJournalieres(api);
     await carriere(api, knex);
     await groupesTravail(api, knex);
+    await evaluationPolitiques(api, plan);
   } finally {
     await new Promise((ok) => server.close(ok));
     await require('../../db/knex').destroy();
@@ -516,4 +518,30 @@ async function groupesTravail(api, knex) {
   const fd = new FormData();
   fd.append('fichiers', new Blob([Buffer.from('%PDF-1.4\n% compte rendu de démonstration\n%%EOF\n')], { type: 'application/pdf' }), 'compte-rendu-reunion-cellule-genre.pdf');
   await api('ag.prg1', 'POST', `/attachments/GROUPE/${g.id}`, fd);
+}
+
+/**
+ * Évaluation des politiques sectorielles et budgétaires de l’exercice : dossier ouvert par le Bureau
+ * Suivi-Évaluation à réception d’une convocation fictive, annexes reprises du SIG-DEP puis en partie
+ * complétées ; des anomalies restent à lever pour la formation.
+ */
+async function evaluationPolitiques(api, { A }) {
+  const e = await api('ag.sev1', 'POST', '/evaluations', {
+    annee: A, convocation_reference: `Lettre n° 045/BUDGET/${A} (démonstration)`, convocation_date: D(-12), date_limite: D(18),
+  });
+  const d = await api('ag.sev1', 'GET', `/evaluations/${e.id}`);
+  const cibles = ['Services du Ministère et services provinciaux', 'Opérateurs et fournisseurs d’accès à Internet'];
+  for (const [i, l] of d.annexes.I.lignes.entries()) {
+    await api('ag.sev1', 'PUT', `/evaluations/${e.id}/lignes/${l.id}`, { valeurs: { cible: cibles[i % cibles.length], ...(i === 0 ? { reconduction: true } : {}) } });
+  }
+  for (const l of d.annexes.III.lignes.filter((x) => x.valeurs.affecte > 0).slice(0, 4)) {
+    await api('ag.sev1', 'PUT', `/evaluations/${e.id}/lignes/${l.id}`, { valeurs: { paye: l.valeurs.affecte, non_paye: 0 } });
+  }
+  const v = d.annexes.V.lignes[0];
+  if (v) await api('ag.sev1', 'PUT', `/evaluations/${e.id}/lignes/${v.id}`, { valeurs: { observation: 'Retards de décaissement au premier semestre (démonstration).' } });
+  const p = d.annexes.II.lignes[0];
+  if (p) await api('ag.prg1', 'PUT', `/evaluations/${e.id}/lignes/${p.id}`, { valeurs: { etude_faisabilite: true, objectif_pag: 'Pilier « Numérique » du programme d’actions du Gouvernement (démonstration)', impact_environnemental: 'Faible' } });
+  const fd = new FormData();
+  fd.append('fichiers', new Blob([Buffer.from('%PDF-1.4\n% convocation de démonstration\n%%EOF\n')], { type: 'application/pdf' }), 'convocation-evaluation-demonstration.pdf');
+  await api('ag.sev1', 'POST', `/attachments/EVALUATION/${e.id}`, fd);
 }

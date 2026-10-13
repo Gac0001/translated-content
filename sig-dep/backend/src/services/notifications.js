@@ -29,6 +29,7 @@ const TYPES = {
   AGENDA: 'Agenda du Directeur',
   PTBA: 'Plan de travail annuel budgétisé',
   DONNEES: 'Données sectorielles',
+  EVALUATION: 'Évaluation des politiques sectorielles et budgétaires',
 };
 
 /**

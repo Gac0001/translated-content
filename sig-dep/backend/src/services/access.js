@@ -170,6 +170,11 @@ const LOADERS = {
     },
     strict: true,
   },
+  // Évaluation des politiques : convocation et états de la DRH, joints par le Bureau Suivi-Évaluation pendant la préparation
+  EVALUATION: {
+    table: 'evaluations as e', alias: 'e', scope: (qb, ctx) => require('../modules/evaluations/routes').scopeEvaluations(qb, ctx),
+    writers: (r, ctx) => (require('../modules/evaluations/routes').droits(ctx, r).pieces ? [ctx.userId] : []), strict: true,
+  },
 };
 
 /** Charge un élément en vérifiant le périmètre ; mode 'write' exige d’être partie prenante. */
@@ -196,7 +201,7 @@ async function loadEntity(ctx, type, id, mode = 'read') {
     if (ctx.perimetre === 'SUPERVISION_GLOBALE' && !['INSTRUCTION', 'ACTE', 'DEMANDE_INFO'].includes(type)) throw forbidden('Accès en lecture seule.', 'LECTURE_SEULE');
     const writers = (await L.writers(row, ctx)).filter(Boolean);
     const courrierRegistrar = type === 'COURRIER' && ctx.can('courriers.enregistrer');
-    if (L.strict && !writers.includes(ctx.userId)) throw forbidden(type === 'PRESENCE_LISTE' ? 'Les pièces des présences se joignent par le Secrétariat de Direction.' : type === 'GROUPE' ? 'Les dossiers d’un groupe de travail actif sont déposés par ses membres.' : 'Les pièces d’un acte se joignent pendant sa préparation, par la personne qui le prépare.');
+    if (L.strict && !writers.includes(ctx.userId)) throw forbidden(type === 'PRESENCE_LISTE' ? 'Les pièces des présences se joignent par le Secrétariat de Direction.' : type === 'GROUPE' ? 'Les dossiers d’un groupe de travail actif sont déposés par ses membres.' : type === 'EVALUATION' ? 'Les pièces du dossier d’évaluation se joignent par le Bureau Suivi-Évaluation pendant la préparation.' : 'Les pièces d’un acte se joignent pendant sa préparation, par la personne qui le prépare.');
     if (!writers.includes(ctx.userId) && !courrierRegistrar && ctx.perimetre !== 'DIRECTION') {
       throw forbidden('Seules les personnes en charge de cet élément peuvent y joindre ou modifier des fichiers.');
     }

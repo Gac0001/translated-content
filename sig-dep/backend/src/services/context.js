@@ -144,6 +144,10 @@ async function loadContext(userId, trx = db) {
       permissions.add('planification.referentiel');
       permissions.add('ptba.suivre');
     }
+    // Évaluation des politiques sectorielles et budgétaires (cahier, §§ 34 et 51) : le Bureau
+    // Suivi-Évaluation prépare le dossier ; le Bureau Programme complète la projection (annexe II).
+    if (aff.bureau_code === 'BUR-SEV') permissions.add('evaluation.preparer');
+    if (aff.bureau_code === 'BUR-PRG') permissions.add('evaluation.contribuer');
     // Données sectorielles : le Bureau Études, Analyses et Prospective conçoit les questionnaires et
     // organise les campagnes ; le Bureau Documentation et Information tient l’annuaire et contrôle
     // les réponses ; tous deux saisissent ; le Chef de la Division Études, Documentation et
