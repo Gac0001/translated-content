@@ -29,6 +29,20 @@ function canReadAll(ctx) {
   return ['SUPERVISION_GLOBALE', 'DIRECTION'].includes(ctx.perimetre) || ctx.can('personnel.suivre');
 }
 
+/**
+ * Données personnelles (cahier, § 24 : masquées selon le besoin du rôle) : visibles par l’agent
+ * lui-même, la Direction (Directeur), le Secrétariat de Direction et la gestion du personnel ;
+ * masquées pour les Chefs, le Secrétaire Général et l’Admin, qui voient les coordonnées professionnelles.
+ */
+const CHAMPS_PERSONNELS = ['date_naissance', 'lieu_naissance', 'adresse', 'telephone', 'numero_carte_igap', 'commission_attachment_id'];
+const voitDonneesPersonnelles = (ctx, agentId) => ctx.agentId === agentId || ctx.perimetre === 'DIRECTION' || !!ctx.inSecretariat || ctx.can('personnel.gerer') || ctx.can('liste.gerer');
+function masquer(ctx, a) {
+  if (voitDonneesPersonnelles(ctx, a.id)) return a;
+  const r = { ...a, donnees_masquees: true };
+  for (const k of CHAMPS_PERSONNELS) if (k in r) r[k] = null;
+  return r;
+}
+
 function baseQuery() {
   return db('agents as ag')
     .leftJoin('affectations as a', function j() { this.on('a.agent_id', 'ag.id').andOn('a.est_active', db.raw('true')); })
@@ -78,7 +92,7 @@ function applyFilters(q, f) {
 router.get('/', requirePerm('personnel.consulter', 'personnel.suivre'), validate({ query: listQuery }), async (req, res) => {
   const q = applyFilters(scopeAgents(baseQuery(), req.ctx), req.valid.query).select(listColumns).orderBy(['ag.nom', 'ag.prenom']);
   const rows = await q;
-  res.json({ data: rows.map((r) => ({ ...r, has_photo: !!r.photo_path, photo_path: undefined })) });
+  res.json({ data: rows.map((r) => masquer(req.ctx, { ...r, has_photo: !!r.photo_path, photo_path: undefined })) });
 });
 
 async function superieurOf(agentId) {
@@ -168,7 +182,7 @@ router.get('/:id', validate({ params: idParam }), async (req, res) => {
     if (!req.ctx.can('personnel.consulter') && !req.ctx.can('personnel.suivre')) throw forbidden('Vous ne pouvez consulter que votre propre fiche.');
     await assertAgentInScope(req.ctx, id);
   }
-  res.json(await fiche(id));
+  res.json(masquer(req.ctx, await fiche(id)));
 });
 
 router.get('/:id/commission', validate({ params: idParam }), async (req, res) => {
@@ -177,6 +191,7 @@ router.get('/:id/commission', validate({ params: idParam }), async (req, res) =>
     if (!req.ctx.can('personnel.consulter') && !req.ctx.can('personnel.suivre')) throw forbidden();
     await assertAgentInScope(req.ctx, id);
   }
+  if (!voitDonneesPersonnelles(req.ctx, id) && !req.ctx.can('liste.consulter')) throw forbidden('La commission d’affectation fait partie des données personnelles de l’agent.');
   const ag = await db('agents').where({ id }).first('commission_attachment_id');
   const att = ag && ag.commission_attachment_id ? await db('attachments').where({ id: ag.commission_attachment_id }).whereNull('deleted_at').first() : null;
   if (!att) throw notFound('Aucune commission d’affectation enregistrée.');

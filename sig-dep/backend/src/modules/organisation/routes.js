@@ -334,6 +334,102 @@ for (const table of ['divisions', 'bureaux']) {
 }
 
 // ─── Effectif organique et effectif réel ────────────────────────────────────
+// ─── Effectif par structure et par grade ────────────────────────────────────
+router.get('/effectifs/structures', requirePerm('organisation.consulter'), async (req, res) => {
+  res.json(await effectifs.parStructure());
+});
+
+router.put('/effectifs/structures', requirePerm('cadre.gerer'), validate({
+  body: z.object({
+    structure_code: z.string().trim().min(2).max(30),
+    critere_type: z.enum(['GRADE', 'FONCTION']),
+    critere_code: z.string().trim().min(1).max(30),
+    nombre: z.coerce.number().int().min(0).max(100),
+    source: z.string().trim().min(5, 'Indiquez l’acte ou la décision fondant ce poste d’emploi.').max(300),
+  }),
+}), async (req, res) => {
+  const b = req.valid.body;
+  const structures = await effectifs.structures();
+  if (!structures.some((x) => x.code === b.structure_code)) throw badRequest('Structure inconnue.');
+  const ok = b.critere_type === 'GRADE' ? await db('grades').where({ code: b.critere_code }).first() : await db('fonctions').where({ code: b.critere_code }).first();
+  if (!ok) throw badRequest(b.critere_type === 'GRADE' ? 'Grade inconnu.' : 'Fonction inconnue.');
+  const avant = await db('effectif_structure').where({ structure_code: b.structure_code, critere_type: b.critere_type, critere_code: b.critere_code }).first();
+  const [row] = await db('effectif_structure').insert({ ...b, updated_by: req.ctx.userId }).onConflict(['structure_code', 'critere_type', 'critere_code'])
+    .merge({ nombre: b.nombre, source: b.source, updated_by: req.ctx.userId, updated_at: db.fn.now() }).returning('*');
+  await audit(req, { action: 'MODIFICATION', module: 'organisation', entite: 'effectif_structure', entiteId: row.id, avant: avant || null, apres: row, message: `Postes d’emploi ${b.structure_code} / ${b.critere_code} : ${avant ? avant.nombre : 0} → ${b.nombre}` });
+  res.json(row);
+});
+
+router.get('/effectifs/export/:format', requirePerm('organisation.consulter'), requirePerm('exports.generer'), validate({ params: z.object({ format: z.enum(['pdf', 'xlsx']) }) }), async (req, res) => {
+  const d = await effectifs.parStructure();
+  await audit(req, { action: 'EXPORT', module: 'organisation', entite: 'effectifs', message: `Effectifs par structure et par grade (${req.valid.params.format.toUpperCase()})` });
+  const lignes = d.structures.flatMap((s) => s.detail.map((x, i) => ({ structure: i === 0 ? `${s.code_organique ? `${s.code_organique} ` : ''}${s.nom}` : '', ...x })));
+  const colonnes = [
+    { header: 'Structure', key: 'structure', width: 34 }, { header: 'Grade ou emploi', key: 'libelle', width: 34 },
+    { header: 'Organique', key: 'prevu', width: 10, align: 'right' }, { header: 'Réel', key: 'reel', width: 8, align: 'right' },
+    { header: 'Écart', value: (r) => (r.ecart > 0 ? `+${r.ecart}` : r.ecart), width: 8, align: 'right' },
+    { header: 'Situation', value: (r) => ({ CONFORME: 'Conforme', VACANCE: 'Vacance', SUREFFECTIF: 'Sureffectif' }[r.situation]), width: 12 },
+  ];
+  const titre = 'EFFECTIF ORGANIQUE ET EFFECTIF RÉEL PAR STRUCTURE ET PAR GRADE';
+  const sousTitre = `${DEP_NOM} — organique ${d.totaux.prevu}, réel ${d.totaux.reel}, vacances ${d.totaux.vacances}, sureffectifs ${d.totaux.sureffectifs}, promus en attente ${d.totaux.promus}, intérims actifs ${d.totaux.interims}`;
+  if (req.valid.params.format === 'xlsx') {
+    return require('../../services/excel').sendWorkbook(res, 'effectifs-par-structure.xlsx', [
+      { name: 'Par structure', titre, sousTitre, columns: colonnes, rows: lignes },
+      { name: 'Promus en attente', titre: 'Agents promus en attente de poste', columns: [{ header: 'Agent', value: (p) => [p.prenom, p.nom, p.postnom].filter(Boolean).join(' '), width: 34 }, { header: 'Grade', value: (p) => `${p.code_officiel} — ${p.grade}`, width: 30 }, { header: 'Structure', key: 'structure', width: 34 }], rows: d.promusEnAttente },
+    ]);
+  }
+  const pdf = require('../../services/pdf');
+  const { doc, finish } = pdf.createPdf(res, { filename: 'effectifs-par-structure.pdf', titre, sousTitre });
+  pdf.table(doc, colonnes, lignes, { fontSize: 8 });
+  if (d.promusEnAttente.length) {
+    doc.font('Helvetica-Bold').fontSize(10.5).fillColor(pdf.BLUE).text('Agents promus en attente de poste').fillColor('#000').moveDown(0.3);
+    pdf.table(doc, [{ header: 'Agent', value: (p) => [p.prenom, p.nom, p.postnom].filter(Boolean).join(' ') }, { header: 'Grade', value: (p) => `${p.code_officiel} — ${p.grade}` }, { header: 'Structure', key: 'structure' }], d.promusEnAttente);
+  }
+  return finish();
+});
+
+// ─── Versions du référentiel (grades, postes d’emploi, effectif organique) ───
+const { instantane, differences } = require('../../services/referentiel');
+
+router.get('/referentiel/versions', requirePerm('organisation.consulter'), async (req, res) => {
+  const versions = await db('referentiel_versions as v').leftJoin('users as u', 'u.id', 'v.created_by').orderBy('v.numero', 'desc')
+    .select('v.id', 'v.numero', 'v.source', 'v.date_application', 'v.observation', 'v.created_at', 'u.username as auteur', 'v.contenu');
+  const courant = await instantane();
+  const derniere = versions[0];
+  res.json({
+    data: versions.map((v, i) => ({ ...v, contenu: undefined, changements: differences(versions[i + 1]?.contenu, v.contenu).length })),
+    // Modifications du référentiel depuis la dernière version consignée
+    enAttente: derniere ? differences(derniere.contenu, courant) : [],
+    droits: { consigner: req.ctx.can('cadre.gerer') },
+  });
+});
+
+router.get('/referentiel/versions/:id', requirePerm('organisation.consulter'), validate({ params: id }), async (req, res) => {
+  const v = await db('referentiel_versions').where({ id: req.valid.params.id }).first();
+  if (!v) throw notFound('Version introuvable.');
+  const precedente = await db('referentiel_versions').where('numero', '<', v.numero).orderBy('numero', 'desc').first();
+  res.json({ ...v, changements: differences(precedente?.contenu, v.contenu) });
+});
+
+router.post('/referentiel/versions', requirePerm('cadre.gerer'), validate({
+  body: z.object({
+    source: z.string().trim().min(5, 'Indiquez l’acte ou le texte fondant cette version.').max(500),
+    date_application: z.string().date(),
+    observation: z.string().trim().max(2000).optional().nullable(),
+  }),
+}), async (req, res) => {
+  const v = await db.transaction(async (trx) => {
+    await trx.raw('LOCK TABLE referentiel_versions IN EXCLUSIVE MODE');
+    const derniere = await trx('referentiel_versions').orderBy('numero', 'desc').first();
+    const contenu = await instantane(trx);
+    if (derniere && !differences(derniere.contenu, contenu).length) throw badRequest('Le référentiel n’a pas changé depuis la dernière version consignée.');
+    const [row] = await trx('referentiel_versions').insert({ ...req.valid.body, numero: (derniere?.numero || 0) + 1, contenu: JSON.stringify(contenu), created_by: req.ctx.userId }).returning(['id', 'numero', 'source', 'date_application']);
+    return row;
+  });
+  await audit(req, { action: 'CREATION', module: 'organisation', entite: 'referentiel_version', entiteId: v.id, apres: v, message: `Version ${v.numero} du référentiel` });
+  res.status(201).json(v);
+});
+
 router.get('/effectifs', requirePerm('organisation.consulter'), async (req, res) => {
   res.json(await effectifs.synthese());
 });

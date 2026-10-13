@@ -120,8 +120,8 @@ async function sgDashboard(ctx) {
 
 /** Effectif organique, effectif réel, écarts et postes de commandement vacants. */
 async function resumeEffectif() {
-  const e = await effectifs.synthese();
-  return { totaux: e.totaux, ecarts: e.lignes.filter((l) => l.ecart !== 0), postesVacants: e.postesVacants };
+  const [e, p] = await Promise.all([effectifs.synthese(), effectifs.parStructure()]);
+  return { totaux: e.totaux, ecarts: e.lignes.filter((l) => l.ecart !== 0), postesVacants: e.postesVacants, parStructure: p.totaux };
 }
 
 async function directeurDashboard(ctx) {

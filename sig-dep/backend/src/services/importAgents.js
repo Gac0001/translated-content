@@ -88,6 +88,14 @@ function norm(s) {
     .replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
+/** Clé de comparaison d’un nom complet (accents, casse et ordre des éléments ignorés). */
+function cleNom(a) {
+  return [a.nom, a.postnom, a.prenom].map((x) => norm(x)).filter(Boolean).flatMap((x) => x.split(' ')).sort().join(' ');
+}
+
+/** Clé de comparaison d’un grade : « ATA 1 », « A.T.A.1 », « ata1 » → « ata1 ». */
+const cleGrade = (x) => norm(x).replace(/\s+/g, '');
+
 function normalizeMatricule(m) {
   return String(m || '').toUpperCase().replace(/[\s.,]/g, '');
 }
@@ -163,7 +171,14 @@ function analyse(rows, ref) {
   const normStructure = (x) => norm(x).replace(/\bperspectives?\b/g, 'prospective');
   const bureaux = ref.bureaux.map((x) => ({ ...x, n: normStructure(x.nom) }));
   const divisions = ref.divisions.map((x) => ({ ...x, n: normStructure(x.nom) }));
-  const grades = Object.fromEntries(ref.grades.map((g) => [g.code.toUpperCase(), g]));
+  // Grades reconnus par leur code officiel (210), leur abréviation (ATA 1), leur code interne (ATA1)
+  // ou leur libellé (« Attaché d’Administration de 1re classe ») ; anciennes appellations signalées.
+  const grades = new Map();
+  for (const g of ref.grades) {
+    for (const [k, officiel] of [[g.code_officiel, true], [g.abreviation, true], [g.code, false], [g.libelle, false]]) {
+      if (k && !grades.has(cleGrade(k))) grades.set(cleGrade(k), { grade: g, officiel });
+    }
+  }
 
   const matchStructure = (label) => {
     // Code organique en tête de ligne (ex. « 5.3.3.1.1 Bureau … ») : correspondance exacte.
@@ -177,9 +192,9 @@ function analyse(rows, ref) {
     const n = normStructure(label);
     if (!n) return null;
     const b = bureaux.find((x) => x.n === n) || bureaux.find((x) => n.includes(x.n) || x.n.includes(n));
-    if (b) return { type: 'BUREAU', id: b.id, nom: b.nom, divisionId: b.division_id };
+    if (b) return { type: 'BUREAU', id: b.id, nom: b.nom, divisionId: b.division_id, approx: b.n !== n };
     const d = divisions.find((x) => x.n === n) || divisions.find((x) => n.includes(x.n) || x.n.includes(n));
-    if (d) return { type: 'DIVISION', id: d.id, nom: d.nom };
+    if (d) return { type: 'DIVISION', id: d.id, nom: d.nom, approx: d.n !== n };
     if (/^direction\b/.test(n)) return { type: 'DIRECTION', id: null, nom: 'Direction' };
     return null;
   };
@@ -201,13 +216,14 @@ function analyse(rows, ref) {
     const parts = col.nomComplet >= 0 ? splitNom(nomSource) : { nom: get('nom'), postnom: get('postnom') || null, prenom: get('prenom') || null };
     const structureLabel = get('structure') || sectionLabel;
     const structure = get('structure') ? matchStructure(get('structure')) : section;
-    const gradeCode = get('grade').toUpperCase().replace(/\s+/g, '');
-    const grade = grades[gradeCode] || null;
+    const trouve = get('grade') ? grades.get(cleGrade(get('grade'))) : null;
+    const grade = trouve ? trouve.grade : null;
     lignes.push({
       ligne: i + 1, numero: get('numero') || null, nomSource,
       nom: parts.nom, postnom: parts.postnom, prenom: parts.prenom,
       matriculeSource: matSource, matricule: normalizeMatricule(matSource),
       gradeSource: get('grade') || null, grade_id: grade ? grade.id : null, grade_libelle: grade ? grade.libelle : null,
+      grade_code: grade ? grade.code : null, grade_officiel: grade ? `${grade.code_officiel} — ${grade.libelle}` : null, gradeAncien: !!(trouve && !trouve.officiel),
       sexe: normSexe(get('sexe')), telephone: get('telephone') || null, email: get('email') || null,
       structureSource: structureLabel || null, structure,
     });
@@ -216,11 +232,13 @@ function analyse(rows, ref) {
   // Poste proposé et anomalies
   const vus = new Map();
   for (const l of lignes) vus.set(l.matricule, (vus.get(l.matricule) || 0) + 1);
+  const noms = new Map();
+  for (const l of lignes) { const k = cleNom(l); if (k) noms.set(k, [...(noms.get(k) || []), l]); }
   const chefsFichier = new Set();
   for (const l of lignes) {
     const a = [];
     const s = l.structure;
-    const gc = (l.gradeSource || '').toUpperCase();
+    const gc = l.grade_code || '';
     if (s && s.type === 'DIVISION') l.role = gc === 'CD' ? 'CHEF_DIVISION' : null;
     else if (s && s.type === 'BUREAU') l.role = gc === 'CB' ? 'CHEF_BUREAU' : 'AGENT';
     else l.role = null;
@@ -232,12 +250,25 @@ function analyse(rows, ref) {
     l.existantId = ref.existants.get(l.matricule)?.id || null;
     if (l.existantId) a.push({ niveau: 'avertissement', message: 'Un Agent portant ce matricule existe déjà.' });
     if (!l.grade_id) a.push({ niveau: 'avertissement', message: l.gradeSource ? `Grade « ${l.gradeSource} » inconnu du référentiel.` : 'Grade non renseigné.' });
+    else if (l.gradeAncien) a.push({ niveau: 'info', message: `Grade « ${l.gradeSource} » reconnu : ${l.grade_officiel} (appellation à remplacer par le code officiel).` });
+    // Doublons possibles : même nom sous un autre matricule (dans le fichier ou déjà enregistré)
+    const homonymes = (noms.get(cleNom(l)) || []).filter((x) => x !== l && x.matricule !== l.matricule);
+    if (homonymes.length) a.push({ niveau: 'avertissement', message: `Même nom que la ligne ${homonymes.map((x) => x.ligne).join(', ')} avec un autre matricule : doublon possible.` });
+    const deja = ref.existantsNoms && ref.existantsNoms.get(cleNom(l));
+    if (deja && normalizeMatricule(deja.matricule) !== l.matricule) a.push({ niveau: 'avertissement', message: `Un agent du même nom est déjà enregistré sous le matricule ${deja.matricule} : doublon possible.` });
+    if (s && s.approx) a.push({ niveau: 'info', message: `Appellation « ${l.structureSource} » rattachée à « ${s.nom} ».` });
+    // Cohérence du grade et du poste
+    if (['SG', 'DIR'].includes(gc)) a.push({ niveau: 'avertissement', message: `Grade ${l.grade_officiel} : le Directeur et le Secrétaire Général ne s’importent pas avec la liste ; à traiter manuellement.` });
+    if (gc === 'CD' && s && s.type === 'BUREAU') a.push({ niveau: 'avertissement', message: 'Grade 130 (Chef de Division) dans un Bureau : vérifiez l’affectation.' });
     if (!s) a.push({ niveau: 'avertissement', message: l.structureSource ? `Structure « ${l.structureSource} » non reconnue : à choisir.` : 'Structure non renseignée : à choisir.' });
     if (s && s.type === 'DIVISION' && !l.role) a.push({ niveau: 'avertissement', message: 'Agent placé au niveau de la Division sans être Chef de Division : choisissez son Bureau.' });
     if (s && s.type === 'DIRECTION') a.push({ niveau: 'avertissement', message: 'Affectation au niveau de la Direction : réservée au Directeur, à traiter manuellement.' });
     if (l.role === 'CHEF_BUREAU' || l.role === 'CHEF_DIVISION') {
       const key = `${l.role === 'CHEF_BUREAU' ? 'BUR' : 'DIV'}:${s.id}`;
-      if (chefsFichier.has(key)) { a.push({ niveau: 'avertissement', message: 'Un autre responsable figure déjà pour cette structure dans le fichier : affecté comme Agent.' }); l.role = l.role === 'CHEF_BUREAU' ? 'AGENT' : null; } else if (ref.chefsEnPoste.has(key)) { a.push({ niveau: 'avertissement', message: 'La structure a déjà un responsable en fonction dans SIG-DEP.' }); }
+      if (chefsFichier.has(key)) {
+        a.push({ niveau: 'avertissement', message: 'Un autre responsable figure déjà pour cette structure dans le fichier : affecté comme Agent (grade de commandement sans poste : « promu en attente de poste »).' });
+        l.role = l.role === 'CHEF_BUREAU' ? 'AGENT' : null;
+      } else if (ref.chefsEnPoste.has(key)) { a.push({ niveau: 'avertissement', message: 'La structure a déjà un responsable en fonction dans SIG-DEP.' }); }
       chefsFichier.add(key);
     }
     if (!l.sexe) a.push({ niveau: 'info', message: 'Sexe non renseigné (à compléter sur la fiche).' });
@@ -264,4 +295,4 @@ function analyse(rows, ref) {
   };
 }
 
-module.exports = { readRows, analyse, splitNom, normalizeMatricule, norm };
+module.exports = { readRows, analyse, splitNom, normalizeMatricule, norm, cleNom };

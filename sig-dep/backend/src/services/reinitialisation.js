@@ -28,6 +28,8 @@ const CONSERVEES = [
   'sect_zones', 'sect_categories',
   // Jours fériés (référentiel des présences)
   'jours_feries',
+  // Effectif organique par structure et versions du référentiel (grades, postes, effectif)
+  'effectif_structure', 'referentiel_versions',
 ];
 
 async function volumes(trx = db) {

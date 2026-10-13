@@ -161,6 +161,15 @@ const LOADERS = {
     scope: (qb, ctx) => ((ctx.can('presences.preparer_direction') || ctx.can('presences.verrouiller')) && ctx.perimetre !== 'SUPERVISION_GLOBALE' ? qb : qb.whereRaw('false')),
     writers: (r, ctx) => (ctx.can('presences.preparer_direction') ? [ctx.userId] : []), strict: true,
   },
+  // Groupes de travail : dossiers du groupe, déposés par ses membres ou par le Directeur et le Secrétariat
+  GROUPE: {
+    table: 'groupes_travail as g', alias: 'g', scope: (qb, ctx) => require('../modules/groupes/routes').scopeGroupes(qb, ctx),
+    writers: async (r, ctx) => {
+      const groupes = require('../modules/groupes/routes');
+      return r.statut === 'ACTIF' && (groupes.gerer(ctx) || await groupes.estMembre(r.id, ctx.agentId)) ? [ctx.userId] : [];
+    },
+    strict: true,
+  },
 };
 
 /** Charge un élément en vérifiant le périmètre ; mode 'write' exige d’être partie prenante. */
@@ -185,9 +194,9 @@ async function loadEntity(ctx, type, id, mode = 'read') {
   }
   if (mode === 'write') {
     if (ctx.perimetre === 'SUPERVISION_GLOBALE' && !['INSTRUCTION', 'ACTE', 'DEMANDE_INFO'].includes(type)) throw forbidden('Accès en lecture seule.', 'LECTURE_SEULE');
-    const writers = L.writers(row, ctx).filter(Boolean);
+    const writers = (await L.writers(row, ctx)).filter(Boolean);
     const courrierRegistrar = type === 'COURRIER' && ctx.can('courriers.enregistrer');
-    if (L.strict && !writers.includes(ctx.userId)) throw forbidden(type === 'PRESENCE_LISTE' ? 'Les pièces des présences se joignent par le Secrétariat de Direction.' : 'Les pièces d’un acte se joignent pendant sa préparation, par la personne qui le prépare.');
+    if (L.strict && !writers.includes(ctx.userId)) throw forbidden(type === 'PRESENCE_LISTE' ? 'Les pièces des présences se joignent par le Secrétariat de Direction.' : type === 'GROUPE' ? 'Les dossiers d’un groupe de travail actif sont déposés par ses membres.' : 'Les pièces d’un acte se joignent pendant sa préparation, par la personne qui le prépare.');
     if (!writers.includes(ctx.userId) && !courrierRegistrar && ctx.perimetre !== 'DIRECTION') {
       throw forbidden('Seules les personnes en charge de cet élément peuvent y joindre ou modifier des fichiers.');
     }

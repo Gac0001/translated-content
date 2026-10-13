@@ -125,6 +125,8 @@ async function loadContext(userId, trx = db) {
       // hebdomadaire et rectificatifs (cahier des charges, section 25).
       permissions.add('presences.preparer_direction');
       permissions.add('presences.consulter');
+      // Il prépare la création et la composition des groupes de travail de la Direction (cahier, § 14).
+      permissions.add('groupes.gerer');
     }
   }
   // Planification (cadre organique) : le Bureau Programme prépare les PTBA, son Chef les vérifie ;

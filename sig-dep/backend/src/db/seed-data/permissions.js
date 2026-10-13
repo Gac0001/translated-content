@@ -40,6 +40,7 @@ const PERMISSIONS = [
   ['organisation.consulter', 'organisation', 'Consulter l’organigramme et le cadre organique'],
   ['organisation.gerer', 'organisation', 'Gérer les structures de la DEP'],
   ['cadre.gerer', 'organisation', 'Gérer les missions, attributions et postes organiques'],
+  ['groupes.gerer', 'organisation', 'Créer et gérer les groupes de travail de la Direction'],
   ['personnel.consulter', 'personnel', 'Consulter les fiches du personnel du périmètre'],
   ['personnel.gerer', 'personnel', 'Créer et modifier les fiches du personnel'],
   ['personnel.suivre', 'personnel', 'Assurer le suivi administratif du personnel', { delegable: true }],
@@ -149,7 +150,7 @@ const MATRICE = {
     'demandes_info.emettre', 'planification.consulter', 'donnees.consulter',
   ],
   DIRECTEUR: [
-    'organisation.consulter', 'organisation.gerer', 'cadre.gerer',
+    'organisation.consulter', 'organisation.gerer', 'cadre.gerer', 'groupes.gerer',
     'personnel.consulter', 'personnel.gerer', 'personnel.suivre', 'affectations.gerer', 'designations.gerer', 'actes.consulter', 'actes.preparer', 'actes.valider',
     'operations.confirmer', 'acces_support.valider', 'urgence.activer', 'urgence.desactiver',
     'cartes.consulter', 'cartes.preparer', 'cartes.valider',

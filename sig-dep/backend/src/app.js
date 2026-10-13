@@ -77,6 +77,7 @@ const protectedModules = {
   users: './modules/users/routes',
   dashboard: './modules/dashboard/routes',
   presences: './modules/presences/routes',
+  groupes: './modules/groupes/routes',
   courriers: './modules/courriers/routes',
   instructions: './modules/instructions/routes',
   taches: './modules/tasks/routes',

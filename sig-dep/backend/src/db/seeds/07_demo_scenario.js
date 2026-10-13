@@ -10,7 +10,8 @@
  * (note explicative signée, lettre de transmission), termes de référence et référentiels des fiches PIP
  * (PNSD et stratégie sectorielle, fictifs), présences journalières (listes Cadres et Agents,
  * rapports hebdomadaires verrouillés, transmis avec rectificatif, semaine en cours, synthèses mensuelles),
- * carrière (élévation en grade d’un agent, promu en attente de poste).
+ * carrière (élévation en grade d’un agent, promu en attente de poste), groupe de travail
+ * (Cellule Genre, fictive).
  * Les dates sont calculées à partir du jour du chargement : la démonstration paraît toujours à jour.
  */
 const config = require('../../config/env');
@@ -60,6 +61,7 @@ exports.seed = async function seed(knex) {
     await pipReferentiels(api);
     await presencesJournalieres(api);
     await carriere(api, knex);
+    await groupesTravail(api, knex);
   } finally {
     await new Promise((ok) => server.close(ok));
     await require('../../db/knex').destroy();
@@ -498,4 +500,20 @@ async function carriere(api, knex) {
   await api('cb.secretariat', 'POST', `/attachments/ACTE/${a.id}`, fd);
   await api('cb.secretariat', 'POST', `/actes/${a.id}/soumettre`);
   await api('directeur', 'POST', `/actes/${a.id}/decision`, { decision: 'VALIDE', commentaire: 'Acte conforme.' });
+}
+
+/** Groupe de travail : Cellule Genre (fictive), structure responsable d’activités du PTBA de la Direction. */
+async function groupesTravail(api, knex) {
+  const agent = async (username) => (await knex('users').where({ username }).first('agent_id')).agent_id;
+  const g = await api('directeur', 'POST', '/groupes', {
+    nom: 'Cellule Genre', objet: 'Veiller à la prise en compte du genre dans les études, la planification et les activités de la Direction (données fictives de démonstration).',
+    acte_reference: 'Note de service n° 018/DEP/2026 (démonstration)', date_debut: D(-60),
+  });
+  await api('cb.secretariat', 'POST', `/groupes/${g.id}/membres`, { agent_id: await agent('cb.eap'), role: 'COORDONNATEUR' });
+  await api('cb.secretariat', 'POST', `/groupes/${g.id}/membres`, { agent_id: await agent('ag.prg1'), role: 'RAPPORTEUR' });
+  await api('cb.secretariat', 'POST', `/groupes/${g.id}/membres`, { agent_id: await agent('ag.coi1'), role: 'MEMBRE' });
+  await api('cb.secretariat', 'POST', `/groupes/${g.id}/participants`, { nom: 'Point focal genre (fictif)', service: 'Direction des Ressources Humaines', fonction: 'Chargé de la parité' });
+  const fd = new FormData();
+  fd.append('fichiers', new Blob([Buffer.from('%PDF-1.4\n% compte rendu de démonstration\n%%EOF\n')], { type: 'application/pdf' }), 'compte-rendu-reunion-cellule-genre.pdf');
+  await api('ag.prg1', 'POST', `/attachments/GROUPE/${g.id}`, fd);
 }
