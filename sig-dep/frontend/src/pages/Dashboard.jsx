@@ -168,7 +168,7 @@ function AdminPanel({ a }) {
             <ul className="space-y-1.5 text-xs">
               {a.operationsSensibles.map((l) => (
                 <li key={l.id} className="flex gap-2">
-                  <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${l.resultat === 'SUCCES' ? 'bg-emerald-500' : 'bg-red-500'}`} aria-label={l.resultat === 'SUCCES' ? 'Succès' : 'Échec'} />
+                  <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${l.resultat === 'SUCCES' ? 'bg-emerald-500' : 'bg-red-500'}`} role="img" aria-label={l.resultat === 'SUCCES' ? 'Succès' : 'Échec'} />
                   <span className="min-w-0 flex-1"><b>{l.username || 'système'}</b> · {ACTIONS_SENSIBLES[l.action] || l.action}{l.message ? <span className="block truncate text-slate-500">{l.message}</span> : null}</span>
                   <span className="shrink-0 text-slate-500">{fmtDateTime(l.created_at)}</span>
                 </li>

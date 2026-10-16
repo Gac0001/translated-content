@@ -31,7 +31,7 @@ export default function Notifications() {
                 {d.data.map((n) => (
                   <li key={n.id}>
                     <button type="button" onClick={() => open(n)} className={`flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-slate-50 ${n.lu ? '' : 'bg-dep-50/50'}`}>
-                      <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${n.lu ? 'bg-slate-300' : 'bg-rdc-rouge'}`} aria-label={n.lu ? 'Lue' : 'Non lue'} />
+                      <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${n.lu ? 'bg-slate-300' : 'bg-rdc-rouge'}`} role="img" aria-label={n.lu ? 'Lue' : 'Non lue'} />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2"><span className={`text-sm ${n.lu ? '' : 'font-semibold'}`}>{n.titre}</span><Badge>{NOTIF_TYPES[n.type] || n.type}</Badge></div>
                         {n.message && <p className="mt-0.5 truncate text-sm text-slate-600">{n.message}</p>}
