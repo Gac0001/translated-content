@@ -7,6 +7,8 @@
 const { db, request, app, login, api, PDF } = require('./helpers');
 const evaluation = require('../src/services/evaluation');
 
+const binaire = (r) => r.buffer(true).parse((res, cb) => { const d = []; res.on('data', (c) => d.push(c)); res.on('end', () => cb(null, Buffer.concat(d))); });
+
 const A = 2071;
 
 describe('Évaluation des politiques sectorielles et budgétaires', () => {
@@ -173,14 +175,89 @@ describe('Évaluation des politiques sectorielles et budgétaires', () => {
     expect((await dir.get(`/evaluations/${id}`)).body.droits.modifier).toBe(false);
   });
 
-  test('dossier validé intangible en base', async () => {
-    await db('evaluations').where({ id }).update({ statut: 'VALIDE' });
+  test('circuit : note, soumission, vérification, retour, validation (lettre numérotée), transmission et CDS-MT', async () => {
+    const cdps = api(await login('cd.ps')); const sec = api(await login('cb.secretariat'));
+    // Lever les erreurs restantes des annexes
+    let d = (await sev.get(`/evaluations/${id}`)).body;
+    const corrections = { I: { niveau_physique: 'PARTIEL', reconduction: false, cible: 'Usagers (essai)' }, II: { etude_faisabilite: false, objectif_pag: 'PAG (essai)', impact_environnemental: 'Nul' } };
+    for (const code of ['I', 'II']) {
+      for (const l of d.annexes[code].lignes.filter((x) => x.anomalies.some((a) => a.gravite === 'ERREUR'))) {
+        expect((await sev.put(`/evaluations/${id}/lignes/${l.id}`, { valeurs: corrections[code] })).status).toBe(200);
+      }
+    }
+    for (const code of ['III', 'IV']) {
+      for (const l of d.annexes[code].lignes.filter((x) => x.anomalies.some((a) => a.gravite === 'ERREUR'))) await sev.put(`/evaluations/${id}/lignes/${l.id}`, { valeurs: { paye: l.valeurs.affecte, non_paye: 0 } });
+    }
+    d = (await sev.get(`/evaluations/${id}`)).body;
+    expect(d.controle.erreurs).toBe(0);
+    expect(d.bloquants).toEqual(expect.arrayContaining([expect.stringMatching(/Note de présentation : rubrique « Contexte »/)]));
+    expect(d.resume_propose).toMatch(/taux d’exécution de 94,1 %/);
+    expect(d.lettre).toMatchObject({ destinataire: 'Monsieur le Secrétaire Général au Numérique', references: 'Convocation : Lettre n° 001/BUDGET/2071 (essai)' });
+    let r = await sev.post(`/evaluations/${id}/soumettre`);
+    expect(r.status).toBe(400);
+    expect(r.body.error.message).toMatch(/rubrique « Contexte »/);
+    // Note et lettre : rédigées par le Bureau Suivi-Évaluation seulement
+    const note = { contexte: 'Contexte (essai).', presentation: 'Présentation (essai).', resume: d.resume_propose, perspectives: 'Perspectives (essai).', attentes: 'Attentes (essai).' };
+    expect((await prg.put(`/evaluations/${id}/note`, note)).status).toBe(403);
+    expect((await sev.put(`/evaluations/${id}/note`, note)).status).toBe(200);
+    expect((await sev.put(`/evaluations/${id}/lettre`, { ...d.lettre, copies: ['Monsieur le Directeur de Cabinet (essai)'] })).status).toBe(200);
+    expect((await sev.post(`/evaluations/${id}/soumettre`)).body.statut).toBe('SOUMIS');
+    expect((await sev.put(`/evaluations/${id}/note`, note)).status).toBe(403);
+    // Vérification : Chef de la Division Programme et Suivi uniquement ; retour par le Directeur
+    expect((await dir.post(`/evaluations/${id}/verifier`)).status).toBe(403);
+    expect((await cdps.get('/dashboard/a-traiter')).body.files.find((f) => f.cle === 'evaluations_verifier').items[0].to).toBe(`/evaluations/${id}`);
+    expect((await cdps.post(`/evaluations/${id}/verifier`)).body.statut).toBe('VERIFIE');
+    r = await dir.post(`/evaluations/${id}/retourner`, { motif: 'Préciser les attentes (essai).' });
+    expect(r.body).toMatchObject({ statut: 'A_CORRIGER', observations: 'Préciser les attentes (essai).' });
+    await sev.put(`/evaluations/${id}/note`, { ...note, attentes: 'Attentes précisées (essai).' });
+    await sev.post(`/evaluations/${id}/soumettre`);
+    await cdps.post(`/evaluations/${id}/verifier`);
+    // Validation : la lettre reçoit son numéro officiel (séquence de la correspondance)
+    expect((await dir.get('/dashboard/a-traiter')).body.files.find((f) => f.cle === 'evaluations_valider')).toBeDefined();
+    expect((await sev.post(`/evaluations/${id}/transmettre`)).status).toBe(403);
+    r = await dir.post(`/evaluations/${id}/valider`);
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ statut: 'VALIDE', numero_lettre: expect.stringMatching(/^N° \d{3}\//) });
+    const numero = r.body.numero_lettre;
+    const lettre = await binaire(sev.get(`/evaluations/${id}/lettre/pdf`));
+    expect(lettre.body.slice(0, 4).toString()).toBe('%PDF');
+    const pdf = await binaire(sev.get(`/evaluations/${id}/export/pdf`));
+    expect(pdf.body.slice(0, 4).toString()).toBe('%PDF');
+    const xlsx = await binaire(sev.get(`/evaluations/${id}/export/xlsx`));
+    const ExcelJS = require('exceljs');
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(xlsx.body);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(['Annexe I', 'Annexe II', 'Annexe III', 'Annexe IV', 'Annexe V']);
+    const formules = []; wb.getWorksheet('Annexe I').eachRow((row) => row.eachCell((c) => { if (c.formula) formules.push(c.formula); }));
+    expect(formules.some((f) => /^SUM\(/.test(f))).toBe(true);
+    expect(formules.some((f) => /^IF\(B\d+=0/.test(f))).toBe(true);
+    // Le SG voit le dossier validé ; transmission par le Secrétariat de Direction, report dans le CDS-MT
+    const sg = api(await login('sg'));
+    expect((await sg.get(`/evaluations/${id}`)).status).toBe(200);
+    expect((await sg.post(`/evaluations/${id}/transmettre`)).status).toBe(403);
+    expect((await sec.get('/dashboard/a-traiter')).body.files.find((f) => f.cle === 'evaluations_transmettre').items[0].detail).toBe(`Lettre ${numero}`);
+    r = await sec.post(`/evaluations/${id}/transmettre`);
+    expect(r.body).toMatchObject({ statut: 'TRANSMIS' });
+    expect(r.body.cdsmt).toBeGreaterThan(0);
+    const c = (await sg.get('/evaluations/cdsmt')).body;
+    const ligne = c.lignes.find((l) => l.action.includes('Action projetée'));
+    expect(ligne).toMatchObject({ objectif_pag: 'Pilier numérique du PAG (essai)', etude_faisabilite: true });
+    expect(ligne.montants[A + 2]).toBe(99000000);
+    const u = await db('users').where({ username: 'sg' }).first();
+    expect(await db('notifications').where({ user_id: u.id, type: 'EVALUATION' }).first()).toBeDefined();
+    const h = (await sg.get(`/evaluations/${id}`)).body.historique.map((x) => x.action);
+    expect(h).toEqual(expect.arrayContaining(['SOUMISSION', 'VERIFICATION', 'RETOUR_CORRECTION', 'VALIDATION', 'TRANSMISSION']));
+  });
+
+  test('dossier transmis intangible en base ; CDS-MT en ajout seul', async () => {
     await expect(db('evaluation_lignes').where({ evaluation_id: id }).update({ exclue: true })).rejects.toThrow(/EVALUATION_VERROUILLEE/);
     await expect(db('evaluations').where({ id }).update({ note: JSON.stringify({ contexte: 'x' }) })).rejects.toThrow(/EVALUATION_VERROUILLEE/);
+    await expect(db('evaluations').where({ id }).update({ lettre: JSON.stringify({ objet: 'x' }) })).rejects.toThrow(/EVALUATION_VERROUILLEE/);
     await expect(db('evaluations').where({ id }).update({ statut: 'PREPARATION' })).rejects.toThrow(/EVALUATION_VERROUILLEE/);
+    await expect(db('evaluations').where({ id }).update({ transmis_at: db.fn.now() })).rejects.toThrow(/EVALUATION_VERROUILLEE/);
     expect((await sev.put(`/evaluations/${id}/lignes/${(await db('evaluation_lignes').where({ evaluation_id: id }).first()).id}`, { valeurs: { cible: 'x' } })).status).toBe(403);
-    await db('evaluations').where({ id }).update({ statut: 'TRANSMIS' });
     await expect(db('evaluations').where({ id }).del()).rejects.toThrow(/EVALUATION_VERROUILLEE/);
+    await expect(db('cdsmt_projections').where({ evaluation_id: id }).update({ montant: 1 })).rejects.toThrow(/APPEND_ONLY/);
   });
 
   test('contrôles unitaires', () => {

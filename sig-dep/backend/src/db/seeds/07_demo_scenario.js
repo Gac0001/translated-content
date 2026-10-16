@@ -11,8 +11,9 @@
  * (PNSD et stratégie sectorielle, fictifs), présences journalières (listes Cadres et Agents,
  * rapports hebdomadaires verrouillés, transmis avec rectificatif, semaine en cours, synthèses mensuelles),
  * carrière (élévation en grade d’un agent, promu en attente de poste), groupe de travail
- * (Cellule Genre, fictive), dossier d’évaluation des politiques sectorielles et budgétaires
- * (annexes reprises du SIG-DEP, en partie complétées).
+ * (Cellule Genre, fictive), évaluation des politiques sectorielles et budgétaires (dossier de
+ * l’exercice précédent transmis au Secrétaire Général et reporté dans le CDS-MT ; dossier de
+ * l’exercice en cours en préparation).
  * Les dates sont calculées à partir du jour du chargement : la démonstration paraît toujours à jour.
  */
 const config = require('../../config/env');
@@ -63,6 +64,7 @@ exports.seed = async function seed(knex) {
     await presencesJournalieres(api);
     await carriere(api, knex);
     await groupesTravail(api, knex);
+    await evaluationAnterieure(api, plan);
     await evaluationPolitiques(api, plan);
   } finally {
     await new Promise((ok) => server.close(ok));
@@ -544,4 +546,47 @@ async function evaluationPolitiques(api, { A }) {
   const fd = new FormData();
   fd.append('fichiers', new Blob([Buffer.from('%PDF-1.4\n% convocation de démonstration\n%%EOF\n')], { type: 'application/pdf' }), 'convocation-evaluation-demonstration.pdf');
   await api('ag.sev1', 'POST', `/attachments/EVALUATION/${e.id}`, fd);
+}
+
+/**
+ * Dossier d’évaluation de l’exercice précédent, parcouru jusqu’au bout : actions saisies (aucun PTBA
+ * validé n’existe pour cet exercice dans la démonstration), note, soumission, vérification,
+ * validation avec lettre numérotée, transmission au Secrétaire Général et report dans le CDS-MT.
+ */
+async function evaluationAnterieure(api, { A }) {
+  const e = await api('ag.sev1', 'POST', '/evaluations', {
+    annee: A - 1, annee_projection: A + 1, convocation_reference: `Lettre n° 031/BUDGET/${A - 1} (démonstration)`, convocation_date: D(-330), date_limite: D(-300),
+  });
+  const actions = [
+    ['Élaboration des documents de programmation du secteur (démo)', 120000000, 102000000, 100, 'TOTAL', 'Services du Ministère', true],
+    ['Enquête annuelle auprès des fournisseurs d’accès (démo)', 80000000, 52000000, 70, 'PARTIEL', 'Opérateurs du secteur', true],
+    ['Atelier de revue des politiques sectorielles (démo)', 30000000, 0, 0, 'NON_ENTAME', 'Partenaires techniques et financiers', false],
+  ];
+  for (const [action, prevision, execution, tauxPhysique, niveau, cible, reconduction] of actions) {
+    await api('ag.sev1', 'POST', `/evaluations/${e.id}/lignes`, { annexe: 'I', valeurs: { action, prevision, execution, taux_physique: tauxPhysique, niveau_physique: niveau, cible, reconduction } });
+  }
+  const d = await api('ag.sev1', 'GET', `/evaluations/${e.id}`);
+  for (const code of ['III', 'IV']) {
+    for (const l of d.annexes[code].lignes) await api('ag.sev1', 'PUT', `/evaluations/${e.id}/lignes/${l.id}`, { valeurs: { paye: l.valeurs.affecte, non_paye: 0 } });
+  }
+  for (const l of d.annexes.V.lignes) {
+    await api('ag.sev1', 'PUT', `/evaluations/${e.id}/lignes/${l.id}`, { valeurs: { engage: Math.round(l.valeurs.dotation * 0.82), paye: Math.round(l.valeurs.dotation * 0.74), observation: 'Exécution conforme aux engagements (démonstration).' } });
+  }
+  for (const l of d.annexes.II.lignes) {
+    await api('ag.prg1', 'PUT', `/evaluations/${e.id}/lignes/${l.id}`, { valeurs: { etude_faisabilite: true, objectif_pag: 'Pilier « Numérique » du programme d’actions du Gouvernement (démonstration)', impact_environnemental: 'Faible' } });
+  }
+  const resume = (await api('ag.sev1', 'GET', `/evaluations/${e.id}`)).resume_propose;
+  await api('ag.sev1', 'PUT', `/evaluations/${e.id}/note`, {
+    contexte: 'Texte de démonstration : conformément à la convocation du Ministère du Budget, le Ministère présente l’évaluation de ses politiques sectorielles et budgétaires.',
+    presentation: 'Texte de démonstration : missions et organisation du Ministère de l’Économie Numérique.',
+    resume, perspectives: 'Texte de démonstration : consolider le suivi de l’exécution et la qualité des données du secteur.',
+    attentes: 'Texte de démonstration : régularité des décaissements et prise en compte des projections dans le cadrage budgétaire.',
+  });
+  const fd = new FormData();
+  fd.append('fichiers', new Blob([Buffer.from('%PDF-1.4\n% etats de la DRH de demonstration\n%%EOF\n')], { type: 'application/pdf' }), 'etats-drh-demonstration.pdf');
+  await api('ag.sev1', 'POST', `/attachments/EVALUATION/${e.id}`, fd);
+  await api('ag.sev1', 'POST', `/evaluations/${e.id}/soumettre`);
+  await api('cd.ps', 'POST', `/evaluations/${e.id}/verifier`);
+  await api('directeur', 'POST', `/evaluations/${e.id}/valider`);
+  await api('cb.secretariat', 'POST', `/evaluations/${e.id}/transmettre`);
 }

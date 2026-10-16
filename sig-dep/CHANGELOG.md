@@ -1,5 +1,17 @@
 # Journal des versions — SIG-DEP
 
+## 1.43.0
+
+### Lot E — évaluation des politiques sectorielles et budgétaires (étape 2 : note, circuit, lettre, exports, CDS-MT)
+- **Note de présentation** rédigée par étapes (contexte, présentation du Ministère, résumé de l’évaluation, perspectives, attentes), avec un **résumé chiffré proposé** à partir des annexes (taux d’exécution, actions totalement exécutées et reconduites, dépenses engagées et payées, effectifs, projection).
+- **Lettre de transmission** au Secrétaire Général préparée avec le dossier (destinataire, objet, références de la convocation, corps, pièces, copies), au modèle de la correspondance ; aperçu PDF.
+- **Circuit** (cahier, § 51) : Bureau Suivi-Évaluation (soumission, refusée tant qu’une erreur des annexes, une rubrique de la note ou un élément de la lettre manque) → **Chef de la Division Programme et Suivi** (vérification) → **Directeur** (validation et signature : la lettre reçoit son **numéro officiel** sur la séquence de la correspondance) → **transmission au Secrétaire Général** par le Directeur ou le Secrétariat de Direction ; retour pour correction motivé à la vérification et à la validation. Historique, audit, notifications et files « À traiter » à chaque étape.
+- **Archivage** : le dossier validé puis transmis est intangible en base (annexes, note, lettre et numéro) ; le Secrétaire Général le consulte dès sa validation.
+- **CDS-MT** : à la transmission, les projections de l’annexe II sont reportées (en ajout seul) dans le Cadre de Dépenses Sectorielles à Moyen Terme ; onglet « Projections CDS-MT » (par action et par année, la projection la plus récente l’emportant).
+- **Exports** : dossier complet en PDF (note de présentation et annexes I à V, en paysage), annexes en Excel (une feuille par annexe, taux, écarts et totaux en formules), lettre de transmission en PDF ; en-tête et pied de page officiels.
+- Démonstration : dossier de l’exercice précédent parcouru jusqu’à la transmission (lettre numérotée, projections reportées dans le CDS-MT) ; dossier de l’exercice en cours en préparation.
+- Tests : 2 nouveaux côté API (circuit complet, intangibilité et CDS-MT) ; 2 nouveaux côté interface.
+
 ## 1.42.0
 
 ### Lot E — évaluation des politiques sectorielles et budgétaires (étape 1 : dossier et annexes)

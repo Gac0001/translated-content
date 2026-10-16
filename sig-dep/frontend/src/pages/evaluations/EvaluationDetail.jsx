@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { AlertTriangle, CircleAlert, Pencil, Plus, RefreshCw, RotateCcw } from 'lucide-react';
-import api from '../../lib/api';
+import { AlertTriangle, CheckCircle2, CircleAlert, FileDown, FileSpreadsheet, Pencil, Plus, RefreshCw, RotateCcw, Send, Signature, Undo2 } from 'lucide-react';
+import api, { download, errorMessage } from '../../lib/api';
+import { useAuth } from '../../store/auth';
+import { circuitEvaluation } from '../../lib/workflows';
+import { NotePresentation, LettreTransmission } from './Redaction';
 import {
   useApi, Loadable, PageHeader, Card, Badge, Button, KeyValues, SimpleTable, FormModal, Field, NumberInput, MoneyInput, KpiTile, Tabs,
-  InfoAlert, StatusBadge, useOnglet, runAction, useConfirm, toast,
+  InfoAlert, StatusBadge, useOnglet, runAction, useConfirm, toast, WorkflowPanel,
 } from '../../components/ui';
 import { Attachments, Timeline } from '../../components/shared';
 import { fmtCdf, fmtDate, fmtNombre, fmtPourcent } from '../../lib/format';
@@ -240,12 +243,33 @@ function Annexe({ e, code, onEdit, reload }) {
  * Dossier d’évaluation des politiques sectorielles et budgétaires (cahier, §§ 34 et 51) :
  * synthèse des contrôles, pièces (convocation, états de la DRH), annexes I à V.
  */
+function attente(e) {
+  return {
+    PREPARATION: 'En préparation au Bureau Suivi-Évaluation.', A_CORRIGER: 'Retourné au Bureau Suivi-Évaluation pour correction.',
+    SOUMIS: 'En attente de vérification par le Chef de la Division Programme et Suivi.', VERIFIE: 'En attente de validation et de signature de la lettre par le Directeur.',
+    VALIDE: `Lettre ${e.numero_lettre} signée : dossier à transmettre au Secrétaire Général par le Directeur ou le Secrétariat de Direction.`,
+    TRANSMIS: `Transmis au Secrétaire Général le ${fmtDate(e.transmis_at)} (lettre ${e.numero_lettre}) : dossier archivé, projections reportées dans le CDS-MT.`,
+  }[e.statut];
+}
+
 export default function EvaluationDetail() {
   const { id } = useParams();
   const state = useApi(`/evaluations/${id}`, [id]);
-  const [onglet, choisir] = useOnglet('synthese', { valeurs: ['synthese', 'I', 'II', 'III', 'IV', 'V'] });
+  const [onglet, choisir] = useOnglet('synthese', { valeurs: ['synthese', 'note', 'lettre', 'I', 'II', 'III', 'IV', 'V'] });
   const [edition, setEdition] = useState(null);
   const [entete, setEntete] = useState(false);
+  const can = useAuth((s) => s.can);
+  const confirm = useConfirm();
+  const etape = async (chemin, message, opts) => {
+    let body;
+    if (opts) {
+      const r = await confirm(opts);
+      if (!r) return;
+      if (typeof r === 'string') body = { motif: r };
+    }
+    await runAction(() => api.post(`/evaluations/${id}/${chemin}`, body), message).then(() => state.reload()).catch(() => {});
+  };
+  const telecharger = (chemin, nom) => download(`/evaluations/${id}/${chemin}`, nom).catch((x) => toast.error(errorMessage(x)));
   return (
     <Loadable state={state}>
       {(e) => {
@@ -261,7 +285,26 @@ export default function EvaluationDetail() {
             <PageHeader title={`Évaluation des politiques ${e.annee}`}
               subtitle={<span className="flex flex-wrap items-center gap-2">{e.reference}<StatusBadge value={e.statut} /></span>}
               breadcrumb={[{ label: 'Évaluation des politiques', to: '/evaluations' }, { label: String(e.annee) }]}
-              menu={[e.droits.modifier && { label: 'Convocation et projection', icon: Pencil, onClick: () => setEntete(true) }]} />
+              menu={[
+                e.droits.modifier && { label: 'Convocation et projection', icon: Pencil, onClick: () => setEntete(true) },
+                can('exports.generer') && { label: 'Dossier complet (PDF)', icon: FileDown, onClick: () => telecharger('export/pdf', `evaluation-${e.annee}.pdf`) },
+                can('exports.generer') && { label: 'Annexes (Excel)', icon: FileSpreadsheet, onClick: () => telecharger('export/xlsx', `evaluation-${e.annee}-annexes.xlsx`) },
+                can('exports.generer') && { label: e.numero_lettre ? 'Lettre de transmission (PDF)' : 'Projet de lettre (PDF)', icon: FileDown, onClick: () => telecharger('lettre/pdf', `lettre-transmission-${e.annee}.pdf`) },
+              ]} />
+            <WorkflowPanel circuit={circuitEvaluation(e)} attente={attente(e)}
+              message={<>
+                {e.statut === 'A_CORRIGER' && <InfoAlert tone="warning"><b>À corriger</b> : {e.observations}</InfoAlert>}
+                {e.droits.soumettre && e.bloquants.length > 0 && (
+                  <InfoAlert tone="warning"><b>Avant de soumettre</b> : <ul className="ml-4 list-disc">{e.bloquants.map((b) => <li key={b}>{b}</li>)}</ul></InfoAlert>
+                )}
+              </>}
+              actions={[
+                e.droits.soumettre && <Button key="so" variant="primary" icon={Send} disabled={e.bloquants.length > 0} onClick={() => etape('soumettre', 'Dossier soumis au Chef de la Division Programme et Suivi.')}>Soumettre</Button>,
+                e.droits.verifier && <Button key="ve" variant="success" icon={CheckCircle2} onClick={() => etape('verifier', 'Dossier vérifié : transmis au Directeur.')}>Vérifié</Button>,
+                e.droits.valider && <Button key="va" variant="success" icon={Signature} onClick={() => etape('valider', 'Dossier validé : la lettre de transmission est signée et numérotée.', { title: `Valider l’évaluation ${e.annee}`, message: 'La lettre de transmission recevra son numéro officiel ; le dossier deviendra intangible.', confirmLabel: 'Valider et signer' })}>Valider et signer</Button>,
+                e.droits.retourner && <Button key="re" icon={Undo2} onClick={() => etape('retourner', 'Dossier retourné au Bureau Suivi-Évaluation.', { title: 'Retourner pour correction', message: 'Le dossier sera renvoyé au Bureau Suivi-Évaluation.', input: { label: 'Corrections demandées', required: true, min: 5 }, confirmLabel: 'Retourner', danger: true })}>Retourner</Button>,
+                e.droits.transmettre && <Button key="tr" variant="primary" icon={Send} onClick={() => etape('transmettre', 'Dossier transmis au Secrétaire Général ; projections reportées dans le CDS-MT.', { title: 'Transmettre au Secrétaire Général', message: `Le dossier sera transmis avec la lettre ${e.numero_lettre}, archivé, et ses projections reportées dans le CDS-MT.`, confirmLabel: 'Transmettre' })}>Transmettre au SG</Button>,
+              ]} />
             <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <KpiTile label="Erreurs à corriger" valeur={String(e.controle.erreurs)} tone={e.controle.erreurs ? 'rouge' : 'vert'} />
               <KpiTile label="Alertes à justifier" valeur={String(e.controle.alertes)} tone={e.controle.alertes ? 'jaune' : 'vert'} />
@@ -269,8 +312,10 @@ export default function EvaluationDetail() {
               <KpiTile label="Échéance" valeur={e.date_limite ? fmtDate(e.date_limite) : '—'} tone="gris" />
             </div>
             <Tabs label="Parties du dossier" value={onglet} onChange={choisir} compact={3}
-              tabs={[{ value: 'synthese', label: 'Synthèse et contrôle' }, ...['I', 'II', 'III', 'IV', 'V'].map((c) => ({ value: c, label: `Annexe ${c}`, count: parAnnexe(c) }))]} />
-            {onglet === 'synthese' ? (
+              tabs={[{ value: 'synthese', label: 'Synthèse et contrôle' }, { value: 'note', label: 'Note de présentation' }, ...['I', 'II', 'III', 'IV', 'V'].map((c) => ({ value: c, label: `Annexe ${c}`, count: parAnnexe(c) })), { value: 'lettre', label: 'Lettre de transmission' }]} />
+            {onglet === 'note' ? <NotePresentation key={`note-${e.updated_at}`} e={e} onSaved={state.reload} />
+              : onglet === 'lettre' ? <LettreTransmission key={`lettre-${e.updated_at}`} e={e} onSaved={state.reload} />
+                : onglet === 'synthese' ? (
               <div className="grid gap-4 lg:grid-cols-3">
                 <div className="space-y-4 lg:col-span-2">
                   <Card title="Contrôle du dossier" bodyClass="p-0">

@@ -17,7 +17,11 @@ const { notify } = require('../../services/notifications');
 const { addHistory, getHistory } = require('../../services/history');
 const { nextReference } = require('../../services/sequence');
 const { loadAllNodes } = require('../../services/hierarchy');
+const { directeursActifs } = require('../../services/alertes');
+const correspondance = require('../../services/correspondance');
+const { BY_CODE } = require('../documents/types');
 const evaluation = require('../../services/evaluation');
+const dossierService = require('../../services/evaluationDossier');
 const { badRequest, forbidden, notFound, conflict } = require('../../utils/errors');
 
 const router = express.Router();
@@ -35,14 +39,22 @@ function scopeEvaluations(qb, ctx) {
   return ctx.perimetre === 'SUPERVISION_GLOBALE' ? qb.whereIn('statut', VISIBLE_SUPERVISION) : qb;
 }
 
-/** Droits sur un dossier : préparation (Bureau Suivi-Évaluation), projection (Bureau Programme). */
+/**
+ * Droits sur un dossier : préparation et soumission (Bureau Suivi-Évaluation), projection (Bureau
+ * Programme), vérification (Chef de la Division Programme et Suivi), validation et signature de la
+ * lettre (Directeur), transmission au Secrétaire Général (Directeur ou Secrétariat de Direction).
+ */
 function droits(ctx, e) {
   const modifiable = MODIFIABLE.includes(e.statut);
   const preparer = ctx.can('evaluation.preparer') && modifiable;
+  const verifier = ctx.can('evaluation.verifier') && e.statut === 'SOUMIS';
+  const valider = ctx.can('evaluation.valider') && e.statut === 'VERIFIE';
   return {
     modifier: preparer,
     annexes: Object.fromEntries(Object.keys(evaluation.ANNEXES).map((a) => [a, preparer || (a === 'II' && ctx.can('evaluation.contribuer') && modifiable)])),
     pieces: preparer,
+    soumettre: preparer, verifier, valider, retourner: verifier || valider,
+    transmettre: (ctx.can('evaluation.transmettre') || ctx.can('evaluation.valider')) && e.statut === 'VALIDE' && ctx.perimetre !== 'SUPERVISION_GLOBALE',
   };
 }
 
@@ -59,6 +71,21 @@ async function comptesBureau(code) {
   const b = await db('bureaux').where({ code }).first('id');
   return b ? (await loadAllNodes()).filter((n) => n.node && n.bureauId === b.id).map((n) => n.userId) : [];
 }
+
+/** Comptes de la Division Programme et Suivi (Chef de Division, titulaire ou intérimaire). */
+async function chefsDivisionPs() {
+  const d = await db('divisions').where({ code: 'DIV-PS' }).first('id');
+  return d ? (await loadAllNodes()).filter((n) => n.node && n.divisionId === d.id && !n.bureauId && n.primaryRole === 'CHEF_DIVISION').map((n) => n.userId) : [];
+}
+async function secretairesGeneraux() {
+  return db('users as u').join('user_roles as ur', 'ur.user_id', 'u.id').join('roles as r', 'r.id', 'ur.role_id')
+    .where({ 'r.code': 'SECRETAIRE_GENERAL', 'u.statut': 'ACTIF' }).pluck('u.id');
+}
+
+/** CDS-MT : projections reportées depuis les dossiers transmis (déclarée avant « /:id »). */
+router.get('/cdsmt', requirePerm('planification.consulter'), async (req, res) => {
+  res.json(await dossierService.cdsmt());
+});
 
 router.get('/', requirePerm('planification.consulter'), async (req, res) => {
   const rows = await scopeEvaluations(db('evaluations as e'), req.ctx).orderBy('annee', 'desc')
@@ -97,9 +124,12 @@ router.post('/', requirePerm('planification.consulter'), validate({ body: entete
 
 router.get('/:id', requirePerm('planification.consulter'), validate({ params: idParam }), async (req, res) => {
   const e = await charger(req.ctx, req.valid.params.id);
+  const d = await evaluation.dossier(e);
   res.json({
-    ...presenter(e), ...(await evaluation.dossier(e)), historique: await getHistory('EVALUATION', e.id),
+    ...presenter(e), ...d, historique: await getHistory('EVALUATION', e.id),
     droits: droits(req.ctx, e), niveaux: evaluation.NIVEAUX,
+    lettre: dossierService.lettre(e), rubriques: dossierService.NOTE, resume_propose: dossierService.resumePropose(e, d),
+    bloquants: dossierService.bloquants(e, d),
   });
 });
 
@@ -180,6 +210,120 @@ router.delete('/:id/lignes/:ligneId', requirePerm('planification.consulter'), va
   await addHistory('EVALUATION', e.id, req.ctx.userId, { action: 'LIGNE_SUPPRIMEE', commentaire: `Annexe ${l.annexe} : ${l.valeurs[evaluation.LIBELLE[l.annexe]]}` });
   await audit(req, { action: 'SUPPRESSION', module: 'planification', entite: 'evaluation_ligne', entiteId: l.id, avant: l.valeurs });
   res.json({ ok: true });
+});
+
+// ─── Note de présentation et lettre de transmission ─────────────────────────
+const texte = z.string().trim().max(20000).optional().nullable();
+router.put('/:id/note', requirePerm('planification.consulter'), validate({ params: idParam, body: z.object(Object.fromEntries(dossierService.NOTE.map(([k]) => [k, texte]))) }), async (req, res) => {
+  const e = await charger(req.ctx, req.valid.params.id);
+  if (!droits(req.ctx, e).modifier) throw forbidden('La note de présentation est rédigée par le Bureau Suivi-Évaluation pendant la préparation.');
+  const note = Object.fromEntries(dossierService.NOTE.map(([k]) => [k, req.valid.body[k] || null]));
+  await db('evaluations').where({ id: e.id }).update({ note: JSON.stringify(note), updated_at: db.fn.now() });
+  await addHistory('EVALUATION', e.id, req.ctx.userId, { action: 'MODIFICATION', commentaire: 'Note de présentation' });
+  await audit(req, { action: 'MODIFICATION', module: 'planification', entite: 'evaluation', entiteId: e.id, message: 'Note de présentation' });
+  res.json({ note });
+});
+
+router.put('/:id/lettre', requirePerm('planification.consulter'), validate({ params: idParam, body: z.object({
+  destinataire: z.string().trim().min(3).max(300), adresse: z.string().trim().max(300).optional().nullable(), objet: z.string().trim().min(3).max(500),
+  references: z.string().trim().max(500).optional().nullable(), formule_appel: z.string().trim().max(300).optional().nullable(), corps: z.string().trim().min(10).max(20000),
+  formule_finale: z.string().trim().max(500).optional().nullable(), signataire_nom: z.string().trim().max(200).optional().nullable(),
+  pieces: z.array(z.string().trim().min(1).max(300)).max(30).optional(), copies: z.array(z.string().trim().min(1).max(300)).max(30).optional(),
+}) }), async (req, res) => {
+  const e = await charger(req.ctx, req.valid.params.id);
+  if (!droits(req.ctx, e).modifier) throw forbidden('La lettre de transmission est préparée par le Bureau Suivi-Évaluation pendant la préparation.');
+  await db('evaluations').where({ id: e.id }).update({ lettre: JSON.stringify(req.valid.body), updated_at: db.fn.now() });
+  await addHistory('EVALUATION', e.id, req.ctx.userId, { action: 'MODIFICATION', commentaire: 'Lettre de transmission' });
+  await audit(req, { action: 'MODIFICATION', module: 'planification', entite: 'evaluation', entiteId: e.id, message: 'Lettre de transmission' });
+  res.json({ lettre: dossierService.lettre({ ...e, lettre: req.valid.body }) });
+});
+
+// ─── Circuit ────────────────────────────────────────────────────────────────
+const lien = (e, onglet) => `/evaluations/${e.id}${onglet ? `?onglet=${onglet}` : ''}`;
+async function changer(req, e, patch, action, { commentaire = null, details = null } = {}, trx = db) {
+  const [u] = await trx('evaluations').where({ id: e.id }).update({ ...patch, updated_at: trx.fn.now() }).returning('*');
+  await addHistory('EVALUATION', e.id, req.ctx.userId, { action, ancien: e.statut, nouveau: u.statut, commentaire, details }, trx);
+  return u;
+}
+
+router.post('/:id/soumettre', requirePerm('planification.consulter'), validate({ params: idParam }), async (req, res) => {
+  const e = await charger(req.ctx, req.valid.params.id);
+  if (!droits(req.ctx, e).soumettre) throw forbidden('Le dossier est soumis par le Bureau Suivi-Évaluation pendant la préparation.');
+  const bloquants = dossierService.bloquants(e, await evaluation.dossier(e));
+  if (bloquants.length) throw badRequest(`Dossier incomplet : ${bloquants.join(' ')}`);
+  const u = await changer(req, e, { statut: 'SOUMIS', soumis_par: req.ctx.userId, soumis_at: db.fn.now() }, 'SOUMISSION');
+  await audit(req, { action: 'MODIFICATION', module: 'planification', entite: 'evaluation', entiteId: e.id, message: `Évaluation ${e.annee} soumise` });
+  await notify(await chefsDivisionPs(), { type: 'EVALUATION', titre: `Évaluation des politiques ${e.annee} à vérifier`, message: e.reference, lien: lien(e), expediteur: req.ctx.userId });
+  res.json(presenter(u));
+});
+
+router.post('/:id/verifier', requirePerm('planification.consulter'), validate({ params: idParam }), async (req, res) => {
+  const e = await charger(req.ctx, req.valid.params.id);
+  if (!droits(req.ctx, e).verifier) throw forbidden('Le dossier soumis est vérifié par le Chef de la Division Programme et Suivi.');
+  const u = await changer(req, e, { statut: 'VERIFIE', verifie_par: req.ctx.userId, verifie_at: db.fn.now() }, 'VERIFICATION');
+  await audit(req, { action: 'MODIFICATION', module: 'planification', entite: 'evaluation', entiteId: e.id, message: `Évaluation ${e.annee} vérifiée` });
+  await notify(await directeursActifs(), { type: 'EVALUATION', titre: `Évaluation des politiques ${e.annee} à valider`, message: `${e.reference} — lettre de transmission à signer`, lien: lien(e), expediteur: req.ctx.userId });
+  res.json(presenter(u));
+});
+
+/** Validation du Directeur : signature de la lettre de transmission, qui reçoit son numéro officiel. */
+router.post('/:id/valider', requirePerm('evaluation.valider'), validate({ params: idParam }), async (req, res) => {
+  const e = await charger(req.ctx, req.valid.params.id);
+  if (!droits(req.ctx, e).valider) throw forbidden('Le dossier vérifié est validé par le Directeur.');
+  const u = await db.transaction(async (trx) => {
+    const n = await correspondance.numeroter(trx, dossierService.documentLettre(e), BY_CODE.LETTRE_TRANSMISSION, req.ctx.userId);
+    return changer(req, e, {
+      statut: 'VALIDE', valide_par: req.ctx.userId, valide_at: trx.fn.now(),
+      numero_lettre: n.numero_officiel, numerote_at: n.numerote_at, identite_version_id: n.identite_version_id,
+    }, 'VALIDATION', { commentaire: `Lettre de transmission signée : ${n.numero_officiel}` }, trx);
+  });
+  await audit(req, { action: 'VALIDATION', module: 'planification', entite: 'evaluation', entiteId: e.id, message: `Évaluation ${e.annee} validée, lettre ${u.numero_lettre}` });
+  const bsd = await comptesBureau('BSD');
+  await notify([e.prepare_par, e.verifie_par, ...bsd], { type: 'EVALUATION', titre: `Évaluation des politiques ${e.annee} validée`, message: `Lettre ${u.numero_lettre} : dossier à transmettre au Secrétaire Général`, lien: lien(e), expediteur: req.ctx.userId });
+  res.json(presenter(u));
+});
+
+router.post('/:id/retourner', requirePerm('planification.consulter'), validate({ params: idParam, body: z.object({ motif: z.string().trim().min(5).max(5000) }) }), async (req, res) => {
+  const e = await charger(req.ctx, req.valid.params.id);
+  if (!droits(req.ctx, e).retourner) throw forbidden('Vous ne pouvez pas retourner ce dossier à cette étape.');
+  const u = await changer(req, e, { statut: 'A_CORRIGER', observations: req.valid.body.motif }, 'RETOUR_CORRECTION', { commentaire: req.valid.body.motif });
+  await audit(req, { action: 'MODIFICATION', module: 'planification', entite: 'evaluation', entiteId: e.id, message: 'Retour pour correction' });
+  await notify([e.prepare_par, e.soumis_par], { type: 'EVALUATION', titre: `Évaluation des politiques ${e.annee} à corriger`, message: req.valid.body.motif, lien: lien(e), expediteur: req.ctx.userId });
+  res.json(presenter(u));
+});
+
+/** Transmission au Secrétaire Général : archivage du dossier et report des projections dans le CDS-MT. */
+router.post('/:id/transmettre', requirePerm('planification.consulter'), validate({ params: idParam }), async (req, res) => {
+  const e = await charger(req.ctx, req.valid.params.id);
+  if (!droits(req.ctx, e).transmettre) throw forbidden('Le dossier validé est transmis par le Directeur ou le Secrétariat de Direction.');
+  const d = await evaluation.dossier(e);
+  const { u, reportees } = await db.transaction(async (trx) => {
+    const n = await dossierService.reporterCdsmt(trx, e, d, req.ctx.userId);
+    const x = await changer(req, e, { statut: 'TRANSMIS', transmis_par: req.ctx.userId, transmis_at: trx.fn.now() }, 'TRANSMISSION',
+      { commentaire: `Transmis au Secrétaire Général (lettre ${e.numero_lettre}) ; ${n} projection(s) reportée(s) dans le CDS-MT`, details: { cdsmt: n } }, trx);
+    return { u: x, reportees: n };
+  });
+  await audit(req, { action: 'MODIFICATION', module: 'planification', entite: 'evaluation', entiteId: e.id, message: `Évaluation ${e.annee} transmise au Secrétaire Général` });
+  await notify(await secretairesGeneraux(), { type: 'EVALUATION', titre: `Dossier d’évaluation des politiques ${e.annee}`, message: `Lettre ${e.numero_lettre} de la Direction d’Études et Planification`, lien: lien(e), expediteur: req.ctx.userId });
+  await notify([e.prepare_par], { type: 'EVALUATION', titre: `Évaluation des politiques ${e.annee} transmise`, message: `${reportees} projection(s) reportée(s) dans le CDS-MT`, lien: lien(e), expediteur: req.ctx.userId });
+  res.json({ ...presenter(u), cdsmt: reportees });
+});
+
+// ─── Exports ────────────────────────────────────────────────────────────────
+router.get('/:id/export/:format', requirePerm('exports.generer'), validate({ params: idParam.extend({ format: z.enum(['pdf', 'xlsx']) }) }), async (req, res) => {
+  const e = await charger(req.ctx, req.valid.params.id);
+  const d = await evaluation.dossier(e);
+  await audit(req, { action: 'EXPORT', module: 'planification', entite: 'evaluation', entiteId: e.id, message: `Dossier ${e.annee} (${req.valid.params.format})` });
+  if (req.valid.params.format === 'pdf') return dossierService.pdf(res, e, d);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="evaluation-politiques-${e.annee}-annexes.xlsx"`);
+  return res.send(await dossierService.excel(e, d));
+});
+
+router.get('/:id/lettre/pdf', requirePerm('exports.generer'), validate({ params: idParam }), async (req, res) => {
+  const e = await charger(req.ctx, req.valid.params.id);
+  await audit(req, { action: 'EXPORT', module: 'planification', entite: 'evaluation', entiteId: e.id, message: `Lettre de transmission ${e.numero_lettre || '(projet)'}` });
+  return correspondance.pdfLettre(res, dossierService.documentLettre(e), BY_CODE.LETTRE_TRANSMISSION, `lettre-transmission-evaluation-${e.annee}.pdf`);
 });
 
 module.exports = router;

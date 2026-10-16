@@ -84,23 +84,34 @@ async function planification(ctx, aujourdhui) {
 
 // ─── Évaluation des politiques sectorielles et budgétaires ──────────────────
 /**
- * Dossiers en préparation : le Bureau Suivi-Évaluation les complète tant qu’une anomalie bloque ;
- * le Bureau Programme, tant que la projection (annexe II) n’est pas complète.
+ * Dossiers en préparation : le Bureau Suivi-Évaluation les complète tant qu’un point bloque la
+ * soumission ; le Bureau Programme, tant que la projection (annexe II) n’est pas complète.
+ * Puis vérification (Chef de la Division Programme et Suivi), validation (Directeur) et
+ * transmission au Secrétaire Général (Directeur ou Secrétariat de Direction).
  */
 async function evaluations(ctx) {
   const preparer = ctx.can('evaluation.preparer'); const contribuer = ctx.can('evaluation.contribuer');
-  if (!preparer && !contribuer) return [];
-  const evaluation = require('./evaluation');
-  const rows = await db('evaluations').whereIn('statut', ['PREPARATION', 'A_CORRIGER']).orderByRaw('date_limite NULLS LAST').orderBy('annee');
-  const lignes = [];
-  for (const e of rows) {
-    const d = await evaluation.dossier(e);
-    const erreurs = d.anomalies.filter((a) => a.gravite === 'ERREUR' && (preparer || a.annexe === 'II')).length;
-    if (erreurs || (preparer && e.statut === 'A_CORRIGER')) lignes.push({ e, erreurs });
-  }
   const echeance = (e) => (e.date_limite instanceof Date ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kinshasa' }).format(e.date_limite) : e.date_limite ? String(e.date_limite).slice(0, 10) : null);
-  return [file(preparer ? 'evaluations_preparer' : 'evaluations_projection', 'evaluations', preparer ? 'Dossiers d’évaluation à compléter' : 'Projection sur trois ans à compléter (évaluation)', '/evaluations', lignes,
-    ({ e, erreurs }) => ({ id: `eval-${e.id}`, titre: `Évaluation des politiques ${e.annee}`, detail: `${e.reference} — ${erreurs} anomalie(s) bloquante(s)${preparer ? '' : ' dans l’annexe II'}`, echeance: echeance(e), to: `/evaluations/${e.id}${preparer ? '' : '?onglet=II'}`, statut: e.statut }))];
+  const item = (e, detail, onglet) => ({ id: `eval-${e.id}`, titre: `Évaluation des politiques ${e.annee}`, detail, echeance: echeance(e), to: `/evaluations/${e.id}${onglet ? `?onglet=${onglet}` : ''}`, statut: e.statut });
+  const rows = (statuts) => db('evaluations').whereIn('statut', statuts).orderByRaw('date_limite NULLS LAST').orderBy('annee');
+  const out = [];
+  if (preparer || contribuer) {
+    const evaluation = require('./evaluation');
+    const dossierService = require('./evaluationDossier');
+    const lignes = [];
+    for (const e of await rows(['PREPARATION', 'A_CORRIGER'])) {
+      const d = await evaluation.dossier(e);
+      const n = preparer ? dossierService.bloquants(e, d).length : d.anomalies.filter((a) => a.gravite === 'ERREUR' && a.annexe === 'II').length;
+      if (n || (preparer && e.statut === 'A_CORRIGER')) lignes.push({ e, n });
+    }
+    out.push(file(preparer ? 'evaluations_preparer' : 'evaluations_projection', 'evaluations', preparer ? 'Dossiers d’évaluation à compléter' : 'Projection sur trois ans à compléter (évaluation)', '/evaluations', lignes,
+      ({ e, n }) => item(e, `${e.reference} — ${n ? `${n} point(s) bloquant(s)${preparer ? '' : ' dans l’annexe II'}` : 'retourné pour correction'}`, preparer ? null : 'II')));
+  }
+  const etape = async (ok, statut, cle, titre, detail) => { if (ok) out.push(file(cle, 'evaluations', titre, '/evaluations', await rows([statut]), (e) => item(e, detail(e)))); };
+  await etape(ctx.can('evaluation.verifier'), 'SOUMIS', 'evaluations_verifier', 'Dossiers d’évaluation à vérifier', (e) => e.reference);
+  await etape(ctx.can('evaluation.valider'), 'VERIFIE', 'evaluations_valider', 'Dossiers d’évaluation à valider', (e) => `${e.reference} — lettre de transmission à signer`);
+  await etape((ctx.can('evaluation.transmettre') || ctx.can('evaluation.valider')) && ctx.perimetre !== 'SUPERVISION_GLOBALE', 'VALIDE', 'evaluations_transmettre', 'Dossiers d’évaluation à transmettre au Secrétaire Général', (e) => `Lettre ${e.numero_lettre}`);
+  return out;
 }
 
 // ─── Données sectorielles ───────────────────────────────────────────────────

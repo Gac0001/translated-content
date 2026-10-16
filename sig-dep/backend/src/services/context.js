@@ -127,6 +127,8 @@ async function loadContext(userId, trx = db) {
       permissions.add('presences.consulter');
       // Il prépare la création et la composition des groupes de travail de la Direction (cahier, § 14).
       permissions.add('groupes.gerer');
+      // Il envoie au Secrétaire Général le dossier d’évaluation des politiques validé (cahier, § 51).
+      permissions.add('evaluation.transmettre');
     }
   }
   // Planification (cadre organique) : le Bureau Programme prépare les PTBA, son Chef les vérifie ;
@@ -148,6 +150,7 @@ async function loadContext(userId, trx = db) {
     // Suivi-Évaluation prépare le dossier ; le Bureau Programme complète la projection (annexe II).
     if (aff.bureau_code === 'BUR-SEV') permissions.add('evaluation.preparer');
     if (aff.bureau_code === 'BUR-PRG') permissions.add('evaluation.contribuer');
+    if (primaryRole === 'CHEF_DIVISION' && perimetre === PERIMETRES.DIVISION && aff.division_code === 'DIV-PS') permissions.add('evaluation.verifier');
     // Données sectorielles : le Bureau Études, Analyses et Prospective conçoit les questionnaires et
     // organise les campagnes ; le Bureau Documentation et Information tient l’annuaire et contrôle
     // les réponses ; tous deux saisissent ; le Chef de la Division Études, Documentation et

@@ -228,3 +228,18 @@ export function circuitCarte(c) {
   }[c.statut] || {};
   return { etapes, courante: c.remise_at ? 3 : c.imprime_at ? 3 : 2, ...fin };
 }
+
+/**
+ * Évaluation des politiques : préparation (Bureau Suivi-Évaluation) → vérification (Chef de la
+ * Division Programme et Suivi) → validation et signature de la lettre (Directeur) → transmission au
+ * Secrétaire Général (dossier archivé, projections reportées dans le CDS-MT).
+ */
+export function circuitEvaluation(e) {
+  const etapes = ['Préparation', 'Vérification', 'Validation du Directeur', 'Transmission au SG', 'Transmis et archivé'];
+  const pos = { PREPARATION: 0, A_CORRIGER: 0, SOUMIS: 1, VERIFIE: 2, VALIDE: 3, TRANSMIS: 4 }[e.statut] ?? 0;
+  const details = { SOUMIS: { 1: 'Chez le Chef de la Division Programme et Suivi' }, VERIFIE: { 2: 'Chez le Directeur' }, VALIDE: { 3: `Lettre ${e.numero_lettre}` } }[e.statut] || {};
+  return {
+    etapes, courante: pos, termine: e.statut === 'TRANSMIS', details,
+    alerte: e.statut === 'A_CORRIGER' ? { tone: 'attention', label: 'Retourné pour correction' } : undefined,
+  };
+}

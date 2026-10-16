@@ -49,9 +49,38 @@ test.describe('Évaluation des politiques (ordinateur)', () => {
     await expect(page.getByRole('button', { name: 'Ajouter une ligne' })).toHaveCount(0);
   });
 
-  test('Secrétaire Général : dossier non visible avant validation', async ({ page }) => {
+  test('Bureau Suivi-Évaluation : note de présentation par étapes, lettre de transmission', async ({ page }) => {
+    await connexion(page, 'ag.sev1');
+    await page.goto('/evaluations');
+    await page.locator('main tbody tr', { hasText: 'En préparation' }).first().click();
+    await page.waitForURL(/\/evaluations\/\d+/);
+    await expect(page.getByRole('heading', { name: 'Circuit de traitement' })).toBeVisible();
+    await expect(page.getByText('Avant de soumettre')).toBeVisible();
+    await page.getByRole('tab', { name: 'Note de présentation' }).click();
+    await page.getByRole('button', { name: 'Rédiger' }).click();
+    await page.getByRole('navigation', { name: 'Rubriques de la note de présentation' }).getByRole('button', { name: /Résumé de l’évaluation/ }).click();
+    await page.getByRole('button', { name: 'Reprendre le résumé chiffré' }).click();
+    await expect(page.getByLabel('Résumé de l’évaluation')).toHaveValue(/Au titre de l’exercice/);
+    await capture(page, 'note-presentation');
+    await page.getByRole('button', { name: 'Enregistrer la note' }).click();
+    await expect(page.getByText('Note de présentation enregistrée.')).toBeVisible();
+    await page.getByRole('tab', { name: 'Lettre de transmission' }).click();
+    await expect(page.getByText('Attribué à la signature du Directeur')).toBeVisible();
+    await capture(page, 'lettre');
+  });
+
+  test('Secrétaire Général : dossier transmis de l’exercice précédent et projections du CDS-MT', async ({ page }) => {
     await connexion(page, 'sg');
     await page.goto('/evaluations');
-    await expect(page.getByText('Aucun dossier d’évaluation')).toBeVisible();
+    await expect(page.locator('main tbody tr', { hasText: 'En préparation' })).toHaveCount(0);
+    await page.locator('main tbody tr', { hasText: 'Transmis' }).first().click();
+    await page.waitForURL(/\/evaluations\/\d+/);
+    await expect(page.getByText(/Transmis au Secrétaire Général le .*lettre N°.\d{3}\//)).toBeVisible();
+    await capture(page, 'transmis');
+    await page.goto('/evaluations?onglet=cdsmt');
+    const cdsmt = page.getByRole('table', { name: 'Projections du CDS-MT' });
+    await expect(cdsmt.locator('tfoot')).toContainText('Total');
+    await expect(cdsmt.getByText(/Programme 01/)).toBeVisible();
+    await capture(page, 'cdsmt');
   });
 });
