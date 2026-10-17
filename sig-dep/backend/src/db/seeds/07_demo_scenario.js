@@ -13,7 +13,9 @@
  * carrière (élévation en grade d’un agent, promu en attente de poste), groupe de travail
  * (Cellule Genre, fictive), évaluation des politiques sectorielles et budgétaires (dossier de
  * l’exercice précédent transmis au Secrétaire Général et reporté dans le CDS-MT ; dossier de
- * l’exercice en cours en préparation).
+ * l’exercice en cours en préparation), collecte auprès des services du Secrétariat Général (campagne
+ * PTBA avec des contributions intégrée, rejetée, corrigée ou en erreur ; campagne des dépenses
+ * d’investissement avec un service en retard).
  * Les dates sont calculées à partir du jour du chargement : la démonstration paraît toujours à jour.
  */
 const config = require('../../config/env');
@@ -66,6 +68,7 @@ exports.seed = async function seed(knex) {
     await groupesTravail(api, knex);
     await evaluationAnterieure(api, plan);
     await evaluationPolitiques(api, plan);
+    await collecteServices(api, knex, plan);
   } finally {
     await new Promise((ok) => server.close(ok));
     await require('../../db/knex').destroy();
@@ -589,4 +592,65 @@ async function evaluationAnterieure(api, { A }) {
   await api('cd.ps', 'POST', `/evaluations/${e.id}/verifier`);
   await api('directeur', 'POST', `/evaluations/${e.id}/valider`);
   await api('cb.secretariat', 'POST', `/evaluations/${e.id}/transmettre`);
+}
+
+/**
+ * Collecte auprès des services du Secrétariat Général : les modèles sont générés par le SIG-DEP, remplis
+ * comme le ferait un service (données fictives), puis importés au travers de l’API.
+ */
+async function collecteServices(api, knex, { A }) {
+  const ExcelJS = require('exceljs');
+  const collectes = require('../../services/collectes');
+  const services = Object.fromEntries((await knex('plan_services').select('id', 'sigle', 'libelle', 'programme_id')).map((x) => [x.sigle, x]));
+  const retour = async (c, sigle, remplir, nom) => {
+    const cs = await knex('collecte_services').where({ collecte_id: c.id, service_id: services[sigle].id }).first();
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await collectes.modele({ ...c, echeance: new Date(c.echeance) }, services[sigle], cs));
+    const ws = wb.getWorksheet('Saisie');
+    const meta = {}; wb.getWorksheet('_sigdep').eachRow((r) => { meta[r.getCell(1).value] = r.getCell(2).value; });
+    const total = remplir(ws, Number(meta.ligne_entete));
+    if (meta.cellule_total) ws.getCell(meta.cellule_total).value = total;
+    const fd = new FormData();
+    fd.append('fichier', new Blob([Buffer.from(await wb.xlsx.writeBuffer())], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), nom);
+    await api('ag.prg1', 'POST', `/collectes/${c.id}/services/${cs.id}/import`, fd);
+    return cs;
+  };
+  const ptba = (lignes, ecartTotal = 0) => (ws, h) => {
+    lignes.forEach((l, i) => { const r = ws.getRow(h + 1 + i); [i + 1, ...l].forEach((v, k) => { r.getCell(k + 1).value = v; }); });
+    return lignes.reduce((t, l) => t + l[4], 0) + ecartTotal;
+  };
+  const x = 'x';
+  const c = await api('ag.prg1', 'POST', '/collectes', {
+    objet: 'PTBA', annee: A + 1, titre: `Collecte des PTBA ${A + 1} des services (démonstration)`, echeance: D(20),
+    instructions: 'Données fictives de démonstration : renseigner les activités, leur coût et leur chronogramme.',
+    services: ['DAF', 'DRH', 'CTA', 'DANTIC'].map((sg) => services[sg]?.id).filter(Boolean),
+  });
+  await api('cd.ps', 'POST', `/collectes/${c.id}/ouvrir`);
+  // DAF : contribution conforme, intégrée (PTBA brouillon du service)
+  const daf = await retour(c, 'DAF', ptba([
+    ['Améliorer la gestion budgétaire (démo)', 'Former les gestionnaires de crédits', 'Atelier de 3 jours', '1 — Coordination et planification', 25000000, x, x],
+    ['Améliorer la gestion budgétaire (démo)', 'Mettre à jour le manuel de procédures', null, null, 15000000, null, null, x, x],
+  ]), 'PTBA-DAF-demonstration.xlsx');
+  await api('cb.prg', 'POST', `/collectes/${c.id}/services/${daf.id}/integrer`);
+  // DRH : contribution rejetée (total déclaré erroné), puis corrigée et en attente d’intégration
+  const remplirDrh = (ecart) => ptba([['Gérer les carrières (démo)', 'Actualiser le fichier du personnel', null, null, 18000000, null, x, x]], ecart);
+  const drh = await retour(c, 'DRH', remplirDrh(2000000), 'PTBA-DRH-demonstration.xlsx');
+  await api('cb.prg', 'POST', `/collectes/${c.id}/services/${drh.id}/rejeter`, { motif: 'Le total déclaré ne correspond pas à la somme des activités (démonstration).' });
+  await retour(c, 'DRH', remplirDrh(0), 'PTBA-DRH-corrige-demonstration.xlsx');
+  // CTA : contribution reçue avec des erreurs (action inconnue, coût manquant)
+  await retour(c, 'CTA', ptba([['Appuyer le Cabinet (démo)', 'Organiser les revues trimestrielles', null, '9 — Action inconnue', 12000000, x], ['Appuyer le Cabinet (démo)', 'Produire les notes techniques', null, null, null, x]]), 'PTBA-CTA-demonstration.xlsx');
+  // DANTIC : attendu
+
+  // Dépenses d’investissement : DIN reçu, DCS en retard (l’échéance de la démonstration est déjà passée)
+  const inv = await api('ag.prg1', 'POST', '/collectes', {
+    objet: 'INVESTISSEMENT', annee: A + 1, titre: `Dépenses d’investissement ${A + 1}-${A + 3} (démonstration)`, echeance: D(5), services: ['DIN', 'DCS'].map((sg) => services[sg]?.id).filter(Boolean),
+  });
+  await api('cd.ps', 'POST', `/collectes/${inv.id}/ouvrir`);
+  await retour(inv, 'DIN', (ws, h) => {
+    const r = ws.getRow(h + 1);
+    [1, 'Extension de la dorsale à fibre optique (démo)', null, 'Construction/réhabilitation', 'Kinshasa', 'Prêt', 'Oui', 1500000000, 2500000000, 1000000000, null, 'Partenaires', 'Données fictives'].forEach((v, k) => { r.getCell(k + 1).value = v; });
+    return 5000000000;
+  }, 'investissements-DIN-demonstration.xlsx');
+  await knex('collectes').where({ id: inv.id }).update({ echeance: D(-2) });
+  await require('../../modules/collectes/routes').marquerRetards();
 }

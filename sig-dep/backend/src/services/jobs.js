@@ -119,10 +119,11 @@ async function controleSante() {
 
 async function suiviDecisions() { return require('./decisions').synchroniser(); }
 async function rappelsAgenda() { return require('./agenda').rappels(); }
+async function retardsCollectes() { return require('../modules/collectes/routes').marquerRetards(); }
 
 async function runAll() {
   if (maintenance.operationEnCours()) return; // restauration en cours
-  for (const fn of [markOverdue, remindDeadlines, purgeTokens, purgeDefis, desactiverInactifs, purgeSupervision, rapportMensuel, echeancesActes, gouvernancePeriodique, expirerCartes, suiviDecisions, rappelsAgenda]) {
+  for (const fn of [markOverdue, remindDeadlines, purgeTokens, purgeDefis, desactiverInactifs, purgeSupervision, rapportMensuel, echeancesActes, gouvernancePeriodique, expirerCartes, suiviDecisions, rappelsAgenda, retardsCollectes]) {
     try { await fn(); } catch (e) {
       console.error(`[JOBS] ${fn.name} :`, e.message);
       require('./erreurs').enregistrer(Object.assign(e, { contexte: `tâche ${fn.name}` }));
@@ -163,4 +164,4 @@ function start(intervalMs = 10 * 60000) {
   setTimeout(tacheSauvegardes, 20000);
 }
 
-module.exports = { start, runAll, echeancesActes, gouvernancePeriodique, expirerCartes, sendMails, markOverdue, remindDeadlines, desactiverInactifs, purgeSupervision, rapportMensuel, controleSante };
+module.exports = { start, runAll, retardsCollectes, echeancesActes, gouvernancePeriodique, expirerCartes, sendMails, markOverdue, remindDeadlines, desactiverInactifs, purgeSupervision, rapportMensuel, controleSante };

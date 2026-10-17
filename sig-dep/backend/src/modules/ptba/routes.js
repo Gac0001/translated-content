@@ -368,3 +368,4 @@ router.get('/:id/export/:format', requirePerm('exports.generer'), validate({ par
 });
 
 module.exports = router;
+module.exports.ecrireContenu = ecrireContenu;

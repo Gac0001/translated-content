@@ -299,7 +299,7 @@ router.get('/compteurs', async (req, res) => {
     systeme: { maintenance: { active: maintenance.active, message: maintenance.active ? maintenance.message : '', fin: maintenance.active ? maintenance.fin : '' }, demo: config.demo },
     documents: Number(docs.n), instructions: Number(instr.n) + instrAttente, taches: Number(taches.n) + tachesAttente, courriers: Number(courriers.n),
     pip: Number(pip.n), presences: parModule.presences || 0, alertes: Number(alertes.n), demandesInfo,
-    planification: parModule.planification || 0, evaluations: parModule.evaluations || 0, donnees: parModule.donnees || 0, reunions: parModule.reunions || 0,
+    planification: parModule.planification || 0, evaluations: parModule.evaluations || 0, collectes: parModule.collectes || 0, donnees: parModule.donnees || 0, reunions: parModule.reunions || 0,
     decisions: parModule.decisions || 0, actes: parModule.actes || 0, cartes: parModule.cartes || 0,
   });
 });

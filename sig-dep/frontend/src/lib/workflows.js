@@ -243,3 +243,10 @@ export function circuitEvaluation(e) {
     alerte: e.statut === 'A_CORRIGER' ? { tone: 'attention', label: 'Retourné pour correction' } : undefined,
   };
 }
+
+/** Campagne de collecte auprès des services : préparation (Bureau organisateur) → ouverte → clôturée. */
+export function circuitCollecte(c) {
+  const etapes = ['Préparation', 'Collecte ouverte', 'Clôturée'];
+  const pos = { PREPARATION: 0, OUVERTE: 1, CLOTUREE: 2 }[c.statut] ?? 0;
+  return { etapes, courante: pos, termine: c.statut === 'CLOTUREE', details: c.statut === 'OUVERTE' ? { 1: `Échéance le ${String(c.echeance).split('-').reverse().join('/')}` } : {} };
+}

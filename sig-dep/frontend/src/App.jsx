@@ -56,6 +56,8 @@ const GroupesList = p(() => import('./pages/groupes/GroupesList'));
 const GroupeDetail = p(() => import('./pages/groupes/GroupeDetail'));
 const EvaluationsList = p(() => import('./pages/evaluations/EvaluationsList'));
 const EvaluationDetail = p(() => import('./pages/evaluations/EvaluationDetail'));
+const CollectesList = p(() => import('./pages/collectes/CollectesList'));
+const CollecteDetail = p(() => import('./pages/collectes/CollecteDetail'));
 const PresenceJour = p(() => import('./pages/presences/PresenceJour'));
 const PresenceSemaine = p(() => import('./pages/presences/PresenceSemaine'));
 const MesPresences = p(() => import('./pages/presences/MesPresences'));
@@ -195,6 +197,8 @@ export default function App() {
             <Route path="groupes/:id" element={<GroupeDetail />} />
             <Route path="evaluations" element={<EvaluationsList />} />
             <Route path="evaluations/:id" element={<EvaluationDetail />} />
+            <Route path="collectes" element={<CollectesList />} />
+            <Route path="collectes/:id" element={<CollecteDetail />} />
             <Route path="presences/anciennes/:id" element={G(['presences.consulter', 'presences.preparer_direction'], <AncienneListe />)} />
             <Route path="courriers" element={G(['courriers.consulter'], <CourriersList />)} />
             <Route path="courriers/nouveau" element={G(['courriers.enregistrer'], <CourrierForm />)} />

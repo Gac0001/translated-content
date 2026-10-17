@@ -30,6 +30,7 @@ async function premiereFiche(page, motif) {
 const FICHES = [
   ['/planification', /^\/planification\/ptba\/\d+$/],
   ['/evaluations', /^\/evaluations\/\d+$/],
+  ['/collectes', /^\/collectes\/\d+$/],
   ['/donnees', /^\/donnees\/campagnes\/\d+$/],
   ['/reunions', /^\/reunions\/\d+$/],
   ['/decisions', /^\/decisions\/\d+$/],

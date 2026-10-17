@@ -1,5 +1,17 @@
 # Journal des versions — SIG-DEP
 
+## 1.44.0
+
+### Lot F — collecte auprès des services du Secrétariat Général (étape 1 : campagnes, modèles, import contrôlé, intégration)
+- **Campagnes de collecte** (cahier, § 36 ; menu Planification et données → « Collecte auprès des services ») : objet, exercice, services ciblés, échéance, instructions ; numérotées `DEP/COL/2026/0001`. Préparées par le **Bureau Programme** (PTBA, cadre de performance, dépenses d’investissement ; le Bureau Suivi-Évaluation pour les autres objets, à la version suivante), **ouvertes et clôturées par le Chef de la Division Programme et Suivi**.
+- **Modèle Excel par service**, généré par le SIG-DEP : en-tête officiel, service, programme et exercice pré-remplis, instructions et échéance, listes déroulantes tirées des référentiels (actions du programme, codes PIP, natures de coûts, sources de financement, maturité), total déclaré par le service, **feuille protégée** (seules les cellules de saisie sont ouvertes) et identification cachée (campagne, service, objet, version du modèle). Le cadre de performance reprend les indicateurs du programme et la réalisation de l’exercice précédent.
+- **Import contrôlé du fichier retourné** : bon modèle, bonne campagne et bon service, structure intacte, champs obligatoires, codes connus, nombres lisibles et positifs, **totaux** (total déclaré comparé à la somme des lignes), **doublons** ; rapport d’anomalies (erreurs et alertes, avec la cellule) ; **fichier d’origine conservé** avec chaque version reçue (réceptions en ajout seul).
+- **Statuts par service** : attendu, reçu, rejeté (avec motif), corrigé, intégré, **en retard** (posé chaque jour à l’échéance dépassée).
+- **Intégration** par le Chef du Bureau organisateur, refusée tant que la dernière version comporte des erreurs : **PTBA** → brouillon du service (créé, ou remplacé s’il est encore en préparation), qui suit ensuite le circuit habituel ; **cadre de performance** → réalisations et cibles des indicateurs ; **dépenses d’investissement** → projets de la banque de projets créés (fiche PIP en brouillon, coûts et financement sur trois ans) ou mis à jour (maturité, localisation, programme).
+- **Consolidation** des lignes reçues par campagne ; **files « À traiter »** : contributions à intégrer, contributions avec erreurs, services en retard, campagnes à ouvrir ; compteur du menu ; notifications.
+- Démonstration : campagne PTBA (contribution intégrée, rejetée puis corrigée, reçue avec erreurs, attendue) et campagne des dépenses d’investissement (service en retard).
+- Tests : 6 nouveaux côté API (modèles réellement remplis puis importés) ; 2 nouveaux côté interface.
+
 ## 1.43.0
 
 ### Lot E — évaluation des politiques sectorielles et budgétaires (étape 2 : note, circuit, lettre, exports, CDS-MT)

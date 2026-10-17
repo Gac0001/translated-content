@@ -151,6 +151,19 @@ async function loadContext(userId, trx = db) {
     if (aff.bureau_code === 'BUR-SEV') permissions.add('evaluation.preparer');
     if (aff.bureau_code === 'BUR-PRG') permissions.add('evaluation.contribuer');
     if (primaryRole === 'CHEF_DIVISION' && perimetre === PERIMETRES.DIVISION && aff.division_code === 'DIV-PS') permissions.add('evaluation.verifier');
+    // Collecte auprès des services du Secrétariat Général (cahier, § 36) : le Bureau Programme
+    // organise les campagnes PTBA, cadre de performance et dépenses d’investissement ; le Bureau
+    // Suivi-Évaluation, les autres ; leur Chef intègre ou rejette les retours ; le Chef de la Division
+    // Programme et Suivi ouvre et clôt toutes les campagnes.
+    if (aff.bureau_code === 'BUR-PRG') {
+      permissions.add('collecte.programme');
+      if (primaryRole === 'CHEF_BUREAU') permissions.add('collecte.decider.programme');
+    }
+    if (aff.bureau_code === 'BUR-SEV') {
+      permissions.add('collecte.suivi');
+      if (primaryRole === 'CHEF_BUREAU') permissions.add('collecte.decider.suivi');
+    }
+    if (primaryRole === 'CHEF_DIVISION' && perimetre === PERIMETRES.DIVISION && aff.division_code === 'DIV-PS') permissions.add('collecte.ouvrir');
     // Données sectorielles : le Bureau Études, Analyses et Prospective conçoit les questionnaires et
     // organise les campagnes ; le Bureau Documentation et Information tient l’annuaire et contrôle
     // les réponses ; tous deux saisissent ; le Chef de la Division Études, Documentation et

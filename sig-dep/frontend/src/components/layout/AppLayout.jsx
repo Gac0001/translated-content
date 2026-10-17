@@ -4,7 +4,7 @@ import { fmtDate } from '../../lib/format';
 import {
   LayoutDashboard, Network, BookOpen, Users, UsersRound, UserCog, CalendarCheck, Mail, Send, ListTodo, FileText, FolderKanban,
   Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2, Landmark, IdCard, BadgeCheck, MessageCircleQuestion,
-  Search, CalendarDays, Gavel, Presentation, Target, Database, ChevronDown, ClipboardCheck,
+  Search, CalendarDays, Gavel, Presentation, Target, Database, ChevronDown, ClipboardCheck, Inbox,
 } from 'lucide-react';
 import api, { MODIFICATION } from '../../lib/api';
 import { useAuth, useCompteurs } from '../../store/auth';
@@ -22,6 +22,7 @@ const MENU = [
   { section: 'Planification et données' },
   { to: '/planification', label: 'PTBA et exécution', icon: Target, perms: ['planification.consulter'], counter: 'planification' },
   { to: '/evaluations', label: 'Évaluation des politiques', icon: ClipboardCheck, perms: ['planification.consulter'], counter: 'evaluations' },
+  { to: '/collectes', label: 'Collecte auprès des services', icon: Inbox, perms: ['planification.consulter'], counter: 'collectes' },
   { to: '/donnees', label: 'Données sectorielles', icon: Database, perms: ['donnees.consulter'], counter: 'donnees' },
   { section: 'Organisation' },
   { to: '/organigramme', label: 'Organigramme', icon: Network, perms: ['organisation.consulter'] },

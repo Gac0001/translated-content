@@ -30,6 +30,7 @@ const TYPES = {
   PTBA: 'Plan de travail annuel budgétisé',
   DONNEES: 'Données sectorielles',
   EVALUATION: 'Évaluation des politiques sectorielles et budgétaires',
+  COLLECTE: 'Collecte auprès des services',
 };
 
 /**

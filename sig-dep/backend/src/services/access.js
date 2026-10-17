@@ -175,6 +175,11 @@ const LOADERS = {
     table: 'evaluations as e', alias: 'e', scope: (qb, ctx) => require('../modules/evaluations/routes').scopeEvaluations(qb, ctx),
     writers: (r, ctx) => (require('../modules/evaluations/routes').droits(ctx, r).pieces ? [ctx.userId] : []), strict: true,
   },
+  // Collecte auprès des services : fichiers retournés, conservés avec chaque réception (déposés par l’import seul)
+  COLLECTE: {
+    table: 'collectes as c', alias: 'c', scope: (qb, ctx) => (ctx.can('planification.consulter') && ctx.perimetre !== 'SUPERVISION_GLOBALE' ? qb : qb.whereRaw('false')),
+    writers: () => [], strict: true,
+  },
 };
 
 /** Charge un élément en vérifiant le périmètre ; mode 'write' exige d’être partie prenante. */

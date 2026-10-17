@@ -108,6 +108,7 @@ const protectedModules = {
   ptba: './modules/ptba/routes',
   programmation: './modules/programmation/routes',
   evaluations: './modules/evaluations/routes',
+  collectes: './modules/collectes/routes',
   donnees: './modules/donnees/routes',
 };
 for (const [path, mod] of Object.entries(protectedModules)) {

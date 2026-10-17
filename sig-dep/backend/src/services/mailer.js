@@ -43,6 +43,7 @@ const EMAIL_TYPES = {
   PTBA: 'PTBA à vérifier, consolider, valider ou corriger',
   DONNEES: 'Campagne de collecte ouverte ou à valider, réponse à contrôler ou à corriger',
   EVALUATION: 'Dossier d’évaluation des politiques sectorielles et budgétaires à compléter, vérifier ou valider',
+  COLLECTE: 'Campagne de collecte auprès des services ouverte, contribution à intégrer',
 };
 
 const RETRY_MINUTES = [1, 5, 15, 60, 240];

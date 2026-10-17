@@ -114,6 +114,33 @@ async function evaluations(ctx) {
   return out;
 }
 
+// ─── Collecte auprès des services du Secrétariat Général ────────────────────
+async function collectes(ctx) {
+  if (ctx.perimetre === 'SUPERVISION_GLOBALE') return [];
+  const { OBJETS } = require('./collectes');
+  const objetsDe = (pred) => Object.keys(OBJETS).filter((o) => pred(OBJETS[o].bureau));
+  const ouvrir = ctx.can('collecte.ouvrir');
+  const decider = objetsDe((b) => ouvrir || ctx.can(`collecte.decider.${b}`));
+  const preparer = objetsDe((b) => ouvrir || ctx.can(`collecte.${b}`));
+  const out = [];
+  const lignes = (statuts, objets) => (objets.length ? db('collecte_services as cs').join('collectes as c', 'c.id', 'cs.collecte_id').join('plan_services as s', 's.id', 'cs.service_id')
+    .where('c.statut', 'OUVERTE').whereIn('c.objet', objets).whereIn('cs.statut', statuts).orderBy('c.echeance').orderBy('s.sigle')
+    .select('cs.id', 'cs.statut', 's.sigle', 'c.id as collecte_id', 'c.titre', 'c.reference', 'c.echeance',
+      db.raw('(SELECT r.erreurs FROM collecte_receptions r WHERE r.collecte_service_id = cs.id ORDER BY r.version DESC LIMIT 1) as erreurs')) : []);
+  const echeance = (x) => (x.echeance instanceof Date ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kinshasa' }).format(x.echeance) : String(x.echeance).slice(0, 10));
+  const item = (x, detail) => ({ id: `col-${x.id}`, titre: `${x.sigle} — ${x.titre}`, detail, echeance: echeance(x), to: `/collectes/${x.collecte_id}`, statut: x.statut });
+  const recus = (await lignes(['RECU', 'CORRIGE'], decider)).filter((x) => !Number(x.erreurs));
+  out.push(file('collectes_integrer', 'collectes', 'Contributions des services à intégrer', '/collectes', recus, (x) => item(x, x.reference)));
+  const aCorriger = (await lignes(['RECU', 'CORRIGE'], preparer)).filter((x) => Number(x.erreurs));
+  out.push(file('collectes_anomalies', 'collectes', 'Contributions avec erreurs : faire corriger ou rejeter', '/collectes', aCorriger, (x) => item(x, `${x.erreurs} erreur(s) dans le dernier fichier reçu`)));
+  out.push(file('collectes_retard', 'collectes', 'Services en retard (à relancer)', '/collectes', await lignes(['EN_RETARD'], preparer), (x) => ({ ...item(x, x.reference), alerte: true })));
+  if (ouvrir) {
+    const prep = await db('collectes').where({ statut: 'PREPARATION' }).orderBy('created_at');
+    out.push(file('collectes_ouvrir', 'collectes', 'Campagnes de collecte à ouvrir', '/collectes', prep, (c) => ({ id: `colc-${c.id}`, titre: c.titre, detail: c.reference, echeance: echeance(c), to: `/collectes/${c.id}`, statut: c.statut })));
+  }
+  return out;
+}
+
 // ─── Données sectorielles ───────────────────────────────────────────────────
 async function donnees(ctx, aujourdhui) {
   const out = [];
@@ -304,6 +331,7 @@ async function aTraiter(ctx) {
   const groupes = await Promise.all([
     ctx.can('planification.consulter') ? planification(ctx, aujourdhui) : [],
     ctx.can('planification.consulter') ? evaluations(ctx) : [],
+    ctx.can('planification.consulter') ? collectes(ctx) : [],
     ctx.can('donnees.consulter') ? donnees(ctx, aujourdhui) : [],
     reunions(ctx), decisions(ctx, aujourdhui), actes(ctx), cartes(ctx), presences(ctx, aujourdhui), systeme(ctx),
   ]);
