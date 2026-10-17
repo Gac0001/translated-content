@@ -1,0 +1,138 @@
+name: SIG-DEP
+
+on:
+  push:
+    paths: ["sig-dep/**", ".github/workflows/sig-dep.yml"]
+  pull_request:
+    paths: ["sig-dep/**", ".github/workflows/sig-dep.yml"]
+  # Parcours complet, accessibilité comprise, chaque nuit (4 h à Kinshasa) et à la demande.
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sig-dep-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: API — tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: sigdep
+          POSTGRES_PASSWORD: sigdep
+          POSTGRES_DB: sig_dep_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U sigdep" --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: sig-dep/backend
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgres://sigdep:sigdep@localhost:5432/sig_dep_test
+      DATABASE_URL_TEST: postgres://sigdep:sigdep@localhost:5432/sig_dep_test
+      JWT_ACCESS_SECRET: secret-ci-uniquement-pour-les-tests
+      SEED_DEMO: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sig-dep/backend/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  frontend:
+    name: Interface — analyse statique et compilation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sig-dep/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sig-dep/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  e2e:
+    name: Interface — parcours par rôle${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && ' et accessibilité' || '' }}
+    runs-on: ubuntu-latest
+    needs: [frontend]
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: sigdep
+          POSTGRES_PASSWORD: sigdep
+          POSTGRES_DB: sig_dep_demo
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U sigdep" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # Démonstration (jamais en production) ; l’API sert l’interface construite : on teste ce qui sera livré.
+      NODE_ENV: development
+      DATABASE_URL: postgres://sigdep:sigdep@localhost:5432/sig_dep_demo
+      JWT_ACCESS_SECRET: secret-ci-uniquement-pour-les-tests
+      DEMO_MODE: "true"
+      LOGIN_RATE_LIMIT_MAX: "500"
+      FRONTEND_DIR: ../frontend/dist
+      CORS_ORIGINS: http://127.0.0.1:4000
+      APP_URL: http://127.0.0.1:4000
+      SIGDEP_URL: http://127.0.0.1:4000
+      TZ: Africa/Kinshasa
+      SIGDEP_SANS_ACCESSIBILITE: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '' || '1' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            sig-dep/backend/package-lock.json
+            sig-dep/frontend/package-lock.json
+      - name: Dépendances
+        run: |
+          npm ci --prefix sig-dep/backend
+          npm ci --prefix sig-dep/frontend
+      - name: Interface construite
+        run: npm run build --prefix sig-dep/frontend
+      - name: Base de démonstration
+        working-directory: sig-dep/backend
+        run: npm run demo:reset
+      - name: Démarrage de l’API (service unique)
+        working-directory: sig-dep/backend
+        run: |
+          nohup node src/server.js > ../api.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4000/api/health > /dev/null && exit 0; sleep 1; done
+          cat ../api.log; exit 1
+      - name: Navigateur de test
+        working-directory: sig-dep/frontend
+        run: npx playwright install --with-deps chromium
+      - name: Parcours de non-régression
+        working-directory: sig-dep/frontend
+        run: npx playwright test --reporter=line
+      - name: Rapport en cas d’échec
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-playwright
+          path: |
+            sig-dep/frontend/playwright-report/
+            sig-dep/frontend/test-results/
+            sig-dep/frontend/e2e/captures/accessibilite/
+            sig-dep/api.log
+          retention-days: 7

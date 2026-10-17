@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.env
+e2e/captures/
+test-results/
+playwright-report/
