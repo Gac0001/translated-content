@@ -93,11 +93,14 @@ export function circuitPip(p) {
   };
 }
 
-/** Listes de présence : circuit strict, la soumission verrouille la liste en écriture. */
+/** Rapport hebdomadaire de présence : préparation (Secrétariat) → transmis au Directeur → verrouillé. */
 export function circuitPresence(s) {
-  const etapes = ['Brouillon', 'Vérifiée', 'Soumise au Directeur', 'Verrouillée'];
-  const pos = { BROUILLON: 0, VERIFIEE: 1, SOUMISE: 2, VERROUILLEE: 3 }[s.statut] ?? 0;
-  return { etapes, courante: pos, termine: s.statut === 'VERROUILLEE' };
+  const etapes = ['Saisie des listes journalières', 'Transmis au Directeur', 'Verrouillé'];
+  const pos = { EN_PREPARATION: 0, REJETE: 0, TRANSMIS: 1, VERROUILLE: 2 }[s.statut] ?? 0;
+  return {
+    etapes, courante: pos, termine: s.statut === 'VERROUILLE',
+    alerte: s.statut === 'REJETE' ? { tone: 'attention', label: 'Rejeté par le Directeur : rectificatifs puis retransmission' } : undefined,
+  };
 }
 
 /** Courriers : un courrier peut être classé sans avoir circulé ni été marqué comme traité. */
@@ -224,4 +227,26 @@ export function circuitCarte(c) {
     ANNULEE: { alerte: { tone: 'danger', label: 'Annulée' } }, EXPIREE: { termine: true, details: { 3: 'Validité échue' } }, REMPLACEE: { termine: true, details: { 3: 'Remplacée' } },
   }[c.statut] || {};
   return { etapes, courante: c.remise_at ? 3 : c.imprime_at ? 3 : 2, ...fin };
+}
+
+/**
+ * Évaluation des politiques : préparation (Bureau Suivi-Évaluation) → vérification (Chef de la
+ * Division Programme et Suivi) → validation et signature de la lettre (Directeur) → transmission au
+ * Secrétaire Général (dossier archivé, projections reportées dans le CDS-MT).
+ */
+export function circuitEvaluation(e) {
+  const etapes = ['Préparation', 'Vérification', 'Validation du Directeur', 'Transmission au SG', 'Transmis et archivé'];
+  const pos = { PREPARATION: 0, A_CORRIGER: 0, SOUMIS: 1, VERIFIE: 2, VALIDE: 3, TRANSMIS: 4 }[e.statut] ?? 0;
+  const details = { SOUMIS: { 1: 'Chez le Chef de la Division Programme et Suivi' }, VERIFIE: { 2: 'Chez le Directeur' }, VALIDE: { 3: `Lettre ${e.numero_lettre}` } }[e.statut] || {};
+  return {
+    etapes, courante: pos, termine: e.statut === 'TRANSMIS', details,
+    alerte: e.statut === 'A_CORRIGER' ? { tone: 'attention', label: 'Retourné pour correction' } : undefined,
+  };
+}
+
+/** Campagne de collecte auprès des services : préparation (Bureau organisateur) → ouverte → clôturée. */
+export function circuitCollecte(c) {
+  const etapes = ['Préparation', 'Collecte ouverte', 'Clôturée'];
+  const pos = { PREPARATION: 0, OUVERTE: 1, CLOTUREE: 2 }[c.statut] ?? 0;
+  return { etapes, courante: pos, termine: c.statut === 'CLOTUREE', details: c.statut === 'OUVERTE' ? { 1: `Échéance le ${String(c.echeance).split('-').reverse().join('/')}` } : {} };
 }

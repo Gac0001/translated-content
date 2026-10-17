@@ -1,20 +1,32 @@
 'use strict';
-/** Export Word (.docx) des documents de service avec l’en-tête officiel. */
+/**
+ * Export Word (.docx) avec l’en-tête officiel de la Direction en première page, un rappel discret sur
+ * les suivantes et le pied de page officiel sur chaque page (services/entete.js) ; polices de l’en-tête
+ * incorporées au document.
+ */
 const { Document, Packer, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, HeadingLevel, ShadingType } = require('docx');
-const { DEP_NOM, SG_NOM, PAYS } = require('../constants');
+const { DEP_NOM } = require('../constants');
+const identite = require('./identite');
+const entete = require('./entete');
 
 function p(text, opts = {}) {
   return new Paragraph({ alignment: opts.align, spacing: { after: opts.after ?? 80 }, children: [new TextRun({ text: String(text ?? ''), bold: opts.bold, size: opts.size, color: opts.color, italics: opts.italics })] });
 }
 
-function headerBlock(reference) {
-  return [
-    p(PAYS.toUpperCase(), { align: AlignmentType.CENTER, bold: true, size: 22, color: '0B3D6E', after: 0 }),
-    p(SG_NOM.toUpperCase(), { align: AlignmentType.CENTER, size: 18, after: 0 }),
-    p(DEP_NOM.toUpperCase(), { align: AlignmentType.CENTER, bold: true, size: 19, color: '0B3D6E', after: 0 }),
-    p('(DEP)', { align: AlignmentType.CENTER, size: 16, after: 200 }),
-    ...(reference ? [p(`Réf. : ${reference}`, { align: AlignmentType.RIGHT, size: 16, after: 200 })] : []),
-  ];
+/**
+ * Document Word complet : `children` (contenu) habillé de l’en-tête et du pied de page officiels.
+ * `variante` : 'DEP' ou 'SG' ; `identiteId` : identité du Ministère d’un document signé.
+ */
+async function documentWord({ titre, children, variante = 'DEP', reference, identiteId = null, orientation }) {
+  const ident = identite.version(identiteId);
+  const section = await entete.wordSection(ident, { variante, reference });
+  if (orientation) section.properties.page.size = { orientation };
+  const doc = new Document({
+    creator: `SIG-DEP — ${DEP_NOM}`, title: titre, fonts: entete.wordPolices(),
+    styles: { default: { document: { run: { font: 'Calibri' } } } },
+    sections: [{ properties: section.properties, headers: section.headers, footers: section.footers, children }],
+  });
+  return Packer.toBuffer(doc);
 }
 
 function table(columns, rows) {
@@ -30,8 +42,8 @@ function table(columns, rows) {
 }
 
 /** sections : [{ label, type, value, columns }] */
-async function buildDocx({ titre, reference, meta = [], sections = [], visas = [] }) {
-  const children = [...headerBlock(reference), new Paragraph({ heading: HeadingLevel.TITLE, alignment: AlignmentType.CENTER, spacing: { after: 240 }, children: [new TextRun({ text: titre, bold: true, size: 30, color: '0B3D6E' })] })];
+async function buildDocx({ titre, reference, meta = [], sections = [], visas = [], variante, identiteId }) {
+  const children = [...(reference ? [p(`Réf. : ${reference}`, { align: AlignmentType.RIGHT, size: 16, after: 120 })] : []), new Paragraph({ heading: HeadingLevel.TITLE, alignment: AlignmentType.CENTER, spacing: { after: 240 }, children: [new TextRun({ text: titre, bold: true, size: 30, color: '0B3D6E' })] })];
   for (const [k, v] of meta) children.push(new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: `${k} : `, bold: true, size: 20 }), new TextRun({ text: String(v ?? '—'), size: 20 })] }));
   children.push(p(''));
   for (const s of sections) {
@@ -44,8 +56,7 @@ async function buildDocx({ titre, reference, meta = [], sections = [], visas = [
     children.push(p(''), new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: 'Visas et signature', bold: true, size: 22, color: '0B3D6E' })] }));
     for (const v of visas) children.push(p(`${v.libelle} — ${v.nom} — ${v.type === 'SIGNATURE' ? 'Signé' : v.type === 'RELECTURE' ? 'Relu' : 'Visa'} le ${new Date(v.date).toLocaleString('fr-FR', { timeZone: 'Africa/Kinshasa' })}`, { size: 18 }));
   }
-  const doc = new Document({ creator: `SIG-DEP — ${DEP_NOM}`, title: titre, sections: [{ properties: {}, children }] });
-  return Packer.toBuffer(doc);
+  return documentWord({ titre, children, reference, variante, identiteId });
 }
 
-module.exports = { buildDocx };
+module.exports = { buildDocx, documentWord, p };

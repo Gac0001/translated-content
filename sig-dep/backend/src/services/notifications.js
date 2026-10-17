@@ -15,7 +15,7 @@ const TYPES = {
   COMPTE_CREE: 'Compte créé',
   MDP_REINITIALISE: 'Mot de passe réinitialisé',
   AFFECTATION: 'Changement d’affectation',
-  PRESENCE: 'Liste de présence',
+  PRESENCE: 'Présences',
   PIP: 'Fiche PIP',
   INSTRUCTION_REPONSE: 'Compte rendu d’instruction',
   SECURITE: 'Alerte de sécurité',
@@ -29,6 +29,8 @@ const TYPES = {
   AGENDA: 'Agenda du Directeur',
   PTBA: 'Plan de travail annuel budgétisé',
   DONNEES: 'Données sectorielles',
+  EVALUATION: 'Évaluation des politiques sectorielles et budgétaires',
+  COLLECTE: 'Collecte auprès des services',
 };
 
 /**

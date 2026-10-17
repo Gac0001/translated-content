@@ -184,11 +184,11 @@ describe('Actes administratifs, intérims et désignations', () => {
     // Désignation échue : aucun droit, puis passage à l’état « expiré » par la tâche planifiée.
     const echue = await preparerEtSoumettre(secTok, {
       type: 'DESIGNATION', objet: 'Désignation échue (régularisation)', agent_id: ben,
-      permissions: ['presences.preparer_direction'], date_debut: decale(-10), date_fin: decale(-1),
+      permissions: ['personnel.suivre'], date_debut: decale(-10), date_fin: decale(-1),
     });
     const v = await dir.post(`/actes/${echue.id}/decision`, { decision: 'VALIDE' });
     expect(v.body.effet).toBe('ECHU');
-    expect((await api(await login('ag.secretariat2')).get('/auth/me')).body.user.permissions).not.toContain('presences.preparer_direction');
+    expect((await api(await login('ag.secretariat2')).get('/auth/me')).body.user.permissions).not.toContain('personnel.suivre');
     await jobs.echeancesActes();
     expect((await db('actes_administratifs').where({ id: echue.id }).first()).statut).toBe('EXPIRE');
     expect((await db('user_permissions').where({ acte_id: echue.id }).first()).revoked_at).not.toBeNull();
@@ -214,7 +214,8 @@ describe('Actes administratifs, intérims et désignations', () => {
     const sans = await admin.put(`/users/${cible}/roles`, { roles: ['CHEF_DIVISION'] });
     expect(sans.status).toBe(403);
     expect(sans.body.error.code).toBe('DECISION_ADMINISTRATIVE_REQUISE');
-    const nomination = await preparerEtSoumettre(secTok, { type: 'NOMINATION', objet: 'Nomination de test', agent_id: await agentDe('cb.doi') });
+    // Acte d’affectation à effet différé (ses effets ne s’appliquent pas pendant le test)
+    const nomination = await preparerEtSoumettre(secTok, { type: 'AFFECTATION', objet: 'Affectation de test', agent_id: await agentDe('cb.doi'), poste_id: (await poste('P-AG-BUR-DOI')).id, date_debut: decale(60) });
     await dir.post(`/actes/${nomination.id}/decision`, { decision: 'VALIDE' });
     // L’acte lève l’exigence de décision ; la cohérence avec l’affectation reste contrôlée.
     const avec = await admin.put(`/users/${cible}/roles`, { roles: ['CHEF_DIVISION'], acte_id: nomination.id });
@@ -223,6 +224,7 @@ describe('Actes administratifs, intérims et désignations', () => {
     // Un acte concernant une autre personne ne vaut pas.
     const autre = await admin.put(`/users/${await userId('cb.str')}/roles`, { roles: ['CHEF_DIVISION'], acte_id: nomination.id });
     expect(autre.status).toBe(403);
+    expect((await dir.post(`/actes/${nomination.id}/revoquer`, { motif: 'Fin du test' })).status).toBe(200);
   });
 
   test('registre : visibilité selon le rôle', async () => {

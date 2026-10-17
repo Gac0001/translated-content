@@ -12,7 +12,7 @@ const { z } = require('zod');
 const db = require('../../db/knex');
 const validate = require('../../middleware/validate');
 const { audit } = require('../../services/audit');
-const { readRows, analyse, normalizeMatricule } = require('../../services/importAgents');
+const { readRows, analyse, normalizeMatricule, cleNom } = require('../../services/importAgents');
 const { sendWorkbook } = require('../../services/excel');
 const { badRequest, forbidden, AppError } = require('../../utils/errors');
 
@@ -32,13 +32,15 @@ async function referentiel() {
     db('bureaux').where({ actif: true }).orderBy(['parent_type', 'ordre']),
     db('divisions').where({ actif: true }).orderBy('ordre'),
     db('grades').where({ actif: true }).orderBy('niveau', 'desc'),
-    db('agents').select('id', 'matricule', 'nom', 'prenom'),
+    db('agents').whereNull('archived_at').select('id', 'matricule', 'nom', 'postnom', 'prenom'),
     db('affectations as a').join('postes_organiques as p', 'p.id', 'a.poste_id').where('a.est_active', true)
       .whereIn('p.role_associe', ['CHEF_BUREAU', 'CHEF_DIVISION']).select('a.agent_id', 'a.bureau_id', 'a.division_id', 'p.role_associe'),
   ]);
   const existants = new Map(agents.map((a) => [normalizeMatricule(a.matricule), a]));
+  // Noms déjà enregistrés (doublons possibles sous un autre matricule)
+  const existantsNoms = new Map(agents.map((a) => [cleNom(a), a]));
   const chefsEnPoste = new Map(chefs.map((c) => [c.role_associe === 'CHEF_BUREAU' ? `BUR:${c.bureau_id}` : `DIV:${c.division_id}`, c.agent_id]));
-  return { bureaux, divisions, grades, existants, chefsEnPoste };
+  return { bureaux, divisions, grades, existants, existantsNoms, chefsEnPoste };
 }
 
 router.get('/personnel/modele.xlsx', async (req, res) => {

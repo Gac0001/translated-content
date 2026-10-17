@@ -14,6 +14,9 @@ const pdf = require('../../services/pdf');
 const { sendWorkbook } = require('../../services/excel');
 const { forbidden } = require('../../utils/errors');
 const { DEP_NOM } = require('../../constants');
+const presencesSvc = require('../../services/presences');
+
+const LIBELLES_PRESENCE = { PRESENT: 'Présent à l’heure', RETARD: 'Retard', ...presencesSvc.MOTIFS };
 
 const router = express.Router();
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
@@ -54,11 +57,10 @@ async function buildReport(ctx, q) {
     ['DIRECTION', 'SUPERVISION_GLOBALE'].includes(ctx.perimetre)
       ? db('courriers').whereBetween('date_enregistrement', [r.du, r.au]).select('sens').count('* as n').groupBy('sens') : [],
     filt(db('pip_projects')).whereBetween('created_at', [r.du, db.raw('?::date + 1', [r.au])]).select('statut').count('* as n').sum('cout_total as cout').groupBy('statut'),
-    filt(db('presence_entries as e').join('presence_sheets as s', 's.id', 'e.sheet_id'), 's.').whereBetween('s.semaine_debut', [r.du, r.au])
-      .whereIn('s.statut', ['SOUMISE', 'VERROUILLEE']).where('s.est_rectificatif', false).select('e.lundi', 'e.mardi', 'e.mercredi', 'e.jeudi', 'e.vendredi'),
+    presencesSvc.synthesePeriode({ du: r.du, au: r.au, ...scope }),
   ]);
-  const presTot = {};
-  for (const e of pres) for (const j of ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi']) presTot[e[j]] = (presTot[e[j]] || 0) + 1;
+  // Agent-jours des listes transmises, valeurs effectives (rectificatifs validés compris)
+  const presTot = Object.fromEntries(Object.entries(pres.repartition).filter(([, v]) => v > 0).map(([k, v]) => [LIBELLES_PRESENCE[k] || k, v]));
   const lignes = [];
   for (const d of perf.divisions) {
     lignes.push({ niveau: 'Division', rang: 'DIVISION', structure: d.nom, ...d });
@@ -69,7 +71,7 @@ async function buildReport(ctx, q) {
     periode: { ...r, type: q.periode }, perimetre: ctx.perimetre, performance: perf, lignes,
     courriers: Object.fromEntries(courriers.map((c) => [c.sens, Number(c.n)])),
     pip: pip.map((p) => ({ statut: p.statut, nombre: Number(p.n), cout: Number(p.cout || 0) })),
-    presences: presTot,
+    presences: presTot, tauxPresence: pres.tauxPresence,
   };
 }
 
@@ -92,7 +94,7 @@ router.get('/activites/export/:format', requirePerm('rapports.consulter'), requi
   if (req.valid.params.format === 'xlsx') {
     return sendWorkbook(res, `rapport-${rep.periode.type.toLowerCase()}-${rep.periode.du}.xlsx`, [
       { name: 'Performance', titre, sousTitre: `Période du ${pdf.fmtDate(rep.periode.du)} au ${pdf.fmtDate(rep.periode.au)}`, columns: COLS, rows: rep.lignes },
-      { name: 'Présences', titre: 'Synthèse des présences (agent-jours)', columns: [{ header: 'Statut', key: 'k', width: 20 }, { header: 'Nombre', key: 'v', width: 12 }], rows: Object.entries(rep.presences).map(([k, v]) => ({ k, v })) },
+      { name: 'Présences', titre: 'Synthèse des présences (agent-jours)', sousTitre: rep.tauxPresence === null ? undefined : `Taux de présence : ${rep.tauxPresence} %`, columns: [{ header: 'Statut', key: 'k', width: 20 }, { header: 'Nombre', key: 'v', width: 12 }], rows: Object.entries(rep.presences).map(([k, v]) => ({ k, v })) },
       { name: 'PIP', titre: 'Fiches PIP de la période', columns: [{ header: 'Statut', key: 'statut', width: 20 }, { header: 'Nombre', key: 'nombre', width: 10 }, { header: 'Coût cumulé', key: 'cout', width: 18 }], rows: rep.pip },
     ]);
   }
@@ -100,7 +102,7 @@ router.get('/activites/export/:format', requirePerm('rapports.consulter'), requi
   doc.font('Helvetica-Bold').fontSize(10.5).fillColor(pdf.BLUE).text('1. Performance par structure').fillColor('#000').moveDown(0.3);
   doc.font('Helvetica').fontSize(8).fillColor('#555').text('Les Divisions et les Bureaux directement rattachés au Directeur sont présentés séparément ; le rang organique de chaque structure est indiqué dans la colonne « Niveau ».').fillColor('#000').moveDown(0.3);
   pdf.table(doc, COLS, rep.lignes, { fontSize: 7.5 });
-  doc.font('Helvetica-Bold').fontSize(10.5).fillColor(pdf.BLUE).text('2. Présences (agent-jours)').fillColor('#000').moveDown(0.3);
+  doc.font('Helvetica-Bold').fontSize(10.5).fillColor(pdf.BLUE).text(`2. Présences (agent-jours)${rep.tauxPresence === null ? '' : ` — taux de présence ${rep.tauxPresence} %`}`).fillColor('#000').moveDown(0.3);
   pdf.table(doc, [{ header: 'Statut', key: 'k' }, { header: 'Nombre', key: 'v' }], Object.entries(rep.presences).map(([k, v]) => ({ k, v })));
   if (Object.keys(rep.courriers).length) {
     doc.font('Helvetica-Bold').fontSize(10.5).fillColor(pdf.BLUE).text('3. Courriers enregistrés').fillColor('#000').moveDown(0.3);

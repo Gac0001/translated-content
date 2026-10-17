@@ -1,6 +1,6 @@
 {
   "name": "sig-dep-backend",
-  "version": "1.32.0",
+  "version": "1.44.0",
   "description": "API REST du SIG-DEP — Système Intégré de Gestion de la Direction d’Études et Planification",
   "main": "src/server.js",
   "private": true,
@@ -25,6 +25,8 @@
     "node": ">=18.18"
   },
   "dependencies": {
+    "@fontsource/cooper-hewitt": "5.3.0",
+    "@fontsource/great-vibes": "5.3.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",

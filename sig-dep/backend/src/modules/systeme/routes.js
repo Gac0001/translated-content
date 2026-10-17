@@ -20,6 +20,9 @@ const gouvernance = require('../../services/gouvernance');
 
 const router = express.Router();
 
+// Identité du Ministère : en-tête et pied de page des documents (versions datées)
+router.use('/identite', require('./identite'));
+
 // Paramètres lisibles par tout utilisateur authentifié (en-têtes, libellés)
 router.get('/parametres/publics', async (req, res) => {
   const rows = await db('parametres').whereIn('cle', ['pays', 'autorite_tutelle', 'direction_nom', 'direction_sigle', 'ville']);

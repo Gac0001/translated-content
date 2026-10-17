@@ -5,10 +5,11 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import { useApi, Loadable, PageHeader, Card, Stat, StatusBadge, Progress, Empty, Badge, RangBadge, InfoAlert, BarList, MiniStats, CardLink, DataTable, WorkQueue } from '../components/ui';
-import { fmtDate, fmtDateTime, fmtMontant, isOverdue } from '../lib/format';
+import { fmtDate, fmtDateTime, fmtMontant, fmtNombre, isOverdue } from '../lib/format';
 import { DEP_NOM, ROLES, STATUTS, PERIMETRES, NOTIF_TYPES, DELEGATIONS } from '../lib/labels';
 import { Progression } from './comptes/ListeDeclarative';
 import { EtatBadge } from './systeme/Sante';
+import { StatutSemaine } from './presences/commun';
 
 const sum = (obj = {}, keys) => keys.reduce((s, k) => s + (obj[k] || 0), 0);
 const ACTIVE = ['TRANSMISE', 'RECUE', 'EN_COURS', 'BLOQUEE', 'RAPPORT_INTERMEDIAIRE', 'A_CORRIGER', 'EN_RETARD'];
@@ -167,7 +168,7 @@ function AdminPanel({ a }) {
             <ul className="space-y-1.5 text-xs">
               {a.operationsSensibles.map((l) => (
                 <li key={l.id} className="flex gap-2">
-                  <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${l.resultat === 'SUCCES' ? 'bg-emerald-500' : 'bg-red-500'}`} aria-label={l.resultat === 'SUCCES' ? 'Succès' : 'Échec'} />
+                  <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${l.resultat === 'SUCCES' ? 'bg-emerald-500' : 'bg-red-500'}`} role="img" aria-label={l.resultat === 'SUCCES' ? 'Succès' : 'Échec'} />
                   <span className="min-w-0 flex-1"><b>{l.username || 'système'}</b> · {ACTIONS_SENSIBLES[l.action] || l.action}{l.message ? <span className="block truncate text-slate-500">{l.message}</span> : null}</span>
                   <span className="shrink-0 text-slate-500">{fmtDateTime(l.created_at)}</span>
                 </li>
@@ -188,15 +189,22 @@ function AdminPanel({ a }) {
   );
 }
 
+/** Indicateurs de présence du mois (listes transmises) en une ligne. */
+function presenceMoisTexte(p, avecTaux = true) {
+  if (!p) return 'Aucune liste transmise ce mois-ci';
+  return `${avecTaux ? `Mois : ${fmtNombre(p.taux, 1)} % de présence · ` : ''}${p.retards} retard(s), ${p.absents} absence(s)`;
+}
+
 function SGPanel({ d }) {
   const s = d.statistiques;
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Stat label="Divisions" value={d.vueGlobale.divisions} icon={Building2} to="/organigramme" />
         <Stat label="Bureaux" value={d.vueGlobale.bureaux} hint={`dont ${d.vueGlobale.bureauxRattachesDirection} rattaché(s) au Directeur`} icon={Building2} tone="gris" />
         <Stat label="Agents en fonction" value={d.vueGlobale.agents} icon={Users} tone="vert" />
         <Stat label="Documents validés" value={s.documentsValides} icon={FileText} tone="violet" to="/documents" />
+        <Stat label="Taux de présence du mois" value={d.presencesMois ? `${fmtNombre(d.presencesMois.taux, 1)} %` : '—'} hint={presenceMoisTexte(d.presencesMois, false)} icon={CalendarCheck} tone="vert" to="/presences?onglet=synthese" />
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card title="Instructions adressées au Directeur" actions={<Link to="/instructions/nouvelle" className="btn-primary py-1.5"><Send size={14} /> Nouvelle instruction</Link>}>
@@ -232,7 +240,7 @@ function DirecteurPanel({ d }) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Documents à valider" value={d.documentsAValider.length} icon={FileText} tone={d.documentsAValider.length ? 'jaune' : 'gris'} to="/documents" />
         <Stat label="Travaux en retard" value={retard} icon={AlertTriangle} tone={retard ? 'rouge' : 'gris'} to="/taches?statut=EN_RETARD" />
-        <Stat label="Présences soumises" value={d.presencesSoumises.length} hint={d.presencesSemaine ? `Taux de présence : ${d.presencesSemaine.tauxPresence ?? '—'} %` : null} icon={CalendarCheck} tone="violet" to="/presences?statut=SOUMISE" />
+        <Stat label="Rapports de présence à examiner" value={d.presencesSoumises.length} hint={presenceMoisTexte(d.presencesMois)} icon={CalendarCheck} tone="violet" to={d.presencesSoumises.length ? '/presences' : '/presences?onglet=synthese'} />
         <Stat label="Courriers à réceptionner" value={d.courriersARecevoir.length} icon={Mail} tone={d.courriersARecevoir.length ? 'jaune' : 'gris'} to="/courriers?onglet=recevoir" />
       </div>
       {d.decisions && <PilotageCard d={d} />}
@@ -246,12 +254,15 @@ function DirecteurPanel({ d }) {
         <Card title="Instructions du Secrétaire Général" actions={<CardLink to="/instructions?boite=recues" />}>
           <MiniList rows={d.instructionsRecues} to="/instructions" empty="Aucune instruction reçue." render={(i) => <div className="space-y-1 text-sm"><div className="flex justify-between gap-2"><span className="truncate">{i.objet}</span><StatusBadge value={i.statut} /></div><Progress value={i.avancement} /></div>} />
         </Card>
-        <Card title="Présences soumises" actions={<CardLink to="/presences?statut=SOUMISE" />}>
-          <MiniList rows={d.presencesSoumises} to="/presences" empty="Aucune liste en attente." render={(p) => <div className="text-sm"><div className="font-medium">{p.bureau || 'Direction (toutes structures)'}</div><div className="text-xs text-slate-500">{p.reference} · soumise le {fmtDateTime(p.submitted_at)}</div></div>} />
+        <Card title="Rapports de présence transmis" actions={<CardLink to="/presences" />}>
+          <MiniList rows={d.presencesSoumises} to="/presences/semaines" empty="Aucun rapport en attente." render={(p) => <div className="text-sm"><div className="font-medium">Semaine du {fmtDate(p.semaine_debut)}{p.rectificatifs_en_attente ? ` · ${p.rectificatifs_en_attente} rectificatif(s) à valider` : ''}</div><div className="text-xs text-slate-500">{p.reference} · transmis le {fmtDateTime(p.transmis_at)}</div></div>} />
         </Card>
         <Card title="Courriers" actions={<CardLink to="/courriers?onglet=recevoir">À réceptionner</CardLink>}>
           <MiniList rows={d.courriersARecevoir} to="/courriers" empty="Aucun courrier à réceptionner." render={(c) => <div className="text-sm"><div className="truncate font-medium">{c.objet}</div><div className="text-xs text-slate-500">{c.numero_enregistrement} · {fmtDateTime(c.created_at)}</div></div>} />
           <div className="mt-2 flex flex-wrap gap-2 border-t pt-2 text-xs">{Object.entries(d.courriers).map(([k, v]) => <Badge key={k}>{STATUTS[k]?.[0] || k} : {v}</Badge>)}</div>
+        </Card>
+        <Card title="Promus en attente de poste" actions={<CardLink to="/actes?type=NOMINATION">Actes de nomination</CardLink>}>
+          <MiniList rows={d.promusEnAttente || []} to="/personnel" empty="Aucun agent promu en attente de poste." render={(p) => <div className="text-sm"><div className="truncate font-medium">{[p.prenom, p.nom, p.postnom].filter(Boolean).join(' ')}</div><div className="text-xs text-slate-600">Grade {p.code_officiel} — {p.grade} depuis le {fmtDate(p.depuis)} · {p.structure}</div></div>} />
         </Card>
         <Card title="Projets PIP à valider" actions={<CardLink to="/pip?statut=VERIFIE" />}>
           <MiniList rows={d.pipAValider} to="/pip" empty="Aucune fiche à valider." render={(p) => <div className="text-sm"><div className="truncate font-medium">{p.intitule}</div><div className="text-xs text-slate-500">{p.code} · {fmtMontant(p.cout_total, p.devise)}</div></div>} />
@@ -292,6 +303,7 @@ function EffectifCard({ e }) {
         <div className="text-sm">
           <div className="text-2xl font-semibold">{t.reel} <span className="text-base font-normal text-slate-500">/ {t.prevu} prévus</span></div>
           <div className="text-xs text-slate-500">dont {t.horsReference} hors cadre de référence · {t.vacances} vacance(s) · {t.sureffectifs} sureffectif(s)</div>
+          {e.parStructure && <div className="mt-2 text-xs text-slate-600">Par structure : {e.parStructure.vacances} vacance(s), {e.parStructure.sureffectifs} sureffectif(s) · {e.parStructure.promus} promu(s) en attente · {e.parStructure.interims} intérim(s) actif(s) · <Link className="link" to="/cadre-organique?onglet=effectif-structures">tableau par structure</Link></div>}
         </div>
         <div className="text-sm">
           <div className="mb-1 font-medium">Écarts</div>
@@ -333,7 +345,7 @@ function ChefDivisionPanel({ d }) {
           <MiniList rows={d.instructionsRecues} to="/instructions" render={(i) => <div className="space-y-1 text-sm"><div className="flex justify-between gap-2"><span className="truncate">{i.objet}</span><StatusBadge value={i.statut} /></div><Progress value={i.avancement} /></div>} />
         </Card>
         <Card title="Présences du périmètre">
-          <MiniList rows={d.presences} to="/presences" empty="Aucune liste." render={(p) => <div className="flex justify-between gap-2 text-sm"><span className="truncate">{p.bureau || 'Direction'} — {p.reference}</span><StatusBadge value={p.statut} /></div>} />
+          <MiniList rows={d.presences} to="/presences/semaines" empty="Aucun rapport transmis." render={(p) => <div className="flex justify-between gap-2 text-sm"><span className="truncate">Semaine du {fmtDate(p.semaine_debut)} — {p.reference}</span><StatutSemaine value={p.statut} /></div>} />
         </Card>
       </div>
     </>
@@ -364,8 +376,9 @@ function ChefBureauPanel({ d }) {
         <Card title="Tâches et échéances">
           <MiniList rows={d.tachesEnCours} to="/taches" empty="Aucune tâche." render={(t) => <div className="space-y-1 text-sm"><div className="flex justify-between gap-2"><span className="truncate">{t.titre} <span className="text-xs text-slate-500">— {t.nom}</span></span><StatusBadge value={t.statut} /></div><div className="flex items-center gap-3"><div className="flex-1"><Progress value={t.avancement} /></div><span className={`text-xs ${isOverdue(t.echeance, t.statut) ? 'text-red-700' : 'text-slate-500'}`}>{fmtDate(t.echeance)}</span></div></div>} />
         </Card>
-        <Card title="Présences du Bureau" actions={<CardLink to="/presences/nouvelle">Nouvelle liste</CardLink>}>
-          <MiniList rows={d.presences} to="/presences" empty="Aucune liste." render={(p) => <div className="flex justify-between gap-2 text-sm"><span>Semaine du {fmtDate(p.semaine_debut)}</span><StatusBadge value={p.statut} /></div>} />
+        <Card title="Présences du Bureau" actions={<CardLink to="/presences" />}>
+          {d.presencesSemaine && <p className="mb-2 text-xs text-slate-600">Dernier rapport : taux de présence {d.presencesSemaine.tauxPresence ?? '—'} %, {d.presencesSemaine.bilan.retards} retard(s), {d.presencesSemaine.bilan.absents} absence(s).</p>}
+          <MiniList rows={d.presences} to="/presences/semaines" empty="Aucun rapport transmis." render={(p) => <div className="flex justify-between gap-2 text-sm"><span>Semaine du {fmtDate(p.semaine_debut)}</span><StatutSemaine value={p.statut} /></div>} />
         </Card>
         <Card title="Instructions reçues">
           <MiniList rows={d.instructionsRecues} to="/instructions" render={(i) => <div className="flex justify-between gap-2 text-sm"><span className="truncate">{i.objet}</span><StatusBadge value={i.statut} /></div>} />

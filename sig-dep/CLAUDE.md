@@ -57,6 +57,11 @@ Général au Numérique (RDC). Interface et documentation **en français** ; ré
    l’API) pour rester démontrable et servir à la formation.
 6. **Consulter avant d’améliorer** : présenter à l’utilisateur toute amélioration ou tout nouveau
    lot (contenu, rôles, choix) et attendre son accord avant de l’implémenter.
+7. **Documents produits** : tout export PDF passe par `createPdf` (`services/pdf.js`), tout Word par
+   `documentWord` / `buildDocx` (`services/word.js`), toute feuille Excel par `addSheet` / `sendWorkbook`
+   (`services/excel.js`) ou `feuilleOfficielle` (`services/entete.js`) : en-tête et pied de page
+   officiels, d’après l’identité du Ministère en vigueur (`services/identite.js`). Le sceau n’est
+   jamais versionné : l’Admin le dépose dans l’application.
 
 ## Refonte de l’interface (terminée)
 
@@ -71,7 +76,7 @@ Cooper Hewitt** (police de la charte, embarquée ; classe `font-display`), texte
 Composants à employer pour tout écran nouveau ou repris (catalogue vivant : page `/composants`) :
 `NumberInput` / `MoneyInput` pour les nombres et montants, `EditableGrid` pour les grilles chiffrées,
 `FormModal` + `FormSection` pour les fenêtres de saisie, `ActionBar` pour les formulaires de page,
-`SimpleTable` pour les tableaux sans recherche (jamais de `<table>` brute), `EmptyState`, `KpiTile`,
+`SimpleTable` pour les tableaux sans recherche (jamais de `<table>` brute), `FormulaireEtapes` + `PageControle` pour toute saisie d’un document (même mode de remplissage que la fiche PIP ; aperçu à droite pour la correspondance), `EmptyState`, `KpiTile`,
 `WorkQueue`, `FilterBar`, onglets par `useOnglet` (dans l’adresse), actions secondaires par `menu` de
 `PageHeader`, circuits par `WorkflowPanel` et `lib/workflows.js` ; formats et dates par `lib/format.js`
 uniquement (jamais `toISOString().slice(0, 10)` pour une date du jour : c’est la date UTC).

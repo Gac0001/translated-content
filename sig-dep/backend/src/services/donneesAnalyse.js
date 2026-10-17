@@ -132,7 +132,8 @@ function tableau(rows, questions, { lignes, colonnes, mesure }) {
 
 async function exporterTableau(titre, t) {
   const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet('Tableau');
+  const n = t.colonnes.length + (t.colonnes.length > 1 ? 2 : 1);
+  const ws = require('./entete').feuilleOfficielle(wb, 'Tableau', n, { largeurs: [40, ...Array(n - 1).fill(16)] });
   ws.addRow([titre]).font = { bold: true, size: 12 };
   const e = ws.addRow(['', ...t.colonnes, ...(t.colonnes.length > 1 ? ['Total'] : [])]);
   e.eachCell((c) => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF17418A' } }; });

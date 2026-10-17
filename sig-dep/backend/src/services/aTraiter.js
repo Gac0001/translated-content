@@ -3,7 +3,7 @@
  * Files « À traiter » du tableau de bord : ce qui attend l’utilisateur dans les circuits.
  * Chaque file reprend exactement la règle de droit de l’action correspondante sur la fiche
  * (ptba/routes actionsPour, programmation actionsDoc, donnees actionsCampagne/actionsReponse,
- * exploitation actions, reunions roles, actes droits, cartes, décisions, restaurations) :
+ * exploitation actions, reunions roles, actes droits, cartes, décisions, présences, restaurations) :
  * personne ne voit dans sa file un élément qu’il ne pourrait pas traiter.
  * Une file vide n’est pas renvoyée.
  */
@@ -78,6 +78,65 @@ async function planification(ctx, aujourdhui) {
       (j) => ({ id: `jal-${j.id}`, titre: j.libelle, detail: `Projet ${j.code}`, echeance: j.date_prevue, to: '/planification?onglet=banque' })));
     out.push(file('risques_critiques', 'planification', 'Risques critiques ouverts', '/planification?onglet=risques', risques,
       (r) => ({ id: `ris-${r.id}`, titre: r.libelle, detail: `Criticité ${r.probabilite * r.impact}`, echeance: r.echeance, to: '/planification?onglet=risques', alerte: true })));
+  }
+  return out;
+}
+
+// ─── Évaluation des politiques sectorielles et budgétaires ──────────────────
+/**
+ * Dossiers en préparation : le Bureau Suivi-Évaluation les complète tant qu’un point bloque la
+ * soumission ; le Bureau Programme, tant que la projection (annexe II) n’est pas complète.
+ * Puis vérification (Chef de la Division Programme et Suivi), validation (Directeur) et
+ * transmission au Secrétaire Général (Directeur ou Secrétariat de Direction).
+ */
+async function evaluations(ctx) {
+  const preparer = ctx.can('evaluation.preparer'); const contribuer = ctx.can('evaluation.contribuer');
+  const echeance = (e) => (e.date_limite instanceof Date ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kinshasa' }).format(e.date_limite) : e.date_limite ? String(e.date_limite).slice(0, 10) : null);
+  const item = (e, detail, onglet) => ({ id: `eval-${e.id}`, titre: `Évaluation des politiques ${e.annee}`, detail, echeance: echeance(e), to: `/evaluations/${e.id}${onglet ? `?onglet=${onglet}` : ''}`, statut: e.statut });
+  const rows = (statuts) => db('evaluations').whereIn('statut', statuts).orderByRaw('date_limite NULLS LAST').orderBy('annee');
+  const out = [];
+  if (preparer || contribuer) {
+    const evaluation = require('./evaluation');
+    const dossierService = require('./evaluationDossier');
+    const lignes = [];
+    for (const e of await rows(['PREPARATION', 'A_CORRIGER'])) {
+      const d = await evaluation.dossier(e);
+      const n = preparer ? dossierService.bloquants(e, d).length : d.anomalies.filter((a) => a.gravite === 'ERREUR' && a.annexe === 'II').length;
+      if (n || (preparer && e.statut === 'A_CORRIGER')) lignes.push({ e, n });
+    }
+    out.push(file(preparer ? 'evaluations_preparer' : 'evaluations_projection', 'evaluations', preparer ? 'Dossiers d’évaluation à compléter' : 'Projection sur trois ans à compléter (évaluation)', '/evaluations', lignes,
+      ({ e, n }) => item(e, `${e.reference} — ${n ? `${n} point(s) bloquant(s)${preparer ? '' : ' dans l’annexe II'}` : 'retourné pour correction'}`, preparer ? null : 'II')));
+  }
+  const etape = async (ok, statut, cle, titre, detail) => { if (ok) out.push(file(cle, 'evaluations', titre, '/evaluations', await rows([statut]), (e) => item(e, detail(e)))); };
+  await etape(ctx.can('evaluation.verifier'), 'SOUMIS', 'evaluations_verifier', 'Dossiers d’évaluation à vérifier', (e) => e.reference);
+  await etape(ctx.can('evaluation.valider'), 'VERIFIE', 'evaluations_valider', 'Dossiers d’évaluation à valider', (e) => `${e.reference} — lettre de transmission à signer`);
+  await etape((ctx.can('evaluation.transmettre') || ctx.can('evaluation.valider')) && ctx.perimetre !== 'SUPERVISION_GLOBALE', 'VALIDE', 'evaluations_transmettre', 'Dossiers d’évaluation à transmettre au Secrétaire Général', (e) => `Lettre ${e.numero_lettre}`);
+  return out;
+}
+
+// ─── Collecte auprès des services du Secrétariat Général ────────────────────
+async function collectes(ctx) {
+  if (ctx.perimetre === 'SUPERVISION_GLOBALE') return [];
+  const { OBJETS } = require('./collectes');
+  const objetsDe = (pred) => Object.keys(OBJETS).filter((o) => pred(OBJETS[o].bureau));
+  const ouvrir = ctx.can('collecte.ouvrir');
+  const decider = objetsDe((b) => ouvrir || ctx.can(`collecte.decider.${b}`));
+  const preparer = objetsDe((b) => ouvrir || ctx.can(`collecte.${b}`));
+  const out = [];
+  const lignes = (statuts, objets) => (objets.length ? db('collecte_services as cs').join('collectes as c', 'c.id', 'cs.collecte_id').join('plan_services as s', 's.id', 'cs.service_id')
+    .where('c.statut', 'OUVERTE').whereIn('c.objet', objets).whereIn('cs.statut', statuts).orderBy('c.echeance').orderBy('s.sigle')
+    .select('cs.id', 'cs.statut', 's.sigle', 'c.id as collecte_id', 'c.titre', 'c.reference', 'c.echeance',
+      db.raw('(SELECT r.erreurs FROM collecte_receptions r WHERE r.collecte_service_id = cs.id ORDER BY r.version DESC LIMIT 1) as erreurs')) : []);
+  const echeance = (x) => (x.echeance instanceof Date ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kinshasa' }).format(x.echeance) : String(x.echeance).slice(0, 10));
+  const item = (x, detail) => ({ id: `col-${x.id}`, titre: `${x.sigle} — ${x.titre}`, detail, echeance: echeance(x), to: `/collectes/${x.collecte_id}`, statut: x.statut });
+  const recus = (await lignes(['RECU', 'CORRIGE'], decider)).filter((x) => !Number(x.erreurs));
+  out.push(file('collectes_integrer', 'collectes', 'Contributions des services à intégrer', '/collectes', recus, (x) => item(x, x.reference)));
+  const aCorriger = (await lignes(['RECU', 'CORRIGE'], preparer)).filter((x) => Number(x.erreurs));
+  out.push(file('collectes_anomalies', 'collectes', 'Contributions avec erreurs : faire corriger ou rejeter', '/collectes', aCorriger, (x) => item(x, `${x.erreurs} erreur(s) dans le dernier fichier reçu`)));
+  out.push(file('collectes_retard', 'collectes', 'Services en retard (à relancer)', '/collectes', await lignes(['EN_RETARD'], preparer), (x) => ({ ...item(x, x.reference), alerte: true })));
+  if (ouvrir) {
+    const prep = await db('collectes').where({ statut: 'PREPARATION' }).orderBy('created_at');
+    out.push(file('collectes_ouvrir', 'collectes', 'Campagnes de collecte à ouvrir', '/collectes', prep, (c) => ({ id: `colc-${c.id}`, titre: c.titre, detail: c.reference, echeance: echeance(c), to: `/collectes/${c.id}`, statut: c.statut })));
   }
   return out;
 }
@@ -196,6 +255,51 @@ async function cartes(ctx) {
   return out;
 }
 
+// ─── Présences ──────────────────────────────────────────────────────────────
+/**
+ * Directeur : rapports hebdomadaires transmis à examiner, rectificatifs à valider.
+ * Secrétariat de Direction : rapports rejetés à reprendre, rapports des semaines écoulées à
+ * transmettre, listes du jour à compléter (jour ouvrable non férié).
+ */
+async function presences(ctx, aujourdhui) {
+  if (ctx.perimetre === 'SUPERVISION_GLOBALE') return [];
+  const P = require('./presences');
+  const out = [];
+  const fr = (d) => String(d instanceof Date ? P.iso(d) : d).slice(0, 10).split('-').reverse().join('/');
+  const itemSemaine = (detail) => (s) => ({ id: `sem-${s.id}`, titre: `${s.reference} — semaine du ${fr(s.semaine_debut)}`, detail: detail(s), to: `/presences/semaines/${s.id}` });
+  if (ctx.can('presences.verrouiller')) {
+    const [transmis, rectificatifs] = await Promise.all([
+      db('presence_semaines').where('statut', 'TRANSMIS').orderBy('semaine_debut').select('id', 'reference', 'semaine_debut', 'transmis_at'),
+      db('presence_rectificatifs as r').join('presence_listes as l', 'l.id', 'r.liste_id').where('r.statut', 'PROPOSE').orderBy('r.cree_at')
+        .select('r.id', 'r.reference', 'r.motif', 'l.semaine_id', 'l.date', 'l.categorie'),
+    ]);
+    out.push(file('presences_examiner', 'presences', 'Rapports de présence à examiner', '/presences', transmis, itemSemaine(() => 'Transmis : à verrouiller ou rejeter')));
+    out.push(file('presences_rectificatifs', 'presences', 'Rectificatifs de présence à valider', '/presences?onglet=rectificatifs', rectificatifs,
+      (r) => ({ id: `rec-${r.id}`, titre: `${r.categorie === 'CADRES' ? 'Cadres' : 'Agents'} du ${fr(r.date)}`, detail: `${r.reference} · ${r.motif}`, to: `/presences/semaines/${r.semaine_id}` })));
+  }
+  if (ctx.can('presences.preparer_direction')) {
+    const lundi = P.lundiDe(aujourdhui);
+    const [rejetes, aTransmettre, feries] = await Promise.all([
+      db('presence_semaines').where('statut', 'REJETE').orderBy('semaine_debut').select('id', 'reference', 'semaine_debut', 'motif_rejet'),
+      db('presence_semaines').where('statut', 'EN_PREPARATION').where('semaine_debut', '<', lundi).orderBy('semaine_debut').select('id', 'reference', 'semaine_debut'),
+      P.feries(aujourdhui, aujourdhui),
+    ]);
+    out.push(file('presences_rejetes', 'presences', 'Rapports de présence rejetés à reprendre', '/presences', rejetes, (s) => ({ ...itemSemaine(() => s.motif_rejet)(s), alerte: true })));
+    out.push(file('presences_transmettre', 'presences', 'Rapports de présence à transmettre', '/presences', aTransmettre, itemSemaine(() => 'Semaine écoulée : compléter les listes puis transmettre')));
+    if (P.estOuvrable(aujourdhui) && !feries[aujourdhui]) {
+      const listes = await db('presence_listes').where('date', aujourdhui).select('id', 'statut');
+      const lignes = listes.length ? await db('presence_lignes').whereIn('liste_id', listes.map((l) => l.id)) : [];
+      const b = P.bilan(lignes);
+      const reste = listes.length ? b.non_renseignes + b.incomplets : null;
+      if (listes.length < 2 || (reste && listes.some((l) => l.statut === 'BROUILLON'))) {
+        out.push(file('presences_jour', 'presences', 'Présences du jour', `/presences/jour/${aujourdhui}`, [{ reste }],
+          (x) => ({ id: 'jour', titre: `Listes du ${fr(aujourdhui)}`, detail: x.reste === null ? 'Listes à ouvrir et renseigner' : `${x.reste} ligne(s) à compléter (arrivées ou départs)`, to: `/presences/jour/${aujourdhui}` })));
+      }
+    }
+  }
+  return out;
+}
+
 // ─── Système ────────────────────────────────────────────────────────────────
 async function systeme(ctx) {
   const out = [];
@@ -226,8 +330,10 @@ async function aTraiter(ctx) {
   const aujourdhui = kinshasaDate();
   const groupes = await Promise.all([
     ctx.can('planification.consulter') ? planification(ctx, aujourdhui) : [],
+    ctx.can('planification.consulter') ? evaluations(ctx) : [],
+    ctx.can('planification.consulter') ? collectes(ctx) : [],
     ctx.can('donnees.consulter') ? donnees(ctx, aujourdhui) : [],
-    reunions(ctx), decisions(ctx, aujourdhui), actes(ctx), cartes(ctx), systeme(ctx),
+    reunions(ctx), decisions(ctx, aujourdhui), actes(ctx), cartes(ctx), presences(ctx, aujourdhui), systeme(ctx),
   ]);
   const files = groupes.flat().filter(Boolean);
   const parModule = {};

@@ -2,9 +2,9 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import { fmtDate } from '../../lib/format';
 import {
-  LayoutDashboard, Network, BookOpen, Users, UserCog, CalendarCheck, Mail, Send, ListTodo, FileText, FolderKanban,
-  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2, Landmark, IdCard, MessageCircleQuestion,
-  Search, CalendarDays, Gavel, Presentation, Target, Database, ChevronDown,
+  LayoutDashboard, Network, BookOpen, Users, UsersRound, UserCog, CalendarCheck, Mail, Send, ListTodo, FileText, FolderKanban,
+  Bell, ScrollText, BarChart3, Settings, LogOut, Menu, X, UserCircle, KeyRound, ShieldCheck, ListChecks, UserPlus, ShieldAlert, FileBarChart, HeartPulse, Bug, DatabaseBackup, History, Wrench, Stamp, Share2, Landmark, IdCard, BadgeCheck, MessageCircleQuestion,
+  Search, CalendarDays, Gavel, Presentation, Target, Database, ChevronDown, ClipboardCheck, Inbox,
 } from 'lucide-react';
 import api, { MODIFICATION } from '../../lib/api';
 import { useAuth, useCompteurs } from '../../store/auth';
@@ -21,17 +21,21 @@ const MENU = [
   { to: '/rapports', label: 'Rapports et statistiques', icon: BarChart3, perms: ['rapports.consulter'] },
   { section: 'Planification et données' },
   { to: '/planification', label: 'PTBA et exécution', icon: Target, perms: ['planification.consulter'], counter: 'planification' },
+  { to: '/evaluations', label: 'Évaluation des politiques', icon: ClipboardCheck, perms: ['planification.consulter'], counter: 'evaluations' },
+  { to: '/collectes', label: 'Collecte auprès des services', icon: Inbox, perms: ['planification.consulter'], counter: 'collectes' },
   { to: '/donnees', label: 'Données sectorielles', icon: Database, perms: ['donnees.consulter'], counter: 'donnees' },
   { section: 'Organisation' },
   { to: '/organigramme', label: 'Organigramme', icon: Network, perms: ['organisation.consulter'] },
   { to: '/cadre-organique', label: 'Cadre organique', icon: BookOpen, perms: ['organisation.consulter'] },
   { to: '/personnel', label: 'Personnel', icon: Users, perms: ['personnel.consulter', 'personnel.suivre'] },
+  { to: '/groupes', label: 'Groupes de travail', icon: UsersRound, agent: true },
   { section: 'Activités' },
   { to: '/instructions', label: 'Instructions', icon: Send, perms: ['instructions.consulter'], counter: 'instructions' },
   { to: '/reunions', label: 'Réunions', icon: Presentation, agent: true, counter: 'reunions' },
   { to: '/demandes-information', label: 'Demandes d’information', icon: MessageCircleQuestion, perms: ['demandes_info.emettre', 'demandes_info.repondre'], counter: 'demandesInfo' },
   { to: '/taches', label: 'Tâches', icon: ListTodo, perms: ['taches.consulter'], counter: 'taches' },
-  { to: '/presences', label: 'Présences', icon: CalendarCheck, perms: ['presences.consulter', 'presences.preparer_direction'], counter: 'presences' },
+  { to: '/presences', label: 'Présences', icon: CalendarCheck, perms: ['presences.consulter', 'presences.preparer_direction'], counter: 'presences', end: true },
+  { to: '/presences/moi', label: 'Mes présences', icon: CalendarCheck, agent: true },
   { to: '/courriers', label: 'Courriers', icon: Mail, perms: ['courriers.consulter'], counter: 'courriers' },
   { to: '/documents', label: 'Documents de service', icon: FileText, perms: ['documents.consulter'], counter: 'documents' },
   { to: '/pip', label: 'Projets PIP', icon: FolderKanban, perms: ['pip.consulter'], counter: 'pip' },
@@ -52,6 +56,7 @@ const MENU = [
   { to: '/systeme/sauvegardes', label: 'Sauvegardes', icon: DatabaseBackup, perms: ['sauvegarde.creer'] },
   { to: '/gouvernance', label: 'Gouvernance', icon: Landmark, perms: ['operations.confirmer', 'systeme.maintenir', 'acces_support.demander', 'acces_support.valider', 'urgence.activer', 'urgence.desactiver'] },
   { to: '/restaurations', label: 'Restaurations', icon: History, perms: ['sauvegarde.restaurer', 'sauvegarde.valider_restauration'] },
+  { to: '/systeme/identite', label: 'Identité et en-tête', icon: BadgeCheck, perms: ['systeme.configurer', 'operations.confirmer'] },
   { to: '/systeme/maintenance', label: 'Maintenance', icon: Wrench, perms: ['systeme.maintenir'] },
   { to: '/systeme/sante', label: 'Santé du système', icon: HeartPulse, perms: ['systeme.consulter'] },
   { to: '/systeme/erreurs', label: 'Journal technique', icon: Bug, perms: ['systeme.consulter'] },

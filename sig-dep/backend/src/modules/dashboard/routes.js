@@ -7,7 +7,8 @@
 const express = require('express');
 const db = require('../../db/knex');
 const { performanceParStructure, statutsCount } = require('../../services/stats');
-const { scopeDocuments, scopeInstructions, scopeTasks, scopeCourriers, scopePip, scopePresences } = require('../../services/access');
+const { scopeDocuments, scopeInstructions, scopeTasks, scopeCourriers, scopePip } = require('../../services/access');
+const presences = require('../../services/presences');
 const { DEP_NOM } = require('../../constants');
 const liste = require('../../services/listeDeclarative');
 const { donneesDemo } = require('../../services/reinitialisation');
@@ -113,13 +114,14 @@ async function sgDashboard(ctx) {
     statistiques: { instructions: instrStats, taches: taskStats, documentsValides: Number(docsValides.n), courriers },
     pip: pip.map((p) => ({ statut: p.statut, nombre: Number(p.n), cout: Number(p.cout || 0) })),
     performance: perf,
+    presencesMois: await presencesMois(),
   };
 }
 
 /** Effectif organique, effectif réel, écarts et postes de commandement vacants. */
 async function resumeEffectif() {
-  const e = await effectifs.synthese();
-  return { totaux: e.totaux, ecarts: e.lignes.filter((l) => l.ecart !== 0), postesVacants: e.postesVacants };
+  const [e, p] = await Promise.all([effectifs.synthese(), effectifs.parStructure()]);
+  return { totaux: e.totaux, ecarts: e.lignes.filter((l) => l.ecart !== 0), postesVacants: e.postesVacants, parStructure: p.totaux };
 }
 
 async function directeurDashboard(ctx) {
@@ -129,7 +131,8 @@ async function directeurDashboard(ctx) {
       .where('t.statut', 'EN_RETARD').orderBy('t.echeance').limit(15).select('t.id', 't.reference', 't.titre', 't.echeance', 'b.nom as bureau', nomSql('a')),
     db('instructions').where('statut', 'EN_RETARD').orderBy('echeance').limit(10).select('id', 'reference', 'objet', 'echeance', 'destinataire_role'),
     db('documents').where({ detenteur_user_id: ctx.userId }).whereIn('statut', ['EN_RELECTURE']).whereNot('auteur_user_id', ctx.userId).orderBy('updated_at', 'desc').select('id', 'reference', 'titre', 'type_document', 'updated_at'),
-    db('presence_sheets as s').leftJoin('bureaux as b', 'b.id', 's.bureau_id').where('s.statut', 'SOUMISE').select('s.id', 's.reference', 's.submitted_at', 'b.nom as bureau'),
+    db('presence_semaines as s').where('s.statut', 'TRANSMIS').orderBy('s.semaine_debut').select('s.id', 's.reference', 's.semaine_debut', 's.transmis_at',
+      db.raw(`(SELECT count(*) FROM presence_rectificatifs r JOIN presence_listes l ON l.id = r.liste_id WHERE l.semaine_id = s.id AND r.statut = 'PROPOSE')::int as rectificatifs_en_attente`)),
     db('courrier_transmissions as t').join('courriers as c', 'c.id', 't.courrier_id').where({ 't.to_user_id': ctx.userId, 't.etat_reception': 'EN_ATTENTE' }).select('c.id', 'c.numero_enregistrement', 'c.objet', 'c.urgence', 't.created_at'),
     statutsCount('courriers'),
     db('pip_projects').where({ detenteur_user_id: ctx.userId, statut: 'VERIFIE' }).select('id', 'code', 'intitule', 'cout_total', 'devise'),
@@ -138,7 +141,8 @@ async function directeurDashboard(ctx) {
   ]);
   return {
     performance: perf, tachesEnRetard: tachesRetard, instructionsEnRetard: instructionsRetard, documentsAValider: docsAValider,
-    presencesSoumises, presencesSemaine: presSemaine, courriersARecevoir: courriersRecevoir, courriers: courriersCirculation,
+    presencesSoumises, presencesSemaine: presSemaine, presencesMois: await presencesMois(),
+    promusEnAttente: await require('../../services/carriere').promusEnAttente(), courriersARecevoir: courriersRecevoir, courriers: courriersCirculation,
     pipAValider, instructionsRecues: instructionsSG,
     pip: await statutsCount('pip_projects'),
     effectif: await resumeEffectif(),
@@ -166,16 +170,17 @@ async function pilotageDecisions() {
   };
 }
 
-async function presenceSemaine(where = (q) => q) {
-  const last = await where(db('presence_sheets as s')).whereIn('s.statut', ['SOUMISE', 'VERROUILLEE']).max('s.semaine_debut as d').first();
-  if (!last || !last.d) return null;
-  const rows = await where(db('presence_entries as e').join('presence_sheets as s', 's.id', 'e.sheet_id'))
-    .where('s.semaine_debut', last.d).whereIn('s.statut', ['SOUMISE', 'VERROUILLEE']).select('e.lundi', 'e.mardi', 'e.mercredi', 'e.jeudi', 'e.vendredi');
-  const tot = {};
-  let n = 0;
-  for (const r of rows) for (const j of ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi']) { tot[r[j]] = (tot[r[j]] || 0) + 1; n += 1; }
-  return { semaine: last.d, repartition: tot, tauxPresence: n ? Math.round((((tot.PRESENT || 0) + (tot.RETARD || 0) + (tot.MISSION || 0)) / n) * 100) : null };
+/** Synthèse du dernier rapport de présence transmis (valeurs effectives, rectificatifs compris). */
+const presenceSemaine = (filtre = {}) => presences.syntheseDerniereSemaine(filtre);
+/** Indicateurs de présence du mois en cours (listes transmises), sans détail nominatif. */
+async function presencesMois() {
+  const mois = presences.aujourdhui().slice(0, 7);
+  const d = await presences.syntheseMensuelle({ mois, nominatif: false });
+  if (!d.global.renseignes) return null;
+  return { mois, jours_couverts: d.jours_couverts, jours_ouvrables: d.jours_ouvrables, ...d.global };
 }
+/** Derniers rapports hebdomadaires transmis (consultation des Chefs). */
+const rapportsPresence = (limite) => db('presence_semaines').whereNot('statut', 'EN_PREPARATION').orderBy('semaine_debut', 'desc').limit(limite).select('id', 'reference', 'statut', 'semaine_debut');
 
 async function chefDivisionDashboard(ctx) {
   const div = await db('divisions').where({ id: ctx.divisionId }).first();
@@ -184,7 +189,7 @@ async function chefDivisionDashboard(ctx) {
     db('documents').where({ detenteur_user_id: ctx.userId }).whereIn('statut', ['EN_RELECTURE', 'VISE']).whereNot('auteur_user_id', ctx.userId).select('id', 'reference', 'titre', 'statut', 'updated_at'),
     statutsCount('tasks', (q) => q.where('division_id', ctx.divisionId)),
     scopeInstructions(db('instructions as i'), ctx).where('i.destinataire_user_id', ctx.userId).whereNotIn('i.statut', ['CLOTUREE']).select('i.id', 'i.reference', 'i.objet', 'i.statut', 'i.echeance', 'i.avancement').orderBy('i.created_at', 'desc').limit(10),
-    scopePresences(db('presence_sheets as s'), ctx).orderBy('s.semaine_debut', 'desc').limit(8).leftJoin('bureaux as b', 'b.id', 's.bureau_id').select('s.id', 's.reference', 's.statut', 'b.nom as bureau'),
+    rapportsPresence(8),
     db('pip_projects').where({ detenteur_user_id: ctx.userId, statut: 'EN_VERIFICATION' }).select('id', 'code', 'intitule'),
   ]);
   return {
@@ -193,7 +198,7 @@ async function chefDivisionDashboard(ctx) {
     indicateurs: perf.divisions[0] || null,
     documentsAExaminer: docs, taches: tasks, instructionsRecues: instr, presences: pres, pipAVerifier,
     tachesEnRetard: await db('tasks').where({ division_id: ctx.divisionId, statut: 'EN_RETARD' }).select('id', 'reference', 'titre', 'echeance'),
-    presencesSemaine: await presenceSemaine((q) => q.where('s.division_id', ctx.divisionId)),
+    presencesSemaine: await presenceSemaine({ divisionId: ctx.divisionId }),
   };
 }
 
@@ -208,7 +213,7 @@ async function chefBureauDashboard(ctx) {
     db('tasks as t').join('users as u', 'u.id', 't.agent_user_id').leftJoin('agents as a', 'a.id', 'u.agent_id').where('t.bureau_id', ctx.bureauId)
       .whereNotIn('t.statut', ['CLOTUREE']).orderBy('t.echeance').limit(15).select('t.id', 't.reference', 't.titre', 't.statut', 't.avancement', 't.echeance', nomSql('a')),
     db('documents').where({ detenteur_user_id: ctx.userId, statut: 'EN_RELECTURE' }).whereNot('auteur_user_id', ctx.userId).select('id', 'reference', 'titre', 'updated_at'),
-    db('presence_sheets').where({ bureau_id: ctx.bureauId }).orderBy('semaine_debut', 'desc').limit(6).select('id', 'reference', 'statut', 'semaine_debut'),
+    rapportsPresence(6),
     db('instructions').where({ destinataire_user_id: ctx.userId }).whereNotIn('statut', ['CLOTUREE']).orderBy('created_at', 'desc').limit(10).select('id', 'reference', 'objet', 'statut', 'echeance', 'avancement'),
   ]);
   return {
@@ -221,7 +226,7 @@ async function chefBureauDashboard(ctx) {
     } : null,
     agents, taches: tasksStats, tachesEnCours: tasks, documentsAVerifier: docs, presences: pres, instructionsRecues: instr,
     delegations: ctx.delegations,
-    presencesSemaine: await presenceSemaine((q) => q.where('s.bureau_id', ctx.bureauId)),
+    presencesSemaine: await presenceSemaine({ bureauId: ctx.bureauId }),
   };
 }
 
@@ -267,13 +272,12 @@ router.get('/a-traiter', async (req, res) => {
 
 router.get('/compteurs', async (req, res) => {
   const ctx = req.ctx;
-  const [docs, instr, taches, courriers, pip, pres] = await Promise.all([
+  const [docs, instr, taches, courriers, pip] = await Promise.all([
     ctx.can('documents.consulter') ? scopeDocuments(db('documents as d'), ctx).where('d.detenteur_user_id', ctx.userId).whereIn('d.statut', ['EN_RELECTURE', 'VISE', 'A_CORRIGER']).count('* as n').first() : { n: 0 },
     ctx.can('instructions.consulter') ? scopeInstructions(db('instructions as i'), ctx).where('i.destinataire_user_id', ctx.userId).whereIn('i.statut', ['TRANSMISE', 'A_CORRIGER']).count('* as n').first() : { n: 0 },
     ctx.can('taches.consulter') ? scopeTasks(db('tasks as t'), ctx).where((w) => w.where((x) => x.where('t.agent_user_id', ctx.userId).whereIn('t.statut', ['TRANSMISE', 'A_CORRIGER'])).orWhere((x) => x.where('t.assigne_par_user_id', ctx.userId).where('t.statut', 'EXECUTEE'))).count('* as n').first() : { n: 0 },
     ctx.can('courriers.consulter') ? scopeCourriers(db('courriers as c'), ctx).whereExists(db('courrier_transmissions as t').whereRaw('t.courrier_id = c.id').where({ 't.to_user_id': ctx.userId, 't.etat_reception': 'EN_ATTENTE' })).count('* as n').first() : { n: 0 },
     ctx.can('pip.consulter') ? scopePip(db('pip_projects as p'), ctx).where('p.detenteur_user_id', ctx.userId).whereIn('p.statut', ['EN_VERIFICATION', 'VERIFIE', 'A_CORRIGER']).count('* as n').first() : { n: 0 },
-    ctx.can('presences.verrouiller') ? db('presence_sheets').where('statut', 'SOUMISE').count('* as n').first() : { n: 0 },
   ]);
   const alertes = ctx.can('securite.superviser') ? await db('alertes_securite').whereNull('acquittee_at').whereIn('gravite', ['ATTENTION', 'CRITIQUE']).count('* as n').first() : { n: 0 };
   // Décisions attendues de l’émetteur : blocages signalés et demandes de prolongation
@@ -294,8 +298,8 @@ router.get('/compteurs', async (req, res) => {
     nonLues: Number(notif.n),
     systeme: { maintenance: { active: maintenance.active, message: maintenance.active ? maintenance.message : '', fin: maintenance.active ? maintenance.fin : '' }, demo: config.demo },
     documents: Number(docs.n), instructions: Number(instr.n) + instrAttente, taches: Number(taches.n) + tachesAttente, courriers: Number(courriers.n),
-    pip: Number(pip.n), presences: Number(pres.n), alertes: Number(alertes.n), demandesInfo,
-    planification: parModule.planification || 0, donnees: parModule.donnees || 0, reunions: parModule.reunions || 0,
+    pip: Number(pip.n), presences: parModule.presences || 0, alertes: Number(alertes.n), demandesInfo,
+    planification: parModule.planification || 0, evaluations: parModule.evaluations || 0, collectes: parModule.collectes || 0, donnees: parModule.donnees || 0, reunions: parModule.reunions || 0,
     decisions: parModule.decisions || 0, actes: parModule.actes || 0, cartes: parModule.cartes || 0,
   });
 });

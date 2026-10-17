@@ -51,9 +51,17 @@ const ActeForm = p(() => import('./pages/actes/ActeForm'));
 const ActeDetail = p(() => import('./pages/actes/ActeDetail'));
 const ListeDeclarative = p(() => import('./pages/comptes/ListeDeclarative'));
 const Enrolement = p(() => import('./pages/comptes/Enrolement'));
-const PresencesList = p(() => import('./pages/presences/PresencesList'));
-const PresenceCreate = p(() => import('./pages/presences/PresenceCreate'));
-const PresenceSheet = p(() => import('./pages/presences/PresenceSheet'));
+const Presences = p(() => import('./pages/presences/Presences'));
+const GroupesList = p(() => import('./pages/groupes/GroupesList'));
+const GroupeDetail = p(() => import('./pages/groupes/GroupeDetail'));
+const EvaluationsList = p(() => import('./pages/evaluations/EvaluationsList'));
+const EvaluationDetail = p(() => import('./pages/evaluations/EvaluationDetail'));
+const CollectesList = p(() => import('./pages/collectes/CollectesList'));
+const CollecteDetail = p(() => import('./pages/collectes/CollecteDetail'));
+const PresenceJour = p(() => import('./pages/presences/PresenceJour'));
+const PresenceSemaine = p(() => import('./pages/presences/PresenceSemaine'));
+const MesPresences = p(() => import('./pages/presences/MesPresences'));
+const AncienneListe = p(() => import('./pages/presences/AncienneListe'));
 const CourriersList = p(() => import('./pages/courriers/CourriersList'));
 const CourrierForm = p(() => import('./pages/courriers/CourrierForm'));
 const CourrierDetail = p(() => import('./pages/courriers/CourrierDetail'));
@@ -85,6 +93,7 @@ const MaCarte = p(() => import('./pages/cartes/MaCarte'));
 const Maintenance = p(() => import('./pages/systeme/Maintenance'));
 const JournalTechnique = p(() => import('./pages/systeme/JournalTechnique'));
 const RapportsSecurite = p(() => import('./pages/RapportsSecurite'));
+const Identite = p(() => import('./pages/systeme/Identite'));
 const Reinitialisation = p(() => import('./pages/systeme/Reinitialisation'));
 const Rapports = p(() => import('./pages/Rapports'));
 
@@ -179,9 +188,18 @@ export default function App() {
             <Route path="actes/nouveau" element={G(['actes.preparer', 'actes.enregistrer_direction'], <ActeForm />)} />
             <Route path="actes/:id" element={<ActeDetail />} />
             <Route path="actes/:id/modifier" element={G(['actes.preparer', 'actes.enregistrer_direction'], <ActeForm />)} />
-            <Route path="presences" element={G(['presences.consulter', 'presences.preparer_direction'], <PresencesList />)} />
-            <Route path="presences/nouvelle" element={G(['presences.saisir', 'presences.preparer_direction'], <PresenceCreate />)} />
-            <Route path="presences/:id" element={<PresenceSheet />} />
+            <Route path="presences" element={G(['presences.consulter', 'presences.preparer_direction'], <Presences />)} />
+            <Route path="presences/jour" element={G(['presences.consulter', 'presences.preparer_direction'], <PresenceJour />)} />
+            <Route path="presences/jour/:date" element={G(['presences.consulter', 'presences.preparer_direction'], <PresenceJour />)} />
+            <Route path="presences/semaines/:id" element={G(['presences.consulter', 'presences.preparer_direction'], <PresenceSemaine />)} />
+            <Route path="presences/moi" element={<MesPresences />} />
+            <Route path="groupes" element={<GroupesList />} />
+            <Route path="groupes/:id" element={<GroupeDetail />} />
+            <Route path="evaluations" element={<EvaluationsList />} />
+            <Route path="evaluations/:id" element={<EvaluationDetail />} />
+            <Route path="collectes" element={<CollectesList />} />
+            <Route path="collectes/:id" element={<CollecteDetail />} />
+            <Route path="presences/anciennes/:id" element={G(['presences.consulter', 'presences.preparer_direction'], <AncienneListe />)} />
             <Route path="courriers" element={G(['courriers.consulter'], <CourriersList />)} />
             <Route path="courriers/nouveau" element={G(['courriers.enregistrer'], <CourrierForm />)} />
             <Route path="courriers/:id" element={G(['courriers.consulter'], <CourrierDetail />)} />
@@ -217,6 +235,7 @@ export default function App() {
             <Route path="systeme/erreurs" element={G(['systeme.consulter'], <JournalTechnique />)} />
             <Route path="rapports-securite" element={G(['rapport_securite.consulter'], <RapportsSecurite />)} />
             <Route path="securite" element={G(['securite.superviser', 'session.consulter'], <Securite />)} />
+            <Route path="systeme/identite" element={G(['systeme.configurer', 'operations.confirmer'], <Identite />)} />
             <Route path="systeme/reinitialisation" element={G(['systeme.maintenir'], <Reinitialisation />)} />
             <Route path="acces-refuse" element={<Forbidden />} />
             <Route path="*" element={<NotFound />} />

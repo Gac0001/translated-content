@@ -3,9 +3,10 @@ import { useParams } from 'react-router-dom';
 import { CheckCircle2, FileDown, Pencil, Send, Undo2 } from 'lucide-react';
 import api, { download, errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
-import { useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, InfoAlert, Field, Button, WorkflowPanel, ActionBar, runAction, toast, useConfirm } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Card, KeyValues, StatusBadge, InfoAlert, Field, Button, WorkflowPanel, UnsavedChangesGuard, runAction, toast, useConfirm } from '../../components/ui';
+import { FormulaireEtapes, PageControle, renseigne } from '../../components/FormulaireEtapes';
 import { Attachments, Timeline } from '../../components/shared';
-import { EditeurCbmt, VueCbmt } from './Cadrage';
+import { EditeurCbmt, VueCbmt, TableauCadrage } from './Cadrage';
 import { fmtDateTime } from '../../lib/format';
 import { circuitProgrammation } from '../../lib/workflows';
 
@@ -18,38 +19,66 @@ const PARTIES = {
 };
 const PARTIES_PROGRAMME = { PAP: [['perimetre', 'Périmètre du programme'], ['strategie', 'Stratégie du programme']], RAP: [['analyse', 'Analyse des résultats du programme']], CDMT: [], CBMT: [] };
 
+/**
+ * Rédaction d’un PAP, d’un RAP ou d’un CDMT, par étapes (même mode de remplissage que la fiche PIP) :
+ * page de garde, une étape par partie rédigée, une étape par programme, puis le contrôle (parties
+ * non rédigées, respect des plafonds du CBMT).
+ */
 function Editeur({ doc, programmes, onSaved, onCancel }) {
   const [initial] = useState(() => ({ programmes: {}, ...doc.contenu }));
   const [c, setC] = useState(initial);
+  const [etape, setEtape] = useState(0);
   const [enCours, setEnCours] = useState(false);
+  const cadrage = useApi(['PAP', 'CDMT'].includes(doc.type) ? `/programmation/cadrage?annee=${doc.annee}` : null);
   const up = (k) => (e) => setC({ ...c, [k]: e.target.value });
   const upProg = (id, k) => (e) => setC({ ...c, programmes: { ...c.programmes, [id]: { ...(c.programmes[id] || {}), [k]: e.target.value } } });
+  const modifie = JSON.stringify(c) !== JSON.stringify(initial);
   const enregistrer = async () => {
     setEnCours(true);
-    try { await runAction(() => api.put(`/programmation/documents/${doc.id}`, { contenu: c }), 'Document enregistré.'); } finally { setEnCours(false); }
-    onSaved();
+    try { await runAction(() => api.put(`/programmation/documents/${doc.id}`, { contenu: c }), 'Document enregistré.'); onSaved(); } catch { /* message affiché */ } finally { setEnCours(false); }
   };
+  // Étapes : page de garde, parties, programmes, contrôle
+  const etapes = [
+    { key: 'garde', label: 'Page de garde', champs: [['ministere', 'Ministère'], ['section', 'Section budgétaire'], ['responsable', 'Responsable']], valeur: (k) => c[k] },
+    ...PARTIES[doc.type].map(([k, l]) => ({ key: k, label: l, champs: [[k, l]], valeur: (x) => c[x], long: true })),
+    ...(PARTIES_PROGRAMME[doc.type].length ? programmes.map((p) => ({ key: `p${p.id}`, label: `Programme ${p.code}`, titre: `Programme ${p.code} : ${p.libelle}`, programme: p.id, champs: PARTIES_PROGRAMME[doc.type], valeur: (k) => c.programmes?.[p.id]?.[k], long: true })) : []),
+  ].map((e, i) => ({ ...e, numero: i + 1, ok: e.champs.filter(([k]) => renseigne(e.valeur(k))).length, total: e.champs.length }));
+  const controle = cadrage.data?.controle;
+  const depassements = controle ? controle.annees.flatMap((y) => [...y.lignes.filter((l) => l.depasse).map((l) => `${y.annee} — ${l.libelle}`), ...(y.total.depasse ? [`${y.annee} — total`] : [])]) : [];
+  const toutes = [...etapes, { key: 'controle', numero: etapes.length + 1, label: 'Contrôle', ok: 0, total: 0, alerte: depassements.length > 0 }];
+  const manquantes = etapes.flatMap((e, i) => e.champs.filter(([k]) => !renseigne(e.valeur(k))).map(([, l]) => ({ etape: i, label: e.programme ? `${e.label} — ${l}` : l })));
+  const courante = etapes[etape];
   return (
-    <div className="space-y-4">
-      <Card title="Page de garde">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Ministère"><input className="input" value={c.ministere || ''} placeholder="ÉCONOMIE NUMÉRIQUE" onChange={up('ministere')} /></Field>
-          <Field label="Section budgétaire"><input className="input" value={c.section || ''} onChange={up('section')} /></Field>
-          <Field label="Responsable"><input className="input" value={c.responsable || ''} onChange={up('responsable')} /></Field>
-        </div>
-      </Card>
-      {PARTIES[doc.type].length > 0 && (
-        <Card title="Parties rédigées">
-          <div className="grid gap-3">{PARTIES[doc.type].map(([k, l]) => <Field key={k} label={l}><textarea className="input" rows={5} value={c[k] || ''} onChange={up(k)} /></Field>)}</div>
-        </Card>
-      )}
-      {PARTIES_PROGRAMME[doc.type].length > 0 && programmes.map((p) => (
-        <Card key={p.id} title={`Programme ${p.code} : ${p.libelle}`}>
-          <div className="grid gap-3">{PARTIES_PROGRAMME[doc.type].map(([k, l]) => <Field key={k} label={l}><textarea className="input" rows={4} value={c.programmes[p.id]?.[k] || ''} onChange={upProg(p.id, k)} /></Field>)}</div>
-        </Card>
-      ))}
-      <ActionBar dirty={JSON.stringify(c) !== JSON.stringify(initial)} saving={enCours} onSave={enregistrer} onCancel={onCancel} saveLabel="Enregistrer le document" />
-    </div>
+    <>
+      <UnsavedChangesGuard when={modifie && !enCours} />
+      <FormulaireEtapes etapes={toutes} etape={etape} onEtape={setEtape} navigation={`Étapes du ${doc.type}`}
+        onEnregistrer={enregistrer} enregistrement={enCours} onAnnuler={onCancel} libelleEnregistrer="Enregistrer le document"
+        resume={<>{etapes.reduce((t, e) => t + e.ok, 0)} rubrique(s) rédigée(s) sur {etapes.reduce((t, e) => t + e.total, 0)}.{depassements.length > 0 && <span className="mt-1 block rounded bg-amber-50 px-1.5 py-1 text-amber-800" role="status">{depassements.length} dépassement(s) des plafonds du CBMT</span>}</>}>
+        {courante ? (
+          <Card title={`${courante.numero}. ${courante.titre || courante.label}`}>
+            <div className={`grid gap-3 ${courante.long ? '' : 'sm:grid-cols-3'}`}>
+              {courante.champs.map(([k, l]) => (
+                <Field key={k} label={l}>
+                  {courante.long
+                    ? <textarea className="input" rows={8} value={(courante.programme ? c.programmes?.[courante.programme]?.[k] : c[k]) || ''} onChange={courante.programme ? upProg(courante.programme, k) : up(k)} />
+                    : <input className="input" value={c[k] || ''} placeholder={k === 'ministere' ? 'ÉCONOMIE NUMÉRIQUE' : undefined} onChange={up(k)} />}
+                </Field>
+              ))}
+            </div>
+          </Card>
+        ) : (
+          <Card title={`${toutes.length}. Contrôle`}>
+            <PageControle strict={false} manquantes={manquantes} etapes={toutes} onAller={setEtape}
+              incoherences={depassements.map((x) => ({ bloquant: false, message: `Prévision supérieure au plafond du CBMT : ${x}.` }))}>
+              <p className="text-sm text-slate-600">{doc.type === 'CDMT'
+                ? `Le classeur reprend, par programme et rubrique, les crédits votés ${doc.annee - 1}, la prévision ${doc.annee} et les projections ${doc.annee + 1} à ${doc.annee + 3} saisis dans l’onglet Crédits.`
+                : 'Les tableaux (cadre de performance, crédits par programme, rubrique, titre et action) sont générés à partir des onglets Performance et Crédits au moment de l’export.'}</p>
+              {controle && <div className="-mx-4"><TableauCadrage controle={controle} compact /></div>}
+            </PageControle>
+          </Card>
+        )}
+      </FormulaireEtapes>
+    </>
   );
 }
 

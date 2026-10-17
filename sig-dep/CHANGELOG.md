@@ -1,5 +1,150 @@
 # Journal des versions — SIG-DEP
 
+## 1.44.0
+
+### Lot F — collecte auprès des services du Secrétariat Général (étape 1 : campagnes, modèles, import contrôlé, intégration)
+- **Campagnes de collecte** (cahier, § 36 ; menu Planification et données → « Collecte auprès des services ») : objet, exercice, services ciblés, échéance, instructions ; numérotées `DEP/COL/2026/0001`. Préparées par le **Bureau Programme** (PTBA, cadre de performance, dépenses d’investissement ; le Bureau Suivi-Évaluation pour les autres objets, à la version suivante), **ouvertes et clôturées par le Chef de la Division Programme et Suivi**.
+- **Modèle Excel par service**, généré par le SIG-DEP : en-tête officiel, service, programme et exercice pré-remplis, instructions et échéance, listes déroulantes tirées des référentiels (actions du programme, codes PIP, natures de coûts, sources de financement, maturité), total déclaré par le service, **feuille protégée** (seules les cellules de saisie sont ouvertes) et identification cachée (campagne, service, objet, version du modèle). Le cadre de performance reprend les indicateurs du programme et la réalisation de l’exercice précédent.
+- **Import contrôlé du fichier retourné** : bon modèle, bonne campagne et bon service, structure intacte, champs obligatoires, codes connus, nombres lisibles et positifs, **totaux** (total déclaré comparé à la somme des lignes), **doublons** ; rapport d’anomalies (erreurs et alertes, avec la cellule) ; **fichier d’origine conservé** avec chaque version reçue (réceptions en ajout seul).
+- **Statuts par service** : attendu, reçu, rejeté (avec motif), corrigé, intégré, **en retard** (posé chaque jour à l’échéance dépassée).
+- **Intégration** par le Chef du Bureau organisateur, refusée tant que la dernière version comporte des erreurs : **PTBA** → brouillon du service (créé, ou remplacé s’il est encore en préparation), qui suit ensuite le circuit habituel ; **cadre de performance** → réalisations et cibles des indicateurs ; **dépenses d’investissement** → projets de la banque de projets créés (fiche PIP en brouillon, coûts et financement sur trois ans) ou mis à jour (maturité, localisation, programme).
+- **Consolidation** des lignes reçues par campagne ; **files « À traiter »** : contributions à intégrer, contributions avec erreurs, services en retard, campagnes à ouvrir ; compteur du menu ; notifications.
+- Démonstration : campagne PTBA (contribution intégrée, rejetée puis corrigée, reçue avec erreurs, attendue) et campagne des dépenses d’investissement (service en retard).
+- Tests : 6 nouveaux côté API (modèles réellement remplis puis importés) ; 2 nouveaux côté interface.
+
+## 1.43.0
+
+### Lot E — évaluation des politiques sectorielles et budgétaires (étape 2 : note, circuit, lettre, exports, CDS-MT)
+- **Note de présentation** rédigée par étapes (contexte, présentation du Ministère, résumé de l’évaluation, perspectives, attentes), avec un **résumé chiffré proposé** à partir des annexes (taux d’exécution, actions totalement exécutées et reconduites, dépenses engagées et payées, effectifs, projection).
+- **Lettre de transmission** au Secrétaire Général préparée avec le dossier (destinataire, objet, références de la convocation, corps, pièces, copies), au modèle de la correspondance ; aperçu PDF.
+- **Circuit** (cahier, § 51) : Bureau Suivi-Évaluation (soumission, refusée tant qu’une erreur des annexes, une rubrique de la note ou un élément de la lettre manque) → **Chef de la Division Programme et Suivi** (vérification) → **Directeur** (validation et signature : la lettre reçoit son **numéro officiel** sur la séquence de la correspondance) → **transmission au Secrétaire Général** par le Directeur ou le Secrétariat de Direction ; retour pour correction motivé à la vérification et à la validation. Historique, audit, notifications et files « À traiter » à chaque étape.
+- **Archivage** : le dossier validé puis transmis est intangible en base (annexes, note, lettre et numéro) ; le Secrétaire Général le consulte dès sa validation.
+- **CDS-MT** : à la transmission, les projections de l’annexe II sont reportées (en ajout seul) dans le Cadre de Dépenses Sectorielles à Moyen Terme ; onglet « Projections CDS-MT » (par action et par année, la projection la plus récente l’emportant).
+- **Exports** : dossier complet en PDF (note de présentation et annexes I à V, en paysage), annexes en Excel (une feuille par annexe, taux, écarts et totaux en formules), lettre de transmission en PDF ; en-tête et pied de page officiels.
+- Démonstration : dossier de l’exercice précédent parcouru jusqu’à la transmission (lettre numérotée, projections reportées dans le CDS-MT) ; dossier de l’exercice en cours en préparation.
+- Tests : 2 nouveaux côté API (circuit complet, intangibilité et CDS-MT) ; 2 nouveaux côté interface.
+
+## 1.42.0
+
+### Lot E — évaluation des politiques sectorielles et budgétaires (étape 1 : dossier et annexes)
+- **Dossier d’évaluation de l’exercice** (cahier, §§ 34 et 51 ; menu Planification et données → « Évaluation des politiques ») : ouvert par le **Bureau Suivi-Évaluation** à réception de la convocation du Ministère du Budget (référence, date, échéance), numéroté `DEP/EVAL/2026/0001`, un par exercice ; la convocation et les états de la Direction des Ressources Humaines (montants des primes et salaires) sont joints comme pièces.
+- **Annexes reprises des données du SIG-DEP** :
+  - **I — politiques sectorielles** : PTBA validés de l’exercice regroupés par action budgétaire (à défaut, par objectif spécifique) ; prévision, exécution financière (décaissé au dernier suivi), taux d’exécution, exécution physique et niveau (total, partiel, non entamé) ; cible ou bénéficiaires et reconduction à renseigner ;
+  - **II — projection sur trois ans** : prévisions de crédits par action (à défaut, par programme) ; étude de faisabilité, objectif visé en lien avec le PAG et impact environnemental à renseigner, par le Bureau Programme ;
+  - **III et IV — politique salariale** (primes, salaire de base) : effectif organique et affecté par grade ; payé et non payé saisis d’après les états de la DRH ;
+  - **V — exécution des dépenses** : par programme, dotation (crédits votés), engagé et payé (suivi des PTBA validés), non payé et pourcentage (engagé / dotation), observation.
+- **Contrôle des formules** : taux, totaux, écarts et montants non payés recalculés par le SIG-DEP, jamais saisis ; erreurs (payé + non payé ≠ affecté, payé supérieur à l’engagé, champ obligatoire manquant…) et alertes (exécution supérieure à la prévision, niveau physique incohérent avec le taux, exécution inférieure à 50 % sans observation…) ; page de synthèse des contrôles.
+- **Valeurs modifiées tracées** : chaque ligne garde les valeurs reprises ; une valeur modifiée est signalée (valeur d’origine au survol) et conservée lorsque l’annexe est reprise à nouveau du SIG-DEP ; lignes ajoutées, lignes reprises écartées puis rétablies, lignes dont la source a disparu.
+- **Files « À traiter »** : dossier à compléter (Bureau Suivi-Évaluation), projection à compléter (Bureau Programme, notifié à l’ouverture) ; compteur du menu.
+- Dossier validé ou transmis intangible en base (étape suivante : note de présentation, circuit, lettre de transmission, exports).
+- Démonstration : dossier de l’exercice en cours, en partie complété, avec ses anomalies restant à lever.
+- Tests : 6 nouveaux côté API ; 3 nouveaux côté interface.
+
+## 1.41.0
+
+### Lot C — personnel et comptes (étape 2 : effectifs, groupes de travail, données personnelles, import, référentiel versionné)
+- **Effectif par structure et par grade** (cahier, §§ 10 et 11 ; Cadre organique → « Effectif par structure ») : postes d’emploi du cadre organique pour chaque structure (20 au total) comparés à l’effectif réel, tableau croisé structure × grade (« réel / organique »), vacances et sureffectifs par structure, agents promus en attente de poste et intérims actifs ; exports PDF et Excel ; totaux repris au tableau de bord du Directeur. Les postes d’emploi se modifient avec leur source (acte ou décision).
+- **Référentiel versionné** (Cadre organique → « Versions du référentiel ») : grades, postes organiques, effectif de référence et postes d’emploi par structure consignés en versions intangibles, chacune avec sa source et sa date d’application ; version 1 issue du cadre organique ; les modifications non encore consignées sont listées (ajouts, modifications, retraits) jusqu’à la consignation d’une nouvelle version.
+- **Groupes de travail** (cahier, § 14 ; menu Organisation) : objet, acte ou décision de création, dates, membres (coordonnateur, membre, rapporteur), participants externes sans compte, dossiers du groupe, historique, clôture. Création et composition par le Directeur et le Secrétariat de Direction ; un agent ne voit que les groupes dont il est membre ; l’appartenance ne modifie ni l’affectation, ni le grade, ni le rôle ; un groupe ne compte jamais dans l’effectif ; il est proposé comme structure responsable des activités du PTBA.
+- **Données personnelles masquées** selon le rôle (cahier, § 24) : date et lieu de naissance, adresse, téléphone, carte IGAP et commission d’affectation réservés à l’agent, au Directeur et au Secrétariat de Direction ; les Chefs, le Secrétaire Général et l’Admin voient les coordonnées professionnelles.
+- **Import du personnel** : rapport d’anomalies enrichi — grades reconnus par leur code officiel (210), leur abréviation (ATA 1) ou leur libellé, doublons possibles (même nom sous un autre matricule, dans le fichier ou déjà enregistré), appellations de structure rapprochées, grade de commandement incohérent avec le poste, Directeur et Secrétaire Général à traiter manuellement.
+- Démonstration : Cellule Genre (fictive) avec coordonnatrice, rapporteur, membre, participant externe et compte rendu.
+- Tests : 7 nouveaux côté API ; 4 nouveaux côté interface.
+
+## 1.40.0
+
+### Lot C — personnel et comptes (étape 1 : grades, actes de carrière, cohérence poste-grade-rôle)
+- **Grades au format du cahier des charges** (§ 9) : codes 110 (Secrétaire Général, hors effectif) à 340, plus le **Huissier** (catégorie à part) ; catégories Commandement, Collaboration, Exécution et Huissier ; abréviations (ATA 1, AGA 2…) ; les abréviations des grades 330 et 340 sont marquées « à confirmer par la Direction des Ressources Humaines ». Conversion automatique des grades existants ; la fonction Huissier est rattachée au grade Huissier.
+- **Historique des grades** en ajout seul : grade à l’enregistrement de l’agent, élévations (liées à leur acte), corrections de fiche.
+- **Acte d’élévation en grade** : à la date d’effet, le nouveau grade s’applique et l’ancien est conservé ; ni la fonction, ni l’affectation, ni le rôle ne changent. Un agent de grade de commandement sans poste de commandement apparaît **« promu en attente de poste »** au tableau de bord du Directeur.
+- **Nomination, affectation et fin de fonction désormais suivies d’effets**, à la validation si la date d’effet est atteinte, sinon le jour venu (tâche quotidienne) :
+  - nomination : poste de commandement **vacant**, agent ayant le **grade requis** ; l’intérim en cours sur le poste prend fin ; affectation, fonction et rôle du poste attribués, droits recalculés ; notification de l’agent, de son nouveau supérieur et du Directeur ;
+  - affectation sur un poste d’exécution (un rôle de commandement cesse) ;
+  - fin de fonction : l’agent reste dans la structure comme agent, son grade est conservé, le poste devient vacant.
+  Un acte dont les effets sont appliqués ne se révoque ni ne se rectifie : sa correction passe par un nouvel acte.
+- **Un seul titulaire** par poste de commandement (contrôle en base) ; l’intérimaire doit avoir un grade inférieur au grade requis (sinon c’est une nomination).
+- **Carrière** sur la fiche de l’agent : affectations, grades, nominations, intérims, désignations et fins de fonction, chacun lié à son acte.
+- **Double authentification obligatoire pour le Chef du Bureau Secrétariat de Direction** (cahier, § 23), comme pour l’Admin, le Directeur et le Secrétaire Général.
+- Démonstration : élévation d’un agent au grade de Chef de Bureau (promu en attente de poste).
+- Tests : 6 nouveaux côté API, 1 adapté ; 3 nouveaux côté interface.
+
+## 1.39.0
+
+### Lot B — présences journalières (étape 2 : synthèses et pilotage)
+- **Synthèse mensuelle** (onglet « Synthèse mensuelle » des Présences) calculée sur les listes transmises au Directeur, rectificatifs validés compris : taux de présence (agent-jours de présence sur agent-jours renseignés), ponctualité (présences sans retard), retards et minutes de retard, absences par motif ; **par structure** (regroupement de l’annexe 11, barres de taux), **par agent** et **par jour** ; navigation d’un mois à l’autre.
+- Périmètre : toute la Direction pour le Secrétariat de Direction et le Directeur, la Division ou le Bureau pour un Chef, **agrégats sans nom** pour le Secrétaire Général.
+- **Exports** PDF et Excel de la synthèse (feuilles par structure, par agent, par jour ; en-tête et pied de page officiels, « Pour la DEP »).
+- **Files « À traiter »** : rapports de présence à examiner et rectificatifs à valider (Directeur) ; rapports rejetés à reprendre, rapports des semaines écoulées à transmettre et listes du jour à compléter (Secrétariat de Direction). Le compteur du menu « Présences » reprend ces files.
+- **Tableaux de bord** : taux de présence, retards et absences du mois sur la tuile du Directeur ; tuile « Taux de présence du mois » pour le Secrétaire Général.
+- Démonstration : cinq semaines verrouillées (synthèses du mois en cours et du mois précédent), une semaine transmise avec un rectificatif, la semaine en cours.
+- Tests : 2 nouveaux côté API (synthèse et périmètres, exports ; files et compteur) ; 2 nouveaux côté interface.
+
+## 1.38.0
+
+### Lot B — présences journalières (étape 1 : saisie, rapport hebdomadaire, rectificatifs)
+- **Listes journalières** tenues par le **Secrétariat de Direction** (cahier des charges, section 25, annexe 11) : chaque jour ouvrable, une liste des **Cadres** (Chef de Bureau et au-dessus) et une liste des **Agents**, regroupés par structure dans l’ordre de l’organigramme (I. Direction, I.1 Secrétariat de Direction, I.2 Division et ses Bureaux…). Pour chaque agent : heure d’arrivée (H-A) et heure de départ (H-D), ou un **motif d’absence** (mission, congé, maladie, permission, formation, absent non justifié) avec, au besoin, une **pièce justificative** jointe en un clic.
+- **Saisie par étapes** (Cadres, Agents, Contrôle), comme les documents : « Tous présents à l’heure », « Départ à l’heure pour les présents », retard calculé à la volée, page de contrôle (lignes à saisir, départs manquants, retards, absences sans pièce).
+- **Horaires de référence** (arrivée, départ, tolérance de retard) et **jours fériés** paramétrables par le Directeur ou le Secrétariat ; les horaires en vigueur à l’ouverture d’une liste restent attachés à cette liste.
+- **Rapport hebdomadaire** : transmission au Directeur une fois les dix listes de la semaine complètes (jours fériés exceptés), ce qui les verrouille ; le Directeur **verrouille** définitivement ou **rejette** avec un motif ; retransmission après rectificatifs.
+- **Rectificatifs** : toute correction d’une liste transmise est proposée par le Secrétariat (valeurs avant et après, motif) et **validée ou refusée par le Directeur** ; l’original reste intact (déclencheurs PostgreSQL) ; les valeurs rectifiées sont marquées d’un astérisque.
+- **Droits** : seul le Secrétariat de Direction gère les présences (accordé par la structure d’affectation, désignable) ; les Chefs de Division et de Bureau consultent les présences de leur structure ; le Secrétaire Général ne reçoit que des agrégats ; chaque agent consulte **Mes présences**.
+- **Exports PDF et Excel au format de l’annexe 11** : « Liste des présences des Cadres / Agents affectés à la Direction d’Études et Planification », « Semaine du … au … », H-A et H-D du lundi au vendredi, motif à la place des heures, « Pour la DEP », en-tête et pied de page officiels.
+- Tableaux de bord (rapports transmis, rectificatifs à valider, taux de présence du dernier rapport), compteur du menu et rapports d’activités calculés sur les nouvelles listes ; fin du verrouillage automatique (`PRESENCE_AUTOLOCK_HOURS` retiré) ; les **anciennes listes hebdomadaires par Bureau** restent consultables en lecture seule.
+- Démonstration : semaine verrouillée, semaine transmise avec un rectificatif à valider, semaine en cours en saisie, jours fériés nationaux.
+- Tests : 5 nouveaux côté API ; 4 nouveaux côté interface.
+
+## 1.37.0
+
+### Même mode de remplissage pour tous les documents — étapes B et C : programmation et PTBA
+- **PAP, RAP et CDMT** rédigés par étapes : page de garde, une étape par partie rédigée, une étape par programme (périmètre, stratégie, analyse des résultats), puis le contrôle — rubriques non rédigées avec lien vers l’étape, et respect des plafonds du CBMT (PAP, CDMT) avec le tableau des plafonds et des prévisions. Compteur « rubriques rédigées » et dépassements suivis en continu.
+- **CBMT** en cinq étapes : document et orientations, plafonds par nature, hypothèses macroéconomiques, actions prioritaires (programme et projets de la banque), contrôle ; total des plafonds par année suivi en continu ; dépassements des plafonds par les prévisions signalés.
+- **Éditeur du PTBA** par étapes : en-tête, une étape par objectif spécifique (ou par action en vue budgétaire détaillée, avec ses lignes de dépense), contrôle ; coût total et coût par trimestre en continu ; les lignes sans chronogramme, qui bloquent la soumission, sont signalées avant l’envoi ; coûts nuls à vérifier.
+- La page de contrôle distingue les documents dont la transmission est bloquée (documents de service, fiche PIP, PTBA) de ceux où les points relevés sont des recommandations (programmation).
+- **Correction** : un écran qui change rapidement de filtre (par exemple l’exercice de la Planification) n’affiche plus la réponse d’une requête dépassée arrivée en retard.
+- Tests de l’interface : 1 nouveau (CBMT par étapes), 2 adaptés (rédaction d’un document de programmation, éditeur du PTBA).
+
+## 1.36.0
+
+### Même mode de remplissage pour tous les documents — étape A : documents de service et correspondance
+- **Formulaire par étapes commun** (`FormulaireEtapes`), extrait de la fiche PIP : navigation à gauche avec le compteur de rubriques obligatoires de chaque étape (pastille verte une fois complète), contrôle en continu sous la navigation, Précédent / Suivant, enregistrement à tout moment, et une dernière étape **Contrôle** qui liste les rubriques manquantes (avec un lien vers l’étape concernée) et les incohérences.
+- **Documents de service** : chaque modèle est découpé en étapes (rapport, compte rendu, note technique, fiche projet, plan d’actions, fiche de suivi, procès-verbal, termes de référence) ; titre et confidentialité en première étape ; commentaire de version à l’étape de contrôle.
+- **Correspondance en version courte** (note explicative, lettre de transmission, communiqué) : trois étapes (destinataire et objet, corps, signature et copies) avec l’**aperçu de la lettre en direct** à côté — en-tête officiel (variante du Secrétaire Général s’il signe), référence du projet « N° … », lieu et date, destinataire, objet, corps, signature, annexes et copies, pied de page.
+- **Fiche PIP** passée sur le composant commun, avec la même étape de contrôle (rubriques, financement, dates, emplois).
+- Tests : 1 nouveau côté API (étapes sans rubrique oubliée, identité de l’aperçu) ; 2 nouveaux côté interface, 2 adaptés.
+
+## 1.35.0
+
+### Documents officiels — étape 3 : PTBA en vue budgétaire détaillée et rapport d’anomalies
+- **Vue budgétaire détaillée** (format des feuilles DDCN et DCS du classeur du Ministère) lue à l’import : hiérarchie Ministère > Programme > service > Action > Activité > Tâche > **lignes de dépense** (désignation, structure destinataire, nature économique, section/chapitre, unité physique, chronogramme 1 à 12, coût, source, lieu d’exécution, mode de gestion). Chaque tâche devient une ligne du PTBA dont le coût et les mois découlent de ses lignes de dépense ; chaque action devient un objectif. Les lignes de dépense sont conservées, consultables sur la fiche, modifiables tant que le PTBA est en préparation, et intangibles après validation.
+- **Export** d’un PTBA importé en vue détaillée au même format (totaux de tâche et total général en formules) ; PDF avec les lignes de dépense par action.
+- **Rapport d’anomalies** à l’import, par feuille et par cellule, conservé avec le PTBA et affiché sur sa fiche : montants mal saisis (groupes de chiffres irréguliers, « 100 000 00 » lu comme 10 000 000), montants avec centimes, formules en erreur (#REF!), total de tâche différent de la somme de ses lignes, montant sans désignation (non repris), montant exceptionnel au regard de la feuille, programme non renseigné, intitulé incomplet, lignes sans coût, feuille masquée.
+- **Feuilles d’un autre ministère** signalées et non retenues par défaut : ministère déclaré différent de celui de l’identité en vigueur, ou aucune structure responsable parmi les services du Secrétariat Général. Elles restent importables sur décision explicite, la raison étant inscrite à l’historique.
+- Démonstration : PTBA de la Direction Cybersécurité en vue détaillée, avec son rapport d’anomalies.
+- Tests : 3 nouveaux côté API (lecture des montants, analyse d’un classeur détaillé avec anomalies et feuille étrangère, import, modification, export relu, intangibilité) ; 2 nouveaux côté interface.
+
+## 1.34.0
+
+### Documents officiels — étape 2 : fiche PIP au modèle du Ministère du Plan
+- **Nouveau formulaire en huit étapes**, dans l’ordre du classeur du Ministère du Plan (annexe 6) : identification (étape Identification ou Sélection, ministère, service, n° et libellé, compétence, secteur, nature d’investissement, localisation) ; rattachement au PNSD (pilier, thématique, domaine, objectif spécifique) et à la stratégie sectorielle (programme, action) ; justification (problème, situation actuelle, situation visée) ; objectifs, résultats, bénéficiaires et effets ; calendrier (durée calculée), planning des activités et indicateurs ; aspect financier en CDF (six grandes masses imposées, plan de financement, coûts récurrents) ; aspects institutionnel, économique et environnemental (emplois dont femmes, gains, impacts, risques) ; contrôle et signature (études réalisées, responsable).
+- **Page de contrôle** : rubriques manquantes (études obligatoires à l’étape de Sélection), totaux par année, incohérences ; un financement qui ne couvre pas exactement le coût, une date de fin antérieure au début ou plus d’emplois de femmes que d’emplois **bloquent la soumission** ; les écarts par année sont signalés. Le formulaire affiche en continu le coût, le financement et l’écart à résorber ; les tableaux chiffrés ont leurs totaux.
+- **Export Excel identique au modèle du Plan** : six feuilles « Feuil1 » à « Feuil6 », mêmes libellés et mêmes cellules, années réelles en en-tête, totaux en formules ; un tableau plus long que le modèle ajoute des lignes ; pied de page officiel à l’impression.
+- **Import d’une fiche remplie** (Projets PIP → Importer une fiche) : les rubriques sont repérées par leur libellé (lignes ajoutées ou retirées, montants écrits en texte « 15,000,000,000 », dates « Jan-25 ») ; relecture (coût, financement, alertes, rubriques manquantes) avant la création du brouillon.
+- **Référentiels** (Planification → Référentiel, Directeur) : les **13 services du Secrétariat Général** (CAB, SG, CTA, CGPMP, DRH, DAF, DEP, DANTIC, DIN, DACN, DEN, DDCN, DCS), chacun rattaché à un programme budgétaire ; **PNSD** et **stratégie sectorielle** hiérarchisés (le parent est contrôlé). Les rubriques de la fiche proposent ces valeurs, filtrées par le niveau supérieur choisi, sans les imposer.
+- **Fiches existantes converties** au nouveau modèle par la migration ; leurs versions antérieures restent conservées telles quelles.
+- Démonstration : référentiels PNSD et stratégie fictifs, services rattachés aux programmes, fiches en CDF et un brouillon à compléter.
+- Tests : 7 nouveaux côté API (contrôles, export cellule par cellule et relecture identique, import d’un classeur rempli à la main, référentiels, conversion) ; 3 nouveaux côté interface.
+
+## 1.33.0
+
+### Documents officiels — étape 1 : en-tête, pied de page, correspondance et termes de référence
+- **En-tête et pied de page officiels sur tous les documents produits** (PDF, Word, Excel), d’après le modèle ENTETE_DEP : sceau aux armoiries, « MINISTERE DE L’ECONOMIE NUMERIQUE » en Cooper Hewitt, Secrétariat Général et Direction en Great Vibes soulignés ; pied de page avec adresse, courriel, site, QR code et bande tricolore ; numéro de page ; rappel discret (Direction et référence) sur les pages suivantes. **Variante du Secrétaire Général** (« Le Secrétaire Général ») pour les correspondances qu’il signe. Polices libres incorporées (PDF et Word) ; en Excel, en-tête dans les premières lignes, pied de page et ligne d’intitulés répétés à l’impression.
+- **Identité du Ministère** (Sécurité et système → Identité et en-tête) : appellation, sigle **MIN-ECN**, Secrétariat Général, Direction, adresse, courriel, site, contenu du QR code, sceau et formats de référence, en **versions datées en ajout seul**. Nouvelle version proposée par l’Admin Système et **confirmée par le Directeur** (opération critique, Gouvernance) ; aperçu PDF des deux variantes ; un document signé garde l’identité en vigueur à sa date de signature. Le sceau n’est pas fourni : l’Admin le dépose dans l’application.
+- **Correspondance** (note explicative, lettre de transmission, communiqué de service) : **numéro officiel attribué à la signature** du Directeur, sur une séquence annuelle commune jamais réutilisée — `N° 012/MIN-ECN/SGN/DEP/{signataire}/{rédacteur}/2026`, ou `N° 012/MIN-ECN/SG/{signataire}/DEP/{rédacteur}/2026` quand le Secrétaire Général signe (initiales calculées) ; le projet porte « N° … ». Export PDF et Word **en lettre** : référence, « Kinshasa, le … », destinataire, objet ou « Concerne », corps, formules, signataire, annexes ou pièces jointes, copies. Note explicative au modèle du Ministère (signataire, destinataire, formules d’appel et finale préremplies) ; les rubriques des anciennes versions ne s’affichent que si elles sont renseignées.
+- **Nouveau modèle : termes de référence** (contexte, objectifs général et spécifiques, mission, contenu attendu, phases avec objectifs, activités et livrables, durée, budget, lieu).
+- Formulaires : rubriques préremplies à la création ; référence officielle affichée sur la fiche du document.
+- Démonstration : termes de référence en brouillon, note explicative signée (numéro 001) et lettre de transmission en relecture.
+- Tests : 6 nouveaux côté API (identité, confirmation, numérotation, exports en lettre et termes de référence) ; 4 nouveaux côté interface. Tests d’exports rendus indépendants de la position des lignes.
+
 ## 1.32.0
 
 ### Préparation de la mise en production (Windows et Linux, hébergement local)

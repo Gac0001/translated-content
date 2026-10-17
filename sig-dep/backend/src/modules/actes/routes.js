@@ -28,6 +28,7 @@ const acteSchema = z.object({
   motif: z.string().trim().max(3000).optional().nullable(),
   agent_id: z.coerce.number().int().positive().optional().nullable(),
   poste_id: z.coerce.number().int().positive().optional().nullable(),
+  grade_id: z.coerce.number().int().positive().optional().nullable(),
   permissions: z.array(z.string().max(60)).max(20).optional(),
   date_debut: dateOpt,
   date_fin: dateOpt,
@@ -80,23 +81,27 @@ router.get('/referentiels', async (req, res) => {
     .leftJoin('bureaux as b', 'b.id', 'p.bureau_id').leftJoin('divisions as d', 'd.id', 'p.division_id')
     .leftJoin('affectations as a', function j() { this.on('a.poste_id', 'p.id').andOn('a.est_active', db.raw('true')); })
     .leftJoin('agents as ag', 'ag.id', 'a.agent_id')
-    .where('p.actif', true).whereIn('p.role_associe', ROLES_COMMANDEMENT)
+    .leftJoin('grades as gr', 'gr.id', 'p.grade_minimum_id')
+    .where('p.actif', true)
     .modify((q) => { if (!req.ctx.can('actes.preparer')) q.where('p.role_associe', 'DIRECTEUR'); })
-    .select('p.id', 'p.libelle', 'p.role_associe', db.raw('COALESCE(b.code_organique, d.code_organique) as code_organique'),
+    .select('p.id', 'p.libelle', 'p.role_associe', 'p.grade_minimum_id', 'gr.code_officiel as grade_requis', 'a.agent_id as titulaire_agent_id', db.raw('COALESCE(b.code_organique, d.code_organique) as code_organique'),
       db.raw(`concat_ws(' ', ag.prenom, ag.nom, ag.postnom) as titulaire`))
-    .orderByRaw("CASE p.role_associe WHEN 'DIRECTEUR' THEN 0 WHEN 'CHEF_DIVISION' THEN 1 ELSE 2 END, code_organique NULLS LAST");
-  const personnes = await db('agents as ag').join('users as u', 'u.agent_id', 'ag.id')
+    .orderByRaw("CASE p.role_associe WHEN 'DIRECTEUR' THEN 0 WHEN 'CHEF_DIVISION' THEN 1 WHEN 'CHEF_BUREAU' THEN 2 ELSE 3 END, code_organique NULLS LAST, p.libelle");
+  // Personnes : les agents de la Direction ; l’intérim et la désignation exigent un compte actif.
+  const personnes = await db('agents as ag').leftJoin('users as u', 'u.agent_id', 'ag.id')
     .leftJoin('affectations as a', function j() { this.on('a.agent_id', 'ag.id').andOn('a.est_active', db.raw('true')); })
     .leftJoin('bureaux as b', 'b.id', 'a.bureau_id').leftJoin('divisions as d', 'd.id', 'a.division_id')
     .leftJoin('grades as g', 'g.id', 'ag.grade_id')
-    .whereNot('u.statut', 'DESACTIVE').where('ag.est_autorite', false).whereNull('ag.archived_at')
-    .select('ag.id', 'ag.matricule', db.raw(`concat_ws(' ', ag.prenom, ag.nom, ag.postnom) as nom`), 'g.libelle as grade',
+    .where('ag.est_autorite', false).whereNull('ag.archived_at')
+    .select('ag.id', 'ag.matricule', db.raw(`concat_ws(' ', ag.prenom, ag.nom, ag.postnom) as nom`), 'g.libelle as grade', 'g.code_officiel as grade_code', 'ag.grade_id',
+      db.raw(`(u.id IS NOT NULL AND u.statut <> 'DESACTIVE') as compte`),
       db.raw(`COALESCE(b.nom, d.nom, CASE WHEN a.niveau = 'DIRECTION' THEN 'Direction' END) as structure`))
     .orderBy('ag.nom');
   res.json({
     types: actes.TYPES,
     postes: postes.map((p) => ({ ...p, titulaire: p.titulaire || null })),
     personnes,
+    grades: await db('grades').where({ actif: true }).whereNot('code', 'SG').orderBy('niveau', 'desc').select('id', 'code_officiel', 'libelle', 'niveau'),
     designables: await db('permissions').where({ delegable: true }).select('code', 'libelle').orderBy('libelle'),
     autoritePreparation: req.ctx.can('actes.preparer') ? 'DIRECTEUR' : 'SECRETAIRE_GENERAL',
   });
@@ -123,8 +128,8 @@ router.get('/:id', validate({ params: idParam }), async (req, res) => {
       modifier: a.statut === 'BROUILLON' && a.prepare_par === req.ctx.userId,
       decider: a.statut === 'SOUMIS' && (a.validation_par === 'SECRETAIRE_GENERAL' ? req.ctx.can('actes.valider_direction') : req.ctx.can('actes.valider'))
         && !(req.ctx.agentId && [a.agent_id, a.titulaire_agent_id].includes(req.ctx.agentId)),
-      revoquer: a.statut === 'VALIDE' && (a.validation_par === 'SECRETAIRE_GENERAL' ? req.ctx.can('actes.valider_direction') : req.ctx.can('actes.valider')),
-      rectifier: ['VALIDE', 'REFUSE'].includes(a.statut) && (a.validation_par === 'SECRETAIRE_GENERAL' ? req.ctx.can('actes.enregistrer_direction') : req.ctx.can('actes.preparer')),
+      revoquer: a.statut === 'VALIDE' && !a.effet_applique_at && (a.validation_par === 'SECRETAIRE_GENERAL' ? req.ctx.can('actes.valider_direction') : req.ctx.can('actes.valider')),
+      rectifier: (a.statut === 'REFUSE' || (a.statut === 'VALIDE' && !a.effet_applique_at)) && (a.validation_par === 'SECRETAIRE_GENERAL' ? req.ctx.can('actes.enregistrer_direction') : req.ctx.can('actes.preparer')),
     },
   });
 });

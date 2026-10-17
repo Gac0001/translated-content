@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useApi, Loadable, PageHeader, Card, Field, RangBadge, Badge, InfoAlert, BarList, DataTable } from '../components/ui';
 import { ExportButtons } from '../components/shared';
 import { fmtDate, fmtMontant } from '../lib/format';
-import { PERIMETRES, PRESENCES, STATUTS } from '../lib/labels';
+import { PERIMETRES, STATUTS } from '../lib/labels';
 
 const MOIS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
@@ -55,7 +55,7 @@ export default function Rapports() {
             </Card>
             <div className="grid gap-4 md:grid-cols-3">
               <Card title="Présences (agent-jours)">
-                {Object.keys(r.presences).length ? <ul className="space-y-1 text-sm">{Object.entries(r.presences).map(([k, v]) => <li key={k} className="flex justify-between"><span>{PRESENCES[k]?.[0] || k}</span><b className="tabular-nums">{v}</b></li>)}</ul> : <p className="text-sm text-slate-500">Aucune liste soumise sur la période.</p>}
+                {Object.keys(r.presences).length ? <ul className="space-y-1 text-sm">{Object.entries(r.presences).map(([k, v]) => <li key={k} className="flex justify-between"><span>{k}</span><b className="tabular-nums">{v}</b></li>)}</ul> : <p className="text-sm text-slate-500">Aucune liste transmise sur la période.</p>}
               </Card>
               <Card title="Courriers enregistrés">
                 {Object.keys(r.courriers).length ? <ul className="space-y-1 text-sm">{Object.entries(r.courriers).map(([k, v]) => <li key={k} className="flex justify-between"><span>{k === 'ENTRANT' ? 'Entrants' : 'Sortants'}</span><b>{v}</b></li>)}</ul> : <p className="text-sm text-slate-500">—</p>}

@@ -97,7 +97,7 @@ export default function DocumentDetail() {
                 a.transmettre && <Button key="tr" variant="primary" icon={Send} onClick={() => act('transmettre', 'Document transmis au supérieur hiérarchique.', { title: 'Transmettre', message: 'Le document sera transmis à votre supérieur hiérarchique direct.', input: { label: 'Commentaire (facultatif)' } })}>Transmettre</Button>,
                 a.retourner && <Button key="re" icon={Undo2} onClick={() => act('retourner', 'Document retourné pour correction.', { title: 'Retourner pour correction', message: 'Le document sera renvoyé à son auteur.', input: { label: 'Corrections demandées', required: true }, danger: true })}>Retourner</Button>,
                 a.viser && <Button key="vi" variant="success" icon={Stamp} onClick={() => act('viser', 'Document visé.', { title: 'Viser le document', message: 'Votre visa sera apposé ; vous pourrez ensuite transmettre le document au Directeur.', input: { label: 'Commentaire (facultatif)' } })}>Viser</Button>,
-                a.valider && <Button key="va" variant="success" icon={CheckCircle2} onClick={() => act('valider', 'Document validé et signé.', { title: 'Validation définitive', message: 'Le document sera validé et signé par le Directeur.', input: { label: 'Commentaire (facultatif)' } })}>Valider et signer</Button>,
+                a.valider && <Button key="va" variant="success" icon={CheckCircle2} onClick={() => act('valider', 'Document validé et signé.', { title: 'Validation définitive', message: d.type.correspondance ? 'Le document sera validé et signé ; il reçoit son numéro officiel et la date du jour, définitivement.' : 'Le document sera validé et signé par le Directeur.', input: { label: 'Commentaire (facultatif)' } })}>Valider et signer</Button>,
                 a.rejeter && <Button key="rj" variant="danger" icon={XCircle} onClick={() => act('rejeter', 'Document rejeté.', { title: 'Rejeter le document', message: 'Le rejet est définitif pour cette version.', input: { label: 'Motif du rejet', required: true }, danger: true })}>Rejeter</Button>,
                 a.publier && <Button key="pu" variant="primary" icon={Megaphone} onClick={() => setPublier(true)}>Publier</Button>,
                 a.archiver && <Button key="ar" icon={Archive} onClick={() => act('archiver', 'Document archivé.')}>Archiver</Button>,
@@ -106,7 +106,7 @@ export default function DocumentDetail() {
               main={<>
                 <Card title="Contenu">
                   <div className="space-y-5">
-                    {d.type.sections.map((s, i) => <div key={s.key}><h3 className="mb-1 text-sm font-semibold text-dep-800">{i + 1}. {s.label}</h3><DynamicValue field={s} value={d.contenu[s.key]} /></div>)}
+                    {d.type.sections.filter((s) => !s.ancien || (Array.isArray(d.contenu[s.key]) ? d.contenu[s.key].length : d.contenu[s.key])).map((s, i) => <div key={s.key}><h3 className="mb-1 text-sm font-semibold text-dep-800">{i + 1}. {s.label}</h3><DynamicValue field={s} value={d.contenu[s.key]} /></div>)}
                   </div>
                 </Card>
                 <Card title="Commentaires et corrections">
@@ -125,6 +125,7 @@ export default function DocumentDetail() {
                 <Card title="Informations">
                   <KeyValues cols={1} items={[
                     ['Statut', <StatusBadge key="s" value={d.statut} />], ['Confidentialité', <ConfidBadge key="c" value={d.confidentialite} />],
+                    d.reference_officielle && ['Référence officielle', d.numero_officiel ? <b key="r" className="font-mono text-xs">{d.reference_officielle}</b> : <span key="r" className="text-slate-600" title="Numéro attribué à la signature du Directeur">{d.reference_officielle} (projet)</span>],
                     ['Auteur', d.auteur_nom], ['Structure', d.bureau_nom || d.division_nom || 'Direction'], ['Détenteur actuel', d.detenteur_nom],
                     d.valide_at && ['Validé le', fmtDateTime(d.valide_at)],
                     d.publie_at && ['Publié le', fmtDateTime(d.publie_at)],

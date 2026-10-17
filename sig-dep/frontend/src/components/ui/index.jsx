@@ -21,8 +21,12 @@ export function useApi(url, deps = []) {
     const c = url && estReferentiel(url) ? lireCache(url) : undefined;
     return c !== undefined ? { data: c, loading: false, error: null } : { data: null, loading: !!url, error: null };
   });
+  // Seule la dernière requête compte : une réponse arrivée après une requête plus récente (changement
+  // d’exercice, de filtre…) est ignorée, sinon elle remplacerait les bonnes données.
+  const derniere = useRef(0);
   const load = useCallback(async (forcer = false) => {
     if (!url) return;
+    const n = ++derniere.current;
     // Référentiel déjà lu pendant la session : pas de nouvel appel (sauf rechargement explicite).
     const c = estReferentiel(url) && forcer !== true ? lireCache(url) : undefined;
     if (c !== undefined) { setState({ data: c, loading: false, error: null }); return; }
@@ -30,9 +34,9 @@ export function useApi(url, deps = []) {
     try {
       if (forcer === true) viderReferentiel(url);
       const data = estReferentiel(url) ? await lireReferentiel(url) : (await api.get(url)).data;
-      setState({ data, loading: false, error: null });
+      if (n === derniere.current) setState({ data, loading: false, error: null });
     } catch (e) {
-      setState({ data: null, loading: false, error: errorMessage(e), status: e.response?.status });
+      if (n === derniere.current) setState({ data: null, loading: false, error: errorMessage(e), status: e.response?.status });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url, ...deps]);

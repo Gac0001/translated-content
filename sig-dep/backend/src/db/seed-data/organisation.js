@@ -119,17 +119,21 @@ const RESPONSABILITES = {
   ],
 };
 
+// Référentiel du cahier des charges (§ 9) : code officiel (un code plus petit indique un rang plus
+// élevé), abréviation et catégorie ; `niveau` donne le rang dans l’application (plus grand = plus élevé).
+const A_CONFIRMER = 'Appellation de la catégorie et abréviation à confirmer par la Direction des Ressources Humaines.';
 const GRADES = [
-  { code: 'SG', libelle: 'Secrétaire Général', categorie: 'Haut cadre', niveau: 100 },
-  { code: 'DIR', libelle: 'Directeur', categorie: 'Haut cadre', niveau: 90 },
-  { code: 'CD', libelle: 'Chef de Division', categorie: 'Haut cadre', niveau: 80 },
-  { code: 'CB', libelle: 'Chef de Bureau', categorie: 'Cadre de collaboration', niveau: 70 },
-  { code: 'ATA1', libelle: 'Attaché d’Administration de 1re classe', categorie: 'Cadre de collaboration', niveau: 60 },
-  { code: 'ATA2', libelle: 'Attaché d’Administration de 2e classe', categorie: 'Cadre de collaboration', niveau: 50 },
-  { code: 'AGA1', libelle: 'Agent d’Administration de 1re classe', categorie: 'Agent d’exécution', niveau: 40 },
-  { code: 'AGA2', libelle: 'Agent d’Administration de 2e classe', categorie: 'Agent d’exécution', niveau: 30 },
-  { code: 'AA1', libelle: 'Agent Auxiliaire de 1re classe', categorie: 'Agent d’exécution', niveau: 20 },
-  { code: 'AA2', libelle: 'Agent Auxiliaire de 2e classe', categorie: 'Agent d’exécution', niveau: 10 },
+  { code: 'SG', code_officiel: '110', abreviation: 'SG', libelle: 'Secrétaire Général', categorie: 'Commandement', niveau: 100 },
+  { code: 'DIR', code_officiel: '120', abreviation: 'DIR', libelle: 'Directeur', categorie: 'Commandement', niveau: 90 },
+  { code: 'CD', code_officiel: '130', abreviation: 'CD', libelle: 'Chef de Division', categorie: 'Commandement', niveau: 80 },
+  { code: 'CB', code_officiel: '140', abreviation: 'CB', libelle: 'Chef de Bureau', categorie: 'Commandement', niveau: 70 },
+  { code: 'ATA1', code_officiel: '210', abreviation: 'ATA 1', libelle: 'Attaché d’Administration de 1re classe', categorie: 'Collaboration', niveau: 60 },
+  { code: 'ATA2', code_officiel: '220', abreviation: 'ATA 2', libelle: 'Attaché d’Administration de 2e classe', categorie: 'Collaboration', niveau: 50 },
+  { code: 'AGA1', code_officiel: '310', abreviation: 'AGA 1', libelle: 'Agent d’Administration de 1re classe', categorie: 'Exécution', niveau: 40 },
+  { code: 'AGA2', code_officiel: '320', abreviation: 'AGA 2', libelle: 'Agent d’Administration de 2e classe', categorie: 'Exécution', niveau: 30 },
+  { code: 'AA1', code_officiel: '330', abreviation: 'AA 1', libelle: 'Agent Auxiliaire de 1re classe', categorie: 'Exécution', niveau: 20, observation: A_CONFIRMER },
+  { code: 'AA2', code_officiel: '340', abreviation: 'AA 2', libelle: 'Agent Auxiliaire de 2e classe', categorie: 'Exécution', niveau: 10, observation: A_CONFIRMER },
+  { code: 'HUI', code_officiel: 'HUI', abreviation: 'HUI', libelle: 'Huissier', categorie: 'Huissier', niveau: 5 },
 ];
 
 const FONCTIONS = [
@@ -143,7 +147,7 @@ const FONCTIONS = [
   { code: 'F-SEC', libelle: 'Secrétaire de direction', grade: 'AGA1' },
   { code: 'F-ASS', libelle: 'Assistant administratif', grade: 'AGA2' },
   { code: 'F-AGA', libelle: 'Agent administratif', grade: 'AGA1' },
-  { code: 'F-HUI', libelle: 'Huissier', grade: 'AA1' },
+  { code: 'F-HUI', libelle: 'Huissier', grade: 'HUI' },
   { code: 'F-AUX', libelle: 'Agent auxiliaire', grade: 'AA2' },
 ];
 

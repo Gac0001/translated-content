@@ -91,4 +91,6 @@ exports.seed = async function seed(knex) {
   for (const [cle, valeur, libelle] of params) {
     await knex('parametres').insert({ cle, valeur, libelle }).onConflict('cle').ignore();
   }
+  // Version 1 du référentiel (grades, postes d’emploi, effectif organique), si aucune n’est consignée
+  await require('../../services/referentiel').versionInitiale(knex);
 };

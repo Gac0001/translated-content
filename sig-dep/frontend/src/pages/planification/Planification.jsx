@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FileSpreadsheet, Plus, Upload } from 'lucide-react';
 import api, { download, errorMessage } from '../../lib/api';
 import { useAuth } from '../../store/auth';
-import { useApi, Loadable, PageHeader, Tabs, useOnglet, DataTable, StatusBadge, Card, Modal, FormModal, FormSection, Field, InfoAlert, Stat, Progress, SimpleTable, EmptyState, runAction, toast } from '../../components/ui';
+import { useApi, Loadable, PageHeader, Tabs, useOnglet, DataTable, StatusBadge, Card, Modal, FormModal, FormSection, Field, InfoAlert, Stat, Progress, SimpleTable, EmptyState, Badge, runAction, toast } from '../../components/ui';
 
 import Performance from './Performance';
 import Credits from './Credits';
@@ -28,16 +28,17 @@ function ImportModal({ referentiel, onClose, onDone }) {
     try {
       const r = await api.post('/ptba/import/analyser', fd);
       setAnalyse(r.data);
-      setChoix(Object.fromEntries(r.data.feuilles.map((f, i) => [i, !!f.service_id])));
+      // Feuilles d’un autre ministère : non retenues par défaut
+      setChoix(Object.fromEntries(r.data.feuilles.map((f, i) => [i, !!f.service_id && !f.autre_ministere])));
     } catch (e) { toast.error(errorMessage(e)); } finally { setBusy(false); }
   };
   const maj = (i, k, v) => setAnalyse({ ...analyse, feuilles: analyse.feuilles.map((f, j) => (j === i ? { ...f, [k]: v } : f)) });
   const confirmer = async () => {
     const feuilles = analyse.feuilles.filter((_, i) => choix[i]).map((f) => ({
       sigle: f.sigle, service_id: f.service_id || null, service_libelle: f.service_libelle || f.sigle, programme_id: f.programme_id ? Number(f.programme_id) : null,
-      objectif_global: f.objectif_global || null, objectifs: f.objectifs,
+      objectif_global: f.objectif_global || null, objectifs: f.objectifs, feuille: f.feuille, vue: f.vue, anomalies: f.anomalies, autre_ministere: f.autre_ministere || null,
     }));
-    await runAction(() => api.post('/ptba/import/confirmer', { exercice_id: Number(exercice), feuilles }), `${feuilles.length} PTBA importé(s) en brouillon.`);
+    await runAction(() => api.post('/ptba/import/confirmer', { exercice_id: Number(exercice), fichier: analyse.fichier, feuilles }), `${feuilles.length} PTBA importé(s) en brouillon.`);
     onDone();
   };
   const nb = Object.values(choix).filter(Boolean).length;
@@ -46,22 +47,33 @@ function ImportModal({ referentiel, onClose, onDone }) {
       <div className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Exercice" required><select className="input" value={exercice} onChange={(e) => setExercice(e.target.value)}>{referentiel.exercices.map((x) => <option key={x.id} value={x.id}>{x.annee}</option>)}</select></Field>
-          <Field label="Classeur Excel (.xlsx)" required hint="Une feuille par service : activités principales, tâches, coût, chronogramme, structure responsable…"><input type="file" accept=".xlsx" className="input" disabled={busy} onChange={(e) => analyser(e.target.files[0])} /></Field>
+          <Field label="Classeur Excel (.xlsx)" required hint="Une feuille par service, en vue standard (activités, tâches, coût, chronogramme…) ou en vue budgétaire détaillée (désignation, nature économique, section/chapitre…)."><input type="file" accept=".xlsx" className="input" disabled={busy} onChange={(e) => analyser(e.target.files[0])} /></Field>
         </div>
         {busy && <p className="text-sm text-slate-500">Analyse du classeur…</p>}
         {analyse && (
           <>
-            {analyse.ignorees.length > 0 && <InfoAlert>Feuilles ignorées (autre format) : {analyse.ignorees.join(', ')}.</InfoAlert>}
+            {analyse.ignorees.length > 0 && <InfoAlert>Feuilles ignorées (ni vue standard ni vue budgétaire détaillée) : {analyse.ignorees.join(', ')}.</InfoAlert>}
             <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
               {analyse.feuilles.map((f, i) => (
                 <li key={f.feuille} className="grid gap-2 p-3 text-sm sm:grid-cols-12 sm:items-center">
-                  <label className="flex items-center gap-2 sm:col-span-3"><input type="checkbox" checked={!!choix[i]} onChange={(e) => setChoix({ ...choix, [i]: e.target.checked })} /><span><b>{f.feuille}</b><span className="block text-xs text-slate-500">{f.nb_lignes} ligne(s) · {cdf(f.cout_total)}</span></span></label>
+                  <label className="flex items-center gap-2 sm:col-span-3"><input type="checkbox" checked={!!choix[i]} onChange={(e) => setChoix({ ...choix, [i]: e.target.checked })} /><span><b>{f.feuille}</b>
+                    <span className="block text-xs text-slate-600">{f.nb_lignes} ligne(s){f.vue === 'DETAILLEE' ? `, ${f.nb_details} ligne(s) de dépense` : ''} · {cdf(f.cout_total)}</span>
+                    <span className="mt-0.5 flex flex-wrap gap-1">{f.vue === 'DETAILLEE' && <Badge tone="bleu">Vue détaillée</Badge>}{f.masquee && <Badge tone="gris">Masquée</Badge>}</span></span></label>
                   <div className="sm:col-span-3">{f.service_id ? <span>Service <b>{f.sigle}</b></span> : <input className="input" placeholder={`Intitulé du nouveau service ${f.sigle}`} value={f.service_libelle || ''} onChange={(e) => maj(i, 'service_libelle', e.target.value)} />}</div>
                   <select className="input sm:col-span-3" value={f.programme_id || ''} onChange={(e) => maj(i, 'programme_id', e.target.value)} aria-label="Programme">
                     <option value="">— Programme —</option>
                     {referentiel.programmes.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.libelle}</option>)}
                   </select>
                   <span className="truncate text-xs text-slate-500 sm:col-span-3" title={f.objectif_global}>{f.objectif_global || 'Objectif global non renseigné'}</span>
+                  {f.autre_ministere && <p className="rounded bg-amber-50 px-2 py-1 text-xs text-amber-900 sm:col-span-12" role="note"><b>Feuille d’un autre ministère ?</b> {f.autre_ministere}. Elle n’est pas retenue par défaut.</p>}
+                  {f.anomalies.length > 0 && (
+                    <details className="text-xs sm:col-span-12">
+                      <summary className="cursor-pointer text-slate-700">
+                        Rapport d’anomalies : {['ERREUR', 'ALERTE', 'INFO'].map((g) => [g, f.anomalies.filter((a) => a.gravite === g).length]).filter(([, n]) => n).map(([g, n]) => `${n} ${{ ERREUR: 'erreur(s)', ALERTE: 'à vérifier', INFO: 'information(s)' }[g]}`).join(', ')}
+                      </summary>
+                      <ul className="mt-1 max-h-40 list-disc space-y-0.5 overflow-y-auto pl-5">{f.anomalies.map((a, k) => <li key={k} className={a.gravite === 'ERREUR' ? 'text-red-800' : a.gravite === 'ALERTE' ? 'text-amber-900' : 'text-slate-600'}>{a.cellule ? `${a.cellule} — ` : ''}{a.message}</li>)}</ul>
+                    </details>
+                  )}
                 </li>
               ))}
             </ul>
@@ -162,9 +174,11 @@ function Referentiel({ referentiel, reload }) {
   const ouvrir = (e) => { setEdition(e); setInitial(e); };
   const enregistrer = async () => {
     const { type, id, ...body } = edition;
-    const chemins = { exercice: 'exercices', programme: 'programmes', action: 'actions', service: 'services' };
+    const chemins = { exercice: 'exercices', programme: 'programmes', action: 'actions', service: 'services', rattachement: 'rattachements' };
     if (body.annee) body.annee = Number(body.annee);
-    if (body.programme_id) body.programme_id = Number(body.programme_id);
+    body.programme_id = body.programme_id ? Number(body.programme_id) : (type === 'service' ? null : body.programme_id);
+    if (type !== 'service' && type !== 'action') delete body.programme_id;
+    if (type === 'rattachement') delete body.niveauLibelle;
     await (id ? api.put(`/planification/${chemins[type]}/${id}`, body) : api.post(`/planification/${chemins[type]}`, body));
     toast.success('Référentiel mis à jour.');
     setEdition(null); reload();
@@ -184,22 +198,58 @@ function Referentiel({ referentiel, reload }) {
           </div>
         )) : <EmptyState title="Aucun programme">Saisissez la maquette programmatique du Ministère : programmes, puis leurs actions.</EmptyState>}
       </Card>
-      <Card title="Services du Ministère" className="lg:col-span-3" actions={gerer && <button type="button" className="btn-secondary" onClick={() => ouvrir({ type: 'service', sigle: '', libelle: '' })}><Plus size={16} aria-hidden /> Service</button>}>
-        <div className="grid gap-1 text-sm sm:grid-cols-2 lg:grid-cols-3">{referentiel.services.map((s) => <button key={s.id} type="button" disabled={!gerer} className="text-left" onClick={() => ouvrir({ type: 'service', id: s.id, sigle: s.sigle, libelle: s.libelle, actif: s.actif })}><b>{s.sigle}</b> — {s.libelle}{!s.actif && ' (inactif)'}</button>)}</div>
+      <Card title="Services du Secrétariat Général" className="lg:col-span-3" actions={gerer && <button type="button" className="btn-secondary" onClick={() => ouvrir({ type: 'service', sigle: '', libelle: '', programme_id: '', ordre: referentiel.services.length + 1 })}><Plus size={16} aria-hidden /> Service</button>}>
+        <div className="grid gap-1 text-sm sm:grid-cols-2 lg:grid-cols-3">{referentiel.services.map((s) => {
+          const prog = referentiel.programmes.find((p) => p.id === s.programme_id);
+          return <button key={s.id} type="button" disabled={!gerer} className="text-left" onClick={() => ouvrir({ type: 'service', id: s.id, sigle: s.sigle, libelle: s.libelle, actif: s.actif, programme_id: s.programme_id || '', ordre: s.ordre })}><b>{s.sigle}</b> — {s.libelle}{!s.actif && ' (inactif)'}<span className="block text-xs text-slate-600">{prog ? `Programme ${prog.code}` : 'Programme non précisé'}</span></button>;
+        })}</div>
       </Card>
+      {[['PNSD', 'Rattachement au PNSD (fiches PIP)'], ['STRATEGIE', 'Stratégie sectorielle (fiches PIP)']].map(([ref, titre]) => {
+        const niveaux = NIVEAUX[ref];
+        const elements = (referentiel.rattachements || []).filter((r) => r.referentiel === ref);
+        const branche = (parentId, rang) => elements.filter((r) => (r.parent_id || null) === parentId && r.niveau === niveaux[rang].code);
+        const noeud = (r, rang) => (
+          <li key={r.id}>
+            <span className="flex flex-wrap items-baseline gap-2">
+              <button type="button" disabled={!gerer} className={`text-left ${rang === 0 ? 'font-semibold text-dep-800' : ''}`} onClick={() => ouvrir({ type: 'rattachement', id: r.id, referentiel: ref, niveau: r.niveau, parent_id: r.parent_id, code: r.code || '', libelle: r.libelle, edition: r.edition || '', ordre: r.ordre, actif: r.actif })}>
+                <span className="text-xs uppercase text-slate-600">{niveaux[rang].libelle}</span> {r.libelle}{!r.actif && ' (inactif)'}
+              </button>
+              {gerer && niveaux[rang + 1] && <button type="button" className="text-xs text-dep-700 hover:underline" onClick={() => ouvrir({ type: 'rattachement', referentiel: ref, niveau: niveaux[rang + 1].code, parent_id: r.id, code: '', libelle: '', edition: r.edition || '', ordre: 0, actif: true })}>+ {niveaux[rang + 1].libelle.toLowerCase()}</button>}
+            </span>
+            {niveaux[rang + 1] && <ul className="ml-4 mt-0.5 space-y-0.5 border-l border-slate-100 pl-3">{branche(r.id, rang + 1).map((x) => noeud(x, rang + 1))}</ul>}
+          </li>
+        );
+        return (
+          <Card key={ref} title={titre} className="lg:col-span-3 xl:col-span-3" actions={gerer && <button type="button" className="btn-secondary" onClick={() => ouvrir({ type: 'rattachement', referentiel: ref, niveau: niveaux[0].code, parent_id: null, code: '', libelle: '', edition: '', ordre: 0, actif: true })}><Plus size={16} aria-hidden /> {niveaux[0].libelle}</button>}>
+            {elements.length ? <ul className="space-y-1 text-sm">{branche(null, 0).map((r) => noeud(r, 0))}</ul>
+              : <EmptyState title="Référentiel vide" compact>Saisissez les {niveaux.map((n) => n.libelle.toLowerCase()).join(', ')} : ils seront proposés dans les fiches PIP.</EmptyState>}
+          </Card>
+        );
+      })}
       {edition && (
-        <FormModal open title={`${edition.id ? '' : 'Nouveau : '}${{ exercice: 'Exercice', programme: 'Programme', action: 'Action', service: 'Service du Ministère' }[edition.type]}`} onClose={() => setEdition(null)} onSubmit={enregistrer} dirty={JSON.stringify(edition) !== JSON.stringify(initial)}>
+        <FormModal open title={`${edition.id ? '' : 'Nouveau : '}${{ exercice: 'Exercice', programme: 'Programme', action: 'Action', service: 'Service du Secrétariat Général', rattachement: 'Rattachement stratégique' }[edition.type]}`} onClose={() => setEdition(null)} onSubmit={enregistrer} dirty={JSON.stringify(edition) !== JSON.stringify(initial)}>
           <FormSection cols={1}>
             {edition.type === 'exercice' && <>{champ('annee', 'Année', { type: 'number', required: true })}<Field label="État"><select className="input" value={edition.statut} onChange={(e) => setEdition({ ...edition, statut: e.target.value })}><option value="PREPARATION">En préparation</option><option value="EXECUTION">En exécution</option><option value="CLOTURE">Clôturé</option></select></Field></>}
             {edition.type === 'programme' && <>{champ('code', 'Code', { required: true })}{champ('libelle', 'Intitulé', { required: true })}<Field label="Objectif global"><textarea className="input" rows={3} value={edition.objectif_global} onChange={(e) => setEdition({ ...edition, objectif_global: e.target.value })} /></Field></>}
             {edition.type === 'action' && <>{champ('code', 'Code', { required: true })}{champ('libelle', 'Intitulé', { required: true })}{champ('services_normatifs', 'Services normatifs')}{champ('operateurs', 'Opérateurs')}</>}
-            {edition.type === 'service' && <>{champ('sigle', 'Sigle', { required: true })}{champ('libelle', 'Intitulé', { required: true })}</>}
+            {edition.type === 'service' && <>{champ('sigle', 'Sigle', { required: true })}{champ('libelle', 'Intitulé', { required: true })}
+              <Field label="Programme budgétaire de rattachement"><select className="input" value={edition.programme_id ?? ''} onChange={(e) => setEdition({ ...edition, programme_id: e.target.value })}><option value="">— Non précisé —</option>{referentiel.programmes.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.libelle}</option>)}</select></Field></>}
+            {edition.type === 'rattachement' && <>
+              <p className="text-sm text-slate-600">{edition.referentiel === 'PNSD' ? 'PNSD' : 'Stratégie sectorielle'} — niveau : <b>{NIVEAUX[edition.referentiel].find((n) => n.code === edition.niveau)?.libelle}</b></p>
+              {champ('libelle', 'Intitulé', { required: true })}{champ('code', 'Code')}{champ('edition', 'Édition (ex. PNSD 2024-2028)')}
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={edition.actif !== false} onChange={(e) => setEdition({ ...edition, actif: e.target.checked })} /> Proposé dans les fiches</label>
+            </>}
           </FormSection>
         </FormModal>
       )}
     </div>
   );
 }
+
+const NIVEAUX = {
+  PNSD: [{ code: 'PILIER', libelle: 'Pilier' }, { code: 'THEMATIQUE', libelle: 'Thématique' }, { code: 'DOMAINE', libelle: 'Domaine' }, { code: 'OBJECTIF', libelle: 'Objectif spécifique' }],
+  STRATEGIE: [{ code: 'PROGRAMME', libelle: 'Programme' }, { code: 'ACTION', libelle: 'Action' }],
+};
 
 const ONGLETS = [{ value: 'ptba', label: 'PTBA' }, { value: 'execution', label: 'Exécution' }, { value: 'performance', label: 'Performance' }, { value: 'credits', label: 'Crédits' }, { value: 'documents', label: 'CBMT · PAP · RAP · CDMT' }, { value: 'banque', label: 'Banque des projets' }, { value: 'risques', label: 'Risques' }, { value: 'referentiel', label: 'Référentiel' }];
 

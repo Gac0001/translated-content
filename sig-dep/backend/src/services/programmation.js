@@ -6,11 +6,12 @@
  */
 const ExcelJS = require('exceljs');
 const {
-  Document, Packer, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, HeadingLevel, ShadingType, PageOrientation, PageBreak,
+  Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, HeadingLevel, ShadingType, PageOrientation, PageBreak,
 } = require('docx');
 const db = require('../db/knex');
 const ptba = require('./ptba');
 const cadrage = require('./cadrage');
+const officiel = require('./entete');
 
 const BLEU = '0B3D6E';
 const fmt = (n) => (n === null || n === undefined || n === '' ? '—' : Math.round(Number(n)).toLocaleString('fr-FR').replace(/ | /g, ' '));
@@ -256,13 +257,9 @@ async function rap(doc) {
   return emballer(`RAP ${A}`, corps);
 }
 
+/** Modèle du Ministère du Budget : l’en-tête officiel de la Direction est placé au-dessus du titre du modèle. */
 async function emballer(nom, children) {
-  const d = new Document({
-    creator: 'SIG-DEP', title: nom,
-    styles: { default: { document: { run: { font: 'Calibri' } } } },
-    sections: [{ properties: { page: { size: { orientation: PageOrientation.PORTRAIT } } }, children }],
-  });
-  return Packer.toBuffer(d);
+  return require('./word').documentWord({ titre: nom, children, orientation: PageOrientation.PORTRAIT });
 }
 
 /** CDMT : crédits votés de l’exercice et projections des trois années suivantes, par programme et rubrique. */
@@ -273,12 +270,13 @@ async function cdmt(doc) {
   const rows = auProgramme(tous);
   const rubriques = postes.filter((p) => p.axe === 'RUBRIQUE');
   const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet(`CDMT ${A}-${A + 2}`.slice(0, 31));
-  ws.mergeCells(1, 1, 1, 7);
-  ws.getCell(1, 1).value = `CADRE DE DÉPENSES À MOYEN TERME ${A + 1}-${A + 3} — ÉCONOMIE NUMÉRIQUE (en CDF)`;
-  ws.getCell(1, 1).font = { bold: true, size: 13 };
+  // Modèle imposé : en-tête officiel de la Direction au-dessus du titre du modèle
+  const ws = officiel.feuilleOfficielle(wb, `CDMT ${A}-${A + 2}`, 7, { largeurs: [40, 44, 18, 18, 18, 18, 18] });
+  const titre = ws.addRow([`CADRE DE DÉPENSES À MOYEN TERME ${A + 1}-${A + 3} — ÉCONOMIE NUMÉRIQUE (en CDF)`]);
+  ws.mergeCells(titre.number, 1, titre.number, 7);
+  titre.getCell(1).font = { bold: true, size: 13 };
   const entete = ws.addRow(['Programme', 'Rubrique', `Votés ${A - 1}`, `Prévisions ${A}`, `Projection ${A + 1}`, `Projection ${A + 2}`, `Projection ${A + 3}`]);
-  ws.getRow(2).height = 22;
+  entete.height = 22;
   entete.eachCell((cell) => { cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF17418A' } }; });
   const val = (f, an, type) => somme(rows, (r) => r.annee === an && r.type === type && f(r));
   for (const p of programmes) {
@@ -303,7 +301,7 @@ const ENTETE = (row) => row.eachCell((cell) => { cell.font = { bold: true, color
 
 /** Feuille « Respect du CBMT » : plafonds, prévisions et écarts par année et rubrique. */
 function feuilleCadrage(wb, c) {
-  const ws = wb.addWorksheet('Respect du CBMT');
+  const ws = officiel.feuilleOfficielle(wb, 'Respect du CBMT', 1 + c.annees.length * 3, { largeurs: [46, ...Array(c.annees.length * 3).fill(18)] });
   ws.addRow([`RESPECT DES PLAFONDS DU CBMT ${c.cbmt.periode} (${c.cbmt.reference}${c.cbmt.statut === 'VALIDE' ? '' : ', non validé'}) — en CDF`]).font = { bold: true, size: 12 };
   ENTETE(ws.addRow(['Rubrique', ...c.annees.flatMap((y) => [`Plafond ${y.annee}`, `Prévision ${y.annee}`, `Écart ${y.annee}`])]));
   const rub = c.annees[0].lignes.map((l) => l.code);
@@ -322,7 +320,7 @@ async function cbmt(doc) {
   const c = doc.contenu || {};
   const annees = Array.from({ length: cadrage.DUREE }, (_, i) => doc.annee + i);
   const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet('Cadrage');
+  const ws = officiel.feuilleOfficielle(wb, 'Cadrage', 1 + annees.length, { largeurs: [46, ...annees.map(() => 18)] });
   ws.addRow([`CADRE BUDGÉTAIRE À MOYEN TERME ${annees[0]}-${annees[annees.length - 1]} — ÉCONOMIE NUMÉRIQUE`]).font = { bold: true, size: 13 };
   ws.addRow([`${doc.reference}${c.source ? ` — source : ${c.source}` : ''}${c.date_publication ? ` (${c.date_publication})` : ''}`]).font = { italic: true };
   ws.addRow([]);
@@ -334,7 +332,7 @@ async function cbmt(doc) {
   if (c.orientations) { ws.addRow(['Orientations du secteur']).font = { bold: true }; ws.addRow([c.orientations]).alignment = { wrapText: true }; ws.addRow([]); }
   ws.columns.forEach((col, i) => { col.width = i === 0 ? 46 : 18; if (i > 0) col.numFmt = '#,##0.##'; });
   feuilleCadrage(wb, await cadrage.controle(doc.annee, db, doc));
-  const wa = wb.addWorksheet('Actions prioritaires');
+  const wa = officiel.feuilleOfficielle(wb, 'Actions prioritaires', 4, { largeurs: [6, 70, 40, 30] });
   ENTETE(wa.addRow(['N°', 'Action prioritaire du secteur', 'Programme', 'Projets PIP']));
   const progs = await db('plan_programmes').select('id', 'code', 'libelle');
   const pips = await db('pip_projects').select('id', 'code', 'intitule');

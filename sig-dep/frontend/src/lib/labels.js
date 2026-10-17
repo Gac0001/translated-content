@@ -58,6 +58,10 @@ export const STATUTS = {
   // Données sectorielles
   OUVERTE: ['Ouverte', C.bleu], DIFFUSE: ['Diffusé', C.vert], SAISIE: ['Saisie', C.indigo], CONTROLEE: ['Contrôlée', C.vert], PUBLIEE: ['Publiée', C.vert], CESSE: ['Cessé', C.gris], MAITRISE: ['Maîtrisé', C.indigo], CLOS: ['Clos', C.gris],
   PREVU: ['Prévu', C.bleu], CONFIRME: ['Confirmé', C.vert], TENU: ['Tenu', C.marine], ANNULE: ['Annulé', C.gris],
+  // Évaluation des politiques
+  PREPARATION: ['En préparation', C.jaune], TRANSMIS: ['Transmis', C.marine],
+  // Collecte auprès des services
+  ATTENDU: ['Attendu', C.gris], CORRIGE: ['Corrigé', C.indigo], INTEGRE: ['Intégré', C.vert],
 };
 
 /**
@@ -86,7 +90,7 @@ export const ACTIONS_HISTO = {
   AVANCEMENT: 'Mise à jour de l’avancement', COMPTE_RENDU: 'Compte rendu', VALIDATION: 'Validation', RETOUR_CORRECTION: 'Retour pour correction',
   CLOTURE: 'Clôture', RETARD: 'Passage en retard', ATTRIBUTION: 'Attribution', NOUVELLE_VERSION: 'Nouvelle version', VALIDATION_DIVISION: 'Validation au niveau de la Division',
   REJET: 'Rejet', ARCHIVAGE: 'Archivage', SAISIE: 'Saisie', VERIFICATION: 'Vérification', SOUMISSION: 'Soumission', VERROUILLAGE: 'Verrouillage',
-  VERROUILLAGE_AUTO: 'Verrouillage automatique', CREATION_RECTIFICATIF: 'Création du rectificatif', RECTIFICATIF: 'Rectificatif établi',
+  VERROUILLAGE_AUTO: 'Verrouillage automatique', CREATION_RECTIFICATIF: 'Création du rectificatif', RECTIFICATIF: 'Rectificatif établi', RECTIFICATIF_VALIDE: 'Rectificatif validé', RECTIFICATIF_REFUSE: 'Rectificatif refusé', RETRANSMISSION: 'Retransmission', MEMBRE_AJOUTE: 'Membre ajouté', MEMBRE_RETIRE: 'Membre retiré', PARTICIPANT_AJOUTE: 'Participant externe ajouté', PARTICIPANT_RETIRE: 'Participant externe retiré',
   SELECTION_AGENTS: 'Sélection des Agents', ENREGISTREMENT: 'Enregistrement', ANNOTATION: 'Annotation', ACCUSE_RECEPTION: 'Accusé de réception',
   TRAITEMENT: 'Traitement', CLASSEMENT: 'Classement',
   BLOCAGE: 'Blocage signalé', DEBLOCAGE: 'Blocage levé', RAPPORT_INTERMEDIAIRE: 'Rapport intermédiaire', ANNULATION: 'Annulation',
@@ -97,13 +101,14 @@ export const ACTIONS_HISTO = {
   DECISION: 'Décision', MISE_EN_OEUVRE: 'Mise en œuvre', EXECUTION: 'Exécution', ABANDON: 'Abandon', MISE_EN_OEUVRE_ANNULEE: 'Mise en œuvre annulée', ENVOI: 'Envoi', REPONSE: 'Réponse', COMPLEMENT_REPONSE: 'Complément de réponse', RELANCE: 'Relance',
   DIFFUSION: 'Diffusion interne autorisée', CIBLAGE: 'Ciblage', OUVERTURE: 'Ouverture de la collecte', REOUVERTURE: 'Réouverture', CONTROLE: 'Contrôle de qualité',
   SOUMETTRE: 'Soumission', VERIFIER: 'Vérification', CONSOLIDER: 'Consolidation', VALIDER: 'Validation',
+  INTEGRATION: 'Intégration', RETOUR_SERVICE: 'Fichier reçu d’un service', ACTUALISATION: 'Reprise des données du SIG-DEP', LIGNE_AJOUTEE: 'Ligne ajoutée', LIGNE_ECARTEE: 'Ligne écartée', LIGNE_RETABLIE: 'Ligne rétablie', LIGNE_SUPPRIMEE: 'Ligne supprimée',
 };
 
 export const NOTIF_TYPES = {
   INSTRUCTION: 'Instruction', TACHE: 'Tâche', COURRIER: 'Courrier', DOCUMENT_RETOURNE: 'Document retourné', DOCUMENT_VALIDE: 'Document validé',
   DOCUMENT_A_EXAMINER: 'Document à examiner', ECHEANCE: 'Échéance proche', RETARD: 'Retard', COMPTE_CREE: 'Compte', MDP_REINITIALISE: 'Mot de passe',
   AFFECTATION: 'Affectation', PRESENCE: 'Présences', PIP: 'PIP', INSTRUCTION_REPONSE: 'Compte rendu', SECURITE: 'Sécurité', SYSTEME: 'Annonce', ACTE: 'Acte administratif', CARTE: 'Carte de service', CONNEXION: 'Nouvelle connexion',
-  DEMANDE_INFO: 'Demande d’information', REUNION: 'Réunion', DECISION: 'Décision', AGENDA: 'Agenda', PTBA: 'PTBA', DONNEES: 'Données sectorielles',
+  DEMANDE_INFO: 'Demande d’information', REUNION: 'Réunion', DECISION: 'Décision', AGENDA: 'Agenda', PTBA: 'PTBA', DONNEES: 'Données sectorielles', EVALUATION: 'Évaluation des politiques', COLLECTE: 'Collecte auprès des services',
 };
 
 export const DELEGATIONS = {
@@ -120,4 +125,5 @@ export const EFFETS_ACTE = {
   EN_VIGUEUR: ['En vigueur', 'bg-emerald-50 text-emerald-800 ring-emerald-200'],
   A_VENIR: ['À venir', 'bg-sky-50 text-sky-800 ring-sky-200'],
   ECHU: ['Échu', 'bg-slate-100 text-slate-700 ring-slate-200'],
+  APPLIQUE: ['Effets appliqués', 'bg-emerald-50 text-emerald-800 ring-emerald-200'],
 };

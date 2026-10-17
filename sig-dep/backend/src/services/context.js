@@ -22,7 +22,8 @@ const ROLES_RENFORCES = ['ADMIN_SYSTEME', 'DIRECTEUR', 'SECRETAIRE_GENERAL'];
  * Étapes de sécurité à accomplir avant d’accéder à l’application, dans l’ordre :
  * mot de passe (temporaire ou expiré), double authentification, e-mail de récupération, règles.
  */
-function calculerExigences(user, roles, pol) {
+/** `chefSecretariat` : Chef du Bureau Secrétariat de Direction (cahier, § 23 : authentification renforcée). */
+function calculerExigences(user, roles, pol, { chefSecretariat = false } = {}) {
   const ex = [];
   const expire = pol.mdp_expiration_jours > 0 && user.password_changed_at
     && (Date.now() - new Date(user.password_changed_at).getTime()) > pol.mdp_expiration_jours * 86400000;
@@ -30,7 +31,7 @@ function calculerExigences(user, roles, pol) {
   if (user.compte_urgence) {
     // Compte d’urgence : nouveau mot de passe et double authentification à chaque activation.
     if (!user.totp_actif) ex.push('DEUX_FACTEURS');
-  } else if (roles.some((r) => ROLES_RENFORCES.includes(r))) {
+  } else if (roles.some((r) => ROLES_RENFORCES.includes(r)) || chefSecretariat) {
     if (!user.totp_actif) ex.push('DEUX_FACTEURS');
     // Adresse de récupération obligatoire ; sa vérification (code par e-mail) est demandée lorsque la
     // messagerie est active, sans bloquer le compte (elle conditionne la récupération par e-mail).
@@ -100,7 +101,8 @@ async function loadContext(userId, trx = db) {
   const inSecretariat = !!(aff && aff.est_secretariat_direction);
   const pol = await politique();
   // Exigences renforcées dès que le rôle est détenu, à titre permanent ou par intérim.
-  const { exigences, mdpExpire } = calculerExigences(user, [...new Set([...rolesPermanents, ...roles])], pol);
+  const chefSecretariat = inSecretariat && roles.includes('CHEF_BUREAU') && aff.role_associe === 'CHEF_BUREAU';
+  const { exigences, mdpExpire } = calculerExigences(user, [...new Set([...rolesPermanents, ...roles])], pol, { chefSecretariat });
 
   if (inSecretariat) {
     for (const p of DIVISION_ONLY_PERMISSIONS) permissions.delete(p);
@@ -119,6 +121,14 @@ async function loadContext(userId, trx = db) {
       permissions.add('agenda.consulter');
       permissions.add('agenda.gerer');
       permissions.add('reunions.preparer_direction');
+      // Seul le Secrétariat de Direction gère les présences : listes journalières, rapport
+      // hebdomadaire et rectificatifs (cahier des charges, section 25).
+      permissions.add('presences.preparer_direction');
+      permissions.add('presences.consulter');
+      // Il prépare la création et la composition des groupes de travail de la Direction (cahier, § 14).
+      permissions.add('groupes.gerer');
+      // Il envoie au Secrétaire Général le dossier d’évaluation des politiques validé (cahier, § 51).
+      permissions.add('evaluation.transmettre');
     }
   }
   // Planification (cadre organique) : le Bureau Programme prépare les PTBA, son Chef les vérifie ;
@@ -136,6 +146,24 @@ async function loadContext(userId, trx = db) {
       permissions.add('planification.referentiel');
       permissions.add('ptba.suivre');
     }
+    // Évaluation des politiques sectorielles et budgétaires (cahier, §§ 34 et 51) : le Bureau
+    // Suivi-Évaluation prépare le dossier ; le Bureau Programme complète la projection (annexe II).
+    if (aff.bureau_code === 'BUR-SEV') permissions.add('evaluation.preparer');
+    if (aff.bureau_code === 'BUR-PRG') permissions.add('evaluation.contribuer');
+    if (primaryRole === 'CHEF_DIVISION' && perimetre === PERIMETRES.DIVISION && aff.division_code === 'DIV-PS') permissions.add('evaluation.verifier');
+    // Collecte auprès des services du Secrétariat Général (cahier, § 36) : le Bureau Programme
+    // organise les campagnes PTBA, cadre de performance et dépenses d’investissement ; le Bureau
+    // Suivi-Évaluation, les autres ; leur Chef intègre ou rejette les retours ; le Chef de la Division
+    // Programme et Suivi ouvre et clôt toutes les campagnes.
+    if (aff.bureau_code === 'BUR-PRG') {
+      permissions.add('collecte.programme');
+      if (primaryRole === 'CHEF_BUREAU') permissions.add('collecte.decider.programme');
+    }
+    if (aff.bureau_code === 'BUR-SEV') {
+      permissions.add('collecte.suivi');
+      if (primaryRole === 'CHEF_BUREAU') permissions.add('collecte.decider.suivi');
+    }
+    if (primaryRole === 'CHEF_DIVISION' && perimetre === PERIMETRES.DIVISION && aff.division_code === 'DIV-PS') permissions.add('collecte.ouvrir');
     // Données sectorielles : le Bureau Études, Analyses et Prospective conçoit les questionnaires et
     // organise les campagnes ; le Bureau Documentation et Information tient l’annuaire et contrôle
     // les réponses ; tous deux saisissent ; le Chef de la Division Études, Documentation et
