@@ -296,7 +296,7 @@ export default function PtbaDetail() {
                 ]} />
             )}
             {edition && ref.data ? <Editeur p={p} referentiel={ref.data} onCancel={() => setEdition(false)} onSaved={() => { setEdition(false); state.reload(); }} /> : (
-              <div className="grid gap-4 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                 <Card title="PTBA" className="lg:col-span-2">
                   <KeyValues items={[
                     ['Statut', <StatusBadge key="s" value={p.statut} />], ['Exercice', p.annee], ['Programme', p.programme_libelle || '—'], ['Coût total', cdf(p.execution.cout)],
@@ -309,7 +309,7 @@ export default function PtbaDetail() {
                     rows={p.trimestres.map((v, i) => ({ t: `T${i + 1}`, v }))} footer={[{ t: 'Total', v: p.execution.cout }]} />
                   {p.statut === 'VALIDE' && <div className="space-y-2 p-4 text-sm"><div>Exécution physique <Progress value={p.execution.tauxPhysique} label="Exécution physique du PTBA" /></div><div>Exécution financière ({cdf(p.execution.decaisse)}) <Progress value={Math.round(p.execution.tauxFinancier)} label="Exécution financière du PTBA" /></div></div>}
                 </Card>
-                <div className="space-y-4 lg:col-span-3">
+                <div className="min-w-0 space-y-4 lg:col-span-3">
                   {groupes.map((g, gi) => (
                     <Card key={gi} title={g.titre ? `Objectif spécifique ${gi + 1} : ${g.titre}` : 'Activités'} bodyClass="p-0">
                       <SimpleTable label={g.titre || 'Activités'} columns={colonnes} rows={g.lignes}
