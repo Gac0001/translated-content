@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { BadgeCheck, Loader2, Search, ShieldAlert, ShieldX } from 'lucide-react';
 import api, { errorMessage } from '../lib/api';
-import { DEP_NOM, SG_NOM } from '../lib/labels';
+import PagePublique from '../components/PagePublique';
+import { useTitreDocument } from '../components/ui';
 import { fmtDate } from '../lib/format';
 
 const TONS = {
@@ -72,29 +73,22 @@ export default function VerificationCarte() {
     try { setResultat((await api.get('/public/cartes/verifier', { params })).data); } catch (e) { setErreur(errorMessage(e)); } finally { setBusy(false); }
   };
   useEffect(() => { if (jeton) verifier({ jeton }); }, [jeton]);
+  useTitreDocument('Vérification d’une carte de service');
   return (
-    <div className="flex min-h-screen flex-col bg-slate-100">
-      <div className="h-1.5 tricolore" />
-      <header className="bg-dep-800 px-4 py-4 text-center text-white">
-        <div className="text-xs uppercase tracking-[0.2em] text-dep-200">République Démocratique du Congo</div>
-        <div className="text-sm text-dep-100">{SG_NOM}</div>
-        <div className="mt-1 text-lg font-semibold">{DEP_NOM}</div>
-      </header>
-      <main className="mx-auto w-full max-w-2xl flex-1 p-4">
-        <div className="card p-5">
-          <h1 className="text-xl font-semibold">Vérification d’une carte de service</h1>
-          <p className="mt-1 text-sm text-slate-600">Scannez le QR code au verso de la carte ou son code à barres au recto, ou saisissez le matricule de son titulaire.</p>
-          <form className="mt-4 flex flex-col gap-2 sm:flex-row" onSubmit={(e) => { e.preventDefault(); if (jeton) navigate('/verification'); verifier(interpreter(matricule)); }}>
-            <label htmlFor="matricule" className="sr-only">Matricule ou code de la carte</label>
-            <input id="matricule" className="input flex-1" placeholder="Matricule du titulaire ou code à barres de la carte" autoComplete="off" value={matricule} onChange={(e) => setMatricule(e.target.value)} />
-            <button type="submit" className="btn-primary" disabled={busy || matricule.trim().length < 3}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />} Vérifier</button>
-          </form>
-          {busy && jeton && <p className="mt-4 text-sm text-slate-600"><Loader2 size={14} className="inline animate-spin" /> Vérification de la carte…</p>}
-          {erreur && <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">{erreur}</div>}
-          {resultat && <Resultat r={resultat} />}
-        </div>
-        <p className="mt-4 text-center text-xs text-slate-500">Service officiel de vérification — chaque consultation est enregistrée. <Link to="/connexion" className="underline">Accès agents</Link></p>
-      </main>
-    </div>
+    <PagePublique large lien={{ to: '/connexion', label: 'Accès agents' }}>
+      <div className="rounded-xl bg-white p-5 shadow-[0_10px_30px_rgba(18,52,111,0.12)] sm:p-6">
+        <h1 className="text-xl font-semibold">Vérification d’une carte de service</h1>
+        <p className="mt-1 text-sm text-slate-600">Scannez le QR code au verso de la carte ou son code à barres au recto, ou saisissez le matricule de son titulaire.</p>
+        <form className="mt-4 flex flex-col gap-2 sm:flex-row" onSubmit={(e) => { e.preventDefault(); if (jeton) navigate('/verification'); verifier(interpreter(matricule)); }}>
+          <label htmlFor="matricule" className="sr-only">Matricule ou code de la carte</label>
+          <input id="matricule" className="input flex-1" placeholder="Matricule du titulaire ou code à barres de la carte" autoComplete="off" value={matricule} onChange={(e) => setMatricule(e.target.value)} />
+          <button type="submit" className="btn-primary" disabled={busy || matricule.trim().length < 3}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />} Vérifier</button>
+        </form>
+        {busy && jeton && <p className="mt-4 text-sm text-slate-600"><Loader2 size={14} className="inline animate-spin" /> Vérification de la carte…</p>}
+        {erreur && <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">{erreur}</div>}
+        {resultat && <Resultat r={resultat} />}
+      </div>
+      <p className="mt-4 text-center text-xs text-slate-600">Service officiel de vérification — chaque consultation est enregistrée. <Link to="/connexion" className="underline">Accès agents</Link></p>
+    </PagePublique>
   );
 }

@@ -607,6 +607,10 @@ En résumé :
    fictives, mot de passe initial de l’Admin, dossiers, espace disque, interface, outils et chiffrement des
    sauvegardes, copie hors serveur, sauvegarde et test de restauration réussis, messagerie. Code de sortie 1 s’il
    reste un point bloquant. Le même contrôle figure sur la page **Santé du système** de l’Admin.
+5. **Référencement** : seules la page de connexion et la vérification des cartes sont proposées aux moteurs de
+   recherche. L’API sert `/robots.txt` et `/sitemap.xml` à partir de `PUBLIC_URL`, ajoute l’adresse canonique à
+   ces deux pages et la consigne `noindex` (balise et en-tête `X-Robots-Tag`) à toutes les autres ; en mode
+   démonstration, rien n’est indexé. Fixer `PUBLIC_URL` sur l’adresse officielle suffit.
 
 | Variable | Rôle |
 |---|---|

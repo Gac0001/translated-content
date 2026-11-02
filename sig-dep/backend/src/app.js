@@ -43,6 +43,11 @@ app.get('/api/statut-public', async (req, res) => {
   res.json({ maintenance: { active: m.active, message: m.active ? m.message : '', fin: m.active ? m.fin : '' }, demo: config.demo });
 });
 
+// Référencement : seules les pages publiques sont proposées aux moteurs de recherche (aucune en démonstration).
+const referencement = require('./services/referencement');
+app.get('/robots.txt', (req, res) => res.type('text/plain').set('Cache-Control', 'public, max-age=3600').send(referencement.robots()));
+app.get('/sitemap.xml', (req, res) => res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(referencement.planDuSite()));
+
 // Mode démonstration (DEMO_MODE=true, jamais en production) : comptes et code de double authentification
 if (config.demo) {
   app.get('/api/demo', async (req, res) => {
@@ -128,7 +133,12 @@ if (config.frontendDir) {
   if (!fs.existsSync(index)) throw new Error(`FRONTEND_DIR : ${index} introuvable. Construisez l’interface (npm run build dans frontend) ou utilisez le paquet d’installation.`);
   app.use('/assets', express.static(path.join(config.frontendDir, 'assets'), { immutable: true, maxAge: '365d', fallthrough: false }));
   app.use(express.static(config.frontendDir, { index: false, maxAge: '1h' }));
-  app.get(/^(?!\/api(\/|$)).*/, (req, res) => { res.set('Cache-Control', 'no-cache'); res.sendFile(index); });
+  // index.html relu à chaque page (petit fichier, jamais mis en cache) et adapté au référencement de la page.
+  app.get(/^(?!\/api(\/|$)).*/, (req, res) => {
+    res.set('Cache-Control', 'no-cache');
+    if (!referencement.indexable(req.path)) res.set('X-Robots-Tag', 'noindex, nofollow');
+    res.type('html').send(referencement.pageIndex(fs.readFileSync(index, 'utf8'), req.path));
+  });
 }
 
 module.exports = app;

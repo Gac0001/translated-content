@@ -1,5 +1,14 @@
 # Journal des versions — SIG-DEP
 
+## 1.45.0
+
+### Pages publiques et référencement
+- **Page de connexion redessinée** (variante retenue : écran partagé) : à gauche, panneau en bleu institutionnel à l’identité de la Direction (République Démocratique du Congo, Secrétariat Général au Numérique, nom de la Direction, présentation du SIG-DEP et de ses trois grands domaines, lien vers la vérification des cartes), avec les **armoiries du Gouvernement en filigrane** ; à droite, formulaire aéré (champs et bouton plus grands, « Mot de passe oublié ? » à côté du mot de passe, rappel de sécurité). Sur téléphone, le panneau devient un bandeau compact et le formulaire passe en tête. Double authentification et récupération du mot de passe reprennent le même habillage ; les comptes de démonstration sont repliés sous « Afficher ».
+- **Vérification des cartes de service et page de maintenance** : habillage commun des pages publiques (`PagePublique`) — en-tête à l’identité de la Direction, carte centrée, pied de page institutionnel.
+- **Référencement** : titre, description, couleur de thème, aperçu de partage (Open Graph), données structurées (application d’une organisation gouvernementale), manifeste, contenu lisible sans JavaScript ; titre d’onglet propre à chaque page publique.
+- **Seules les pages publiques sont indexables** : `/robots.txt` et `/sitemap.xml` servis par l’API à partir de `PUBLIC_URL` (connexion et vérification des cartes uniquement) ; adresse canonique ajoutée à ces deux pages ; consigne `noindex` (balise et en-tête `X-Robots-Tag`) sur toutes les autres, y compris la vérification d’une carte précise (données personnelles) ; un environnement de démonstration n’est jamais indexé.
+- Les armoiries sont reprises de l’image déjà versionnée à la racine du dépôt (aucune nouvelle image ajoutée).
+
 ## 1.44.0
 
 ### Lot F — collecte auprès des services du Secrétariat Général (étape 1 : campagnes, modèles, import contrôlé, intégration)
