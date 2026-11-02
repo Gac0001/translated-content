@@ -7,7 +7,9 @@
  *  - lecture d’un retour : identification, structure, champs obligatoires, codes, totaux, doublons,
  *    rapport d’anomalies (ERREUR bloque l’intégration, ALERTE à apprécier) ;
  *  - intégration : PTBA (brouillon du service), cadre de performance (réalisations et cibles),
- *    dépenses d’investissement (projets de la banque de projets créés ou mis à jour).
+ *    dépenses d’investissement (projets de la banque de projets créés ou mis à jour) ; plan d’actions,
+ *    rapport d’activités et fiche de collecte PNSD (fiche-type du § 35) conservés comme contributions
+ *    structurées, consultables et exportables par campagne (aucun module cible pour l’instant).
  */
 const ExcelJS = require('exceljs');
 const db = require('../db/knex');
@@ -21,15 +23,23 @@ const OBJETS = {
   PTBA: { libelle: 'Plan de travail annuel budgétisé (PTBA)', bureau: 'programme' },
   CADRE_PERFORMANCE: { libelle: 'Cadre de performance (réalisations et cibles)', bureau: 'programme' },
   INVESTISSEMENT: { libelle: 'Dépenses d’investissement', bureau: 'programme' },
-  PLAN_ACTIONS: { libelle: 'Plan d’actions', bureau: 'suivi', plusTard: true },
-  RAPPORT_ACTIVITES: { libelle: 'Rapport d’activités', bureau: 'suivi', plusTard: true },
-  FICHE_PNSD: { libelle: 'Fiche de collecte PNSD', bureau: 'suivi', plusTard: true },
+  PLAN_ACTIONS: { libelle: 'Plan d’actions', bureau: 'suivi', structure: true },
+  RAPPORT_ACTIVITES: { libelle: 'Rapport d’activités', bureau: 'suivi', structure: true },
+  FICHE_PNSD: { libelle: 'Fiche de collecte PNSD', bureau: 'suivi', structure: true },
 };
 const MATURITES = { IDEE: 'Idée', ETUDE: 'En étude', PRET: 'Prêt', EN_COURS: 'En cours', ACHEVE: 'Achevé', ABANDONNE: 'Abandonné' };
 const RUBRIQUES = ['Etudes', 'Acquisition de terrains', 'Construction/réhabilitation', 'Equipements', 'Frais de mise en œuvre', 'Autres'];
 const SOURCES = ['Etat', 'Partenaires', 'En négociation', 'A rechercher'];
 const MOIS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
-const LIGNES_SAISIE = { PTBA: 150, INVESTISSEMENT: 60 };
+const TRIMESTRES = ['T1', 'T2', 'T3', 'T4'];
+const ETATS_ACTIVITE = ['Réalisée', 'En cours', 'Non réalisée', 'Reportée'];
+// Niveaux de mise en œuvre de la fiche-type de collecte de la revue du PNSD (cahier, § 35)
+const NIVEAUX_PNSD = ['Planifié', 'En cours', 'Achevé', 'Suspendu'];
+const LIGNES_SAISIE = { PTBA: 150, INVESTISSEMENT: 60, PLAN_ACTIONS: 80, RAPPORT_ACTIVITES: 80, FICHE_PNSD: 40 };
+// Listes fermées contrôlées à l’import (au-delà de la liste déroulante du modèle)
+const LISTES_FERMEES = { trimestres: TRIMESTRES, etats: ETATS_ACTIVITE, niveaux: NIVEAUX_PNSD, ouinon: ['Oui', 'Non'], sources: SOURCES };
+// Colonne additionnée pour le contrôle du total déclaré par le service
+const COLONNE_TOTAL = { PTBA: 'cout', INVESTISSEMENT: 'total', PLAN_ACTIONS: 'cout' };
 
 const BORD = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
 const BLEU = 'FF17418A';
@@ -93,6 +103,29 @@ function colonnes(objet, annee) {
       { h: `Cible ${annee + 3}`, k: 'cible3', w: 12, n: true }, { h: 'Commentaire', k: 'commentaire', w: 30 },
     ];
   }
+  if (objet === 'PLAN_ACTIONS') {
+    return [
+      { h: 'N°', k: 'numero', w: 6 }, { h: 'Axe stratégique ou objectif *', k: 'objectif', w: 30, requis: true }, { h: 'Action *', k: 'action', w: 32, requis: true },
+      { h: 'Activités principales', k: 'activites', w: 30 }, { h: 'Structure responsable', k: 'responsable', w: 18, defaut: 'service' }, { h: 'Indicateur de résultat', k: 'indicateur', w: 24 },
+      { h: 'Cible', k: 'cible', w: 14 }, { h: 'Échéance (trimestre)', k: 'trimestre', w: 11, liste: 'trimestres' }, { h: 'Coût estimé (CDF) *', k: 'cout', w: 15, n: true, requis: true },
+      { h: 'Source de financement', k: 'source', w: 16, liste: 'sources' }, { h: 'Observations', k: 'observations', w: 24 },
+    ];
+  }
+  if (objet === 'RAPPORT_ACTIVITES') {
+    return [
+      { h: 'N°', k: 'numero', w: 6 }, { h: 'Activité prévue *', k: 'activite', w: 34, requis: true }, { h: 'État d’exécution *', k: 'etat', w: 14, liste: 'etats', requis: true },
+      { h: 'Taux de réalisation (%) *', k: 'taux', w: 12, n: true, requis: true, pct: true }, { h: 'Résultats obtenus', k: 'resultats', w: 30 },
+      { h: 'Difficultés rencontrées', k: 'difficultes', w: 28 }, { h: 'Recommandations et perspectives', k: 'recommandations', w: 28 }, { h: 'Montant dépensé (CDF)', k: 'montant', w: 15, n: true },
+    ];
+  }
+  if (objet === 'FICHE_PNSD') {
+    return [
+      { h: 'N°', k: 'numero', w: 6 }, { h: 'Intitulé du projet ou de l’action *', k: 'intitule', w: 34, requis: true }, { h: 'Inscrit au PNSD *', k: 'pnsd', w: 10, liste: 'ouinon', requis: true },
+      { h: 'Service responsable', k: 'responsable', w: 16, defaut: 'service' }, { h: 'Objectif principal *', k: 'objectif', w: 30, requis: true },
+      { h: 'Niveau de mise en œuvre *', k: 'niveau', w: 14, liste: 'niveaux', requis: true }, { h: 'Taux d’exécution (%)', k: 'taux', w: 12, n: true, pct: true },
+      { h: 'Principales contraintes', k: 'contraintes', w: 30 }, { h: 'Recommandations ou actions correctives', k: 'recommandations', w: 30 },
+    ];
+  }
   return [
     { h: 'N°', k: 'numero', w: 6 }, { h: 'Intitulé du projet *', k: 'intitule', w: 34, requis: true }, { h: 'Code PIP (projet existant)', k: 'code_pip', w: 18, liste: 'pips' },
     { h: 'Nature des coûts *', k: 'rubrique', w: 22, liste: 'rubriques', requis: true }, { h: 'Localisation', k: 'localisation', w: 18 },
@@ -117,7 +150,7 @@ async function modele(collecte, service, cs) {
   titre('Remplir uniquement les cellules blanches ; ne pas ajouter, supprimer ou déplacer de colonne. Les champs marqués * sont obligatoires.', { size: 9, color: { argb: 'FF8A1C1C' } });
   // Total déclaré (contrôle des totaux à l’import)
   let celluleTotal = null;
-  if (collecte.objet !== 'CADRE_PERFORMANCE') {
+  if (COLONNE_TOTAL[collecte.objet]) {
     const r = ws.addRow(['Total déclaré par le service (CDF) *']);
     ws.mergeCells(r.number, 1, r.number, 3);
     r.getCell(1).font = { bold: true };
@@ -135,6 +168,7 @@ async function modele(collecte, service, cs) {
   const listes = {
     actions: ref.actions.map((a) => `${a.code} — ${a.libelle}`), coche: ['x'], pips: ref.pips.map((p) => p.code),
     rubriques: RUBRIQUES, maturites: Object.values(MATURITES), ouinon: ['Oui', 'Non'], sources: SOURCES,
+    trimestres: TRIMESTRES, etats: ETATS_ACTIVITE, niveaux: NIVEAUX_PNSD,
   };
   const wsRef = wb.addWorksheet('Listes', { state: 'veryHidden' });
   const plages = {};
@@ -165,8 +199,11 @@ async function modele(collecte, service, cs) {
         cell.protection = { locked: false };
         cell.alignment = { wrapText: !c.n, vertical: 'top' };
         if (c.k === 'numero' && collecte.objet !== 'CADRE_PERFORMANCE') cell.value = n + 1;
+        if (c.defaut === 'service') cell.value = service.sigle;
         if (c.liste && plages[c.liste]) cell.dataValidation = { type: 'list', allowBlank: true, formulae: [plages[c.liste]], showErrorMessage: true, errorTitle: 'Valeur non prévue', error: 'Choisissez une valeur de la liste.' };
-        if (c.n) cell.dataValidation = { type: 'decimal', allowBlank: true, operator: 'greaterThanOrEqual', formulae: [0], showErrorMessage: true, errorTitle: 'Nombre attendu', error: 'Saisissez un nombre positif.' };
+        if (c.n) cell.dataValidation = c.pct
+          ? { type: 'decimal', allowBlank: true, operator: 'between', formulae: [0, 100], showErrorMessage: true, errorTitle: 'Pourcentage attendu', error: 'Saisissez un pourcentage entre 0 et 100.' }
+          : { type: 'decimal', allowBlank: true, operator: 'greaterThanOrEqual', formulae: [0], showErrorMessage: true, errorTitle: 'Nombre attendu', error: 'Saisissez un nombre positif.' };
       }
     });
   }
@@ -222,7 +259,7 @@ async function analyser(buffer, collecte, service) {
     const v = {};
     const cellules = {};
     cols.forEach((c, i) => { v[c.k] = row.getCell(i + 1).value; cellules[c.k] = `${ws.getColumn(i + 1).letter}${r}`; });
-    const saisies = cols.filter((c) => !c.verrou && !c.calc && c.k !== 'numero');
+    const saisies = cols.filter((c) => !c.verrou && !c.calc && !c.defaut && c.k !== 'numero');
     if (saisies.every((c) => texte(v[c.k]) === '')) continue;
     const l = { ligne: r };
     for (const c of cols) {
@@ -232,7 +269,12 @@ async function analyser(buffer, collecte, service) {
         if (Number.isNaN(n)) { err(`Montant ou nombre illisible « ${texte(v[c.k])} ».`, cellules[c.k]); l[c.k] = null; } else if (n !== null && n < 0) { err('Valeur négative.', cellules[c.k]); l[c.k] = null; } else l[c.k] = n;
       } else l[c.k] = texte(v[c.k]) || null;
       if (c.requis && (l[c.k] === null || l[c.k] === '')) err(`${c.h.replace(' *', '')} manquant.`, cellules[c.k]);
+      if (c.pct && l[c.k] !== null && l[c.k] > 100) err(`${c.h.replace(' *', '')} supérieur à 100 %.`, cellules[c.k]);
+      if (OBJETS[collecte.objet].structure && c.liste && LISTES_FERMEES[c.liste] && l[c.k] && !LISTES_FERMEES[c.liste].includes(l[c.k])) err(`${c.h.replace(' *', '')} : valeur non prévue « ${l[c.k]} » (${LISTES_FERMEES[c.liste].join(', ')}).`, cellules[c.k]);
     }
+    if (collecte.objet === 'RAPPORT_ACTIVITES' && l.etat === 'Réalisée' && l.taux !== null && l.taux < 100) alerte(`Activité « ${l.activite || '?'} » déclarée réalisée avec un taux de ${l.taux} %.`, cellules.taux);
+    if (collecte.objet === 'FICHE_PNSD' && l.niveau === 'Achevé' && l.taux !== null && l.taux < 100) alerte(`« ${l.intitule || '?'} » déclaré achevé avec un taux d’exécution de ${l.taux} %.`, cellules.taux);
+    if (collecte.objet === 'PLAN_ACTIONS' && l.cout === 0) alerte(`Action « ${l.action || '?'} » sans coût.`, cellules.cout);
     if (collecte.objet === 'PTBA') {
       l.mois = MOIS.map((_, i) => i + 1).filter((m) => l[`m${m}`]);
       for (let m = 1; m <= 12; m += 1) { if (l[`m${m}`] && l[`m${m}`].toLowerCase() !== 'x') err(`Chronogramme : « ${l[`m${m}`]} » au lieu de « x ».`, cellules[`m${m}`]); delete l[`m${m}`]; }
@@ -264,17 +306,20 @@ async function analyser(buffer, collecte, service) {
   }
   if (!donnees.length) err('Aucune ligne renseignée.');
   // Doublons
-  const cle = { PTBA: (l) => `${l.objectif}|${l.activite}|${l.taches || ''}`.toLowerCase(), CADRE_PERFORMANCE: (l) => String(l.indicateur_id), INVESTISSEMENT: (l) => (l.intitule || '').toLowerCase() }[collecte.objet];
+  const cle = {
+    PTBA: (l) => `${l.objectif}|${l.activite}|${l.taches || ''}`.toLowerCase(), CADRE_PERFORMANCE: (l) => String(l.indicateur_id), INVESTISSEMENT: (l) => (l.intitule || '').toLowerCase(),
+    PLAN_ACTIONS: (l) => `${l.objectif}|${l.action}`.toLowerCase(), RAPPORT_ACTIVITES: (l) => (l.activite || '').toLowerCase(), FICHE_PNSD: (l) => (l.intitule || '').toLowerCase(),
+  }[collecte.objet];
   const vus = new Map();
   for (const l of donnees) {
     const k = cle(l);
-    if (vus.has(k)) (collecte.objet === 'PTBA' ? alerte : err)(`Doublon des lignes ${vus.get(k)} et ${l.ligne}.`, `A${l.ligne}`);
+    if (vus.has(k)) (['CADRE_PERFORMANCE', 'INVESTISSEMENT'].includes(collecte.objet) ? err : alerte)(`Doublon des lignes ${vus.get(k)} et ${l.ligne}.`, `A${l.ligne}`);
     else vus.set(k, l.ligne);
   }
   // Total
   let total = null;
-  if (collecte.objet !== 'CADRE_PERFORMANCE') {
-    total = donnees.reduce((s, l) => s + (collecte.objet === 'PTBA' ? (l.cout || 0) : l.total), 0);
+  if (COLONNE_TOTAL[collecte.objet]) {
+    total = donnees.reduce((s, l) => s + (l[COLONNE_TOTAL[collecte.objet]] || 0), 0);
     const declare = nombre(ws.getCell(texte(meta.cellule_total)).value);
     if (declare === null) err('Total déclaré par le service non renseigné.', texte(meta.cellule_total));
     else if (Number.isNaN(declare)) err('Total déclaré illisible.', texte(meta.cellule_total));
@@ -287,6 +332,9 @@ async function analyser(buffer, collecte, service) {
 /** Intègre la dernière réception d’un service dans le SIG-DEP ; renvoie le résultat (affiché et conservé). */
 async function integrer(trx, collecte, service, reception, ctx) {
   const lignes = reception.donnees;
+  if (OBJETS[collecte.objet].structure) {
+    return { type: collecte.objet, lignes: lignes.length, message: `${lignes.length} ligne(s) conservée(s) comme contribution structurée, consultable et exportable avec la campagne` };
+  }
   if (collecte.objet === 'PTBA') {
     const ex = await trx('exercices').where({ annee: collecte.annee }).first();
     if (!ex) throw Object.assign(new Error(`L’exercice ${collecte.annee} n’existe pas dans le référentiel de la planification.`), { metier: true });
@@ -368,4 +416,4 @@ async function integrer(trx, collecte, service, reception, ctx) {
   return { type: 'INVESTISSEMENT', crees, mis_a_jour: majs, message: `${crees.length} projet(s) créé(s) dans la banque de projets, ${majs.length} mis à jour` };
 }
 
-module.exports = { OBJETS, MATURITES, RUBRIQUES, SOURCES, VERSION_MODELE, colonnes, modele, analyser, integrer, referentiels };
+module.exports = { OBJETS, MATURITES, RUBRIQUES, SOURCES, TRIMESTRES, ETATS_ACTIVITE, NIVEAUX_PNSD, VERSION_MODELE, colonnes, modele, analyser, integrer, referentiels };

@@ -1,5 +1,19 @@
 # Journal des versions — SIG-DEP
 
+## 1.46.0
+
+### Lot F — collecte auprès des services du Secrétariat Général (étape 2 : autres objets, courriers, suivi, exports)
+- **Plan d’actions, rapport d’activités et fiche de collecte PNSD** (Bureau Suivi-Évaluation ; ouverture et clôture par le Chef de la Division Programme et Suivi) :
+  - plan d’actions : axe ou objectif, action, activités, structure responsable, indicateur, cible, échéance (trimestre), coût estimé, source de financement, total déclaré contrôlé ;
+  - rapport d’activités : activité prévue, état d’exécution, taux de réalisation, résultats, difficultés, recommandations, montant dépensé ;
+  - fiche PNSD, reprise de la fiche-type de la revue du PNSD (cahier, § 35) : intitulé, inscrit au PNSD (oui ou non), service responsable (pré-rempli), objectif principal, niveau de mise en œuvre (planifié, en cours, achevé, suspendu), taux d’exécution, principales contraintes, recommandations ou actions correctives ;
+  - contrôles à l’import : listes fermées, pourcentages entre 0 et 100, doublons, cohérence (activité « réalisée » ou projet « achevé » à moins de 100 %) ;
+  - intégration : contributions conservées comme données structurées, consultables et exportables par campagne (aucun module cible pour l’instant).
+- **Lettres d’envoi et de relance** (onglet « Courriers ») : préparées par le Bureau organisateur en brouillon de lettre de transmission dans la correspondance (destinataires, objet, échéance, instructions, services concernés, pièces, copie au Secrétaire Général), à relire puis à faire signer par le Directeur, qui leur attribue leur numéro officiel ; la relance vise les services en retard (sinon ceux sans retour) et cite la lettre d’envoi signée.
+- **Suivi** : jours de retard et relances par service ; notification du Bureau organisateur quand des services passent en retard ; files « À traiter » : services en retard avec la date de relance, campagnes ouvertes sans lettre d’envoi.
+- **Export consolidé** par campagne (Excel, en-tête officiel) : suivi des services et lignes reçues.
+- Démonstration : lettre d’envoi signée et numérotée (campagne PTBA), relance en brouillon (service en retard), campagne de fiches PNSD (intégrée, reçue avec alerte, attendue), campagne de plan d’actions à ouvrir.
+
 ## 1.45.0
 
 ### Pages publiques et référencement

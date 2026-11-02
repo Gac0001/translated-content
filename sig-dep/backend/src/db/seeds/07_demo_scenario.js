@@ -602,7 +602,7 @@ async function collecteServices(api, knex, { A }) {
   const ExcelJS = require('exceljs');
   const collectes = require('../../services/collectes');
   const services = Object.fromEntries((await knex('plan_services').select('id', 'sigle', 'libelle', 'programme_id')).map((x) => [x.sigle, x]));
-  const retour = async (c, sigle, remplir, nom) => {
+  const retour = async (c, sigle, remplir, nom, agent = 'ag.prg1') => {
     const cs = await knex('collecte_services').where({ collecte_id: c.id, service_id: services[sigle].id }).first();
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(await collectes.modele({ ...c, echeance: new Date(c.echeance) }, services[sigle], cs));
@@ -612,7 +612,7 @@ async function collecteServices(api, knex, { A }) {
     if (meta.cellule_total) ws.getCell(meta.cellule_total).value = total;
     const fd = new FormData();
     fd.append('fichier', new Blob([Buffer.from(await wb.xlsx.writeBuffer())], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), nom);
-    await api('ag.prg1', 'POST', `/collectes/${c.id}/services/${cs.id}/import`, fd);
+    await api(agent, 'POST', `/collectes/${c.id}/services/${cs.id}/import`, fd);
     return cs;
   };
   const ptba = (lignes, ecartTotal = 0) => (ws, h) => {
@@ -626,6 +626,9 @@ async function collecteServices(api, knex, { A }) {
     services: ['DAF', 'DRH', 'CTA', 'DANTIC'].map((sg) => services[sg]?.id).filter(Boolean),
   });
   await api('cd.ps', 'POST', `/collectes/${c.id}/ouvrir`);
+  // Lettre d’envoi des modèles : préparée par le Bureau Programme, signée et numérotée par le Directeur
+  const envoi = await api('ag.prg1', 'POST', `/collectes/${c.id}/lettres`, { type: 'ENVOI' });
+  for (const [u, e] of [['ag.prg1', 'transmettre'], ['cb.prg', 'transmettre'], ['cd.ps', 'viser'], ['cd.ps', 'transmettre'], ['directeur', 'valider']]) await api(u, 'POST', `/documents/${envoi.document_id}/${e}`, {});
   // DAF : contribution conforme, intégrée (PTBA brouillon du service)
   const daf = await retour(c, 'DAF', ptba([
     ['Améliorer la gestion budgétaire (démo)', 'Former les gestionnaires de crédits', 'Atelier de 3 jours', '1 — Coordination et planification', 25000000, x, x],
@@ -653,4 +656,33 @@ async function collecteServices(api, knex, { A }) {
   }, 'investissements-DIN-demonstration.xlsx');
   await knex('collectes').where({ id: inv.id }).update({ echeance: D(-2) });
   await require('../../modules/collectes/routes').marquerRetards();
+  // Relance du service en retard : brouillon de lettre à faire signer par le Directeur
+  await api('ag.prg1', 'POST', `/collectes/${inv.id}/lettres`, { type: 'RELANCE' });
+
+  // Fiche de collecte PNSD (Bureau Suivi-Évaluation, fiche-type du § 35) : intégrée, reçue avec alerte, attendue
+  const pnsd = await api('ag.sev1', 'POST', '/collectes', {
+    objet: 'FICHE_PNSD', annee: A, titre: `Revue du PNSD — fiches de collecte ${A} (démonstration)`, echeance: D(15),
+    instructions: 'Données fictives de démonstration : une ligne par projet ou action suivi au titre du PNSD.',
+    services: ['DAF', 'DRH', 'DIN'].map((sg) => services[sg]?.id).filter(Boolean),
+  });
+  await api('cd.ps', 'POST', `/collectes/${pnsd.id}/ouvrir`);
+  const fiche = (lignes) => (ws, h) => {
+    // Colonnes : N°, intitulé, inscrit au PNSD, service (pré-rempli), objectif, niveau, taux, contraintes, recommandations
+    lignes.forEach((l, i) => { const r = ws.getRow(h + 1 + i); [l[0], l[1], null, l[2], l[3], l[4], l[5], l[6]].forEach((v, k) => { if (k !== 2) r.getCell(k + 2).value = v; }); });
+    return null;
+  };
+  const dafPnsd = await retour(pnsd, 'DAF', fiche([
+    ['Dématérialisation de la chaîne de la dépense (démo)', 'Oui', 'Réduire les délais de paiement', 'En cours', 45, 'Connectivité insuffisante des services', 'Renforcer la liaison avec le réseau administratif'],
+    ['Archivage numérique des pièces comptables (démo)', 'Non', 'Sécuriser les pièces justificatives', 'Planifié', 0, 'Financement non mobilisé', 'Inscrire l’action au PTBA suivant'],
+  ]), 'PNSD-DAF-demonstration.xlsx', 'ag.sev1');
+  await api('cb.sev', 'POST', `/collectes/${pnsd.id}/services/${dafPnsd.id}/integrer`);
+  await retour(pnsd, 'DRH', fiche([
+    ['Système de gestion des ressources humaines (démo)', 'Oui', 'Fiabiliser le fichier du personnel', 'Achevé', 80, 'Retards de livraison', 'Réceptionner les derniers modules'],
+  ]), 'PNSD-DRH-demonstration.xlsx', 'ag.sev1');
+  await api('ag.sev1', 'POST', `/collectes/${pnsd.id}/lettres`, { type: 'ENVOI' });
+  // Plan d’actions : campagne en préparation, à ouvrir par le Chef de la Division Programme et Suivi
+  await api('ag.sev1', 'POST', '/collectes', {
+    objet: 'PLAN_ACTIONS', annee: A + 1, titre: `Plan d’actions ${A + 1} des services (démonstration)`, echeance: D(30),
+    services: ['DAF', 'DRH', 'CTA', 'DIN'].map((sg) => services[sg]?.id).filter(Boolean),
+  });
 }

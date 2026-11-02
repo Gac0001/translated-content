@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { CheckCircle2, Download, FileSpreadsheet, Lock, Pencil, PlayCircle, Trash2, Undo2, Upload } from 'lucide-react';
+import { BellRing, CheckCircle2, Download, FileSpreadsheet, Lock, Mail, Pencil, PlayCircle, Trash2, Undo2, Upload } from 'lucide-react';
 import api, { download, errorMessage } from '../../lib/api';
 import {
-  useApi, Loadable, PageHeader, Card, Badge, Button, KeyValues, SimpleTable, KpiTile, Modal, Tabs, InfoAlert, StatusBadge, WorkflowPanel,
+  useApi, Loadable, PageHeader, Card, Badge, Button, KeyValues, SimpleTable, KpiTile, Modal, Tabs, InfoAlert, StatusBadge, WorkflowPanel, EmptyState,
   useOnglet, runAction, useConfirm, toast,
 } from '../../components/ui';
 import { Timeline } from '../../components/shared';
@@ -79,24 +79,73 @@ function FicheService({ c, s, onClose, onDone }) {
   );
 }
 
-function Consolidation({ id }) {
-  const state = useApi(`/collectes/${id}/consolidation`);
+function Consolidation({ c }) {
+  const state = useApi(`/collectes/${c.id}/consolidation`);
+  const exporter = () => download(`/collectes/${c.id}/export`, `collecte-${c.objet.toLowerCase()}-${c.annee}.xlsx`).catch((x) => toast.error(errorMessage(x)));
   return (
     <Loadable state={state}>
       {(d) => (
-        <Card title="Lignes reçues (dernière version de chaque service)" bodyClass="p-0">
+        <Card title="Lignes reçues (dernière version de chaque service)" bodyClass="p-0"
+          actions={<Button size="sm" icon={FileSpreadsheet} onClick={exporter}>Exporter (Excel)</Button>}>
           <SimpleTable label="Consolidation de la campagne" dense figee rowKey="cle" rows={d.lignes.map((l, i) => ({ ...l, cle: i }))} empty="Aucun fichier reçu."
             columns={[
               { key: 'service', header: 'Service', render: (l) => <span className="font-medium">{l.service}</span> },
               ...d.colonnes.filter((c) => !c.calc && c.k !== 'numero' && !/^m\d+$/.test(c.k)).map((c) => ({
                 key: c.k, header: c.h.replace(' *', ''), align: c.n ? 'right' : undefined,
-                render: (l) => (c.n ? fmtCdf(l[c.k], { suffixe: false }) : <span className="block max-w-[18rem] whitespace-normal">{l[c.k] ?? '—'}</span>),
+                render: (l) => (c.pct ? (l[c.k] === null || l[c.k] === undefined ? '—' : `${l[c.k]} %`) : c.n ? fmtCdf(l[c.k], { suffixe: false }) : <span className="block max-w-[18rem] whitespace-normal">{l[c.k] ?? '—'}</span>),
               })),
               { key: 'statut', header: 'Statut', render: (l) => <StatusBadge value={l.statut} /> },
             ]} />
         </Card>
       )}
     </Loadable>
+  );
+}
+
+/** Lettres d’envoi et de relance : brouillons de correspondance, signés et numérotés par le Directeur. */
+function Courriers({ c, onDone }) {
+  const confirm = useConfirm();
+  const sansRetour = c.services.filter((s) => ['ATTENDU', 'EN_RETARD'].includes(s.statut));
+  const aRelancer = sansRetour.some((s) => s.statut === 'EN_RETARD') ? sansRetour.filter((s) => s.statut === 'EN_RETARD') : sansRetour;
+  const preparer = async (type) => {
+    const vises = type === 'ENVOI' ? c.services : aRelancer;
+    const ok = await confirm({
+      title: type === 'ENVOI' ? 'Préparer la lettre d’envoi des modèles' : 'Préparer une lettre de relance',
+      message: `Un brouillon de lettre de transmission sera créé dans la correspondance, à faire signer par le Directeur (numérotée à la signature). Services visés : ${vises.map((s) => s.sigle).join(', ')}.`,
+      confirmLabel: 'Préparer le brouillon',
+    });
+    if (!ok) return;
+    try {
+      const r = await runAction(() => api.post(`/collectes/${c.id}/lettres`, { type }));
+      toast.success(`Brouillon ${r.data.reference} préparé : relisez-le puis transmettez-le pour signature.`);
+      onDone();
+    } catch { /* message affiché */ }
+  };
+  const envoiFait = c.lettres.some((l) => l.type === 'ENVOI');
+  return (
+    <Card title="Lettres de la campagne" bodyClass="p-0"
+      actions={c.droits.lettres && (
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" icon={Mail} variant={envoiFait ? undefined : 'primary'} onClick={() => preparer('ENVOI')}>Préparer la lettre d’envoi</Button>
+          {c.statut === 'OUVERTE' && aRelancer.length > 0 && <Button size="sm" icon={BellRing} variant={aRelancer.some((s) => s.statut === 'EN_RETARD') ? 'primary' : undefined} onClick={() => preparer('RELANCE')}>Préparer une relance ({aRelancer.length})</Button>}
+        </div>
+      )}>
+      {c.lettres.length ? (
+        <SimpleTable label="Lettres de la campagne" rows={c.lettres}
+          columns={[
+            { key: 'type', header: 'Lettre', render: (l) => <Badge tone={l.type === 'ENVOI' ? 'info' : 'attention'}>{l.type === 'ENVOI' ? 'Envoi des modèles' : 'Relance'}</Badge> },
+            { key: 'titre', header: 'Document', render: (l) => <Link className="link" to={`/documents/${l.document_id}`}>{l.reference}</Link> },
+            { key: 'numero_officiel', header: 'Numéro officiel', render: (l) => (l.numero_officiel ? <span className="font-medium">{l.numero_officiel}</span> : <span className="text-xs text-slate-600">Attribué à la signature du Directeur</span>) },
+            { key: 'services', header: 'Services visés', render: (l) => <span className="block max-w-[16rem] whitespace-normal text-xs">{(l.services || []).map((id) => c.services.find((s) => s.id === id)?.sigle).filter(Boolean).join(', ')}</span> },
+            { key: 'statut', header: 'État', render: (l) => <StatusBadge value={l.statut} /> },
+            { key: 'created_at', header: 'Préparée', render: (l) => <span className="text-xs">{fmtDate(l.created_at)}{l.prepare_par ? ` · ${l.prepare_par}` : ''}</span> },
+          ]} />
+      ) : (
+        <EmptyState title="Aucune lettre préparée">
+          {c.droits.lettres ? 'Préparez la lettre d’envoi des modèles aux services ; elle sera signée et numérotée par le Directeur.' : 'Les lettres sont préparées par le Bureau organisateur de la campagne.'}
+        </EmptyState>
+      )}
+    </Card>
   );
 }
 
@@ -107,7 +156,7 @@ export default function CollecteDetail() {
   const state = useApi(`/collectes/${id}`, [id]);
   const objets = useApi('/collectes');
   const confirm = useConfirm();
-  const [onglet, choisir] = useOnglet('services', { valeurs: ['services', 'consolidation', 'historique'] });
+  const [onglet, choisir] = useOnglet('services', { valeurs: ['services', 'courriers', 'consolidation', 'historique'] });
   const [fiche, setFiche] = useState(null);
   const [edition, setEdition] = useState(false);
   const fichierRef = useRef(null);
@@ -159,8 +208,8 @@ export default function CollecteDetail() {
               <KpiTile label="À intégrer ou à corriger" valeur={String(c.resume.recus + c.resume.rejetes)} tone="jaune" />
               <KpiTile label="Services en retard" valeur={String(c.resume.en_retard)} tone={c.resume.en_retard ? 'rouge' : 'gris'} />
             </div>
-            <Tabs label="Campagne" value={onglet} onChange={choisir} tabs={[{ value: 'services', label: 'Services' }, { value: 'consolidation', label: 'Consolidation' }, { value: 'historique', label: 'Historique' }]} />
-            {onglet === 'consolidation' ? <Consolidation id={c.id} /> : onglet === 'historique' ? (
+            <Tabs label="Campagne" value={onglet} onChange={choisir} tabs={[{ value: 'services', label: 'Services' }, { value: 'courriers', label: 'Courriers', count: c.lettres.length || undefined }, { value: 'consolidation', label: 'Consolidation' }, { value: 'historique', label: 'Historique' }]} />
+            {onglet === 'courriers' ? <Courriers c={c} onDone={() => state.reload()} /> : onglet === 'consolidation' ? <Consolidation c={c} /> : onglet === 'historique' ? (
               <div className="grid gap-4 lg:grid-cols-3">
                 <Card title="Campagne" className="lg:col-span-1"><KeyValues cols={1} items={[['Objet', c.objet_libelle], ['Exercice', c.annee], ['Échéance', fmtDate(c.echeance)], ['Instructions', c.instructions]]} /></Card>
                 <Card title="Historique" className="lg:col-span-2"><Timeline items={c.historique} /></Card>
@@ -172,6 +221,12 @@ export default function CollecteDetail() {
                     { key: 'sigle', header: 'Service', render: (s) => <span><span className="font-medium">{s.sigle}</span><span className="block max-w-[20rem] whitespace-normal text-xs text-slate-600">{s.libelle}</span></span> },
                     { key: 'statut', header: 'Statut', render: (s) => <StatusBadge value={s.statut} /> },
                     { key: 'derniere', header: 'Dernier fichier', render: (s) => (s.derniere ? <span className="text-xs">V{s.derniere.version} · {fmtDateTime(s.derniere.recu_at)}</span> : '—') },
+                    { key: 'suivi', header: 'Suivi', render: (s) => (s.jours_retard || s.relances ? (
+                      <span className="block text-xs">
+                        {s.jours_retard > 0 && <span className="block font-medium text-red-700">{s.jours_retard} jour(s) de retard</span>}
+                        <span className="block text-slate-600">{s.relances ? `Relancé ${s.relances} fois, le ${fmtDate(s.derniere_relance)}` : 'Pas encore relancé'}</span>
+                      </span>
+                    ) : '—') },
                     { key: 'controle', header: 'Contrôle', render: (s) => <Controle r={s.derniere} /> },
                     { key: 'x', header: '', render: (s) => (
                       <span className="flex flex-wrap justify-end gap-1">

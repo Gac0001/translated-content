@@ -133,7 +133,19 @@ async function collectes(ctx) {
   out.push(file('collectes_integrer', 'collectes', 'Contributions des services à intégrer', '/collectes', recus, (x) => item(x, x.reference)));
   const aCorriger = (await lignes(['RECU', 'CORRIGE'], preparer)).filter((x) => Number(x.erreurs));
   out.push(file('collectes_anomalies', 'collectes', 'Contributions avec erreurs : faire corriger ou rejeter', '/collectes', aCorriger, (x) => item(x, `${x.erreurs} erreur(s) dans le dernier fichier reçu`)));
-  out.push(file('collectes_retard', 'collectes', 'Services en retard (à relancer)', '/collectes', await lignes(['EN_RETARD'], preparer), (x) => ({ ...item(x, x.reference), alerte: true })));
+  const retards = await lignes(['EN_RETARD'], preparer);
+  const relances = retards.length ? await db('collecte_lettres').whereIn('collecte_id', [...new Set(retards.map((x) => x.collecte_id))]).where({ type: 'RELANCE' }).select('services', 'created_at') : [];
+  const relance = (x) => relances.filter((l) => (l.services || []).includes(x.id)).map((l) => l.created_at).sort().pop();
+  out.push(file('collectes_retard', 'collectes', 'Services en retard (à relancer)', '/collectes', retards, (x) => {
+    const r = relance(x);
+    return { ...item(x, `${x.reference} — ${r ? `relancé le ${new Date(r).toLocaleDateString('fr-FR', { timeZone: 'Africa/Kinshasa' })}` : 'aucune lettre de relance'}`), alerte: !r };
+  }));
+  // Campagnes ouvertes dont la lettre d’envoi des modèles n’a pas encore été préparée
+  if (preparer.length) {
+    const sansEnvoi = await db('collectes as c').where('c.statut', 'OUVERTE').whereIn('c.objet', preparer)
+      .whereNotExists(db('collecte_lettres as l').whereRaw('l.collecte_id = c.id').where('l.type', 'ENVOI')).orderBy('c.echeance');
+    out.push(file('collectes_envoi', 'collectes', 'Campagnes ouvertes : lettre d’envoi des modèles à préparer', '/collectes', sansEnvoi, (c) => ({ id: `cole-${c.id}`, titre: c.titre, detail: c.reference, echeance: echeance(c), to: `/collectes/${c.id}?onglet=courriers`, statut: c.statut })));
+  }
   if (ouvrir) {
     const prep = await db('collectes').where({ statut: 'PREPARATION' }).orderBy('created_at');
     out.push(file('collectes_ouvrir', 'collectes', 'Campagnes de collecte à ouvrir', '/collectes', prep, (c) => ({ id: `colc-${c.id}`, titre: c.titre, detail: c.reference, echeance: echeance(c), to: `/collectes/${c.id}`, statut: c.statut })));
