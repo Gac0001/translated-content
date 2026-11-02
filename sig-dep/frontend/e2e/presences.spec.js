@@ -9,6 +9,17 @@ const dossier = path.resolve('e2e/captures/presences');
 fs.mkdirSync(dossier, { recursive: true });
 const capture = (page, nom) => page.screenshot({ path: path.join(dossier, `${nom}.png`), fullPage: true });
 
+/**
+ * Synthèse mensuelle du dernier mois renseigné : en tout début de mois, aucune liste du mois en cours
+ * n’est encore transmise (la démonstration en transmet sur les six semaines précédentes).
+ */
+async function synthese(page) {
+  await page.goto('/presences?onglet=synthese');
+  const vide = page.getByText('Aucune liste transmise ce mois-ci');
+  await expect(vide.or(page.getByRole('table', { name: 'Synthèse par structure' }))).toBeVisible();
+  if (await vide.isVisible()) await page.getByRole('button', { name: 'Mois précédent' }).click();
+}
+
 test.describe('Présences journalières (ordinateur)', () => {
   test.use({ viewport: { width: 1366, height: 900 } });
 
@@ -71,7 +82,7 @@ test.describe('Présences journalières (ordinateur)', () => {
     await connexion(page, 'directeur');
     await expect(page.getByRole('heading', { name: 'À traiter' })).toBeVisible();
     await expect(page.getByText('Rectificatifs de présence à valider')).toBeVisible();
-    await page.goto('/presences?onglet=synthese');
+    await synthese(page);
     await expect(page.getByText('Taux de présence', { exact: true }).first()).toBeVisible();
     await expect(page.getByRole('table', { name: 'Synthèse par agent' }).locator('tbody tr').first()).toBeVisible();
     await expect(page.getByRole('list', { name: 'Taux de présence par structure' }).locator('li').first()).toBeVisible();
@@ -82,7 +93,7 @@ test.describe('Présences journalières (ordinateur)', () => {
 
   test('le Secrétaire Général ne voit que les agrégats', async ({ page }) => {
     await connexion(page, 'sg');
-    await page.goto('/presences?onglet=synthese');
+    await synthese(page);
     await expect(page.getByRole('table', { name: 'Synthèse par structure' })).toBeVisible();
     await expect(page.getByRole('table', { name: 'Synthèse par agent' })).toHaveCount(0);
   });
