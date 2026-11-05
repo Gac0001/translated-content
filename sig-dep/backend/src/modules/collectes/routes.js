@@ -19,6 +19,9 @@ const { nextReference } = require('../../services/sequence');
 const { loadAllNodes } = require('../../services/hierarchy');
 const { makeUpload, sha256File, removeQuiet } = require('../../services/files');
 const collectes = require('../../services/collectes');
+const lettres = require('../../services/collecteLettres');
+const { sendWorkbook } = require('../../services/excel');
+const { ctxNode } = require('../../services/hierarchy');
 const { badRequest, forbidden, notFound, conflict } = require('../../utils/errors');
 
 const router = express.Router();
@@ -42,6 +45,8 @@ function droits(ctx, c) {
     modeles: prep && c.statut !== 'CLOTUREE',
     importer: prep && c.statut === 'OUVERTE',
     decider: peutDecider(ctx, c.objet) && c.statut === 'OUVERTE',
+    // Lettres d’envoi et de relance : brouillons de correspondance préparés par le Bureau organisateur
+    lettres: prep && c.statut !== 'CLOTUREE' && ctx.can('documents.rediger') && !!ctxNode(ctx),
   };
 }
 
@@ -69,10 +74,21 @@ async function services(c) {
   const recs = rows.length ? await db('collecte_receptions as r').leftJoin('users as u', 'u.id', 'r.recu_par').leftJoin('agents as a', 'a.id', 'u.agent_id')
     .whereIn('r.collecte_service_id', rows.map((r) => r.id)).orderBy('r.version', 'desc')
     .select('r.id', 'r.collecte_service_id', 'r.version', 'r.attachment_id', 'r.fichier', 'r.anomalies', 'r.erreurs', 'r.alertes', 'r.total', 'r.recu_at', db.raw(`concat_ws(' ', a.prenom, a.nom) as recu_par_nom`), db.raw('jsonb_array_length(r.donnees) as lignes')) : [];
+  const relances = rows.length ? await db('collecte_lettres').where({ collecte_id: c.id, type: 'RELANCE' }).orderBy('created_at') : [];
+  const retard = (r) => (['ATTENDU', 'EN_RETARD'].includes(r.statut) && iso(c.echeance) < aujourdhui()
+    ? Math.round((Date.parse(aujourdhui()) - Date.parse(iso(c.echeance))) / 86400000) : 0);
   return rows.map((r) => {
     const receptions = recs.filter((x) => x.collecte_service_id === r.id).map((x) => ({ ...x, total: x.total === null ? null : Number(x.total) }));
-    return { ...r, receptions, derniere: receptions[0] || null };
+    const rel = relances.filter((l) => (l.services || []).includes(r.id));
+    return { ...r, receptions, derniere: receptions[0] || null, jours_retard: retard(r), relances: rel.length, derniere_relance: rel.length ? rel[rel.length - 1].created_at : null };
   });
+}
+
+/** Lettres de la campagne, avec l’état de leur document (brouillon, en circuit, signée et numérotée). */
+async function lettresDe(c) {
+  return db('collecte_lettres as l').join('documents as d', 'd.id', 'l.document_id').leftJoin('users as u', 'u.id', 'l.created_by').leftJoin('agents as a', 'a.id', 'u.agent_id')
+    .where('l.collecte_id', c.id).orderBy('l.created_at')
+    .select('l.id', 'l.type', 'l.services', 'l.created_at', 'd.id as document_id', 'd.reference', 'd.titre', 'd.statut', 'd.numero_officiel', 'd.numerote_at', db.raw(`concat_ws(' ', a.prenom, a.nom) as prepare_par`));
 }
 
 function resume(liste) {
@@ -84,7 +100,15 @@ function resume(liste) {
 async function marquerRetards() {
   const ids = await db('collecte_services as cs').join('collectes as c', 'c.id', 'cs.collecte_id')
     .where('c.statut', 'OUVERTE').where('c.echeance', '<', aujourdhui()).where('cs.statut', 'ATTENDU').pluck('cs.id');
-  if (ids.length) await db('collecte_services').whereIn('id', ids).update({ statut: 'EN_RETARD', updated_at: db.fn.now() });
+  if (!ids.length) return 0;
+  await db('collecte_services').whereIn('id', ids).update({ statut: 'EN_RETARD', updated_at: db.fn.now() });
+  // Le Bureau organisateur est invité à préparer une lettre de relance
+  const parCampagne = await db('collecte_services as cs').join('collectes as c', 'c.id', 'cs.collecte_id').join('plan_services as s', 's.id', 'cs.service_id')
+    .whereIn('cs.id', ids).select('c.id', 'c.reference', 'c.titre', 'c.objet', 's.sigle');
+  for (const cid of [...new Set(parCampagne.map((x) => x.id))]) {
+    const l = parCampagne.filter((x) => x.id === cid);
+    await notify(await comptesBureau(BUREAUX[bureauDe(l[0].objet)]), { type: 'COLLECTE', titre: `Services en retard : ${l.map((x) => x.sigle).join(', ')}`, message: `${l[0].reference} — ${l[0].titre} : échéance dépassée, préparez une lettre de relance.`, lien: `/collectes/${cid}` });
+  }
   return ids.length;
 }
 
@@ -98,8 +122,8 @@ router.get('/', requirePerm('planification.consulter'), async (req, res) => {
     db.raw(`(SELECT count(*)::int FROM collecte_services s WHERE s.collecte_id = c.id AND s.statut = 'EN_RETARD') as en_retard`));
   res.json({
     data: rows.map(presenter),
-    objets: Object.entries(collectes.OBJETS).map(([code, o]) => ({ code, libelle: o.libelle, disponible: !o.plusTard })),
-    droits: { creer: Object.keys(collectes.OBJETS).filter((o) => !collectes.OBJETS[o].plusTard && peutPreparer(req.ctx, o)) },
+    objets: Object.entries(collectes.OBJETS).map(([code, o]) => ({ code, libelle: o.libelle, disponible: true })),
+    droits: { creer: Object.keys(collectes.OBJETS).filter((o) => peutPreparer(req.ctx, o)) },
   });
 });
 
@@ -111,7 +135,6 @@ const campagneSchema = z.object({
 
 router.post('/', requirePerm('planification.consulter'), validate({ body: campagneSchema }), async (req, res) => {
   const b = req.valid.body;
-  if (collectes.OBJETS[b.objet].plusTard) throw badRequest('Cet objet de collecte sera disponible dans une prochaine version.');
   if (!peutPreparer(req.ctx, b.objet)) throw forbidden(`Les campagnes « ${collectes.OBJETS[b.objet].libelle} » sont préparées par le ${bureauDe(b.objet) === 'programme' ? 'Bureau Programme' : 'Bureau Suivi-Évaluation'}.`);
   const ids = [...new Set(b.services)];
   if ((await db('plan_services').whereIn('id', ids).where({ actif: true })).length !== ids.length) throw badRequest('Service inconnu ou inactif.');
@@ -131,7 +154,7 @@ router.post('/', requirePerm('planification.consulter'), validate({ body: campag
 router.get('/:id', requirePerm('planification.consulter'), validate({ params: idParam }), async (req, res) => {
   const c = await charger(req.ctx, req.valid.params.id);
   const liste = await services(c);
-  res.json({ ...presenter(c), services: liste, resume: resume(liste), historique: await getHistory('COLLECTE', c.id), droits: droits(req.ctx, c) });
+  res.json({ ...presenter(c), services: liste, resume: resume(liste), lettres: await lettresDe(c), historique: await getHistory('COLLECTE', c.id), droits: droits(req.ctx, c) });
 });
 
 router.put('/:id', requirePerm('planification.consulter'), validate({ params: idParam, body: campagneSchema.omit({ objet: true }) }), async (req, res) => {
@@ -287,6 +310,76 @@ router.post('/:id/services/:sid/integrer', requirePerm('planification.consulter'
   }
   await audit(req, { action: 'VALIDATION', module: 'planification', entite: 'collecte', entiteId: c.id, message: `${service.sigle} intégré : ${resultat.message}` });
   res.json({ statut: 'INTEGRE', integration: resultat });
+});
+
+// ─── Lettres d’envoi et de relance ──────────────────────────────────────────
+router.post('/:id/lettres', requirePerm('planification.consulter'), validate({ params: idParam, body: z.object({
+  type: z.enum(['ENVOI', 'RELANCE']), services: z.array(z.coerce.number().int().positive()).max(100).optional(),
+}) }), async (req, res) => {
+  const c = await charger(req.ctx, req.valid.params.id);
+  if (!droits(req.ctx, c).lettres) throw forbidden('Les lettres de la campagne sont préparées par le Bureau organisateur, tant qu’elle n’est pas clôturée.');
+  const { type } = req.valid.body;
+  const liste = await services(c);
+  let vises;
+  if (type === 'ENVOI') {
+    vises = req.valid.body.services ? liste.filter((s) => req.valid.body.services.includes(s.id)) : liste;
+  } else {
+    if (c.statut !== 'OUVERTE') throw badRequest('Une relance se prépare pendant que la campagne est ouverte.');
+    const sansRetour = liste.filter((s) => ['ATTENDU', 'EN_RETARD'].includes(s.statut));
+    vises = req.valid.body.services ? sansRetour.filter((s) => req.valid.body.services.includes(s.id))
+      : sansRetour.some((s) => s.statut === 'EN_RETARD') ? sansRetour.filter((s) => s.statut === 'EN_RETARD') : sansRetour;
+    if (!vises.length) throw badRequest('Aucun service sans retour à relancer.');
+  }
+  if (!vises.length) throw badRequest('Aucun service visé par la lettre.');
+  const envoi = (await lettresDe(c)).filter((l) => l.type === 'ENVOI' && l.numero_officiel).pop();
+  const titre = `${type === 'ENVOI' ? 'Lettre d’envoi' : 'Lettre de relance'} — ${c.reference} (${vises.length === 1 ? vises[0].sigle : `${vises.length} services`})`.slice(0, 300);
+  const out = await db.transaction(async (trx) => {
+    const d = await lettres.creerBrouillon(trx, req.ctx, { titre, contenu: lettres.contenu(type, presenter(c), vises, envoi) });
+    const [l] = await trx('collecte_lettres').insert({ collecte_id: c.id, type, document_id: d.id, services: JSON.stringify(vises.map((s) => s.id)), created_by: req.ctx.userId }).returning('*');
+    await addHistory('COLLECTE', c.id, req.ctx.userId, { action: type === 'ENVOI' ? 'ENVOI' : 'RELANCE', commentaire: `${titre} : brouillon ${d.reference} préparé dans la correspondance` }, trx);
+    return { ...l, document: d };
+  });
+  await audit(req, { action: 'CREATION', module: 'documents', entite: 'document', entiteId: out.document.id, message: `${titre} (campagne ${c.reference})` });
+  res.status(201).json({ id: out.id, type, document_id: out.document.id, reference: out.document.reference, services: vises.map((s) => s.sigle) });
+});
+
+// ─── Export consolidé ───────────────────────────────────────────────────────
+router.get('/:id/export', requirePerm('planification.consulter'), requirePerm('exports.generer'), validate({ params: idParam }), async (req, res) => {
+  const c = await charger(req.ctx, req.valid.params.id);
+  const liste = await services(c);
+  const LIB = { ATTENDU: 'Attendu', RECU: 'Reçu', REJETE: 'Rejeté', CORRIGE: 'Corrigé', INTEGRE: 'Intégré', EN_RETARD: 'En retard' };
+  const date = (d) => (d ? new Date(d).toLocaleDateString('fr-FR', { timeZone: 'Africa/Kinshasa' }) : '');
+  const r = resume(liste);
+  const sousTitre = `${c.reference} — ${collectes.OBJETS[c.objet].libelle}, exercice ${c.annee} — échéance ${date(c.echeance)} — taux de retour ${r.retour} %, ${r.integres} intégré(s) sur ${r.total}`;
+  const suivi = {
+    name: 'Suivi des services', titre: `Suivi de la campagne « ${c.titre} »`, sousTitre,
+    columns: [
+      { header: 'Service', key: 'sigle', width: 12 }, { header: 'Libellé', key: 'libelle', width: 34 }, { header: 'Statut', width: 12, value: (s) => LIB[s.statut] || s.statut },
+      { header: 'Dernière version', width: 10, value: (s) => (s.derniere ? s.derniere.version : null) }, { header: 'Reçu le', width: 12, value: (s) => date(s.derniere?.recu_at) },
+      { header: 'Lignes', width: 9, value: (s) => (s.derniere ? s.derniere.lignes : null) }, { header: 'Erreurs', width: 9, value: (s) => (s.derniere ? s.derniere.erreurs : null) },
+      { header: 'Alertes', width: 9, value: (s) => (s.derniere ? s.derniere.alertes : null) }, { header: 'Total (CDF)', width: 16, value: (s) => s.derniere?.total ?? null },
+      { header: 'Jours de retard', width: 10, value: (s) => s.jours_retard || null }, { header: 'Relances', width: 9, value: (s) => s.relances || null },
+      { header: 'Motif du rejet ou intégration', width: 40, value: (s) => (s.statut === 'REJETE' ? s.motif_rejet : s.integration?.message || '') },
+    ],
+    rows: liste,
+  };
+  const cols = collectes.colonnes(c.objet, c.annee).filter((x) => x.k !== 'numero' && !/^m\d+$/.test(x.k));
+  const lignes = [];
+  for (const s of liste.filter((x) => x.derniere)) {
+    const rec = await db('collecte_receptions').where({ id: s.derniere.id }).first('donnees', 'version');
+    for (const l of rec.donnees) lignes.push({ service: s.sigle, statut: LIB[s.statut], version: rec.version, ...l, mois: Array.isArray(l.mois) ? l.mois.join(', ') : undefined });
+  }
+  const donnees = {
+    name: 'Lignes consolidées', titre: `${collectes.OBJETS[c.objet].libelle} — exercice ${c.annee}`, sousTitre: `Dernière version reçue de chaque service — ${c.reference}`,
+    columns: [
+      { header: 'Service', key: 'service', width: 12 }, { header: 'Statut', key: 'statut', width: 11 }, { header: 'Version', key: 'version', width: 8 },
+      ...cols.map((x) => ({ header: x.h.replace(' *', ''), key: x.k, width: Math.max(10, Math.min(x.w || 16, 36)) })),
+      ...(c.objet === 'PTBA' ? [{ header: 'Chronogramme (mois)', key: 'mois', width: 18 }] : []),
+    ],
+    rows: lignes,
+  };
+  await audit(req, { action: 'EXPORT', module: 'planification', entite: 'collecte', entiteId: c.id, message: 'Export consolidé de la campagne' });
+  return sendWorkbook(res, `collecte-${c.objet.toLowerCase()}-${c.annee}-${c.reference.split('/').pop()}.xlsx`, [suivi, donnees]);
 });
 
 /** Consolidation : lignes de la dernière version reçue de chaque service. */

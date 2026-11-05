@@ -1,0 +1,14 @@
+{
+  "name": "SIG-DEP — Direction d’Études et Planification",
+  "short_name": "SIG-DEP",
+  "description": "Système intégré de gestion de la Direction d’Études et Planification (Secrétariat Général au Numérique, RDC).",
+  "lang": "fr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#17418a",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

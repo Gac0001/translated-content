@@ -2,13 +2,47 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/jpeg" href="/favicon.jpg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="SIG-DEP — Système Intégré de Gestion de la Direction d’Études et Planification" />
-    <title>SIG-DEP — Direction d’Études et Planification</title>
+    <title>SIG-DEP — Direction d’Études et Planification | Secrétariat Général au Numérique (RDC)</title>
+    <meta name="description" content="SIG-DEP, système intégré de gestion de la Direction d’Études et Planification du Secrétariat Général au Numérique (République Démocratique du Congo) : planification, PAP et PTBA, suivi-évaluation des politiques, courrier, réunions et décisions. Vérification publique des cartes de service." />
+    <meta name="application-name" content="SIG-DEP" />
+    <meta name="theme-color" content="#17418a" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/jpeg" href="/favicon.jpg" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <!-- Aperçu lors du partage d’un lien (messageries, réseaux sociaux) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:site_name" content="SIG-DEP — Direction d’Études et Planification" />
+    <meta property="og:title" content="SIG-DEP — Direction d’Études et Planification (RDC)" />
+    <meta property="og:description" content="Système intégré de gestion de la Direction d’Études et Planification du Secrétariat Général au Numérique. Accès des agents et vérification publique des cartes de service." />
+    <meta name="twitter:card" content="summary" />
+    <!-- Données structurées : organisation publique et application -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "SIG-DEP",
+        "alternateName": "Système Intégré de Gestion de la Direction d’Études et Planification",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Navigateur web",
+        "inLanguage": "fr",
+        "isAccessibleForFree": false,
+        "provider": {
+          "@type": "GovernmentOrganization",
+          "name": "Direction d’Études et Planification",
+          "parentOrganization": { "@type": "GovernmentOrganization", "name": "Secrétariat Général au Numérique" },
+          "areaServed": { "@type": "Country", "name": "République Démocratique du Congo" }
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <h1>SIG-DEP — Direction d’Études et Planification</h1>
+      <p>Système intégré de gestion de la Direction d’Études et Planification du Secrétariat Général au Numérique (République Démocratique du Congo). Activez JavaScript pour vous connecter ou vérifier une carte de service.</p>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

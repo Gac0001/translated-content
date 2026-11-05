@@ -1,5 +1,28 @@
 # Journal des versions — SIG-DEP
 
+## 1.46.0
+
+### Lot F — collecte auprès des services du Secrétariat Général (étape 2 : autres objets, courriers, suivi, exports)
+- **Plan d’actions, rapport d’activités et fiche de collecte PNSD** (Bureau Suivi-Évaluation ; ouverture et clôture par le Chef de la Division Programme et Suivi) :
+  - plan d’actions : axe ou objectif, action, activités, structure responsable, indicateur, cible, échéance (trimestre), coût estimé, source de financement, total déclaré contrôlé ;
+  - rapport d’activités : activité prévue, état d’exécution, taux de réalisation, résultats, difficultés, recommandations, montant dépensé ;
+  - fiche PNSD, reprise de la fiche-type de la revue du PNSD (cahier, § 35) : intitulé, inscrit au PNSD (oui ou non), service responsable (pré-rempli), objectif principal, niveau de mise en œuvre (planifié, en cours, achevé, suspendu), taux d’exécution, principales contraintes, recommandations ou actions correctives ;
+  - contrôles à l’import : listes fermées, pourcentages entre 0 et 100, doublons, cohérence (activité « réalisée » ou projet « achevé » à moins de 100 %) ;
+  - intégration : contributions conservées comme données structurées, consultables et exportables par campagne (aucun module cible pour l’instant).
+- **Lettres d’envoi et de relance** (onglet « Courriers ») : préparées par le Bureau organisateur en brouillon de lettre de transmission dans la correspondance (destinataires, objet, échéance, instructions, services concernés, pièces, copie au Secrétaire Général), à relire puis à faire signer par le Directeur, qui leur attribue leur numéro officiel ; la relance vise les services en retard (sinon ceux sans retour) et cite la lettre d’envoi signée.
+- **Suivi** : jours de retard et relances par service ; notification du Bureau organisateur quand des services passent en retard ; files « À traiter » : services en retard avec la date de relance, campagnes ouvertes sans lettre d’envoi.
+- **Export consolidé** par campagne (Excel, en-tête officiel) : suivi des services et lignes reçues.
+- Démonstration : lettre d’envoi signée et numérotée (campagne PTBA), relance en brouillon (service en retard), campagne de fiches PNSD (intégrée, reçue avec alerte, attendue), campagne de plan d’actions à ouvrir.
+
+## 1.45.0
+
+### Pages publiques et référencement
+- **Page de connexion redessinée** (variante retenue : écran partagé) : à gauche, panneau en bleu institutionnel à l’identité de la Direction (République Démocratique du Congo, Secrétariat Général au Numérique, nom de la Direction, présentation du SIG-DEP et de ses trois grands domaines, lien vers la vérification des cartes), avec les **armoiries du Gouvernement en filigrane** ; à droite, formulaire aéré (champs et bouton plus grands, « Mot de passe oublié ? » à côté du mot de passe, rappel de sécurité). Sur téléphone, le panneau devient un bandeau compact et le formulaire passe en tête. Double authentification et récupération du mot de passe reprennent le même habillage ; les comptes de démonstration sont repliés sous « Afficher ».
+- **Vérification des cartes de service et page de maintenance** : habillage commun des pages publiques (`PagePublique`) — en-tête à l’identité de la Direction, carte centrée, pied de page institutionnel.
+- **Référencement** : titre, description, couleur de thème, aperçu de partage (Open Graph), données structurées (application d’une organisation gouvernementale), manifeste, contenu lisible sans JavaScript ; titre d’onglet propre à chaque page publique.
+- **Seules les pages publiques sont indexables** : `/robots.txt` et `/sitemap.xml` servis par l’API à partir de `PUBLIC_URL` (connexion et vérification des cartes uniquement) ; adresse canonique ajoutée à ces deux pages ; consigne `noindex` (balise et en-tête `X-Robots-Tag`) sur toutes les autres, y compris la vérification d’une carte précise (données personnelles) ; un environnement de démonstration n’est jamais indexé.
+- Les armoiries sont reprises de l’image déjà versionnée à la racine du dépôt (aucune nouvelle image ajoutée).
+
 ## 1.44.0
 
 ### Lot F — collecte auprès des services du Secrétariat Général (étape 1 : campagnes, modèles, import contrôlé, intégration)

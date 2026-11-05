@@ -3,6 +3,8 @@
  * Lot F (1.44.0) — Collecte auprès des services du Secrétariat Général : campagnes, modèles Excel
  * pré-remplis et protégés, import contrôlé avec rapport d’anomalies, statuts par service, intégration
  * (PTBA, cadre de performance, dépenses d’investissement), retards. Données fictives (exercice 2081).
+ * 1.46.0 : plan d’actions, rapport d’activités et fiche PNSD (contributions structurées), lettres
+ * d’envoi et de relance (brouillons de correspondance), export consolidé.
  */
 const ExcelJS = require('exceljs');
 const { db, request, app, login, api } = require('./helpers');
@@ -38,7 +40,7 @@ describe('Collecte auprès des services du Secrétariat Général', () => {
   test('campagne PTBA : préparation par le Bureau Programme, ouverture par le Chef de la Division Programme et Suivi', async () => {
     const corps = { objet: 'PTBA', annee: A, titre: `Collecte des PTBA ${A} (essai)`, echeance: '2099-12-31', instructions: 'Instructions fictives.', services: [s1.id, s2.id] };
     expect((await sev.post('/collectes', corps)).status).toBe(403);
-    expect((await prg.post('/collectes', { ...corps, objet: 'PLAN_ACTIONS' })).status).toBe(400);
+    expect((await prg.post('/collectes', { ...corps, objet: 'PLAN_ACTIONS' })).status).toBe(403);
     const r = await prg.post('/collectes', corps);
     expect(r.status).toBe(201);
     campagne = r.body;
@@ -192,5 +194,112 @@ describe('Collecte auprès des services du Secrétariat Général', () => {
     expect(Number(cree.cout_total)).toBe(300000000);
     expect(cree.donnees.financier.financement.find((x) => x.source === 'Etat')).toMatchObject({ annee1: 100000000, annee2: 200000000 });
     expect((await db('pip_projects').where({ id: pip.id }).first()).maturite).toBe('PRET');
+  });
+
+  describe('Bureau Suivi-Évaluation : fiche PNSD, plan d’actions, lettres, export (1.46.0)', () => {
+    let tSev; let cbsev; let pnsd;
+    const importerSev = (cid, sid, buf) => request(app).post(`/api/collectes/${cid}/services/${sid}/import`).set('Authorization', `Bearer ${tSev}`)
+      .attach('fichier', buf, { filename: 'fiche.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const modeleSev = async (cid, sid) => charger((await binaire(api(tSev).get(`/collectes/${cid}/services/${sid}/modele`))).body);
+    const remplir = (ws, h, lignes) => lignes.forEach((l, i) => { const r = ws.getRow(h + 1 + i); l.forEach((v, k) => { if (v !== undefined) r.getCell(k + 2).value = v; }); });
+
+    beforeAll(async () => {
+      tSev = await login('ag.sev1');
+      cbsev = api(await login('cb.sev'));
+      pnsd = (await sev.post('/collectes', { objet: 'FICHE_PNSD', annee: A, titre: `Revue du PNSD ${A} (essai)`, echeance: '2099-12-31', services: [s1.id, s2.id] })).body;
+      await cdps.post(`/collectes/${pnsd.id}/ouvrir`);
+    });
+
+    test('fiche PNSD : rubriques de la fiche-type, service pré-rempli, listes fermées contrôlées, intégration conservée', async () => {
+      expect((await prg.post('/collectes', { objet: 'FICHE_PNSD', annee: A, titre: 'Essai refusé', echeance: '2099-12-31', services: [s1.id] })).status).toBe(403);
+      const d = (await sev.get(`/collectes/${pnsd.id}`)).body;
+      const cs = d.services[0];
+      const { wb, ws, entete } = await modeleSev(pnsd.id, cs.id);
+      const titres = []; ws.getRow(entete).eachCell((c) => titres.push(c.value));
+      expect(titres).toEqual(['N°', 'Intitulé du projet ou de l’action *', 'Inscrit au PNSD *', 'Service responsable', 'Objectif principal *', 'Niveau de mise en œuvre *', 'Taux d’exécution (%)', 'Principales contraintes', 'Recommandations ou actions correctives']);
+      expect(ws.getRow(entete + 1).getCell(4).value).toBe(s1.sigle);
+      expect(ws.getRow(entete + 1).getCell(7).dataValidation).toMatchObject({ operator: 'between' });
+      // Fichier avec erreurs : niveau non prévu, taux supérieur à 100 %, inscription au PNSD manquante
+      remplir(ws, entete, [
+        ['Projet fictif A', 'Oui', undefined, 'Objectif fictif', 'Terminé', 120],
+        ['Projet fictif B', null, undefined, 'Objectif fictif', 'Achevé', 60, 'Contrainte fictive'],
+      ]);
+      let r = await importerSev(pnsd.id, cs.id, await tampon(wb));
+      expect(r.status).toBe(201);
+      const messages = r.body.anomalies.map((a) => a.message).join(' | ');
+      expect(messages).toMatch(/Niveau de mise en œuvre : valeur non prévue « Terminé »/);
+      expect(messages).toMatch(/supérieur à 100 %/);
+      expect(messages).toMatch(/Inscrit au PNSD manquant/);
+      expect(messages).toMatch(/achevé avec un taux d’exécution de 60 %/);
+      expect((await cbsev.post(`/collectes/${pnsd.id}/services/${cs.id}/integrer`)).status).toBe(400);
+      // Fichier corrigé : une alerte reste (achevé à 60 %), l’intégration est permise
+      const m2 = await modeleSev(pnsd.id, cs.id);
+      remplir(m2.ws, m2.entete, [['Projet fictif A', 'Oui', undefined, 'Objectif fictif', 'En cours', 40], ['Projet fictif B', 'Non', undefined, 'Objectif fictif', 'Achevé', 60]]);
+      r = await importerSev(pnsd.id, cs.id, await tampon(m2.wb));
+      expect(r.body).toMatchObject({ version: 2, erreurs: 0, alertes: 1, lignes: 2 });
+      expect((await sev.post(`/collectes/${pnsd.id}/services/${cs.id}/integrer`)).status).toBe(403);
+      const i = await cbsev.post(`/collectes/${pnsd.id}/services/${cs.id}/integrer`);
+      expect(i.body.integration).toMatchObject({ type: 'FICHE_PNSD', lignes: 2 });
+      const cons = (await sev.get(`/collectes/${pnsd.id}/consolidation`)).body;
+      expect(cons.lignes.map((l) => l.intitule)).toEqual(['Projet fictif A', 'Projet fictif B']);
+      expect(cons.lignes[0]).toMatchObject({ service: s1.sigle, responsable: s1.sigle, niveau: 'En cours', taux: 40 });
+    });
+
+    test('plan d’actions : total déclaré contrôlé sur le coût estimé', async () => {
+      const pa = (await sev.post('/collectes', { objet: 'PLAN_ACTIONS', annee: A, titre: `Plan d’actions ${A} (essai)`, echeance: '2099-12-31', services: [s1.id] })).body;
+      await cdps.post(`/collectes/${pa.id}/ouvrir`);
+      const cs = (await sev.get(`/collectes/${pa.id}`)).body.services[0];
+      const { wb, ws, meta, entete } = await modeleSev(pa.id, cs.id);
+      remplir(ws, entete, [['Axe fictif', 'Action fictive 1', null, undefined, null, null, 'T2', 10000000], ['Axe fictif', 'Action fictive 2', null, undefined, null, null, 'T5', 5000000]]);
+      ws.getCell(meta.cellule_total).value = 14000000;
+      const r = await importerSev(pa.id, cs.id, await tampon(wb));
+      const messages = r.body.anomalies.map((a) => a.message).join(' | ');
+      expect(messages).toMatch(/Échéance \(trimestre\) : valeur non prévue « T5 »/);
+      expect(messages).toMatch(/Total déclaré .* différent de la somme des lignes/);
+      expect(r.body.total).toBe(15000000);
+    });
+
+    test('lettres d’envoi et de relance : brouillons de correspondance du Bureau organisateur', async () => {
+      expect((await prg.post(`/collectes/${pnsd.id}/lettres`, { type: 'ENVOI' })).status).toBe(403);
+      const e = await sev.post(`/collectes/${pnsd.id}/lettres`, { type: 'ENVOI' });
+      expect(e.status).toBe(201);
+      expect(e.body.services).toEqual([s1.sigle, s2.sigle]);
+      const doc = await db('documents').where({ id: e.body.document_id }).first();
+      expect(doc).toMatchObject({ type_document: 'LETTRE_TRANSMISSION', statut: 'BROUILLON', numero_officiel: null });
+      expect(doc.contenu).toMatchObject({ signataire: 'Directeur', destinataire: 'Mesdames et Messieurs les Responsables des services du Secrétariat Général', references: `Campagne de collecte ${pnsd.reference}` });
+      expect(doc.contenu.objet).toMatch(/^Collecte des données — Fiche de collecte PNSD, exercice/);
+      expect(doc.contenu.corps).toMatch(/au plus tard le 31 décembre 2099/);
+      expect(doc.contenu.corps).toMatch(new RegExp(`Services concernés : ${s1.sigle} et ${s2.sigle}`));
+      // Relance : seul le service sans retour est visé ; en retard en priorité une fois l’échéance passée
+      await db('collectes').where({ id: pnsd.id }).update({ echeance: '2020-01-01' });
+      await require('../src/modules/collectes/routes').marquerRetards();
+      const rel = await sev.post(`/collectes/${pnsd.id}/lettres`, { type: 'RELANCE' });
+      expect(rel.body.services).toEqual([s2.sigle]);
+      const lettre = await db('documents').where({ id: rel.body.document_id }).first();
+      expect(lettre.contenu.destinataire).toBe(`Monsieur le Responsable du service ${s2.sigle}`);
+      expect(lettre.contenu.corps).toMatch(/ne nous est pas encore parvenue/);
+      const d = (await sev.get(`/collectes/${pnsd.id}`)).body;
+      expect(d.lettres.map((l) => [l.type, l.statut])).toEqual([['ENVOI', 'BROUILLON'], ['RELANCE', 'BROUILLON']]);
+      expect(d.services.find((s) => s.service_id === s2.id)).toMatchObject({ statut: 'EN_RETARD', relances: 1 });
+      expect(d.services.find((s) => s.service_id === s2.id).jours_retard).toBeGreaterThan(0);
+      expect(d.historique.some((h) => h.action === 'RELANCE')).toBe(true);
+      const u = await db('users').where({ username: 'ag.sev2' }).first();
+      expect(await db('notifications').where({ user_id: u.id, type: 'COLLECTE' }).where('titre', 'like', 'Services en retard%').first()).toBeDefined();
+      // À traiter : service en retard relancé
+      const files = (await sev.get('/dashboard/a-traiter')).body.files;
+      expect(files.find((f) => f.cle === 'collectes_retard').items.find((x) => x.to === `/collectes/${pnsd.id}`).detail).toMatch(/relancé le/);
+    });
+
+    test('export consolidé : suivi des services et lignes reçues', async () => {
+      const r = await binaire(sev.get(`/collectes/${pnsd.id}/export`));
+      expect(r.status).toBe(200);
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(r.body);
+      expect(wb.worksheets.map((w) => w.name)).toEqual(['Suivi des services', 'Lignes consolidées']);
+      let texte = ''; wb.worksheets.forEach((w) => w.eachRow((row) => row.eachCell((c) => { texte += ` ${c.value}`; })));
+      expect(texte).toContain('Projet fictif B');
+      expect(texte).toContain('En retard');
+      expect(texte).toContain('Intégré');
+    });
   });
 });
