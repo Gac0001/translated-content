@@ -239,6 +239,7 @@ Le tableau de bord de l’Admin, du Directeur et du Secrétariat affiche l’ava
 | Commande | Effet |
 |---|---|
 | `npm run dev` | API avec rechargement automatique |
+| `npm run dev:tout` | API et interface démarrées détachées (PostgreSQL aussi sous Linux) ; `-- --relancer`, `-- --arret` |
 | `npm start` | API en mode production |
 | `npm run migrate` / `npm run migrate:rollback` | Applique ou annule les migrations |
 | `npm run seed` | Données initiales (idempotent : peut être relancé sans perte) |

@@ -4,9 +4,9 @@
 #  2. PostgreSQL : service, rôle « sigdep », bases de démonstration et de test ;
 #  3. backend/.env de développement (démonstration, secrets générés sur place) s’il manque ;
 #  4. migrations, et démonstration chargée si elle est absente ;
-#  5. navigateur attendu par Playwright (version de la tête sans interface) ;
+#  5. navigateur de la machine pour Playwright (variable SIGDEP_CHROMIUM) ;
 #  6. contrôle avant commit (git config core.hooksPath) ;
-#  7. API (port 4000) et interface (port 5173) démarrées si elles ne répondent pas.
+#  7. API (port 4000) et interface (port 5173) démarrées si elles ne répondent pas (npm run dev:tout).
 # Sans effet sur un poste local (Windows) : voir « npm run mise-a-jour » et README.
 set -euo pipefail
 
@@ -62,49 +62,26 @@ if [ "${demo:-0}" = "0" ]; then
   (cd "$SIG/backend" && npm run --silent demo:reset > "$JOURNAUX/demo.log" 2>&1)
 fi
 
-# 5. Navigateur de Playwright : relier la version attendue à celle qui est installée
-attendue=$(node -e "const b=JSON.parse(require('fs').readFileSync('$SIG/frontend/node_modules/playwright-core/browsers.json','utf8'));process.stdout.write(b.browsers.find((x)=>x.name==='chromium-headless-shell').revision)")
-cible=/opt/pw-browsers/chromium_headless_shell-$attendue/chrome-linux
-if [ ! -e "$cible/headless_shell" ]; then
-  installee=$(ls -d /opt/pw-browsers/chromium_headless_shell-*/chrome-headless-shell-linux64 2>/dev/null | head -1 || true)
-  if [ -n "$installee" ]; then
-    mkdir -p "$cible"
-    for f in "$installee"/*; do ln -sfn "$f" "$cible/"; done
-    ln -sfn "$installee/chrome-headless-shell" "$cible/headless_shell"
-    touch "/opt/pw-browsers/chromium_headless_shell-$attendue/INSTALLATION_COMPLETE" "/opt/pw-browsers/chromium_headless_shell-$attendue/DEPENDENCIES_VALIDATED"
-  fi
+# 5. Navigateur de Playwright : celui de la machine (sa version peut différer de celle attendue par
+#    @playwright/test) ; playwright.config.js le prend via SIGDEP_CHROMIUM.
+if [ -x /opt/pw-browsers/chromium ] && [ -n "${CLAUDE_ENV_FILE:-}" ]; then
+  echo 'export SIGDEP_CHROMIUM=/opt/pw-browsers/chromium' >> "$CLAUDE_ENV_FILE"
 fi
 
 # 6. Contrôle avant commit (termes sensibles, nouveaux binaires)
 git config core.hooksPath "$SIG/outils/git-hooks"
 
-# 7. Serveurs de développement
-# Après une réinstallation, les serveurs déjà lancés tournent sur des modules supprimés : on les relance.
-arreter_serveurs() {
-  for p in /proc/[0-9]*; do
-    c=$(tr '\0' ' ' 2>/dev/null < "$p/cmdline" || true)
-    case "$c" in
-      "node src/server.js"*|*"node_modules/.bin/vite --port 5173"*|"npm exec vite --port 5173"*) kill "${p#/proc/}" 2>/dev/null || true ;;
-    esac
-  done
-  sleep 1
-}
-if [ "$reinstalle" = "1" ]; then arreter_serveurs; fi
-if ! curl -sf -o /dev/null http://localhost:4000/api/health; then
-  # Détaché (setsid, sorties redirigées) : le serveur ne garde pas ouverte la sortie du hook.
-  (cd "$SIG/backend" && LOGIN_RATE_LIMIT_MAX=500 setsid -f node src/server.js > "$JOURNAUX/api.log" 2>&1 < /dev/null)
+# 7. Serveurs de développement (détachés, journaux dans le dossier temporaire « sigdep-dev ») ; après une
+#    réinstallation, ceux qui tournaient s’appuient sur des modules supprimés : on les relance.
+if [ "$reinstalle" = "1" ]; then
+  (cd "$SIG/backend" && node scripts/dev-tout.js --relancer > "$JOURNAUX/dev-tout.log" 2>&1) || true
+else
+  (cd "$SIG/backend" && node scripts/dev-tout.js > "$JOURNAUX/dev-tout.log" 2>&1) || true
 fi
-if ! curl -sf -o /dev/null http://localhost:5173/; then
-  (cd "$SIG/frontend" && setsid -f npx vite --port 5173 > "$JOURNAUX/vite.log" 2>&1 < /dev/null)
-fi
-for _ in $(seq 1 40); do
-  curl -sf -o /dev/null http://localhost:4000/api/health && curl -sf -o /dev/null http://localhost:5173/ && break
-  sleep 0.5
-done
 
 etat() { curl -sf -o /dev/null "$1" && echo "prête" || echo "ne répond pas (voir $JOURNAUX)"; }
-echo "SIG-DEP : API $(etat http://localhost:4000/api/health), interface $(etat http://localhost:5173/) ; journaux dans $JOURNAUX."
-echo "Tests du serveur : DEMO_MODE=false npm test (backend) ; interface : npx playwright test (frontend)."
+echo "SIG-DEP : API $(etat http://localhost:4000/api/health), interface $(etat http://localhost:5173/) ; journaux dans $JOURNAUX et ${TMPDIR:-/tmp}/sigdep-dev."
+echo "Vérifications : /verifier (ou bash sig-dep/outils/verifier.sh) ; serveurs : npm run dev:tout -- --relancer (backend)."
 if [ ! -s "$SIG/.termes-sensibles" ] && [ -z "${SIGDEP_TERMES_SENSIBLES:-}" ]; then
   echo "Attention : liste des termes sensibles absente (sig-dep/.termes-sensibles) ; le contrôle avant commit ne vérifie que les fichiers binaires."
 fi

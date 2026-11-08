@@ -6,6 +6,7 @@
   "private": true,
   "scripts": {
     "dev": "nodemon --watch src src/server.js",
+    "dev:tout": "node scripts/dev-tout.js",
     "start": "node src/server.js",
     "migrate": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback --all",

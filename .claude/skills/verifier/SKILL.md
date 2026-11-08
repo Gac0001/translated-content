@@ -22,8 +22,8 @@ Script : `sig-dep/outils/verifier.sh` (depuis la racine du dépôt).
 ## Avant de lancer
 
 - Les tests de l’interface exigent l’API (port 4000, mode démonstration) et l’interface (port 5173). En session cloud,
-  le hook `.claude/hooks/session-start.sh` les démarre ; s’ils ne répondent pas, relancer ce hook
-  (`CLAUDE_CODE_REMOTE=true CLAUDE_PROJECT_DIR=$PWD .claude/hooks/session-start.sh`).
+  le hook de session les démarre ; s’ils ne répondent pas : `cd sig-dep/backend && npm run dev:tout`
+  (`-- --relancer` pour les redémarrer).
 - Les tests de l’interface modifient la démonstration. Avant `--complet`, la recharger :
   `cd sig-dep/backend && npm run demo:reset`.
 

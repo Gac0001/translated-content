@@ -23,6 +23,8 @@ case "${1:-}" in
 esac
 
 RACINE=$(git rev-parse --show-toplevel)
+# Navigateur de la machine pour Playwright (sessions cloud), si le hook de session ne l’a pas déjà fixé.
+if [ -z "${SIGDEP_CHROMIUM:-}" ] && [ -x /opt/pw-browsers/chromium ]; then export SIGDEP_CHROMIUM=/opt/pw-browsers/chromium; fi
 SIG="$RACINE/sig-dep"
 JOURNAUX=${TMPDIR:-/tmp}/sigdep-verifier
 mkdir -p "$JOURNAUX"
@@ -124,7 +126,7 @@ elif [ "$MODE" != complet ] && [ ${#liste_specs[@]} -gt 0 ]; then
       bash -c "cd '$SIG/frontend' && SIGDEP_SANS_ACCESSIBILITE=1 npx playwright test ${chemins[*]} --timeout=120000 --reporter=line"
     r=$(grep -aoE '[0-9]+ (passed|failed|flaky|skipped)' "$JOURNAUX/e2e-cibles.log" | tr '\n' ' '); [ -n "$r" ] && RESUME[-1]="${RESUME[-1]} —$r"
   else
-    ECHEC=1; noter "‼️ Tests de l’interface ciblés : API ou interface arrêtée (démarrez-les, ou relancez le hook de session)"
+    ECHEC=1; noter "‼️ Tests de l’interface ciblés : API ou interface arrêtée — démarrez-les : cd sig-dep/backend && npm run dev:tout"
   fi
 elif [ "$MODE" != complet ]; then
   noter "⏭  Tests de l’interface : aucun test concerné par les fichiers modifiés"
@@ -139,7 +141,7 @@ if [ "$MODE" = complet ] && [ "$BLOQUANT" = 0 ]; then
       bash -c "cd '$SIG/frontend' && npx playwright test e2e/accessibilite.spec.js --timeout=600000 --reporter=line"
     r=$(grep -aoE '[0-9]+ (passed|failed|flaky|skipped)' "$JOURNAUX/accessibilite.log" | tr '\n' ' '); [ -n "$r" ] && RESUME[-1]="${RESUME[-1]} —$r"
   else
-    ECHEC=1; noter "‼️ Suite complète : API ou interface arrêtée"
+    ECHEC=1; noter "‼️ Suite complète : API ou interface arrêtée — démarrez-les : cd sig-dep/backend && npm run dev:tout"
   fi
 fi
 

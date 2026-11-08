@@ -21,7 +21,7 @@ Général au Numérique (RDC). Interface et documentation **en français** ; ré
 | Besoin | Commande |
 |---|---|
 | Mettre à jour la copie locale (git, dépendances, migrations) | `npm run mise-a-jour` (ajouter `-- --demo` pour recharger la démonstration, `-- --tests` pour lancer les tests) |
-| Démarrer l’API / l’interface | `npm run dev` (backend), `npm run dev` (frontend) |
+| Démarrer l’API / l’interface | `npm run dev` (backend), `npm run dev` (frontend) ; ou les deux, détachées : `npm run dev:tout` (backend ; `-- --relancer`, `-- --arret` ; journaux dans le dossier temporaire `sigdep-dev`) |
 | Migrations | `npm run migrate` |
 | Recharger la démonstration complète | `npm run demo:reset` (exige `DEMO_MODE=true` dans `backend/.env`) |
 | Tests | `npm test` (base `sig_dep_test`, recréée à chaque lancement) |
@@ -115,6 +115,9 @@ de l’interface et l’accessibilité) ; **`/publier-version x.y.z`** enchaîne
   de démonstration, migrations, démonstration si absente, navigateur Playwright, contrôle avant commit, API (4000)
   et interface (5173) ; journaux dans `/tmp/sigdep-session`. Tests du serveur en session : `DEMO_MODE=false npm test`.
   La liste `sig-dep/.termes-sensibles` est perdue avec le conteneur : la recréer en début de session cloud.
+  Playwright y emploie le navigateur de la machine (`SIGDEP_CHROMIUM`, lu par `playwright.config.js`).
+- Après chaque modification d’un fichier de l’interface par Claude Code, le hook `.claude/hooks/lint-apres-modif.sh`
+  lance eslint sur ce fichier et signale aussitôt les erreurs (les avertissements sont tolérés).
 
 - Branche de travail commune : `claude/determined-maxwell-jl0avn`. Avant de commencer :
   `npm run mise-a-jour` (s’arrête si des modifications locales ne sont pas enregistrées).

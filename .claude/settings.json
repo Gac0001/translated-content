@@ -1,4 +1,13 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -o /dev/null -w * localhost:*)",
+      "Bash(curl -s -o /dev/null -w * http://localhost:*)",
+      "Bash(npm run lint)",
+      "Bash(service postgresql status)",
+      "mcp__Figma__get_figma_skill"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -6,6 +15,18 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/lint-apres-modif.sh",
+            "timeout": 60
           }
         ]
       }
