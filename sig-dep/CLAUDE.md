@@ -95,6 +95,12 @@ double authentification, inactivité, routeur « données » (protection des sai
 
 ## Vérifier avant de publier
 
+Raccourcis Claude Code (compétences du dépôt, `.claude/skills/`) : **`/verifier`** lance
+`sig-dep/outils/verifier.sh` (contrôles adaptés aux fichiers modifiés ; `--tout`, ou `--complet` pour la suite complète
+de l’interface et l’accessibilité) ; **`/publier-version x.y.z`** enchaîne CHANGELOG, numéros de version
+(`sig-dep/outils/publier-version.js`), vérifications, commit et push. Les points ci-dessous restent la référence.
+
+
 1. `npm test` (backend) — tous les tests passent ; ajouter des tests pour toute fonctionnalité.
 2. `npm run lint` et `npm run build` (frontend) — sans erreur ; `npm run test:e2e` pour toute modification de l’interface.
 3. Essai dans le navigateur des écrans modifiés (comptes de démonstration, mot de passe `Demo@2026`).
