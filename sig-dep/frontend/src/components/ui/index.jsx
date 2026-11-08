@@ -158,8 +158,8 @@ export function PageHeader({ title, subtitle, breadcrumb = [], actions, menu = [
       )}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="break-words text-xl font-bold leading-tight sm:text-[26px]">{title}</h1>
-          {subtitle && <div className="mt-1 text-sm text-slate-600">{subtitle}</div>}
+          <h1 className="break-words text-2xl font-bold leading-tight sm:text-[32px]">{title}</h1>
+          {subtitle && <div className="mt-1 text-[15px] text-slate-600">{subtitle}</div>}
         </div>
         {(actions || secondaires.length > 0) && (
           <div className="flex flex-wrap items-center gap-2 no-print">
@@ -185,12 +185,12 @@ export function PageHeader({ title, subtitle, breadcrumb = [], actions, menu = [
   );
 }
 
-export function Card({ title, actions, children, className = '', bodyClass = 'p-4' }) {
+export function Card({ title, actions, children, className = '', bodyClass = 'p-5' }) {
   return (
     <section className={`card ${className}`}>
       {(title || actions) && (
-        <header className="flex flex-wrap items-center justify-between gap-2 rounded-t-md border-b border-[#e9edf2] bg-[#f7f9fc] px-4 py-3">
-          {title && <h2 className="text-[15px] font-semibold leading-snug text-dep-700">{title}</h2>}
+        <header className="flex flex-wrap items-center justify-between gap-2 rounded-t-2xl border-b border-[#eef1f5] px-5 py-4">
+          {title && <h2 className="text-[17px] font-bold leading-snug text-slate-900">{title}</h2>}
           {actions && <div className="flex flex-wrap gap-2 no-print">{actions}</div>}
         </header>
       )}
@@ -199,22 +199,23 @@ export function Card({ title, actions, children, className = '', bodyClass = 'p-
   );
 }
 
+/** Pastille de couleur des indicateurs (le libellé porte toujours le sens). */
+export const PASTILLES = { dep: 'bg-dep-700', rouge: 'bg-red-600', vert: 'bg-emerald-600', jaune: 'bg-amber-500', gris: 'bg-slate-400', violet: 'bg-violet-600' };
+
+/** Indicateur chiffré (direction B) : pastille de couleur et libellé, grand chiffre, précision. */
 export function Stat({ label, value, hint, tone = 'dep', icon: Icon, to }) {
-  const tones = { dep: 'text-dep-700 bg-dep-50', rouge: 'text-red-700 bg-red-50', vert: 'text-emerald-700 bg-emerald-50', jaune: 'text-amber-700 bg-amber-50', gris: 'text-slate-700 bg-slate-100', violet: 'text-violet-700 bg-violet-50' };
-  // Liseré supérieur et chiffre de la couleur du ton (le libellé porte toujours le sens).
-  const lisere = { dep: 'border-t-dep-700', rouge: 'border-t-red-700', vert: 'border-t-emerald-700', jaune: 'border-t-amber-500', gris: 'border-t-slate-400', violet: 'border-t-violet-700' };
-  const chiffre = { dep: 'text-dep-700', rouge: 'text-red-700', vert: 'text-emerald-800', jaune: 'text-amber-800', gris: 'text-slate-800', violet: 'text-violet-800' };
   const body = (
-    <div className={`card flex h-full items-center gap-3 border-t-[3px] ${lisere[tone] || lisere.dep} p-4 transition ${to ? 'hover:border-dep-300 hover:shadow' : ''}`}>
-      {Icon && <div className={`rounded-md p-2.5 ${tones[tone]}`}><Icon size={20} aria-hidden /></div>}
-      <div className="min-w-0">
-        <div className={`font-display text-[26px] font-bold leading-tight tabular-nums ${chiffre[tone] || chiffre.dep}`}>{value ?? '—'}</div>
-        <div className="text-xs font-medium uppercase leading-tight tracking-wide text-slate-600">{label}</div>
-        {hint && <div className="text-xs text-slate-500">{hint}</div>}
+    <div className={`card flex h-full flex-col gap-1.5 p-5 transition ${to ? 'hover:-translate-y-px hover:shadow-[0_12px_28px_rgba(18,52,111,0.10)] motion-reduce:transform-none' : ''}`}>
+      <div className="flex items-center gap-2 text-sm text-slate-600">
+        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${PASTILLES[tone] || PASTILLES.dep}`} aria-hidden />
+        <span className="min-w-0 flex-1 leading-tight">{label}</span>
+        {Icon && <Icon size={16} className="shrink-0 text-slate-500" aria-hidden />}
       </div>
+      <div className="font-display text-[32px] font-bold leading-none tabular-nums text-slate-900">{value ?? '—'}</div>
+      {hint && <div className="text-xs text-slate-600">{hint}</div>}
     </div>
   );
-  return to ? <Link to={to} className="block rounded-lg">{body}</Link> : body;
+  return to ? <Link to={to} className="block rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400">{body}</Link> : body;
 }
 
 // ─── États ──────────────────────────────────────────────────────────────────
