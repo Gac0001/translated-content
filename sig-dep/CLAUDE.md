@@ -37,7 +37,10 @@ Général au Numérique (RDC). Interface et documentation **en français** ; ré
    photos, signatures, ni le contenu réel des documents du Ministère (PAP, PTBA, montants, noms de
    responsables). Les fichiers réels restent hors du dépôt et ne servent qu’à des essais locaux.
    Les données de démonstration sont **fictives** et le restent. Avant chaque commit, relire le diff
-   (`git diff --cached`) pour s’en assurer.
+   (`git diff --cached`) pour s’en assurer. Le hook git `sig-dep/outils/git-hooks/pre-commit` (activé par
+   `npm run mise-a-jour` et par le hook de session cloud) refuse tout commit contenant un terme de la liste
+   locale `sig-dep/.termes-sensibles` (jamais versionnée ; une ligne par terme) ou un nouveau fichier binaire
+   (exception volontaire : `SIGDEP_AUTORISER_BINAIRE=1 git commit …`). Ne jamais le contourner (`--no-verify`).
 2. **Cadre organique** : appellation officielle « Direction d’Études et Planification ». Le
    **Bureau Secrétariat de Direction** (BSD) est de **rang Bureau**, rattaché au Directeur ; ce
    n’est jamais une Division. Les permissions liées à une structure sont accordées dans
@@ -100,6 +103,12 @@ double authentification, inactivité, routeur « données » (protection des sai
 5. Relire le diff (données personnelles, secrets, fichiers d’essai).
 
 ## Git : travailler à plusieurs sessions (poste local et cloud)
+
+- Session cloud : le hook `.claude/hooks/session-start.sh` (à la racine du dépôt) remet le conteneur en état à
+  chaque démarrage — dépendances, PostgreSQL (rôle `sigdep`, bases `sig_dep_demo` et `sig_dep_test`), `backend/.env`
+  de démonstration, migrations, démonstration si absente, navigateur Playwright, contrôle avant commit, API (4000)
+  et interface (5173) ; journaux dans `/tmp/sigdep-session`. Tests du serveur en session : `DEMO_MODE=false npm test`.
+  La liste `sig-dep/.termes-sensibles` est perdue avec le conteneur : la recréer en début de session cloud.
 
 - Branche de travail commune : `claude/determined-maxwell-jl0avn`. Avant de commencer :
   `npm run mise-a-jour` (s’arrête si des modifications locales ne sont pas enregistrées).

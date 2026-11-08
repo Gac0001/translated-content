@@ -48,6 +48,8 @@ if (run('git', ['merge', '--ff-only', `origin/${branche}`], racine, { tolerer: t
   process.exit(1);
 }
 console.log(run('git', ['log', '-1', '--format=%h %s'], racine, { capture: true }));
+// Contrôle avant commit du SIG-DEP (termes sensibles, nouveaux binaires) : sig-dep/outils/git-hooks.
+run('git', ['config', 'core.hooksPath', 'sig-dep/outils/git-hooks'], racine, { tolerer: true });
 
 etape(3, 'Dépendances');
 run('npm', ['ci', '--no-audit', '--no-fund'], backend);
