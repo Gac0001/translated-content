@@ -81,7 +81,7 @@ test.describe('Présences journalières (ordinateur)', () => {
   test('synthèse mensuelle et files « À traiter » du Directeur', async ({ page }) => {
     await connexion(page, 'directeur');
     await expect(page.getByRole('heading', { name: 'À traiter' })).toBeVisible();
-    await expect(page.getByText('Rectificatifs de présence à valider')).toBeVisible();
+    await expect(page.getByText('Rectificatifs de présence à valider').first()).toBeVisible();
     await synthese(page);
     await expect(page.getByText('Taux de présence', { exact: true }).first()).toBeVisible();
     await expect(page.getByRole('table', { name: 'Synthèse par agent' }).locator('tbody tr').first()).toBeVisible();

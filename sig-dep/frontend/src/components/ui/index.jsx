@@ -202,14 +202,13 @@ export function Card({ title, actions, children, className = '', bodyClass = 'p-
 /** Pastille de couleur des indicateurs (le libellé porte toujours le sens). */
 export const PASTILLES = { dep: 'bg-dep-700', rouge: 'bg-red-600', vert: 'bg-emerald-600', jaune: 'bg-amber-500', gris: 'bg-slate-400', violet: 'bg-violet-600' };
 
-/** Indicateur chiffré (direction B) : pastille de couleur et libellé, grand chiffre, précision. */
-export function Stat({ label, value, hint, tone = 'dep', icon: Icon, to }) {
+/** Indicateur chiffré (direction B) : pastille de couleur et libellé, grand chiffre, précision (la prop `icon` n’est plus affichée). */
+export function Stat({ label, value, hint, tone = 'dep', to }) {
   const body = (
     <div className={`card flex h-full flex-col gap-1.5 p-5 transition ${to ? 'hover:-translate-y-px hover:shadow-[0_12px_28px_rgba(18,52,111,0.10)] motion-reduce:transform-none' : ''}`}>
       <div className="flex items-center gap-2 text-sm text-slate-600">
         <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${PASTILLES[tone] || PASTILLES.dep}`} aria-hidden />
         <span className="min-w-0 flex-1 leading-tight">{label}</span>
-        {Icon && <Icon size={16} className="shrink-0 text-slate-500" aria-hidden />}
       </div>
       <div className="font-display text-[32px] font-bold leading-none tabular-nums text-slate-900">{value ?? '—'}</div>
       {hint && <div className="text-xs text-slate-600">{hint}</div>}

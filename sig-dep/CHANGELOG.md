@@ -1,5 +1,19 @@
 # Journal des versions — SIG-DEP
 
+## 1.47.0
+
+### Interface — direction B « Portail clair » (validée par la Direction)
+- **Fondations** : fond de page clair, cartes blanches arrondies (bordure légère, ombre douce), titres de page plus grands et titres de carte affirmés, champs et boutons arrondis.
+- **Menu latéral blanc** : entrée active sur fond bleu clair avec repère bleu institutionnel, compteurs bleus, sections repliables inchangées ; bandeau tricolore horizontal.
+- **En-tête allégé** : recherche, notifications et avatar (initiales, menu utilisateur avec nom, rôle et périmètre) ; le bandeau « démonstration » devient une pastille.
+- **Indicateurs** (`Stat`, `KpiTile`) : pastille de couleur et libellé, grand chiffre.
+- **Tableau de bord** :
+  - salutation et nombre d’éléments qui attendent une action ;
+  - indicateurs en tête, puis la liste **« À traiter » unifiée** : toutes les files réunies, triées par urgence (alerte ou retard, puis échéance), avec un filtre par file, une icône par module et l’échéance ; 6 lignes, puis « Afficher les autres » ;
+  - colonne de droite : **prochain rendez-vous** mis en avant et **agenda du jour** (Directeur), ou **échéances** (autres rôles) ;
+  - la mise en service des comptes passe sous les priorités.
+- Tests de l’interface adaptés (filtres de la liste « À traiter »).
+
 ## 1.46.0
 
 ### Lot F — collecte auprès des services du Secrétariat Général (étape 2 : autres objets, courriers, suivi, exports)
