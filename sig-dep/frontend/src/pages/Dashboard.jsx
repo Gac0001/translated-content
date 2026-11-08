@@ -500,12 +500,14 @@ function ATraiter({ state }) {
                   );
                 })}
               </ul>
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#eef1f5] px-5 py-3 text-sm">
-                {!choisie && lignes.length > VISIBLES
-                  ? <button type="button" className="link" aria-expanded={tout} onClick={() => setTout((v) => !v)}>{tout ? 'Afficher moins' : `Afficher les ${lignes.length - VISIBLES} autres`}</button>
-                  : <span />}
-                {choisie?.voirTout && <CardLink to={choisie.voirTout}>Voir tout ({choisie.total})</CardLink>}
-              </div>
+              {((!choisie && lignes.length > VISIBLES) || choisie?.voirTout) && (
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#eef1f5] px-5 py-3 text-sm">
+                  {!choisie && lignes.length > VISIBLES
+                    ? <button type="button" className="link" aria-expanded={tout} onClick={() => setTout((v) => !v)}>{tout ? 'Afficher moins' : `Afficher les ${lignes.length - VISIBLES} autres`}</button>
+                    : <span />}
+                  {choisie?.voirTout && <CardLink to={choisie.voirTout}>Voir tout ({choisie.total})</CardLink>}
+                </div>
+              )}
             </>
           )}
     </section>
