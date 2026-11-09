@@ -20,7 +20,7 @@ const opt = (n) => args.find((a) => a.startsWith(`--${n}=`))?.split('=')[1];
 const flag = (n) => args.includes(`--${n}`);
 
 function run(cmd, cmdArgs, cwd, { capture = false, tolerer = false } = {}) {
-  const r = spawnSync(cmd, cmdArgs, { cwd, shell: process.platform === 'win32', encoding: 'utf8', stdio: capture ? 'pipe' : 'inherit' });
+  const r = spawnSync(cmd, cmdArgs, { cwd, shell: process.platform === 'win32' && cmd === 'npm', encoding: 'utf8', stdio: capture ? 'pipe' : 'inherit' });
   if (r.status !== 0 && !tolerer) {
     if (capture) process.stderr.write(r.stderr || '');
     console.error(`\nÉchec : ${cmd} ${cmdArgs.join(' ')} (dans ${cwd})`);

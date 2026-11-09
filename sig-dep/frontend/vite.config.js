@@ -1,9 +1,9 @@
 import { defineConfig, loadEnv } from 'vite';
-import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 
 // Armoiries de la RDC (image du Gouvernement), versionnées une seule fois à la racine du dépôt.
-const ARMOIRIES = path.resolve(__dirname, '../../Armoiri_de_la_RDC_-_Le_Gouvernement.png');
+const ARMOIRIES = fileURLToPath(new URL('../../Armoiri_de_la_RDC_-_Le_Gouvernement.png', import.meta.url));
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
