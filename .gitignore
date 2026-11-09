@@ -1,1 +1,4 @@
 _githistory.json
+
+# SIG-DEP : liste locale des termes sensibles (vrais noms), lue par sig-dep/outils/git-hooks — jamais versionnée
+sig-dep/.termes-sensibles

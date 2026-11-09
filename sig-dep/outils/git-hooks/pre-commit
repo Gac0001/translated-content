@@ -1,0 +1,3 @@
+#!/bin/sh
+# Contrôle avant commit du SIG-DEP (termes sensibles, nouveaux fichiers binaires) : voir controle-commit.js.
+exec node "$(git rev-parse --show-toplevel)/sig-dep/outils/git-hooks/controle-commit.js"
