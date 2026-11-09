@@ -1,15 +1,19 @@
 /** @type {import('tailwindcss').Config} */
-// Style « Bleu État » conforme à la charte graphique du Gouvernement (RDC).
+// Thème « Dégradé bleu » (1.48.0) : bleu franc, menu latéral en dégradé, cartes nettes ; tricolore de la charte conservé.
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
       colors: {
-        // Échelle construite sur le bleu institutionnel de la charte (#17418a = dep-700).
+        // Échelle bleue du thème « Dégradé bleu » : dep-600 et plus foncé portent du texte blanc (contraste ≥ 5,6:1).
         dep: {
-          50: '#eef3fa', 100: '#d9e4f4', 200: '#b3c8e8', 300: '#84a5d6', 400: '#5180c0',
-          500: '#2d62aa', 600: '#1f509a', 700: '#17418a', 800: '#12346f', 900: '#0d2754',
+          50: '#eaf3fc', 100: '#d3e6f8', 200: '#a9cdf1', 300: '#74aee6', 400: '#3f8dd8',
+          500: '#1f77c9', 600: '#1669b8', 700: '#135ca3', 800: '#0f4b86', 900: '#0b3866',
         },
+        // Menu latéral : dégradé vertical (texte blanc ≥ 5:1 sur toute sa hauteur).
+        menu: { haut: '#1a72c0', bas: '#135ca3', actif: '#0f4f8f' },
+        // Fond des pages et bandeaux de titre des cartes.
+        fond: { page: '#f3f5f8', bandeau: '#f2f4f7', bordure: '#e3e8ee' },
         // Gris du texte secondaire légèrement assombri (#64748b par défaut) : contraste AA (4,5:1) maintenu
         // sur les fonds clairs (survol des lignes, en-têtes et pieds de tableaux, encadrés).
         slate: { 500: '#5b677a' },

@@ -110,9 +110,9 @@ function Sidebar({ onNavigate }) {
           <h2 className="px-1">
             <button type="button" aria-expanded={ouverte} aria-controls={id} disabled={g.section === active}
               onClick={() => basculer(g.section)}
-              className="flex w-full items-center gap-1 rounded px-2 py-1 text-left text-xs font-semibold text-slate-600 hover:text-dep-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400 disabled:cursor-default disabled:hover:text-slate-600">
+              className="flex w-full items-center gap-1 rounded px-2 py-1 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-white hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:cursor-default disabled:hover:no-underline">
               <span className="flex-1">{g.section}</span>
-              {!ouverte && aTraiter > 0 && <span className="rounded-full bg-dep-700 px-1.5 text-[11px] font-semibold text-white">{aTraiter}<span className="sr-only"> à traiter</span></span>}
+              {!ouverte && aTraiter > 0 && <span className="rounded-full bg-white px-1.5 text-[11px] font-bold tracking-normal text-dep-800">{aTraiter}<span className="sr-only"> à traiter</span></span>}
               <ChevronDown size={14} aria-hidden className={`transition-transform motion-reduce:transition-none ${ouverte ? '' : '-rotate-90'}`} />
             </button>
           </h2>
@@ -120,11 +120,11 @@ function Sidebar({ onNavigate }) {
             {g.items.map((m) => (
               <li key={m.to}>
                 <NavLink to={m.to} end={m.end} onClick={onNavigate}
-                  className={({ isActive }) => `flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400 ${isActive ? 'bg-dep-50 font-semibold text-dep-700 shadow-[inset_3px_0_0_#17418a]' : 'text-slate-700 hover:bg-slate-50 hover:text-dep-700'}`}>
+                  className={({ isActive }) => `flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${isActive ? 'bg-menu-actif font-semibold shadow-[inset_3px_0_0_#ffffff]' : 'hover:bg-menu-actif/70'}`}>
                   <m.icon size={17} aria-hidden />
                   <span className="flex-1">{m.label}</span>
                   {m.counter && compteurs[m.counter] > 0 && (
-                    <span className="rounded-full bg-dep-700 px-1.5 text-xs font-semibold text-white">{compteurs[m.counter]}<span className="sr-only"> à traiter</span></span>
+                    <span className="rounded-full bg-white px-1.5 text-xs font-bold text-dep-800">{compteurs[m.counter]}<span className="sr-only"> à traiter</span></span>
                   )}
                 </NavLink>
               </li>
@@ -215,21 +215,22 @@ export default function AppLayout() {
   const { remaining, prolonger } = useInactivity(() => logout('inactivite'), user.sessionInactiviteMinutes);
 
   const nom = user.agent ? [user.agent.prenom, user.agent.nom].filter(Boolean).join(' ') : user.username;
+  const prenom = user.agent?.prenom || user.agent?.nom || user.username;
   const initiales = nom.split(/[\s.]+/).filter(Boolean).map((x) => x[0]).slice(0, 2).join('').toUpperCase() || '?';
   const structure = user.affectation?.bureauNom || user.affectation?.divisionNom || (user.primaryRole === 'DIRECTEUR' ? DEP_NOM : user.primaryRole === 'SECRETAIRE_GENERAL' ? SG_NOM : 'Administration technique');
 
   const aside = (
-    <div className="flex h-full w-full flex-col border-r border-[#eceff4] bg-white text-slate-800">
+    <div className="flex h-full w-full flex-col bg-gradient-to-b from-menu-haut to-menu-bas text-white">
       <div className="h-1 tricolore-horizontal" aria-hidden />
-      <div className="flex items-center gap-3 px-4 py-4">
-        <img src="/favicon.jpg" alt="Ministère de l’Économie Numérique" className="h-10 w-[5.75rem] shrink-0 rounded-lg border border-slate-200 bg-white object-contain" />
+      <div className="flex items-center gap-3 px-4 py-5">
+        <img src="/favicon.jpg" alt="Ministère de l’Économie Numérique" className="h-10 w-[5.75rem] shrink-0 rounded-md bg-white object-contain p-0.5" />
         <div className="min-w-0">
-          <div className="font-display text-base font-bold leading-tight text-dep-800">SIG-DEP</div>
-          <div className="text-xs leading-tight text-slate-600">{DEP_NOM}</div>
+          <div className="font-display text-lg font-bold leading-tight tracking-[0.2em] text-white">SIG-DEP</div>
+          <div className="text-xs leading-tight text-white">{DEP_NOM}</div>
         </div>
       </div>
       <Sidebar onNavigate={() => setOpen(false)} />
-      <div className="border-t border-slate-100 px-4 py-3 text-xs leading-snug text-slate-600">{SG_NOM}<br />République Démocratique du Congo</div>
+      <div className="border-t border-white/20 px-4 py-3 text-xs leading-snug text-white">{SG_NOM}<br />République Démocratique du Congo</div>
     </div>
   );
 
@@ -242,7 +243,7 @@ export default function AppLayout() {
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 lg:block no-print">{aside}</aside>
       {open && <Tiroir onClose={() => setOpen(false)}>{aside}</Tiroir>}
       <div className="flex min-w-0 flex-1 flex-col lg:pl-64 print:pl-0">
-        <header className="sticky top-0 z-20 bg-[#f7f8fb]/95 backdrop-blur no-print">
+        <header className="sticky top-0 z-20 border-b border-fond-bordure bg-white no-print">
           <div className="h-1 tricolore-horizontal lg:hidden" aria-hidden />
           <div className="mx-auto flex w-full max-w-7xl items-center gap-2 px-3 py-3 sm:gap-3 sm:px-6">
             <IconButton label="Ouvrir le menu" icon={Menu} size={22} className="p-1.5 lg:hidden" aria-expanded={open} onClick={() => setOpen(true)} />
@@ -251,7 +252,7 @@ export default function AppLayout() {
             <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2">
               <div className="hidden min-w-0 max-w-md flex-1 justify-end md:flex"><GlobalSearch /></div>
               <IconButton label="Rechercher" icon={Search} size={20} className="text-slate-600 md:hidden" onClick={() => setRecherche(true)} />
-              <Link to="/notifications" className="relative rounded-xl border border-[#e3e8ef] bg-white p-2.5 text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400">
+              <Link to="/notifications" className="relative rounded-full p-2.5 text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400">
                 <Bell size={20} aria-hidden />
                 <span className="sr-only">Notifications</span>
                 {nonLues > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-red-700 px-1 text-center text-xs font-semibold text-white">{nonLues > 99 ? '99+' : nonLues}<span className="sr-only"> non lues</span></span>}
@@ -259,7 +260,8 @@ export default function AppLayout() {
               <DropdownMenu width="w-64" menuLabel="Menu utilisateur"
                 triggerClassName="flex items-center gap-2 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400 focus-visible:ring-offset-2"
                 trigger={<>
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-dep-700 text-sm font-bold text-white" aria-hidden>{initiales}</span>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-menu-haut to-menu-bas text-sm font-bold text-white ring-2 ring-dep-100" aria-hidden>{initiales}</span>
+                  <span className="hidden pr-1 text-sm text-slate-700 xl:inline" aria-hidden>Bonjour, <b className="font-semibold text-slate-900">{prenom}</b></span>
                   <span className="sr-only">Menu de {nom}</span>
                 </>}
                 header={(
@@ -303,7 +305,7 @@ export default function AppLayout() {
             <Link to={`/actes/${x.acteId}`} className="ml-auto underline">Voir l’acte</Link>
           </div>
         ))}
-        <main id="contenu" ref={main} tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 pb-8 pt-3 focus:outline-none sm:px-6">
+        <main id="contenu" ref={main} tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 pb-8 pt-5 focus:outline-none sm:px-6">
           {/* Le menu et l’en-tête restent affichés pendant le chargement d’une page. */}
           <Suspense fallback={<Spinner />}><Outlet /></Suspense>
         </main>
@@ -314,7 +316,7 @@ export default function AppLayout() {
           footer={<><button type="button" className="btn-secondary" onClick={() => logout()}>Se déconnecter</button><button type="button" className="btn-primary" data-autofocus onClick={prolonger}>Rester connecté</button></>}>
           <p className="text-sm">Aucune activité n’a été détectée. Par sécurité, vous serez déconnecté dans <b className="tabular-nums">{remaining}</b> seconde(s).</p>
         </Modal>
-        <footer className="border-t border-[#eceff4] px-6 py-3 text-center text-xs text-slate-600 no-print">
+        <footer className="border-t border-fond-bordure bg-white px-6 py-3 text-center text-xs text-slate-600 no-print">
           SIG-DEP — Système Intégré de Gestion de la {DEP_NOM} · {SG_NOM}
         </footer>
       </div>

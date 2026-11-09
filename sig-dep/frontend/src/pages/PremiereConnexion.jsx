@@ -152,12 +152,12 @@ export default function PremiereConnexion() {
   const quitter = async () => { try { await api.post('/auth/logout'); } catch { /* ignore */ } clear(); navigate('/connexion', { replace: true }); };
   const Icon = ETAPES[courante].icon;
   return (
-    <div className="min-h-screen bg-slate-100">
-      <div className="h-1.5 tricolore" />
+    <div className="min-h-screen bg-fond-page">
+      <div className="h-1.5 tricolore-horizontal" />
       <main className="mx-auto max-w-3xl p-4 sm:p-8">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold">Sécurisation de votre compte</h1>
+            <h1 className="text-2xl font-bold text-dep-800">Sécurisation de votre compte</h1>
             <p className="text-sm text-slate-600">{user.username} — ces étapes sont obligatoires avant d’accéder au SIG-DEP.</p>
           </div>
           <button type="button" className="btn-ghost" onClick={quitter}><LogOut size={16} /> Se déconnecter</button>

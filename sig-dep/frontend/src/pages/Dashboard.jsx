@@ -522,7 +522,7 @@ function ProchaineReunion({ agenda }) {
   const e = agenda.find((x) => new Date(x.fin || x.debut).getTime() >= maintenant);
   if (!e) return null;
   return (
-    <section aria-labelledby="prochain-titre" className="rounded-2xl bg-dep-700 p-5 text-white shadow-[0_8px_24px_rgba(18,52,111,0.18)]">
+    <section aria-labelledby="prochain-titre" className="rounded-lg bg-gradient-to-br from-menu-haut to-menu-bas p-5 text-white shadow-[0_6px_16px_rgba(15,75,134,0.18)]">
       <p className="text-xs font-semibold uppercase tracking-wider text-dep-100">Prochain rendez-vous · {heure(e.debut)}</p>
       <h2 id="prochain-titre" className="mt-1 text-xl font-bold leading-snug text-white">{e.titre}</h2>
       {e.lieu && <p className="mt-1 text-sm text-dep-100">{e.lieu}</p>}

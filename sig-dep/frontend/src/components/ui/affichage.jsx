@@ -96,10 +96,10 @@ export function KpiTile({ label, valeur, unite, evolution, reference, cible, pro
   const couleur = evolution?.favorable === true ? 'text-emerald-800 bg-emerald-50' : evolution?.favorable === false ? 'text-red-800 bg-red-50' : 'text-slate-700 bg-slate-100';
   const p = progression === null || progression === undefined ? null : Math.max(0, Math.min(100, Number(progression) || 0));
   const corps = (
-    <div className={`card flex h-full flex-col gap-2 p-5 ${to ? 'transition hover:shadow-[0_12px_28px_rgba(18,52,111,0.10)]' : ''}`}>
-      <div className="flex items-center gap-2 text-sm text-slate-600"><span className={`h-2.5 w-2.5 shrink-0 rounded-full ${TONS_KPI[tone] || TONS_KPI.dep}`} aria-hidden />{label}</div>
+    <div className={`card flex h-full flex-col gap-2 p-5 ${to ? 'transition hover:border-dep-200 hover:shadow-[0_6px_16px_rgba(15,75,134,0.10)]' : ''}`}>
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-600"><span className={`h-2.5 w-2.5 shrink-0 rounded-full ${TONS_KPI[tone] || TONS_KPI.dep}`} aria-hidden />{label}</div>
       <div className="flex flex-wrap items-baseline gap-x-1.5">
-        <span className="font-display text-[32px] font-bold leading-none tabular-nums text-slate-900">{valeur ?? '—'}</span>
+        <span className="font-display text-[30px] font-bold leading-none tabular-nums text-dep-800">{valeur ?? '—'}</span>
         {unite && <span className="text-sm text-slate-600">{unite}</span>}
       </div>
       {evolution && (
@@ -124,7 +124,7 @@ export function KpiTile({ label, valeur, unite, evolution, reference, cible, pro
       {aide && <div className="text-xs text-slate-500">{aide}</div>}
     </div>
   );
-  return to ? <Link to={to} className="block rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400">{corps}</Link> : corps;
+  return to ? <Link to={to} className="block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400">{corps}</Link> : corps;
 }
 
 // ─── File « À traiter » ─────────────────────────────────────────────────────

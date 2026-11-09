@@ -1,6 +1,15 @@
 # Journal des versions — SIG-DEP
 
-## Non publié
+## 1.48.0
+
+### Interface — thème « Dégradé bleu »
+Nouveau thème appliqué à toutes les pages, d’après les maquettes de référence choisies par la Direction (remplace la direction B « Portail clair »).
+- **Jetons** : bleu plus franc (échelle `dep`), dégradé du menu (`menu`), fonds et bordures (`fond`) ; contrastes AA vérifiés (texte blanc ≥ 5:1 sur tout le dégradé).
+- **Menu latéral** en dégradé bleu, texte blanc, sections en petites majuscules, entrée active sur bande foncée avec repère blanc, compteurs en pastilles blanches ; filet tricolore conservé.
+- **En-tête** blanc : recherche, notifications, avatar et « Bonjour, prénom ».
+- **En-têtes de page** dans un bandeau blanc, titre bleu ; **cartes** nettes à titre dans un bandeau gris ; **onglets** en pastilles ; **indicateurs** : libellé en petites majuscules, chiffre bleu.
+- **Connexion** : carte scindée sur fond clair — panneau bleu « Bienvenue sur le SIG-DEP » (armoiries en filigrane, bouton « Vérifier une carte de service »), formulaire à champs soulignés et bouton en pastille, anneau et losange décoratifs ; empilée sur téléphone.
+- **Pages publiques** (vérification, maintenance) : en-tête en dégradé bleu ; **première connexion** au même fond.
 
 ### Correctifs
 - **« À traiter », programmation** : dans « Retournés pour correction » et « Brouillons à compléter puis soumettre », PTBA et documents de programmation sont désormais mêlés du plus ancien au plus récent ; auparavant, à partir de 5 PTBA en attente, les documents n’apparaissaient plus.

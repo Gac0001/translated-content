@@ -137,7 +137,7 @@ export function PageHeader({ title, subtitle, breadcrumb = [], actions, menu = [
   useTitreDocument(typeof title === 'string' ? title : null);
   const secondaires = menu.filter(Boolean);
   return (
-    <div className="mb-5">
+    <div className="card mb-5 px-5 py-4 print:border-0 print:p-0 print:shadow-none">
       {breadcrumb.length > 0 && (
         <nav className="mb-2 no-print" aria-label="Fil d’Ariane">
           <ol className="flex flex-wrap items-center gap-1 text-xs text-slate-600">
@@ -158,7 +158,7 @@ export function PageHeader({ title, subtitle, breadcrumb = [], actions, menu = [
       )}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="break-words text-2xl font-bold leading-tight sm:text-[32px]">{title}</h1>
+          <h1 className="break-words text-2xl font-bold leading-tight text-dep-800 sm:text-[28px]">{title}</h1>
           {subtitle && <div className="mt-1 text-[15px] text-slate-600">{subtitle}</div>}
         </div>
         {(actions || secondaires.length > 0) && (
@@ -189,8 +189,8 @@ export function Card({ title, actions, children, className = '', bodyClass = 'p-
   return (
     <section className={`card ${className}`}>
       {(title || actions) && (
-        <header className="flex flex-wrap items-center justify-between gap-2 rounded-t-2xl border-b border-[#eef1f5] px-5 py-4">
-          {title && <h2 className="text-[17px] font-bold leading-snug text-slate-900">{title}</h2>}
+        <header className="mx-3 mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md bg-fond-bandeau px-4 py-2.5">
+          {title && <h2 className="text-[15px] font-semibold leading-snug text-slate-800">{title}</h2>}
           {actions && <div className="flex flex-wrap gap-2 no-print">{actions}</div>}
         </header>
       )}
@@ -205,16 +205,16 @@ export const PASTILLES = { dep: 'bg-dep-700', rouge: 'bg-red-600', vert: 'bg-eme
 /** Indicateur chiffré (direction B) : pastille de couleur et libellé, grand chiffre, précision (la prop `icon` n’est plus affichée). */
 export function Stat({ label, value, hint, tone = 'dep', to }) {
   const body = (
-    <div className={`card flex h-full flex-col gap-1.5 p-5 transition ${to ? 'hover:-translate-y-px hover:shadow-[0_12px_28px_rgba(18,52,111,0.10)] motion-reduce:transform-none' : ''}`}>
-      <div className="flex items-center gap-2 text-sm text-slate-600">
+    <div className={`card flex h-full flex-col gap-1.5 p-5 transition ${to ? 'hover:-translate-y-px hover:border-dep-200 hover:shadow-[0_6px_16px_rgba(15,75,134,0.10)] motion-reduce:transform-none' : ''}`}>
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
         <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${PASTILLES[tone] || PASTILLES.dep}`} aria-hidden />
         <span className="min-w-0 flex-1 leading-tight">{label}</span>
       </div>
-      <div className="font-display text-[32px] font-bold leading-none tabular-nums text-slate-900">{value ?? '—'}</div>
+      <div className="font-display text-[30px] font-bold leading-none tabular-nums text-dep-800">{value ?? '—'}</div>
       {hint && <div className="text-xs text-slate-600">{hint}</div>}
     </div>
   );
-  return to ? <Link to={to} className="block rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400">{body}</Link> : body;
+  return to ? <Link to={to} className="block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400">{body}</Link> : body;
 }
 
 // ─── États ──────────────────────────────────────────────────────────────────
@@ -445,12 +445,12 @@ export function Tabs({ tabs, value, onChange, label = 'Onglets', compact = 4 }) 
           </select>
         </div>
       )}
-    <div className={`mb-4 gap-1 overflow-x-auto border-b border-slate-200 no-print ${replie ? 'hidden sm:flex' : 'flex'}`} role="tablist" aria-label={label}>
+    <div className={`mb-4 gap-1 overflow-x-auto border-b border-fond-bordure pb-2 no-print ${replie ? 'hidden sm:flex' : 'flex'}`} role="tablist" aria-label={label}>
       {tabs.map((t, i) => (
         <button key={t.value} ref={(n) => { refs.current[t.value] = n; }} type="button" role="tab" aria-selected={actif === t.value} tabIndex={actif === t.value ? 0 : -1}
           onClick={() => onChange(t.value)} onKeyDown={(e) => onKeyDown(e, i)}
-          className={`whitespace-nowrap rounded-t border-b-2 px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dep-400 ${actif === t.value ? 'border-dep-700 font-semibold text-dep-700' : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900'}`}>
-          {t.label}{t.count ? <span className="ml-1.5 rounded-full bg-dep-100 px-1.5 text-xs text-dep-800">{t.count}</span> : null}
+          className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400 focus-visible:ring-offset-1 ${actif === t.value ? 'bg-dep-600 font-semibold text-white shadow-sm' : 'text-slate-600 hover:bg-dep-50 hover:text-dep-800'}`}>
+          {t.label}{t.count ? <span className={`ml-1.5 rounded-full px-1.5 text-xs ${actif === t.value ? 'bg-white text-dep-800' : 'bg-dep-100 text-dep-800'}`}>{t.count}</span> : null}
         </button>
       ))}
     </div>

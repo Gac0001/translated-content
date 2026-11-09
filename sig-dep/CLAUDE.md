@@ -72,11 +72,14 @@ Plan validé par l’utilisateur, livré par étapes de 1.20.1 à 1.31.0 : 0 fil
 (jetons, formats, badges, boutons) → 2 nouveaux composants → 3 migration des modules récents vers les
 composants communs (Planification, Données, Réunions/Décisions/Agenda, Actes/Cartes, Système) →
 4 navigation → 5 tableaux de bord « À traiter » → 6 accessibilité et responsive → 7 performance.
-Style retenu : **« Bleu État »** conforme à la charte graphique du Gouvernement, dans sa **direction B
-« Portail clair »** (validée en 1.47.0, maquettes Figma « SIG-DEP — Propositions de design ») — fond
-`#f7f8fb`, menu blanc (entrée active sur fond `dep-50` avec repère bleu institutionnel `#17418a`,
-compteurs bleus), cartes blanches arrondies (`rounded-2xl`, bordure `#e9edf3`, ombre douce), indicateurs
-à pastille de couleur, tricolore officiel `#0095c9` / `#fff24b` / `#db3832`, en-têtes de tableaux en majuscules ; **titres en
+Style retenu : thème **« Dégradé bleu »** (1.48.0, d’après les maquettes de référence fournies par l’utilisateur ;
+remplace la direction B « Portail clair ») — jetons dans `tailwind.config.js` : échelle `dep` (bleu franc, texte blanc
+à partir de `dep-600`), `menu` (dégradé `menu-haut` → `menu-bas` du menu latéral, entrée active `menu-actif` avec repère
+blanc, compteurs blancs), `fond` (page `#f3f5f8`, bandeau de titre des cartes, bordure `#e3e8ee`) ; en-tête blanc avec
+« Bonjour, prénom » ; `PageHeader` dans un bandeau blanc, titre bleu ; cartes nettes (`rounded-lg`), titre de carte dans
+un bandeau gris ; onglets en pastilles ; libellés d’indicateurs en petites majuscules ; connexion en carte scindée (panneau
+bleu, champs soulignés `.input-ligne`, bouton `.btn-pilule`) ; tricolore officiel `#0095c9` / `#fff24b` / `#db3832`
+conservé (filet du menu et des pages publiques), en-têtes de tableaux en majuscules ; **titres en
 Cooper Hewitt** (police de la charte, embarquée ; classe `font-display`), texte courant et tableaux en Source Sans 3.
 Composants à employer pour tout écran nouveau ou repris (catalogue vivant : page `/composants`) :
 `NumberInput` / `MoneyInput` pour les nombres et montants, `EditableGrid` pour les grilles chiffrées,

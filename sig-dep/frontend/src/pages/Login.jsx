@@ -177,9 +177,10 @@ export default function Login() {
   else {
     contenu = (
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
-        <div>
-          <h2 className="font-display text-3xl font-bold">Connexion</h2>
-          <p className="mt-1 text-slate-600">Accédez à votre espace de travail.</p>
+        <div className="text-center">
+          <h2 className="font-display text-3xl font-bold text-slate-700">Connexion</h2>
+          <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-dep-600" aria-hidden />
+          <p className="mt-3 text-sm text-slate-600">Accédez à votre espace de travail.</p>
         </div>
         {location.state?.message && !error && <InfoAlert tone="warning">{location.state.message}</InfoAlert>}
         {info && <InfoAlert>{info}</InfoAlert>}
@@ -187,7 +188,7 @@ export default function Login() {
         <ErrorAlert message={error} />
         <div>
           <label className="label" htmlFor="username">Nom d’utilisateur</label>
-          <input id="username" className="input h-12 text-base" autoComplete="username" autoFocus aria-invalid={errors.username ? true : undefined} aria-describedby={errors.username ? 'username-erreur' : undefined} {...register('username')} />
+          <input id="username" className="input-ligne" placeholder="Saisissez votre nom d’utilisateur…" autoComplete="username" autoFocus aria-invalid={errors.username ? true : undefined} aria-describedby={errors.username ? 'username-erreur' : undefined} {...register('username')} />
           {errors.username && <p id="username-erreur" className="mt-1 text-xs text-red-700">{errors.username.message}</p>}
         </div>
         <div>
@@ -196,58 +197,69 @@ export default function Login() {
             <button type="button" className="text-sm font-semibold link" onClick={() => { setRecup(true); setError(null); }}>Mot de passe oublié ?</button>
           </div>
           <div className="relative">
-            <input id="password" type={show ? 'text' : 'password'} className="input h-12 pr-11 text-base" autoComplete="current-password" aria-invalid={errors.password ? true : undefined} aria-describedby={errors.password ? 'password-erreur' : undefined} {...register('password')} />
-            <button type="button" className="absolute right-3 top-3.5 text-slate-500" onClick={() => setShow((v) => !v)} aria-pressed={show} aria-label={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+            <input id="password" type={show ? 'text' : 'password'} className="input-ligne pr-10" placeholder="Saisissez votre mot de passe…" autoComplete="current-password" aria-invalid={errors.password ? true : undefined} aria-describedby={errors.password ? 'password-erreur' : undefined} {...register('password')} />
+            <button type="button" className="absolute right-1 top-3 rounded text-slate-600 hover:text-dep-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400" onClick={() => setShow((v) => !v)} aria-pressed={show} aria-label={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
           </div>
           {errors.password && <p id="password-erreur" className="mt-1 text-xs text-red-700">{errors.password.message}</p>}
         </div>
-        <button type="submit" className="btn-primary w-full py-3 text-base" disabled={isSubmitting}>
-          {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />} Se connecter
-        </button>
-        <p className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-600"><Lock size={14} className="mt-0.5 shrink-0" /> Accès réservé au personnel autorisé, protégé par double authentification pour les fonctions sensibles. Toutes les opérations sont journalisées.</p>
+        <div className="flex justify-center pt-1">
+          <button type="submit" className="btn-pilule w-full max-w-xs font-bold" disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />} Se connecter
+          </button>
+        </div>
+        <p className="flex items-start gap-2 rounded-md bg-fond-page p-3 text-xs text-slate-600"><Lock size={14} className="mt-0.5 shrink-0" /> Accès réservé au personnel autorisé, protégé par double authentification pour les fonctions sensibles. Toutes les opérations sont journalisées.</p>
       </form>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-white">
-      <div className="h-1.5 tricolore" />
-      <div className="grid flex-1 lg:grid-cols-[1.1fr_1fr]">
-        {/* Panneau institutionnel, armoiries du Gouvernement en filigrane */}
-        <section className="relative overflow-hidden bg-dep-700 px-5 py-6 text-white sm:px-8 lg:flex lg:flex-col lg:px-14 lg:py-12">
-          <img src={armoiries} alt="" aria-hidden="true" className="pointer-events-none absolute -right-16 top-1/2 hidden w-[34rem] max-w-none -translate-y-1/2 select-none opacity-[0.09] mix-blend-luminosity lg:block" />
-          <img src={armoiries} alt="" aria-hidden="true" className="pointer-events-none absolute -right-10 -top-6 w-44 select-none opacity-[0.1] mix-blend-luminosity lg:hidden" />
-          <div className="relative flex items-center gap-3">
-            <EmblemeDep grand inverse />
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.18em] text-dep-200 sm:text-xs">République Démocratique du Congo</p>
-              <p className="text-sm text-dep-100 sm:text-base">{SG_NOM}</p>
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#e9edf2]">
+      {/* Fond : halos flous discrets, à la place d’une photographie */}
+      <div aria-hidden className="pointer-events-none absolute -left-40 -top-40 h-[32rem] w-[32rem] rounded-full bg-white/70 blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute -bottom-48 right-[-10rem] h-[36rem] w-[36rem] rounded-full bg-dep-100/70 blur-3xl" />
+      <div className="relative h-1.5 tricolore-horizontal" />
+      <div className="relative flex flex-1 items-center justify-center px-3 py-6 sm:px-6 lg:py-10">
+        <div className="relative grid w-full max-w-5xl overflow-hidden rounded-[28px] bg-[#fbfcfd] shadow-[0_24px_60px_rgba(15,75,134,0.18)] lg:grid-cols-2">
+          {/* Panneau d’accueil, armoiries du Gouvernement en filigrane */}
+          <section className="relative overflow-hidden bg-gradient-to-br from-menu-haut to-menu-bas px-6 py-7 text-white sm:px-10 lg:flex lg:flex-col lg:justify-center lg:px-14 lg:py-14">
+            <img src={armoiries} alt="" aria-hidden="true" className="pointer-events-none absolute -left-24 top-1/2 hidden w-[30rem] max-w-none -translate-y-1/2 select-none opacity-[0.08] mix-blend-luminosity lg:block" />
+            <img src={armoiries} alt="" aria-hidden="true" className="pointer-events-none absolute -right-10 -top-6 w-40 select-none opacity-[0.1] mix-blend-luminosity lg:hidden" />
+            <div className="relative flex items-center gap-3">
+              <EmblemeDep grand inverse />
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.18em] text-white sm:text-xs">République Démocratique du Congo</p>
+                <p className="text-sm text-white">{SG_NOM}</p>
+              </div>
             </div>
-          </div>
-          <div className="relative lg:my-auto">
-            <h1 className="mt-5 max-w-xl font-display text-2xl font-bold leading-tight text-white sm:text-3xl lg:mt-0 lg:text-[2.6rem]">{DEP_NOM}</h1>
-            <div className="my-5 hidden h-1 w-14 bg-rdc-jaune lg:block" />
-            <p className="hidden max-w-lg text-lg leading-relaxed text-dep-100 lg:block">SIG-DEP, le système intégré de gestion de la Direction : programmer, suivre et rendre compte, au même endroit.</p>
-            <ul className="mt-7 hidden gap-3 lg:grid">
-              {[[BarChart3, 'Planification, PAP et PTBA'], [ClipboardCheck, 'Suivi-évaluation des politiques'], [Mail, 'Courrier, réunions et décisions']].map(([Icone, t]) => (
-                <li key={t} className="flex items-center gap-3"><span className="grid h-8 w-8 place-items-center rounded-lg bg-white/10"><Icone size={16} /></span>{t}</li>
-              ))}
-            </ul>
-          </div>
-          <div className="relative mt-10 hidden items-center justify-between gap-4 border-t border-white/15 pt-4 text-sm text-dep-100 lg:flex">
-            <span>Accès réservé au personnel autorisé</span>
-            <Link to="/verification" className="inline-flex items-center gap-1 font-semibold text-white hover:underline">Vérifier une carte de service <ArrowRight size={14} /></Link>
-          </div>
-        </section>
-        <main className="flex justify-center px-4 py-8 sm:px-8 lg:items-center lg:py-12">
-          <div className="w-full max-w-md">
-            {modeDemo && <p className="mb-5 inline-block rounded-full bg-amber-200 px-3 py-1 text-xs font-bold uppercase tracking-wide text-amber-950">Démonstration — données fictives</p>}
-            {contenu}
-            {demo && !defi && !recup && <ComptesDemo demo={demo} onChoisir={(u) => { setValue('username', u); setValue('password', demo.motDePasse); }} />}
-            <p className="mt-8 text-center text-sm text-slate-600 lg:hidden"><Link to="/verification" className="font-semibold text-dep-700 underline">Vérifier une carte de service</Link></p>
-          </div>
-        </main>
+            <div className="relative lg:my-10">
+              <h1 className="mt-5 max-w-md font-display text-2xl font-bold leading-tight text-white sm:text-3xl lg:mt-0">Bienvenue sur le SIG-DEP</h1>
+              <div className="mt-3 h-1 w-16 rounded-full bg-white" aria-hidden />
+              <p className="mt-5 hidden max-w-sm leading-relaxed text-white lg:block">Système intégré de gestion de la {DEP_NOM} : programmer, suivre et rendre compte, au même endroit.</p>
+              <ul className="mt-6 hidden gap-3 text-sm lg:grid">
+                {[[BarChart3, 'Planification, PAP et PTBA'], [ClipboardCheck, 'Suivi-évaluation des politiques'], [Mail, 'Courrier, réunions et décisions']].map(([Icone, t]) => (
+                  <li key={t} className="flex items-center gap-3"><span className="grid h-8 w-8 place-items-center rounded-full bg-white/15"><Icone size={16} aria-hidden /></span>{t}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="relative hidden lg:block">
+              <Link to="/verification" className="inline-flex items-center gap-2 rounded-full border-2 border-white px-5 py-2 text-sm font-semibold text-white transition hover:bg-white hover:text-dep-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-dep-700">Vérifier une carte de service <ArrowRight size={14} aria-hidden /></Link>
+            </div>
+          </section>
+          {/* Anneau décoratif à la jonction des deux panneaux */}
+          <div aria-hidden className="pointer-events-none absolute left-1/2 top-[68%] hidden h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border-[24px] border-[#fbfcfd] bg-menu-bas lg:block" />
+          {/* Losange arrondi décoratif, en partie hors de la carte */}
+          <div aria-hidden className="pointer-events-none absolute -right-16 top-24 hidden h-40 w-40 rotate-45 rounded-[2.5rem] border-[22px] border-[#e9edf2] lg:block" />
+          <main className="relative flex justify-center px-5 py-8 sm:px-10 lg:items-center lg:px-16 lg:py-14">
+            <div className="w-full max-w-sm">
+              {modeDemo && <p className="mb-5 text-center"><span className="inline-block rounded-full bg-amber-200 px-3 py-1 text-xs font-bold uppercase tracking-wide text-amber-950">Démonstration — données fictives</span></p>}
+              {contenu}
+              {demo && !defi && !recup && <ComptesDemo demo={demo} onChoisir={(u) => { setValue('username', u); setValue('password', demo.motDePasse); }} />}
+              <p className="mt-8 text-center text-sm text-slate-600 lg:hidden"><Link to="/verification" className="font-semibold text-dep-700 underline">Vérifier une carte de service</Link></p>
+            </div>
+          </main>
+        </div>
       </div>
+      <p className="relative pb-4 text-center text-xs text-slate-600">© {new Date().getFullYear()} {DEP_NOM} — {SG_NOM} · accès réservé au personnel autorisé</p>
     </div>
   );
 }
