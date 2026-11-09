@@ -1,5 +1,12 @@
 # Journal des versions — SIG-DEP
 
+## Non publié
+
+### Correctifs
+- **« À traiter », programmation** : dans « Retournés pour correction » et « Brouillons à compléter puis soumettre », PTBA et documents de programmation sont désormais mêlés du plus ancien au plus récent ; auparavant, à partir de 5 PTBA en attente, les documents n’apparaissaient plus.
+- **API** : `GET /dashboard/a-traiter?max=N` (1 à 50, 5 par défaut) renvoie plus d’éléments par file ; le total reste inchangé.
+- **Tests** : les tests des files « À traiter » ne dépendent plus des données laissées par les autres fichiers de tests.
+
 ## 1.47.0
 
 ### Interface — direction B « Portail clair » (validée par la Direction)

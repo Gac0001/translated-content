@@ -6,9 +6,10 @@
 const { db, login, api, userId } = require('./helpers');
 
 const A = 2061;
-const files = async (a) => (await a.get('/dashboard/a-traiter')).body.files;
-const file = async (a, cle) => (await files(a)).find((f) => f.cle === cle);
-const contient = async (a, cle, to) => !!(await file(a, cle))?.items.some((i) => i.to === to);
+const files = async (a, max) => (await a.get(`/dashboard/a-traiter${max ? `?max=${max}` : ''}`)).body.files;
+const file = async (a, cle, max) => (await files(a, max)).find((f) => f.cle === cle);
+// Présence d’un élément : file complète (au plus 50), pour ne pas dépendre des données laissées par les autres tests.
+const contient = async (a, cle, to) => !!(await file(a, cle, 50))?.items.some((i) => i.to === to);
 
 describe('Files « À traiter »', () => {
   let prg; let cbprg; let cdps; let dir; let str; let sec; let cdedi;
@@ -72,6 +73,27 @@ describe('Files « À traiter »', () => {
     const f = await files(str);
     expect(f.every((x) => x.total > 0 && x.items.length > 0 && x.items.length <= 5)).toBe(true);
     expect(f.flatMap((x) => x.items).every((i) => i.to.startsWith('/'))).toBe(true);
+  });
+
+  test('« max » élargit les files sans changer leur total ; valeurs hors bornes refusées', async () => {
+    const courtes = await files(dir);
+    const longues = await files(dir, 50);
+    expect(longues.map((x) => [x.cle, x.total])).toEqual(courtes.map((x) => [x.cle, x.total]));
+    longues.forEach((x) => expect(x.items.length).toBe(Math.min(x.total, 50)));
+    for (const v of [0, 51, 'abc']) expect((await dir.get(`/dashboard/a-traiter?max=${v}`)).status).toBe(400);
+  });
+
+  test('brouillons : PTBA et documents mêlés, du plus ancien au plus récent', async () => {
+    // Un document resté longtemps en brouillon passe avant les PTBA plus récents (il n’est plus relégué en fin de file).
+    const doc = (await prg.post('/programmation/documents', { type: 'CDMT', annee: A + 1 })).body;
+    await db('plan_documents').where({ id: doc.id }).update({ updated_at: new Date('2000-01-01T00:00:00Z') });
+    const f = await file(prg, 'programmation_brouillons');
+    expect(f.items[0].to).toBe(`/planification/documents/${doc.id}`);
+    const dates = await Promise.all(f.items.map(async (i) => {
+      const [, type, id] = i.to.match(/^\/planification\/(ptba|documents)\/(\d+)$/);
+      return (await db(type === 'ptba' ? 'ptba' : 'plan_documents').where({ id }).first('updated_at')).updated_at.getTime();
+    }));
+    expect(dates).toEqual([...dates].sort((a, b) => a - b));
   });
 });
 
