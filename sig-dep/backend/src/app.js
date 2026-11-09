@@ -43,6 +43,15 @@ app.get('/api/statut-public', async (req, res) => {
   res.json({ maintenance: { active: m.active, message: m.active ? m.message : '', fin: m.active ? m.fin : '' }, demo: config.demo });
 });
 
+// Sceau en vigueur, affiché sur la page de connexion. Il n’est jamais versionné : l’Admin le dépose dans
+// « Identité et en-tête » ; sans sceau déposé, 404 (la page garde l’emblème DEP).
+app.get('/api/statut-public/sceau', async (req, res) => {
+  const v = await require('./services/identite').enVigueur();
+  if (!v?.sceau) return res.status(404).json({ error: { code: 'AUCUN_SCEAU', message: 'Aucun sceau déposé.' } });
+  res.set({ 'Content-Type': v.sceau_type || 'image/png', 'Cache-Control': 'public, max-age=3600', 'X-Content-Type-Options': 'nosniff' });
+  res.send(v.sceau);
+});
+
 // Référencement : seules les pages publiques sont proposées aux moteurs de recherche (aucune en démonstration).
 const referencement = require('./services/referencement');
 app.get('/robots.txt', (req, res) => res.type('text/plain').set('Cache-Control', 'public, max-age=3600').send(referencement.robots()));

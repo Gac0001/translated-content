@@ -5,7 +5,7 @@
  * en lettre et termes de référence.
  */
 const JSZip = require('jszip');
-const { db, login, loginAdmin, avecConfirmation, api, userId, PNG } = require('./helpers');
+const { db, request, app, login, loginAdmin, avecConfirmation, api, userId, PNG } = require('./helpers');
 const identite = require('../src/services/identite');
 
 const binaire = (r) => r.buffer(true).parse((res, cb) => { const d = []; res.on('data', (c) => d.push(c)); res.on('end', () => cb(null, Buffer.concat(d))); });
@@ -75,6 +75,15 @@ describe('Identité du Ministère', () => {
     expect(sceau.headers['content-type']).toMatch(/image\/png/);
     expect(Buffer.compare(sceau.body, PNG)).toBe(0);
     expect((await admin.get('/systeme/identite/1/sceau')).status).toBe(404);
+    // Page de connexion : sceau en vigueur, public ; la version 1 (en vigueur) n’en a pas.
+    expect((await request(app).get('/api/statut-public/sceau')).status).toBe(404);
+    const espion = jest.spyOn(identite, 'enVigueur').mockResolvedValue(identite.courante(new Date('2099-06-01')));
+    try {
+      const pub = await binaire(request(app).get('/api/statut-public/sceau'));
+      expect(pub.status).toBe(200);
+      expect(pub.headers['content-type']).toMatch(/image\/png/);
+      expect(Buffer.compare(pub.body, PNG)).toBe(0);
+    } finally { espion.mockRestore(); }
     await expect(db('identite_versions').where({ version: 2 }).update({ sigle: 'X' })).rejects.toThrow(/APPEND_ONLY/);
     expect(await db('audit_logs').where({ action: 'IDENTITE_MINISTERE' }).first()).toBeTruthy();
     expect(await db('notifications').where({ user_id: await userId('directeur'), lien: '/systeme/identite' }).first()).toBeTruthy();

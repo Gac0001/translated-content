@@ -1,5 +1,11 @@
 # Journal des versions — SIG-DEP
 
+## 1.50.0
+
+### Page de connexion — sceau du Ministère
+- Le **sceau en vigueur**, déposé par l’Admin dans « Identité et en-tête », s’affiche en haut du panneau bleu de la connexion, sur une pastille blanche ; sans sceau déposé, l’emblème DEP reste affiché. Le sceau n’est jamais versionné dans le dépôt.
+- API : `GET /api/statut-public/sceau` (public, mis en cache une heure ; 404 sans sceau). Pour un bon rendu, déposer un **PNG à fond transparent**.
+
 ## 1.49.0
 
 ### Interface — fidélité aux maquettes de référence
