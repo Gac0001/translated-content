@@ -116,7 +116,8 @@ describe('Groupes de travail', () => {
     expect((await autre.get('/groupes/responsables')).body.data).toEqual(expect.arrayContaining([{ nom: 'Cellule Genre (essai)', type: 'GROUPE' }]));
     // Un groupe ne compte jamais dans l’effectif
     const eff = (await dir.get('/organisation/effectifs/structures')).body;
-    expect(eff.structures.some((s) => /Cellule/.test(s.nom))).toBe(false);
+    // Ce groupe précis (d’autres tests peuvent créer des structures dont le nom contient « Cellule »).
+    expect(eff.structures.some((s) => s.nom === groupe.nom || s.code === groupe.code)).toBe(false);
   });
 
   test('clôture : membres retirés, groupe en lecture seule', async () => {

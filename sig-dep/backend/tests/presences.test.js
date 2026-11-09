@@ -49,7 +49,8 @@ describe('Présences journalières', () => {
     const grades = await db('grades').select('code', 'niveau');
     const niveau = Object.fromEntries(grades.map((g) => [g.code, g.niveau]));
     expect(r.body.listes[0].lignes.every((l) => niveau[l.grade_code] >= P.NIVEAU_CADRE)).toBe(true);
-    expect(r.body.listes[1].lignes.every((l) => niveau[l.grade_code] < P.NIVEAU_CADRE)).toBe(true);
+    // Sans grade (agents créés par d’autres tests), le niveau vaut 0 : liste des Agents, comme dans le service.
+    expect(r.body.listes[1].lignes.every((l) => (niveau[l.grade_code] ?? 0) < P.NIVEAU_CADRE)).toBe(true);
     expect(r.body.listes[1].lignes.some((l) => l.structure_code === 'I.1')).toBe(true);
     // Deuxième ouverture : aucune liste en double
     await sec.get(`/presences/jour/${date}`);
@@ -100,7 +101,11 @@ describe('Présences journalières', () => {
     const debut = lundi(2);
     const bureau = await db('bureaux').where({ code: 'BUR-COI' }).first();
     const eligibles = await P.agentsEligibles();
-    const agentCoi = eligibles.find((e) => e.bureau_id === bureau.id && e.categorie === 'AGENTS');
+    // Agent du compte de démonstration ag.coi1 (mot de passe connu) : un autre agent du Bureau peut avoir été
+    // enrôlé par un autre fichier de tests, avec un mot de passe provisoire.
+    const compteCoi = await db('users').where({ username: 'ag.coi1' }).first();
+    const agentCoi = eligibles.find((e) => e.agent_id === compteCoi.agent_id && e.bureau_id === bureau.id && e.categorie === 'AGENTS');
+    expect(agentCoi).toBeDefined();
     const { semaine, lundi: listesLundi } = await semaineComplete(sec, debut, { [agentCoi.agent_id]: { heure_arrivee: '09:00', heure_depart: '15:30' } });
     expect(semaine.statut).toBe('EN_PREPARATION');
     expect(semaine.reference).toMatch(/^DEP\/PRES\/\d{4}\/S\d{2}$/);
@@ -163,11 +168,8 @@ describe('Présences journalières', () => {
     expect(hist).toEqual(['TRANSMISSION', 'REJET', 'RECTIFICATIF', 'RETRANSMISSION', 'RECTIFICATIF_VALIDE', 'VERROUILLAGE']);
 
     // Présences personnelles de l’agent (valeurs effectives)
-    const user = await db('users').where({ agent_id: agentCoi.agent_id }).first();
-    if (user) {
-      const moi = await api(await login(user.username)).get('/presences/moi');
-      expect(moi.body.data.find((l) => l.date === debut)).toMatchObject({ motif: 'FORMATION', etat: 'ABSENT' });
-    }
+    const moi = await api(await login('ag.coi1')).get('/presences/moi');
+    expect(moi.body.data.find((l) => l.date === debut)).toMatchObject({ motif: 'FORMATION', etat: 'ABSENT' });
 
     // Exports au format de l’annexe 11
     const pdf = await binaire(dir.get(`/presences/semaines/${semaine.id}/export/pdf`));

@@ -1,5 +1,10 @@
 # Journal des versions — SIG-DEP
 
+## Non publié
+
+### Tests
+- **Présences** et **Groupes de travail** : tests rendus indépendants des données laissées par les autres fichiers (agent sans grade, compte enrôlé avec mot de passe provisoire, bureau dont le nom contient « Cellule ») ; 290/290 dans l’ordre normal comme dans des ordres défavorables.
+
 ## 1.50.1
 
 ### Page de connexion — armoiries du Gouvernement
