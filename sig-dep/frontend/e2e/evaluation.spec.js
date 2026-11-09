@@ -14,7 +14,7 @@ test.describe('Évaluation des politiques (ordinateur)', () => {
 
   test('Bureau Suivi-Évaluation : synthèse des contrôles, annexe I, saisie d’une ligne', async ({ page }) => {
     await connexion(page, 'ag.sev1');
-    await page.getByRole('link', { name: 'Évaluation des politiques' }).click();
+    await page.locator('aside nav[aria-label="Menu principal"] a[href="/evaluations"]').click(); // l’entrée du menu (le tableau de bord a d’autres liens du même nom)
     await page.locator('main tbody tr', { hasText: 'Évaluation' }).first().click();
     await page.waitForURL(/\/evaluations\/\d+/);
     await expect(page.getByRole('table', { name: 'Anomalies du dossier' })).toBeVisible();
