@@ -1,5 +1,11 @@
 # Journal des versions — SIG-DEP
 
+## 1.50.1
+
+### Page de connexion — armoiries du Gouvernement
+- En haut du panneau bleu : **armoiries du Gouvernement** (image déjà versionnée à la racine du dépôt) sur une pastille blanche, à la place de l’emblème DEP et du sceau prévu en 1.50.0.
+- L’adresse publique `GET /api/statut-public/sceau` de la 1.50.0 est retirée : le sceau redevient réservé aux documents officiels.
+
 ## 1.50.0
 
 ### Page de connexion — sceau du Ministère

@@ -10,7 +10,6 @@ import api, { errorMessage } from '../lib/api';
 import { useAuth } from '../store/auth';
 import { DEP_NOM, SG_NOM } from '../lib/labels';
 import { ErrorAlert, InfoAlert, useTitreDocument } from '../components/ui';
-import { EmblemeDep } from '../components/PagePublique';
 import PasswordRules from '../components/PasswordRules';
 
 const schema = z.object({
@@ -18,17 +17,11 @@ const schema = z.object({
   password: z.string().min(1, 'Saisissez votre mot de passe.'),
 });
 
-/**
- * Sceau du Ministère déposé par l’Admin (« Identité et en-tête »), sur une pastille blanche pour que son texte
- * reste lisible sur le panneau bleu. Sans sceau (ou s’il ne se charge pas) : emblème DEP.
- */
-function SceauOuEmbleme() {
-  const [echec, setEchec] = useState(false);
-  if (echec) return <EmblemeDep grand inverse />;
+/** Armoiries du Gouvernement (image versionnée à la racine du dépôt), sur une pastille blanche. */
+function Armoiries() {
   return (
-    <span className="grid h-20 w-20 shrink-0 place-items-center rounded-full bg-white p-1.5 shadow-md">
-      <img src={`${api.defaults.baseURL}/statut-public/sceau`} width={68} height={68} decoding="async" alt="Sceau du Ministère"
-        className="h-full w-full rounded-full object-contain" onError={() => setEchec(true)} />
+    <span className="grid h-24 w-24 shrink-0 place-items-center rounded-full bg-white p-1 shadow-md">
+      <img src={armoiries} width={88} height={88} decoding="async" alt="Armoiries de la République Démocratique du Congo — Le Gouvernement" className="h-full w-full object-contain" />
     </span>
   );
 }
@@ -240,7 +233,7 @@ export default function Login() {
             <img src={armoiries} alt="" aria-hidden="true" decoding="async" className="pointer-events-none absolute -left-24 top-1/2 hidden w-[30rem] max-w-none -translate-y-1/2 select-none opacity-[0.08] mix-blend-luminosity lg:block" />
             <img src={armoiries} alt="" aria-hidden="true" decoding="async" className="pointer-events-none absolute -right-10 -top-6 w-40 select-none opacity-[0.1] mix-blend-luminosity lg:hidden" />
             <div className="relative flex items-center gap-3">
-              <SceauOuEmbleme />
+              <Armoiries />
               <div>
                 <p className="text-[11px] uppercase tracking-[0.18em] text-white sm:text-xs">République Démocratique du Congo</p>
                 <p className="text-sm text-white">{SG_NOM}</p>
