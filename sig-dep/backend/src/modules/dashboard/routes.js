@@ -16,7 +16,9 @@ const { politique } = require('../../services/politique');
 const { dernierControle, versionApplication, espaceDisque } = require('../../services/sante');
 const { etatSauvegardes } = require('../../services/sauvegarde');
 const effectifs = require('../../services/effectifs');
-const { aTraiter } = require('../../services/aTraiter');
+const { aTraiter, MAX_PLAFOND } = require('../../services/aTraiter');
+const { z } = require('zod');
+const validate = require('../../middleware/validate');
 const config = require('../../config/env');
 const maintenanceSvc = require('../../services/maintenance');
 
@@ -266,8 +268,8 @@ router.get('/', async (req, res) => {
 
 // Compteurs rapides pour le menu (éléments en attente d’action)
 /** Files « À traiter » de l’utilisateur (bandeau du tableau de bord). */
-router.get('/a-traiter', async (req, res) => {
-  res.json(await aTraiter(req.ctx));
+router.get('/a-traiter', validate({ query: z.object({ max: z.coerce.number().int().min(1).max(MAX_PLAFOND).optional() }) }), async (req, res) => {
+  res.json(await aTraiter(req.ctx, req.valid.query.max ? { max: req.valid.query.max } : {}));
 });
 
 router.get('/compteurs', async (req, res) => {

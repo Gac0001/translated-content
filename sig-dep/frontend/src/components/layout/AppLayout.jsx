@@ -110,9 +110,9 @@ function Sidebar({ onNavigate }) {
           <h2 className="px-1">
             <button type="button" aria-expanded={ouverte} aria-controls={id} disabled={g.section === active}
               onClick={() => basculer(g.section)}
-              className="flex w-full items-center gap-1 rounded px-2 py-1 text-left text-[11px] font-semibold uppercase tracking-wider text-dep-200 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-rdc-jaune disabled:cursor-default disabled:hover:text-dep-200">
+              className="flex w-full items-center gap-1 rounded px-2 py-1 text-left text-xs font-semibold text-slate-600 hover:text-dep-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400 disabled:cursor-default disabled:hover:text-slate-600">
               <span className="flex-1">{g.section}</span>
-              {!ouverte && aTraiter > 0 && <span className="rounded-full bg-rdc-jaune px-1.5 text-[11px] font-semibold normal-case tracking-normal text-dep-900">{aTraiter}<span className="sr-only"> à traiter</span></span>}
+              {!ouverte && aTraiter > 0 && <span className="rounded-full bg-dep-700 px-1.5 text-[11px] font-semibold text-white">{aTraiter}<span className="sr-only"> à traiter</span></span>}
               <ChevronDown size={14} aria-hidden className={`transition-transform motion-reduce:transition-none ${ouverte ? '' : '-rotate-90'}`} />
             </button>
           </h2>
@@ -120,11 +120,11 @@ function Sidebar({ onNavigate }) {
             {g.items.map((m) => (
               <li key={m.to}>
                 <NavLink to={m.to} end={m.end} onClick={onNavigate}
-                  className={({ isActive }) => `flex items-center gap-2.5 rounded-md px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-rdc-jaune ${isActive ? 'bg-charte-marine font-semibold text-white shadow-[inset_3px_0_0_#fff24b]' : 'text-dep-100 hover:bg-white/10 hover:text-white'}`}>
+                  className={({ isActive }) => `flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400 ${isActive ? 'bg-dep-50 font-semibold text-dep-700 shadow-[inset_3px_0_0_#17418a]' : 'text-slate-700 hover:bg-slate-50 hover:text-dep-700'}`}>
                   <m.icon size={17} aria-hidden />
                   <span className="flex-1">{m.label}</span>
                   {m.counter && compteurs[m.counter] > 0 && (
-                    <span className="rounded-full bg-rdc-jaune px-1.5 text-xs font-semibold text-dep-900">{compteurs[m.counter]}<span className="sr-only"> à traiter</span></span>
+                    <span className="rounded-full bg-dep-700 px-1.5 text-xs font-semibold text-white">{compteurs[m.counter]}<span className="sr-only"> à traiter</span></span>
                   )}
                 </NavLink>
               </li>
@@ -215,19 +215,21 @@ export default function AppLayout() {
   const { remaining, prolonger } = useInactivity(() => logout('inactivite'), user.sessionInactiviteMinutes);
 
   const nom = user.agent ? [user.agent.prenom, user.agent.nom].filter(Boolean).join(' ') : user.username;
+  const initiales = nom.split(/[\s.]+/).filter(Boolean).map((x) => x[0]).slice(0, 2).join('').toUpperCase() || '?';
   const structure = user.affectation?.bureauNom || user.affectation?.divisionNom || (user.primaryRole === 'DIRECTEUR' ? DEP_NOM : user.primaryRole === 'SECRETAIRE_GENERAL' ? SG_NOM : 'Administration technique');
 
   const aside = (
-    <div className="flex h-full w-full flex-col bg-dep-700 text-white">
-      <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4">
-        <img src="/favicon.jpg" alt="Ministère de l’Économie Numérique" className="h-10 w-[5.75rem] shrink-0 rounded-md bg-white object-contain" />
+    <div className="flex h-full w-full flex-col border-r border-[#eceff4] bg-white text-slate-800">
+      <div className="h-1 tricolore-horizontal" aria-hidden />
+      <div className="flex items-center gap-3 px-4 py-4">
+        <img src="/favicon.jpg" alt="Ministère de l’Économie Numérique" className="h-10 w-[5.75rem] shrink-0 rounded-lg border border-slate-200 bg-white object-contain" />
         <div className="min-w-0">
-          <div className="font-display text-base font-semibold leading-tight">SIG-DEP</div>
-          <div className="text-xs leading-tight text-dep-200">{DEP_NOM}</div>
+          <div className="font-display text-base font-bold leading-tight text-dep-800">SIG-DEP</div>
+          <div className="text-xs leading-tight text-slate-600">{DEP_NOM}</div>
         </div>
       </div>
       <Sidebar onNavigate={() => setOpen(false)} />
-      <div className="border-t border-white/10 px-4 py-3 text-xs leading-snug text-dep-200">{SG_NOM}<br />République Démocratique du Congo</div>
+      <div className="border-t border-slate-100 px-4 py-3 text-xs leading-snug text-slate-600">{SG_NOM}<br />République Démocratique du Congo</div>
     </div>
   );
 
@@ -240,36 +242,30 @@ export default function AppLayout() {
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 lg:block no-print">{aside}</aside>
       {open && <Tiroir onClose={() => setOpen(false)}>{aside}</Tiroir>}
       <div className="flex min-w-0 flex-1 flex-col lg:pl-64 print:pl-0">
-        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur no-print">
-          <div className="h-1.5 tricolore" />
-          <div className="flex items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4">
+        <header className="sticky top-0 z-20 bg-[#f7f8fb]/95 backdrop-blur no-print">
+          <div className="h-1 tricolore-horizontal lg:hidden" aria-hidden />
+          <div className="mx-auto flex w-full max-w-7xl items-center gap-2 px-3 py-3 sm:gap-3 sm:px-6">
             <IconButton label="Ouvrir le menu" icon={Menu} size={22} className="p-1.5 lg:hidden" aria-expanded={open} onClick={() => setOpen(true)} />
-            <div className="min-w-0 sm:hidden"><div className="font-display text-sm font-semibold text-dep-700">SIG-DEP</div></div>
-            <div className="hidden min-w-0 sm:block">
-              <div className="truncate text-xs uppercase tracking-wide text-slate-500">République Démocratique du Congo — {SG_NOM}</div>
-              <div className="truncate font-display text-[15px] font-semibold text-dep-700">{DEP_NOM} (DEP)</div>
-            </div>
-            <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1">
-              <div className="mr-2 hidden min-w-0 flex-1 justify-end md:flex"><GlobalSearch /></div>
+            <div className="min-w-0 lg:hidden"><div className="font-display text-base font-bold text-dep-800">SIG-DEP</div></div>
+            {modeDemo && <span className="hidden shrink-0 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900 sm:inline-block" role="status">Démonstration — données fictives</span>}
+            <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2">
+              <div className="hidden min-w-0 max-w-md flex-1 justify-end md:flex"><GlobalSearch /></div>
               <IconButton label="Rechercher" icon={Search} size={20} className="text-slate-600 md:hidden" onClick={() => setRecherche(true)} />
-              <Link to="/notifications" className="relative rounded-md p-2 text-slate-600 hover:bg-slate-100">
+              <Link to="/notifications" className="relative rounded-xl border border-[#e3e8ef] bg-white p-2.5 text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400">
                 <Bell size={20} aria-hidden />
                 <span className="sr-only">Notifications</span>
                 {nonLues > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-red-700 px-1 text-center text-xs font-semibold text-white">{nonLues > 99 ? '99+' : nonLues}<span className="sr-only"> non lues</span></span>}
               </Link>
               <DropdownMenu width="w-64" menuLabel="Menu utilisateur"
-                triggerClassName="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400"
+                triggerClassName="flex items-center gap-2 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400 focus-visible:ring-offset-2"
                 trigger={<>
-                  <UserCircle size={26} className="text-dep-700" aria-hidden />
-                  <span className="sr-only md:hidden">Menu de {nom}</span>
-                  <span className="hidden text-left md:block">
-                    <span className="block max-w-[200px] truncate text-sm font-medium leading-tight">{nom}</span>
-                    <span className="block max-w-[220px] truncate text-xs leading-tight text-slate-500">{ROLES[user.primaryRole] || '—'} · {structure}</span>
-                  </span>
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-dep-700 text-sm font-bold text-white" aria-hidden>{initiales}</span>
+                  <span className="sr-only">Menu de {nom}</span>
                 </>}
                 header={(
                   <div className="border-b px-3 py-2 text-xs text-slate-600">
-                    <div className="font-medium text-slate-800 md:hidden">{nom}</div>
+                    <div className="text-sm font-semibold text-slate-800">{nom}</div>
+                    <div className="mb-1">{ROLES[user.primaryRole] || '—'} · {structure}</div>
                     Périmètre : <b className="text-slate-800">{PERIMETRES[user.perimetre]}</b>
                     <div>Rôle(s) : {user.roles.map((r) => ROLES[r]).join(', ')}</div>
                   </div>
@@ -288,9 +284,7 @@ export default function AppLayout() {
           <div className="text-xs uppercase">{SG_NOM}</div>
           <div className="text-sm font-bold uppercase text-dep-800">{DEP_NOM} (DEP)</div>
         </div>
-        {modeDemo && (
-          <div className="bg-amber-300 px-4 py-1 text-center text-xs font-semibold uppercase tracking-wide text-amber-950 no-print" role="status">Environnement de démonstration et de formation — données fictives</div>
-        )}
+        {modeDemo && <div className="bg-amber-100 px-4 py-1 text-center text-xs font-semibold text-amber-900 sm:hidden no-print" role="status">Démonstration — données fictives</div>}
         {maintenanceActive && (
           <div className="flex flex-wrap items-center gap-2 bg-amber-100 px-4 py-2 text-sm text-amber-900 no-print" role="status">
             <Wrench size={16} /> <b>Mode maintenance actif</b> — seuls les Admins Système accèdent à l’application. {maintenanceActive.message}
@@ -309,7 +303,7 @@ export default function AppLayout() {
             <Link to={`/actes/${x.acteId}`} className="ml-auto underline">Voir l’acte</Link>
           </div>
         ))}
-        <main id="contenu" ref={main} tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 focus:outline-none sm:px-6">
+        <main id="contenu" ref={main} tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 pb-8 pt-3 focus:outline-none sm:px-6">
           {/* Le menu et l’en-tête restent affichés pendant le chargement d’une page. */}
           <Suspense fallback={<Spinner />}><Outlet /></Suspense>
         </main>
@@ -320,7 +314,7 @@ export default function AppLayout() {
           footer={<><button type="button" className="btn-secondary" onClick={() => logout()}>Se déconnecter</button><button type="button" className="btn-primary" data-autofocus onClick={prolonger}>Rester connecté</button></>}>
           <p className="text-sm">Aucune activité n’a été détectée. Par sécurité, vous serez déconnecté dans <b className="tabular-nums">{remaining}</b> seconde(s).</p>
         </Modal>
-        <footer className="border-t border-slate-200 bg-white px-6 py-3 text-center text-xs text-slate-500 no-print">
+        <footer className="border-t border-[#eceff4] px-6 py-3 text-center text-xs text-slate-600 no-print">
           SIG-DEP — Système Intégré de Gestion de la {DEP_NOM} · {SG_NOM}
         </footer>
       </div>

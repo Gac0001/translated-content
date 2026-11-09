@@ -1,11 +1,12 @@
 {
   "name": "sig-dep-backend",
-  "version": "1.46.0",
+  "version": "1.47.0",
   "description": "API REST du SIG-DEP — Système Intégré de Gestion de la Direction d’Études et Planification",
   "main": "src/server.js",
   "private": true,
   "scripts": {
     "dev": "nodemon --watch src src/server.js",
+    "dev:tout": "node scripts/dev-tout.js",
     "start": "node src/server.js",
     "migrate": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback --all",

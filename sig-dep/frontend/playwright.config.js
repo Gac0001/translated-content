@@ -18,5 +18,8 @@ export default defineConfig({
     locale: 'fr-FR',
     timezoneId: 'Africa/Kinshasa',
     trace: 'retain-on-failure',
+    // Navigateur déjà installé sur la machine (sessions cloud : /opt/pw-browsers/chromium, fixé par le hook de
+    // session) quand sa version diffère de celle attendue par @playwright/test. Sans la variable : navigateur de Playwright.
+    ...(process.env.SIGDEP_CHROMIUM ? { launchOptions: { executablePath: process.env.SIGDEP_CHROMIUM } } : {}),
   },
 });

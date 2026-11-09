@@ -1,12 +1,14 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Users, UserCheck, Lock, Activity, Database, Send, ListTodo, FileText, CalendarCheck, Mail, FolderKanban,
-  AlertTriangle, Clock, Building2, Bell, DatabaseZap, UserX, CheckCircle2,
+  AlertTriangle, Clock, Building2, Bell, DatabaseZap, UserX, CheckCircle2, ChevronRight, Target, ClipboardCheck, Inbox,
+  Presentation, Gavel, Stamp, IdCard, Settings,
 } from 'lucide-react';
 import { useAuth } from '../store/auth';
-import { useApi, Loadable, PageHeader, Card, Stat, StatusBadge, Progress, Empty, Badge, RangBadge, InfoAlert, BarList, MiniStats, CardLink, DataTable, WorkQueue } from '../components/ui';
+import { useApi, Loadable, PageHeader, Card, Stat, StatusBadge, Progress, Empty, Badge, RangBadge, InfoAlert, BarList, MiniStats, CardLink, DataTable } from '../components/ui';
 import { fmtDate, fmtDateTime, fmtMontant, fmtNombre, isOverdue } from '../lib/format';
-import { DEP_NOM, ROLES, STATUTS, PERIMETRES, NOTIF_TYPES, DELEGATIONS } from '../lib/labels';
+import { ROLES, STATUTS, PERIMETRES, NOTIF_TYPES, DELEGATIONS } from '../lib/labels';
 import { Progression } from './comptes/ListeDeclarative';
 import { EtatBadge } from './systeme/Sante';
 import { StatutSemaine } from './presences/commun';
@@ -93,7 +95,7 @@ const ACTIONS_SENSIBLES = {
 };
 const fmtOctets = (n) => (n >= 1073741824 ? `${(n / 1073741824).toFixed(1)} Go` : `${Math.round(n / 1048576)} Mo`);
 
-function AdminPanel({ a }) {
+function AdminPanel({ a, apres }) {
   const s = a.systeme.sante;
   const disque = a.systeme.disque;
   const etatDisque = disque && (disque.pourcentLibre < disque.seuilCritique ? 'PANNE' : disque.pourcentLibre < disque.seuilAttention ? 'ATTENTION' : 'OK');
@@ -101,7 +103,7 @@ function AdminPanel({ a }) {
   const heuresSauvegarde = sv.derniereReussie ? Math.round((Date.now() - new Date(sv.derniereReussie.date).getTime()) / 3600000) : null;
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
         <Stat label="Utilisateurs" value={a.comptes.total} icon={Users} to="/comptes" />
         <Stat label="Comptes actifs" value={a.comptes.actifs} icon={UserCheck} tone="vert" />
         <Stat label="Comptes désactivés" value={a.comptes.desactives} icon={UserX} tone="gris" />
@@ -109,6 +111,7 @@ function AdminPanel({ a }) {
         <Stat label={`Inactifs (> ${a.comptes.seuilInactiviteJours} j)`} value={a.comptes.inactifs} icon={Clock} tone={a.comptes.inactifs ? 'jaune' : 'gris'} to="/comptes" />
         <Stat label="Sessions actives" value={a.securite.sessionsActives} icon={Activity} hint={`${a.securite.utilisateursConnectes} utilisateur(s)`} to="/securite" />
       </div>
+      {apres && <div className="mt-6">{apres}</div>}
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <Card title="Santé du système" actions={<CardLink to="/systeme/sante">Détails</CardLink>}>
           {s ? (
@@ -195,17 +198,18 @@ function presenceMoisTexte(p, avecTaux = true) {
   return `${avecTaux ? `Mois : ${fmtNombre(p.taux, 1)} % de présence · ` : ''}${p.retards} retard(s), ${p.absents} absence(s)`;
 }
 
-function SGPanel({ d }) {
+function SGPanel({ d, apres }) {
   const s = d.statistiques;
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <Stat label="Divisions" value={d.vueGlobale.divisions} icon={Building2} to="/organigramme" />
         <Stat label="Bureaux" value={d.vueGlobale.bureaux} hint={`dont ${d.vueGlobale.bureauxRattachesDirection} rattaché(s) au Directeur`} icon={Building2} tone="gris" />
         <Stat label="Agents en fonction" value={d.vueGlobale.agents} icon={Users} tone="vert" />
         <Stat label="Documents validés" value={s.documentsValides} icon={FileText} tone="violet" to="/documents" />
         <Stat label="Taux de présence du mois" value={d.presencesMois ? `${fmtNombre(d.presencesMois.taux, 1)} %` : '—'} hint={presenceMoisTexte(d.presencesMois, false)} icon={CalendarCheck} tone="vert" to="/presences?onglet=synthese" />
       </div>
+      {apres && <div className="mt-6">{apres}</div>}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card title="Instructions adressées au Directeur" actions={<Link to="/instructions/nouvelle" className="btn-primary py-1.5"><Send size={14} /> Nouvelle instruction</Link>}>
           <MiniList rows={d.instructionsAuDirecteur} to="/instructions" empty="Aucune instruction adressée." render={(i) => (
@@ -233,16 +237,17 @@ function SGPanel({ d }) {
   );
 }
 
-function DirecteurPanel({ d }) {
+function DirecteurPanel({ d, apres }) {
   const retard = d.tachesEnRetard.length + d.instructionsEnRetard.length;
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Documents à valider" value={d.documentsAValider.length} icon={FileText} tone={d.documentsAValider.length ? 'jaune' : 'gris'} to="/documents" />
         <Stat label="Travaux en retard" value={retard} icon={AlertTriangle} tone={retard ? 'rouge' : 'gris'} to="/taches?statut=EN_RETARD" />
         <Stat label="Rapports de présence à examiner" value={d.presencesSoumises.length} hint={presenceMoisTexte(d.presencesMois)} icon={CalendarCheck} tone="violet" to={d.presencesSoumises.length ? '/presences' : '/presences?onglet=synthese'} />
         <Stat label="Courriers à réceptionner" value={d.courriersARecevoir.length} icon={Mail} tone={d.courriersARecevoir.length ? 'jaune' : 'gris'} to="/courriers?onglet=recevoir" />
       </div>
+      {apres && <div className="mt-6">{apres}</div>}
       {d.decisions && <PilotageCard d={d} />}
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <Card title="Documents à valider" actions={<CardLink to="/documents" />}>
@@ -275,17 +280,13 @@ function DirecteurPanel({ d }) {
   );
 }
 
-/** Centre de pilotage du Directeur : décisions, agenda du jour, demandes du Secrétaire Général. */
+/** Centre de pilotage du Directeur : décisions et demandes du Secrétaire Général (l’agenda est dans la colonne de droite). */
 function PilotageCard({ d }) {
-  const heure = (x) => new Date(x).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Kinshasa' });
   return (
-    <div className="mt-4 grid gap-4 lg:grid-cols-3">
+    <div className="mt-6 grid gap-4 lg:grid-cols-2">
       <Card title="Décisions à suivre" actions={<CardLink to="/decisions">Registre</CardLink>}>
         <div className="mb-2 flex gap-2 text-xs"><Badge>{d.decisions.ouvertes} ouverte(s)</Badge>{d.decisions.enRetard > 0 && <Badge className="bg-red-50 text-red-800 ring-red-200">{d.decisions.enRetard} en retard</Badge>}</div>
         <MiniList rows={d.decisions.liste} to="/decisions" empty="Aucune décision ouverte." render={(x) => <div className="text-sm"><div className="truncate font-medium">{x.libelle}</div><div className={`text-xs ${x.en_retard ? 'text-red-700' : 'text-slate-500'}`}>{x.responsable_nom} · {x.echeance ? `échéance ${fmtDate(x.echeance)}` : 'sans échéance'}</div></div>} />
-      </Card>
-      <Card title="Agenda du jour" actions={<CardLink to="/agenda">Agenda</CardLink>}>
-        <MiniList rows={d.agendaDuJour} to={(e) => (e.reunion_id ? `/reunions/${e.reunion_id}` : '/agenda')} empty="Aucun rendez-vous aujourd’hui." render={(e) => <div className="flex gap-3 text-sm"><span className="w-12 shrink-0 font-semibold tabular-nums text-dep-800">{heure(e.debut)}</span><div className="min-w-0"><div className="truncate font-medium">{e.titre}</div><div className="text-xs text-slate-500">{e.lieu || '—'}</div></div></div>} />
       </Card>
       <Card title="Demandes du Secrétaire Général" actions={<CardLink to="/demandes-information">Toutes</CardLink>}>
         <MiniList rows={d.demandesInfo} to="/demandes-information" empty="Aucune demande en attente." render={(x) => <div className="text-sm"><div className="truncate font-medium">{x.objet}</div><div className="text-xs text-slate-500">{x.reference}{x.echeance ? ` · réponse attendue le ${fmtDate(x.echeance)}` : ''}</div></div>} />
@@ -318,16 +319,17 @@ function EffectifCard({ e }) {
   );
 }
 
-function ChefDivisionPanel({ d }) {
+function ChefDivisionPanel({ d, apres }) {
   return (
     <>
       {d.division && <InfoAlert>{d.division.nom} — {d.division.missions}</InfoAlert>}
-      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Documents à examiner" value={d.documentsAExaminer.length} icon={FileText} tone={d.documentsAExaminer.length ? 'jaune' : 'gris'} to="/documents" />
         <Stat label="Tâches en cours" value={sum(d.taches, ACTIVE)} icon={ListTodo} to="/taches" />
         <Stat label="Tâches en retard" value={d.tachesEnRetard.length} icon={AlertTriangle} tone={d.tachesEnRetard.length ? 'rouge' : 'gris'} />
         <Stat label="Fiches PIP à vérifier" value={d.pipAVerifier.length} icon={FolderKanban} tone="violet" to="/pip" />
       </div>
+      {apres && <div className="mt-6">{apres}</div>}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card title="Bureaux rattachés à la Division" bodyClass="p-0">
           <DataTable encadre={false} searchable={false} label="Bureaux rattachés à la Division" rows={d.bureaux} empty="Aucun Bureau rattaché." columns={[
@@ -352,7 +354,7 @@ function ChefDivisionPanel({ d }) {
   );
 }
 
-function ChefBureauPanel({ d }) {
+function ChefBureauPanel({ d, apres }) {
   return (
     <>
       {d.bureau && (
@@ -362,12 +364,13 @@ function ChefBureauPanel({ d }) {
           <span className="text-slate-600">· Supérieur direct : {d.bureau.superieurDirect}</span>
         </div>
       )}
-      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Agents du Bureau" value={d.agents.length} icon={Users} />
         <Stat label="Tâches en cours" value={sum(d.taches, ACTIVE)} icon={ListTodo} to="/taches" />
         <Stat label="À valider (exécutées)" value={d.taches.EXECUTEE || 0} icon={Activity} tone="violet" to="/taches?statut=EXECUTEE" />
         <Stat label="Documents à vérifier" value={d.documentsAVerifier.length} icon={FileText} tone={d.documentsAVerifier.length ? 'jaune' : 'gris'} to="/documents" />
       </div>
+      {apres && <div className="mt-6">{apres}</div>}
       {d.delegations?.length > 0 && <div className="mt-4"><InfoAlert>Opérations exercées par désignation du Directeur : {d.delegations.map((x) => DELEGATIONS[x] || x).join(', ')}. Ces désignations, fondées sur un acte, ne modifient pas le rang du Bureau.</InfoAlert></div>}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card title="Agents du Bureau" actions={<Link to="/taches/nouvelle" className="btn-primary py-1.5"><ListTodo size={14} /> Attribuer une tâche</Link>}>
@@ -388,15 +391,16 @@ function ChefBureauPanel({ d }) {
   );
 }
 
-function AgentPanel({ d }) {
+function AgentPanel({ d, apres }) {
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Tâches en cours" value={d.taches.filter((t) => ACTIVE.includes(t.statut)).length} icon={ListTodo} to="/taches" />
         <Stat label="En retard" value={d.taches.filter((t) => t.statut === 'EN_RETARD').length} icon={Clock} tone="rouge" />
         <Stat label="Documents en cours" value={d.documents.filter((x) => ['BROUILLON', 'A_CORRIGER', 'EN_RELECTURE', 'VISE'].includes(x.statut)).length} icon={FileText} tone="violet" to="/documents" />
         <Stat label="Notifications non lues" value={d.notificationsNonLues} icon={Bell} tone="jaune" to="/notifications" />
       </div>
+      {apres && <div className="mt-6">{apres}</div>}
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <Card title="Mes tâches" className="lg:col-span-2">
           <MiniList rows={d.taches} to="/taches" empty="Aucune tâche attribuée." render={(t) => <div className="space-y-1 text-sm"><div className="flex justify-between gap-2"><span className="truncate font-medium">{t.titre}</span><StatusBadge value={t.statut} /></div><div className="flex items-center gap-3"><div className="flex-1"><Progress value={t.avancement} /></div><span className={`text-xs ${isOverdue(t.echeance, t.statut) ? 'text-red-700' : 'text-slate-500'}`}>Échéance {fmtDate(t.echeance)}</span></div></div>} />
@@ -421,55 +425,182 @@ function AgentPanel({ d }) {
   );
 }
 
+/** Icône et teinte de chaque module dans la liste « À traiter ». */
+const MODULES = {
+  planification: [Target, 'bg-dep-50 text-dep-700'], evaluations: [ClipboardCheck, 'bg-dep-50 text-dep-700'],
+  collectes: [Inbox, 'bg-sky-50 text-sky-800'], donnees: [Database, 'bg-sky-50 text-sky-800'],
+  reunions: [Presentation, 'bg-violet-50 text-violet-700'], decisions: [Gavel, 'bg-violet-50 text-violet-700'],
+  presences: [CalendarCheck, 'bg-amber-50 text-amber-800'], actes: [Stamp, 'bg-rose-50 text-rose-700'],
+  cartes: [IdCard, 'bg-rose-50 text-rose-700'], systeme: [Settings, 'bg-slate-100 text-slate-700'],
+};
+const VISIBLES = 6;
+
+/** Ordre de la liste : éléments en alerte ou en retard, puis par échéance (sans échéance en dernier). */
+function trier(a, b) {
+  const urgent = (x) => (x.alerte || (x.echeance && isOverdue(x.echeance, x.statut)) ? 0 : 1);
+  return urgent(a) - urgent(b) || String(a.echeance || '9999').localeCompare(String(b.echeance || '9999'));
+}
+
 /**
- * Bandeau « À traiter » : files calculées par le serveur selon les droits de l’utilisateur
- * (une file vide n’est pas renvoyée). Rien à traiter : une seule ligne.
+ * « À traiter » (direction B) : toutes les files calculées par le serveur selon les droits de
+ * l’utilisateur, réunies en une seule liste triée par urgence, filtrable par file.
  */
-function ATraiter() {
-  const state = useApi('/dashboard/a-traiter');
+function ATraiter({ state }) {
+  const [filtre, setFiltre] = useState(null);
+  const [tout, setTout] = useState(false);
   if (state.error) return null; // le reste du tableau de bord reste utilisable
   const files = state.data?.files;
+  const total = files ? files.reduce((t, f) => t + f.total, 0) : 0;
+  const choisie = files?.find((f) => f.cle === filtre);
+  const lignes = files ? (choisie ? [choisie] : files).flatMap((f) => f.items.map((it) => ({ ...it, file: f }))).sort(trier) : [];
+  const visibles = choisie || tout ? lignes : lignes.slice(0, VISIBLES);
   return (
-    <section aria-labelledby="a-traiter-titre">
-      <h2 id="a-traiter-titre" className="mb-3 font-display text-lg font-semibold text-dep-700">À traiter</h2>
-      {!files ? <p className="text-sm text-slate-500" role="status">Chargement…</p>
-        : !files.length ? <p className="card flex items-center gap-2 p-4 text-sm text-slate-600"><CheckCircle2 size={18} className="text-emerald-700" aria-hidden /> Rien à traiter dans les circuits pour le moment.</p>
+    <section aria-labelledby="a-traiter-titre" className="card min-w-0">
+      <header className="flex flex-wrap items-center gap-2 border-b border-[#eef1f5] px-5 py-4">
+        <h2 id="a-traiter-titre" className="text-xl font-bold text-slate-900">À traiter</h2>
+        {files && <span className={`rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${total ? 'bg-dep-700 text-white' : 'bg-slate-200 text-slate-700'}`}>{total}<span className="sr-only"> élément(s)</span></span>}
+      </header>
+      {!files ? <p className="px-5 py-4 text-sm text-slate-600" role="status">Chargement…</p>
+        : !files.length ? <p className="flex items-center gap-2 px-5 py-4 text-sm text-slate-600"><CheckCircle2 size={18} className="text-emerald-700" aria-hidden /> Rien à traiter dans les circuits pour le moment.</p>
           : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {files.map((f) => <WorkQueue key={f.cle} title={f.titre} total={f.total} voirTout={f.voirTout} items={f.items} />)}
-            </div>
+            <>
+              {files.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto border-b border-[#eef1f5] px-5 py-3 sm:flex-wrap" role="group" aria-label="Filtrer les éléments à traiter">
+                  {[{ cle: null, titre: 'Tout', total }, ...files].map((f) => (
+                    <button key={f.cle || 'tout'} type="button" aria-pressed={filtre === f.cle} onClick={() => { setFiltre(f.cle); setTout(false); }}
+                      className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400 ${filtre === f.cle ? 'bg-dep-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-dep-50 hover:text-dep-700'}`}>
+                      {f.titre} <span className="tabular-nums">{f.total}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <ul className="divide-y divide-[#eef1f5]">
+                {visibles.map((it) => {
+                  const [Icone, teinte] = MODULES[it.file.module] || [ListTodo, 'bg-slate-100 text-slate-700'];
+                  const retard = it.echeance && isOverdue(it.echeance, it.statut);
+                  return (
+                    <li key={`${it.file.cle}-${it.id}`}>
+                      <Link to={it.to} className="group flex items-center gap-4 px-5 py-3.5 hover:bg-[#f7f9fc] focus:bg-dep-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dep-400">
+                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${teinte}`} aria-hidden><Icone size={18} /></span>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="min-w-0 font-semibold text-slate-900 group-hover:text-dep-700">{it.titre}</span>
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">{it.file.titre}</span>
+                          </span>
+                          {it.detail && <span className={`mt-0.5 block truncate text-xs ${it.alerte ? 'font-medium text-red-700' : 'text-slate-600'}`}>{it.detail}</span>}
+                        </span>
+                        {it.echeance && (
+                          <span className={`hidden shrink-0 items-center gap-1.5 text-xs font-semibold sm:flex ${retard ? 'text-red-700' : 'text-slate-600'}`}>
+                            <Clock size={14} aria-hidden />{retard ? 'En retard — ' : ''}{fmtDate(it.echeance)}
+                          </span>
+                        )}
+                        <ChevronRight size={18} className="shrink-0 text-slate-500" aria-hidden />
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+              {((!choisie && lignes.length > VISIBLES) || choisie?.voirTout) && (
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#eef1f5] px-5 py-3 text-sm">
+                  {!choisie && lignes.length > VISIBLES
+                    ? <button type="button" className="link" aria-expanded={tout} onClick={() => setTout((v) => !v)}>{tout ? 'Afficher moins' : `Afficher les ${lignes.length - VISIBLES} autres`}</button>
+                    : <span />}
+                  {choisie?.voirTout && <CardLink to={choisie.voirTout}>Voir tout ({choisie.total})</CardLink>}
+                </div>
+              )}
+            </>
           )}
     </section>
+  );
+}
+
+const heure = (x) => new Date(x).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Kinshasa' });
+
+/** Prochain rendez-vous du jour, mis en avant (direction B). */
+function ProchaineReunion({ agenda }) {
+  const maintenant = Date.now();
+  const e = agenda.find((x) => new Date(x.fin || x.debut).getTime() >= maintenant);
+  if (!e) return null;
+  return (
+    <section aria-labelledby="prochain-titre" className="rounded-2xl bg-dep-700 p-5 text-white shadow-[0_8px_24px_rgba(18,52,111,0.18)]">
+      <p className="text-xs font-semibold uppercase tracking-wider text-dep-100">Prochain rendez-vous · {heure(e.debut)}</p>
+      <h2 id="prochain-titre" className="mt-1 text-xl font-bold leading-snug text-white">{e.titre}</h2>
+      {e.lieu && <p className="mt-1 text-sm text-dep-100">{e.lieu}</p>}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link to={e.reunion_id ? `/reunions/${e.reunion_id}` : '/agenda'} className="btn bg-rdc-jaune text-[#3b3300] hover:bg-[#ffe500] focus-visible:ring-white">{e.reunion_id ? 'Ouvrir la réunion' : 'Voir l’agenda'}</Link>
+        <Link to="/agenda" className="btn bg-white/10 text-white hover:bg-white/20 focus-visible:ring-white">Agenda</Link>
+      </div>
+    </section>
+  );
+}
+
+/** Rendez-vous du jour : heure, filet de couleur, titre et lieu. */
+function Aujourdhui({ agenda }) {
+  return (
+    <Card title="Aujourd’hui" actions={<CardLink to="/agenda">Agenda</CardLink>} bodyClass="px-5 py-2">
+      {!agenda.length ? <p className="py-2 text-sm text-slate-600">Aucun rendez-vous aujourd’hui.</p> : (
+        <ul className="divide-y divide-[#eef1f5]">
+          {agenda.map((e) => (
+            <li key={e.id}>
+              <Link to={e.reunion_id ? `/reunions/${e.reunion_id}` : '/agenda'} className="-mx-2 flex items-stretch gap-3 rounded-lg px-2 py-3 hover:bg-[#f7f9fc]">
+                <span className="w-12 shrink-0 font-display font-bold tabular-nums text-dep-800">{heure(e.debut)}</span>
+                <span className="w-[3px] shrink-0 rounded-full bg-dep-700" aria-hidden />
+                <span className="min-w-0"><span className="block truncate text-sm font-semibold text-slate-900">{e.titre}</span><span className="block text-xs text-slate-600">{e.lieu || '—'}</span></span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 
 export default function Dashboard() {
   const user = useAuth((s) => s.user);
   const state = useApi('/dashboard');
+  const aTraiter = useApi('/dashboard/a-traiter');
   const titre = {
     ADMIN_SYSTEME: 'Administration technique', SECRETAIRE_GENERAL: 'Supervision de la DEP', DIRECTEUR: 'Pilotage de la Direction',
     CHEF_DIVISION: 'Tableau de bord de la Division', CHEF_BUREAU: 'Tableau de bord du Bureau', AGENT: 'Mon espace de travail',
   }[user.primaryRole] || 'Tableau de bord';
+  const nom = user.agent ? [user.agent.prenom, user.agent.nom].filter(Boolean).join(' ') : user.username;
+  const total = aTraiter.data?.files?.reduce((t, f) => t + f.total, 0);
+  const sousTitre = total === undefined ? `Bonjour ${nom}.` : total ? `Bonjour ${nom} — ${total} élément(s) attendent votre action.` : `Bonjour ${nom} — rien n’attend votre action pour le moment.`;
   return (
     <>
-      <PageHeader title={titre} subtitle={`${DEP_NOM} · ${ROLES[user.primaryRole] || ''} · Périmètre : ${PERIMETRES[user.perimetre]}`} />
+      <PageHeader title={titre} subtitle={<>{sousTitre} <span className="text-slate-600">· {ROLES[user.primaryRole] || ''} · Périmètre : {PERIMETRES[user.perimetre]}</span></>} />
       <Loadable state={state}>
-        {(d) => (
-          <div className="space-y-6">
-            {d.admin?.donneesDemo && <BanniereDemo />}
-            <ATraiter />
-            {d.miseEnService && <MiseEnService p={d.miseEnService} />}
-            {user.roles.includes('ADMIN_SYSTEME') && d.admin && <AdminPanel a={d.admin} />}
-            {d.role === 'SECRETAIRE_GENERAL' && <SGPanel d={d} />}
-            {d.role === 'DIRECTEUR' && <DirecteurPanel d={d} />}
-            {d.role === 'CHEF_DIVISION' && d.bureaux && <ChefDivisionPanel d={d} />}
-            {d.role === 'CHEF_BUREAU' && d.agents && <ChefBureauPanel d={d} />}
-            {(d.role === 'AGENT' || (d.profil && d.role !== 'AGENT')) && d.profil && <AgentPanel d={d} />}
-            {d.role && d.role !== 'ADMIN_SYSTEME' && (
-              <Card title="Mes échéances"><Echeances rows={d.echeances} /></Card>
-            )}
-          </div>
-        )}
+        {(d) => {
+          // Colonne de droite : agenda du jour (Directeur) ou échéances personnelles.
+          const agenda = d.agendaDuJour;
+          const droite = agenda ? <><ProchaineReunion agenda={agenda} /><Aujourdhui agenda={agenda} /></>
+            : d.role && d.role !== 'ADMIN_SYSTEME' ? <Card title="Mes échéances"><Echeances rows={d.echeances} /></Card> : null;
+          const priorites = (
+            <div className="space-y-6">
+              <div className={`grid items-start gap-6 ${droite ? 'xl:grid-cols-3' : ''}`}>
+                <div className={`min-w-0 ${droite ? 'xl:col-span-2' : ''}`}><ATraiter state={aTraiter} /></div>
+                {droite && <div className="grid min-w-0 gap-6">{droite}</div>}
+              </div>
+              {d.miseEnService && <MiseEnService p={d.miseEnService} />}
+            </div>
+          );
+          // Les priorités s’insèrent sous les indicateurs du premier panneau affiché.
+          const panneaux = [
+            user.roles.includes('ADMIN_SYSTEME') && d.admin && ((x) => <AdminPanel key="admin" a={d.admin} apres={x} />),
+            d.role === 'SECRETAIRE_GENERAL' && ((x) => <SGPanel key="sg" d={d} apres={x} />),
+            d.role === 'DIRECTEUR' && ((x) => <DirecteurPanel key="dir" d={d} apres={x} />),
+            d.role === 'CHEF_DIVISION' && d.bureaux && ((x) => <ChefDivisionPanel key="cd" d={d} apres={x} />),
+            d.role === 'CHEF_BUREAU' && d.agents && ((x) => <ChefBureauPanel key="cb" d={d} apres={x} />),
+            (d.role === 'AGENT' || (d.profil && d.role !== 'AGENT')) && d.profil && ((x) => <AgentPanel key="ag" d={d} apres={x} />),
+          ].filter(Boolean);
+          return (
+            <div className="space-y-6">
+              {d.admin?.donneesDemo && <BanniereDemo />}
+              {!panneaux.length && priorites}
+              {panneaux.map((rendre, k) => rendre(k === 0 ? priorites : null))}
+            </div>
+          );
+        }}
       </Loadable>
     </>
   );

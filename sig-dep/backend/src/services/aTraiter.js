@@ -14,13 +14,15 @@ const { OUVERTES } = require('./decisions');
 /** Date du jour à Kinshasa (AAAA-MM-JJ). */
 const kinshasaDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kinshasa', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
+/** Éléments montrés par file (tableau de bord) ; plafond accepté par `?max=` (vérifications, export). */
 const MAX = 5;
+const MAX_PLAFOND = 50;
 const nomAgent = (a) => `concat_ws(' ', ${a}.prenom, ${a}.nom)`;
 
-/** Construit une file à partir de lignes déjà triées (les plus urgentes d’abord). */
+/** Construit une file à partir de lignes déjà triées (les plus urgentes d’abord) ; tronquée par aTraiter. */
 function file(cle, module, titre, voirTout, lignes, item) {
   if (!lignes.length) return null;
-  return { cle, module, titre, voirTout, total: lignes.length, items: lignes.slice(0, MAX).map(item) };
+  return { cle, module, titre, voirTout, total: lignes.length, items: lignes.slice(0, MAX_PLAFOND).map(item) };
 }
 
 const TYPES_DOC = { PAP: 'PAP', RAP: 'RAP', CDMT: 'CDMT', CBMT: 'CBMT' };
@@ -32,6 +34,10 @@ const ptbaRows = (statuts) => db('ptba as p').join('plan_services as s', 's.id',
 const docRows = (statuts) => db('plan_documents').whereIn('statut', statuts).orderBy('updated_at').select('id', 'reference', 'type', 'annee', 'statut', 'updated_at');
 const itemPtba = (p) => ({ id: `ptba-${p.id}`, titre: `PTBA ${p.annee} — ${p.sigle}`, detail: p.reference, to: `/planification/ptba/${p.id}`, statut: p.statut });
 const itemDoc = (d) => ({ id: `doc-${d.id}`, titre: titreDoc(d), detail: d.reference, to: `/planification/documents/${d.id}`, statut: d.statut });
+
+/** PTBA et documents d’une même file, du plus ancien au plus récent (sans priorité d’un type sur l’autre). */
+const fusion = (ptba, docs) => [...ptba.map((p) => ['p', p]), ...docs.map((d) => ['d', d])]
+  .sort((a, b) => new Date(a[1].updated_at) - new Date(b[1].updated_at));
 
 async function planification(ctx, aujourdhui) {
   const out = [];
@@ -46,9 +52,9 @@ async function planification(ctx, aujourdhui) {
   await etape('ptba.valider', 'CONSOLIDE', 'valider', 'valider');
   if (ctx.can('ptba.preparer')) {
     const [ptbaC, docsC, ptbaB, docsB] = await Promise.all([ptbaRows(['A_CORRIGER']), docRows(['A_CORRIGER']), ptbaRows(['BROUILLON']), docRows(['BROUILLON'])]);
-    out.push(file('programmation_corriger', 'planification', 'Retournés pour correction', '/planification', [...ptbaC.map((p) => ['p', p]), ...docsC.map((d) => ['d', d])],
+    out.push(file('programmation_corriger', 'planification', 'Retournés pour correction', '/planification', fusion(ptbaC, docsC),
       ([k, x]) => (k === 'p' ? itemPtba(x) : itemDoc(x))));
-    out.push(file('programmation_brouillons', 'planification', 'Brouillons à compléter puis soumettre', '/planification', [...ptbaB.map((p) => ['p', p]), ...docsB.map((d) => ['d', d])],
+    out.push(file('programmation_brouillons', 'planification', 'Brouillons à compléter puis soumettre', '/planification', fusion(ptbaB, docsB),
       ([k, x]) => (k === 'p' ? itemPtba(x) : itemDoc(x))));
   }
   if (ctx.can('ptba.verifier')) {
@@ -337,8 +343,12 @@ async function systeme(ctx) {
   return out;
 }
 
-/** Toutes les files de l’utilisateur, et leur total par module (compteurs du menu). */
-async function aTraiter(ctx) {
+/**
+ * Toutes les files de l’utilisateur, et leur total par module (compteurs du menu).
+ * `max` : éléments renvoyés par file (5 par défaut, au plus 50) ; `total` reste le nombre complet.
+ */
+async function aTraiter(ctx, { max = MAX } = {}) {
+  const limite = Math.min(Math.max(1, Math.trunc(max) || MAX), MAX_PLAFOND);
   const aujourdhui = kinshasaDate();
   const groupes = await Promise.all([
     ctx.can('planification.consulter') ? planification(ctx, aujourdhui) : [],
@@ -347,10 +357,10 @@ async function aTraiter(ctx) {
     ctx.can('donnees.consulter') ? donnees(ctx, aujourdhui) : [],
     reunions(ctx), decisions(ctx, aujourdhui), actes(ctx), cartes(ctx), presences(ctx, aujourdhui), systeme(ctx),
   ]);
-  const files = groupes.flat().filter(Boolean);
+  const files = groupes.flat().filter(Boolean).map((f) => ({ ...f, items: f.items.slice(0, limite) }));
   const parModule = {};
   for (const f of files) parModule[f.module] = (parModule[f.module] || 0) + f.total;
   return { files, parModule };
 }
 
-module.exports = { aTraiter };
+module.exports = { aTraiter, MAX, MAX_PLAFOND };

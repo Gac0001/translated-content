@@ -21,7 +21,7 @@ Général au Numérique (RDC). Interface et documentation **en français** ; ré
 | Besoin | Commande |
 |---|---|
 | Mettre à jour la copie locale (git, dépendances, migrations) | `npm run mise-a-jour` (ajouter `-- --demo` pour recharger la démonstration, `-- --tests` pour lancer les tests) |
-| Démarrer l’API / l’interface | `npm run dev` (backend), `npm run dev` (frontend) |
+| Démarrer l’API / l’interface | `npm run dev` (backend), `npm run dev` (frontend) ; ou les deux, détachées : `npm run dev:tout` (backend ; `-- --relancer`, `-- --arret` ; journaux dans le dossier temporaire `sigdep-dev`) |
 | Migrations | `npm run migrate` |
 | Recharger la démonstration complète | `npm run demo:reset` (exige `DEMO_MODE=true` dans `backend/.env`) |
 | Tests | `npm test` (base `sig_dep_test`, recréée à chaque lancement) |
@@ -37,7 +37,10 @@ Général au Numérique (RDC). Interface et documentation **en français** ; ré
    photos, signatures, ni le contenu réel des documents du Ministère (PAP, PTBA, montants, noms de
    responsables). Les fichiers réels restent hors du dépôt et ne servent qu’à des essais locaux.
    Les données de démonstration sont **fictives** et le restent. Avant chaque commit, relire le diff
-   (`git diff --cached`) pour s’en assurer.
+   (`git diff --cached`) pour s’en assurer. Le hook git `sig-dep/outils/git-hooks/pre-commit` (activé par
+   `npm run mise-a-jour` et par le hook de session cloud) refuse tout commit contenant un terme de la liste
+   locale `sig-dep/.termes-sensibles` (jamais versionnée ; une ligne par terme) ou un nouveau fichier binaire
+   (exception volontaire : `SIGDEP_AUTORISER_BINAIRE=1 git commit …`). Ne jamais le contourner (`--no-verify`).
 2. **Cadre organique** : appellation officielle « Direction d’Études et Planification ». Le
    **Bureau Secrétariat de Direction** (BSD) est de **rang Bureau**, rattaché au Directeur ; ce
    n’est jamais une Division. Les permissions liées à une structure sont accordées dans
@@ -69,9 +72,11 @@ Plan validé par l’utilisateur, livré par étapes de 1.20.1 à 1.31.0 : 0 fil
 (jetons, formats, badges, boutons) → 2 nouveaux composants → 3 migration des modules récents vers les
 composants communs (Planification, Données, Réunions/Décisions/Agenda, Actes/Cartes, Système) →
 4 navigation → 5 tableaux de bord « À traiter » → 6 accessibilité et responsive → 7 performance.
-Style retenu : **« Bleu État »** conforme à la charte graphique du Gouvernement — menu en bleu
-institutionnel `#17418a` (actif `#115780`, repère jaune du drapeau `#fff24b`), tricolore officiel
-`#0095c9` / `#fff24b` / `#db3832`, en-têtes de tableaux en majuscules, densité soutenue ; **titres en
+Style retenu : **« Bleu État »** conforme à la charte graphique du Gouvernement, dans sa **direction B
+« Portail clair »** (validée en 1.47.0, maquettes Figma « SIG-DEP — Propositions de design ») — fond
+`#f7f8fb`, menu blanc (entrée active sur fond `dep-50` avec repère bleu institutionnel `#17418a`,
+compteurs bleus), cartes blanches arrondies (`rounded-2xl`, bordure `#e9edf3`, ombre douce), indicateurs
+à pastille de couleur, tricolore officiel `#0095c9` / `#fff24b` / `#db3832`, en-têtes de tableaux en majuscules ; **titres en
 Cooper Hewitt** (police de la charte, embarquée ; classe `font-display`), texte courant et tableaux en Source Sans 3.
 Composants à employer pour tout écran nouveau ou repris (catalogue vivant : page `/composants`) :
 `NumberInput` / `MoneyInput` pour les nombres et montants, `EditableGrid` pour les grilles chiffrées,
@@ -90,6 +95,12 @@ double authentification, inactivité, routeur « données » (protection des sai
 
 ## Vérifier avant de publier
 
+Raccourcis Claude Code (compétences du dépôt, `.claude/skills/`) : **`/verifier`** lance
+`sig-dep/outils/verifier.sh` (contrôles adaptés aux fichiers modifiés ; `--tout`, ou `--complet` pour la suite complète
+de l’interface et l’accessibilité) ; **`/publier-version x.y.z`** enchaîne CHANGELOG, numéros de version
+(`sig-dep/outils/publier-version.js`), vérifications, commit et push. Les points ci-dessous restent la référence.
+
+
 1. `npm test` (backend) — tous les tests passent ; ajouter des tests pour toute fonctionnalité.
 2. `npm run lint` et `npm run build` (frontend) — sans erreur ; `npm run test:e2e` pour toute modification de l’interface.
 3. Essai dans le navigateur des écrans modifiés (comptes de démonstration, mot de passe `Demo@2026`).
@@ -98,6 +109,15 @@ double authentification, inactivité, routeur « données » (protection des sai
 5. Relire le diff (données personnelles, secrets, fichiers d’essai).
 
 ## Git : travailler à plusieurs sessions (poste local et cloud)
+
+- Session cloud : le hook `.claude/hooks/session-start.sh` (à la racine du dépôt) remet le conteneur en état à
+  chaque démarrage — dépendances, PostgreSQL (rôle `sigdep`, bases `sig_dep_demo` et `sig_dep_test`), `backend/.env`
+  de démonstration, migrations, démonstration si absente, navigateur Playwright, contrôle avant commit, API (4000)
+  et interface (5173) ; journaux dans `/tmp/sigdep-session`. Tests du serveur en session : `DEMO_MODE=false npm test`.
+  La liste `sig-dep/.termes-sensibles` est perdue avec le conteneur : la recréer en début de session cloud.
+  Playwright y emploie le navigateur de la machine (`SIGDEP_CHROMIUM`, lu par `playwright.config.js`).
+- Après chaque modification d’un fichier de l’interface par Claude Code, le hook `.claude/hooks/lint-apres-modif.sh`
+  lance eslint sur ce fichier et signale aussitôt les erreurs (les avertissements sont tolérés).
 
 - Branche de travail commune : `claude/determined-maxwell-jl0avn`. Avant de commencer :
   `npm run mise-a-jour` (s’arrête si des modifications locales ne sont pas enregistrées).

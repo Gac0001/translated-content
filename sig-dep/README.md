@@ -94,6 +94,12 @@ Le script s’arrête sans rien modifier si des modifications locales ne sont pa
 branche locale a divergé (commits non publiés). Les consignes communes aux sessions Claude Code
 (poste local et cloud) sont dans `CLAUDE.md`.
 
+Il active aussi le **contrôle avant commit** (`sig-dep/outils/git-hooks`) : un commit est refusé s’il ajoute
+un nouveau fichier binaire (image, Excel, Word, PDF, vidéo) ou s’il contient un terme de la liste locale
+`sig-dep/.termes-sensibles` (vrais noms et en-têtes de fichiers réels, un par ligne ; fichier jamais versionné,
+à créer sur chaque poste). Dans les sessions Claude Code cloud, le hook `.claude/hooks/session-start.sh` prépare
+automatiquement le conteneur (dépendances, base, démonstration, serveurs).
+
 ### Tests de l’interface
 
 Depuis `frontend` :
@@ -233,6 +239,7 @@ Le tableau de bord de l’Admin, du Directeur et du Secrétariat affiche l’ava
 | Commande | Effet |
 |---|---|
 | `npm run dev` | API avec rechargement automatique |
+| `npm run dev:tout` | API et interface démarrées détachées (PostgreSQL aussi sous Linux) ; `-- --relancer`, `-- --arret` |
 | `npm start` | API en mode production |
 | `npm run migrate` / `npm run migrate:rollback` | Applique ou annule les migrations |
 | `npm run seed` | Données initiales (idempotent : peut être relancé sans perte) |
