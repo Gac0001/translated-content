@@ -1,5 +1,16 @@
 # Journal des versions — SIG-DEP
 
+## 1.49.0
+
+### Interface — fidélité aux maquettes de référence
+- **Polices** des maquettes : titres en **Ubuntu**, texte courant en **Nunito Sans** (au lieu de Cooper Hewitt et Source Sans 3), embarquées dans l’application ; les documents officiels produits par le serveur gardent Cooper Hewitt.
+- **Couleurs relevées sur les maquettes** : menu en dégradé `#006eae` → `#007db0` (bas foncé depuis `#0091c0` pour la lisibilité), entrée active `#015b8d`, fond `#f8f8fa` ; connexion en bleu `#1a6fe8` (maquette `#267dff`, foncé pour le contraste) sur fond `#e7e6eb`, titre gris.
+
+### Interface — idées reprises de Next.js (Vite reste le socle)
+- **Préchargement des pages** : le code d’une page est téléchargé dès le survol ou le focus de son lien dans le menu (et des notifications) ; affichage immédiat au clic. Désactivé sur connexion économe.
+- **Squelette de page** pendant le chargement (bandeau, indicateurs, carte) au lieu de « Chargement… ».
+- **Images** : dimensions fixées (pas de saut de mise en page), chargement différé des portraits, signatures et sceaux.
+
 ## 1.48.0
 
 ### Interface — thème « Dégradé bleu »

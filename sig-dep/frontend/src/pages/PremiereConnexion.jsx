@@ -65,7 +65,7 @@ function DeuxFacteurs({ onDone }) {
       </ol>
       {!qr ? <Spinner /> : (
         <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
-          <img src={qr.qr} alt="QR code de configuration de l’application d’authentification" className="h-48 w-48 rounded border bg-white p-1" />
+          <img src={qr.qr} width={192} height={192} decoding="async" alt="QR code de configuration de l’application d’authentification" className="h-48 w-48 rounded border bg-white p-1" />
           <div className="text-sm">
             <p className="text-slate-600">Impossible de scanner ? Saisissez cette clé dans l’application :</p>
             <code className="mt-1 block break-all rounded bg-slate-100 p-2 font-mono text-sm">{qr.secret}</code>

@@ -178,8 +178,8 @@ export default function Login() {
     contenu = (
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
         <div className="text-center">
-          <h2 className="font-display text-3xl font-bold text-slate-700">Connexion</h2>
-          <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-dep-600" aria-hidden />
+          <h2 className="font-display text-3xl font-bold text-accueil-titre">Connexion</h2>
+          <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-accueil-bleu" aria-hidden />
           <p className="mt-3 text-sm text-slate-600">Accédez à votre espace de travail.</p>
         </div>
         {location.state?.message && !error && <InfoAlert tone="warning">{location.state.message}</InfoAlert>}
@@ -203,7 +203,7 @@ export default function Login() {
           {errors.password && <p id="password-erreur" className="mt-1 text-xs text-red-700">{errors.password.message}</p>}
         </div>
         <div className="flex justify-center pt-1">
-          <button type="submit" className="btn-pilule w-full max-w-xs font-bold" disabled={isSubmitting}>
+          <button type="submit" className="btn-pilule w-full max-w-xs bg-accueil-bleu font-bold hover:bg-dep-700" disabled={isSubmitting}>
             {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />} Se connecter
           </button>
         </div>
@@ -213,17 +213,17 @@ export default function Login() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#e9edf2]">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-accueil-fond">
       {/* Fond : halos flous discrets, à la place d’une photographie */}
       <div aria-hidden className="pointer-events-none absolute -left-40 -top-40 h-[32rem] w-[32rem] rounded-full bg-white/70 blur-3xl" />
       <div aria-hidden className="pointer-events-none absolute -bottom-48 right-[-10rem] h-[36rem] w-[36rem] rounded-full bg-dep-100/70 blur-3xl" />
       <div className="relative h-1.5 tricolore-horizontal" />
       <div className="relative flex flex-1 items-center justify-center px-3 py-6 sm:px-6 lg:py-10">
-        <div className="relative grid w-full max-w-5xl overflow-hidden rounded-[28px] bg-[#fbfcfd] shadow-[0_24px_60px_rgba(15,75,134,0.18)] lg:grid-cols-2">
+        <div className="relative grid w-full max-w-5xl overflow-hidden rounded-[28px] bg-[#fcfcfc] shadow-[0_24px_60px_rgba(15,75,134,0.18)] lg:grid-cols-2">
           {/* Panneau d’accueil, armoiries du Gouvernement en filigrane */}
-          <section className="relative overflow-hidden bg-gradient-to-br from-menu-haut to-menu-bas px-6 py-7 text-white sm:px-10 lg:flex lg:flex-col lg:justify-center lg:px-14 lg:py-14">
-            <img src={armoiries} alt="" aria-hidden="true" className="pointer-events-none absolute -left-24 top-1/2 hidden w-[30rem] max-w-none -translate-y-1/2 select-none opacity-[0.08] mix-blend-luminosity lg:block" />
-            <img src={armoiries} alt="" aria-hidden="true" className="pointer-events-none absolute -right-10 -top-6 w-40 select-none opacity-[0.1] mix-blend-luminosity lg:hidden" />
+          <section className="relative overflow-hidden bg-accueil-bleu px-6 py-7 text-white sm:px-10 lg:flex lg:flex-col lg:justify-center lg:px-14 lg:py-14">
+            <img src={armoiries} alt="" aria-hidden="true" decoding="async" className="pointer-events-none absolute -left-24 top-1/2 hidden w-[30rem] max-w-none -translate-y-1/2 select-none opacity-[0.08] mix-blend-luminosity lg:block" />
+            <img src={armoiries} alt="" aria-hidden="true" decoding="async" className="pointer-events-none absolute -right-10 -top-6 w-40 select-none opacity-[0.1] mix-blend-luminosity lg:hidden" />
             <div className="relative flex items-center gap-3">
               <EmblemeDep grand inverse />
               <div>
@@ -242,13 +242,13 @@ export default function Login() {
               </ul>
             </div>
             <div className="relative hidden lg:block">
-              <Link to="/verification" className="inline-flex items-center gap-2 rounded-full border-2 border-white px-5 py-2 text-sm font-semibold text-white transition hover:bg-white hover:text-dep-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-dep-700">Vérifier une carte de service <ArrowRight size={14} aria-hidden /></Link>
+              <Link to="/verification" className="inline-flex items-center gap-2 rounded-full border-2 border-white px-5 py-2 text-sm font-semibold text-white transition hover:bg-white hover:text-accueil-bleu focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-accueil-bleu">Vérifier une carte de service <ArrowRight size={14} aria-hidden /></Link>
             </div>
           </section>
           {/* Anneau décoratif à la jonction des deux panneaux */}
-          <div aria-hidden className="pointer-events-none absolute left-1/2 top-[68%] hidden h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border-[24px] border-[#fbfcfd] bg-menu-bas lg:block" />
+          <div aria-hidden className="pointer-events-none absolute left-1/2 top-[68%] hidden h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border-[24px] border-[#fcfcfc] bg-accueil-bleu lg:block" />
           {/* Losange arrondi décoratif, en partie hors de la carte */}
-          <div aria-hidden className="pointer-events-none absolute -right-16 top-24 hidden h-40 w-40 rotate-45 rounded-[2.5rem] border-[22px] border-[#e9edf2] lg:block" />
+          <div aria-hidden className="pointer-events-none absolute -right-16 top-24 hidden h-40 w-40 rotate-45 rounded-[2.5rem] border-[22px] border-accueil-fond lg:block" />
           <main className="relative flex justify-center px-5 py-8 sm:px-10 lg:items-center lg:px-16 lg:py-14">
             <div className="w-full max-w-sm">
               {modeDemo && <p className="mb-5 text-center"><span className="inline-block rounded-full bg-amber-200 px-3 py-1 text-xs font-bold uppercase tracking-wide text-amber-950">Démonstration — données fictives</span></p>}

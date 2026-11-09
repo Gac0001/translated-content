@@ -79,8 +79,13 @@ blanc, compteurs blancs), `fond` (page `#f3f5f8`, bandeau de titre des cartes, b
 « Bonjour, prénom » ; `PageHeader` dans un bandeau blanc, titre bleu ; cartes nettes (`rounded-lg`), titre de carte dans
 un bandeau gris ; onglets en pastilles ; libellés d’indicateurs en petites majuscules ; connexion en carte scindée (panneau
 bleu, champs soulignés `.input-ligne`, bouton `.btn-pilule`) ; tricolore officiel `#0095c9` / `#fff24b` / `#db3832`
-conservé (filet du menu et des pages publiques), en-têtes de tableaux en majuscules ; **titres en
-Cooper Hewitt** (police de la charte, embarquée ; classe `font-display`), texte courant et tableaux en Source Sans 3.
+conservé (filet du menu et des pages publiques), en-têtes de tableaux en majuscules ; couleurs relevées sur les
+maquettes (menu `#006eae` → `#007db0`, connexion `accueil-*`, accent `accent-vert`), foncées seulement là où du texte blanc
+doit rester lisible (AA) ; **titres en Ubuntu** (classe `font-display`), texte courant et tableaux en **Nunito Sans**
+(polices embarquées, `@fontsource`) ; les documents produits par le serveur gardent Cooper Hewitt (charte).
+Idées reprises de Next.js (sans changer d’outil : Vite reste le socle) : préchargement des pages au survol ou au focus
+des liens du menu (`lib/prechargement.js`, pages enregistrées dans `App.jsx` — y ajouter toute nouvelle page du menu),
+squelette de page pendant le chargement (`PageSquelette`), images à dimensions fixées et chargement différé.
 Composants à employer pour tout écran nouveau ou repris (catalogue vivant : page `/composants`) :
 `NumberInput` / `MoneyInput` pour les nombres et montants, `EditableGrid` pour les grilles chiffrées,
 `FormModal` + `FormSection` pour les fenêtres de saisie, `ActionBar` pour les formulaires de page,

@@ -17,7 +17,7 @@ function Sceau({ version, aSceau }) {
     return () => { if (lien) URL.revokeObjectURL(lien); };
   }, [version, aSceau]);
   return src
-    ? <img src={src} alt="Sceau aux armoiries" className="h-24 w-24 rounded-full border border-slate-200 bg-white object-contain p-1" />
+    ? <img src={src} width={96} height={96} loading="lazy" decoding="async" alt="Sceau aux armoiries" className="h-24 w-24 rounded-full border border-slate-200 bg-white object-contain p-1" />
     : <div className="flex h-24 w-24 items-center justify-center rounded-full border border-dashed border-slate-300 p-2 text-center text-xs text-slate-600">Aucun sceau : en-tête textuel</div>;
 }
 

@@ -1,12 +1,14 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { refreshSession } from './lib/api';
+import { enregistrerPages } from './lib/prechargement';
 import { useAuth } from './store/auth';
 import AppLayout from './components/layout/AppLayout';
 import { ConfirmProvider, Spinner, Toaster } from './components/ui';
 import { Forbidden, NotFound } from './pages/Errors';
 
-const p = (loader) => lazy(loader);
+// Page chargée à la demande ; `precharger` permet de télécharger son code à l’avance (survol d’un lien du menu).
+const p = (loader) => Object.assign(lazy(loader), { precharger: loader });
 // Pages publiques et de connexion chargées à la demande : la bibliothèque de formulaires (react-hook-form,
 // zod) n’est plus téléchargée par un utilisateur déjà connecté.
 const Login = p(() => import('./pages/Login'));
@@ -96,6 +98,53 @@ const RapportsSecurite = p(() => import('./pages/RapportsSecurite'));
 const Identite = p(() => import('./pages/systeme/Identite'));
 const Reinitialisation = p(() => import('./pages/systeme/Reinitialisation'));
 const Rapports = p(() => import('./pages/Rapports'));
+
+// Pages du menu et de l’en-tête préchargées au survol (lib/prechargement.js).
+enregistrerPages({
+  '/': Dashboard,
+  '/agenda': Agenda,
+  '/decisions': DecisionsRegistre,
+  '/rapports': Rapports,
+  '/planification': Planification,
+  '/evaluations': EvaluationsList,
+  '/collectes': CollectesList,
+  '/donnees': Donnees,
+  '/organigramme': Organigramme,
+  '/cadre-organique': Cadre,
+  '/personnel': AgentsList,
+  '/groupes': GroupesList,
+  '/instructions': InstructionsList,
+  '/reunions': ReunionsList,
+  '/demandes-information': DemandesList,
+  '/taches': TachesList,
+  '/presences': Presences,
+  '/presences/moi': MesPresences,
+  '/courriers': CourriersList,
+  '/documents': DocumentsList,
+  '/pip': PipList,
+  '/liste-declarative': ListeDeclarative,
+  '/comptes/enrolement': Enrolement,
+  '/comptes': UsersList,
+  '/cartes': CartesRegistre,
+  '/cartes/modele': ModeleCarte,
+  '/actes': ActesList,
+  '/designations': Designations,
+  '/roles': Roles,
+  '/securite': Securite,
+  '/rapports-securite': RapportsSecurite,
+  '/audit': Audit,
+  '/systeme/sauvegardes': Sauvegardes,
+  '/gouvernance': Gouvernance,
+  '/restaurations': Restaurations,
+  '/systeme/identite': Identite,
+  '/systeme/maintenance': Maintenance,
+  '/systeme/sante': Sante,
+  '/systeme/erreurs': JournalTechnique,
+  '/systeme': Systeme,
+  '/notifications': Notifications,
+  '/profil': Profil,
+  '/ma-carte': MaCarte,
+});
 
 function RequireAuth({ children }) {
   const { user, ready } = useAuth();

@@ -10,8 +10,9 @@ import api, { MODIFICATION } from '../../lib/api';
 import { useAuth, useCompteurs } from '../../store/auth';
 import { DEP_NOM, SG_NOM, ROLES, PERIMETRES } from '../../lib/labels';
 import { useInactivity } from '../../lib/inactivity';
-import { Modal, Spinner, IconButton, DropdownMenu, useFocusTrap, useScrollLock } from '../ui';
+import { Modal, PageSquelette, IconButton, DropdownMenu, useFocusTrap, useScrollLock } from '../ui';
 import GlobalSearch from './GlobalSearch';
+import { prechargerAuSurvol } from '../../lib/prechargement';
 
 const MENU = [
   { section: 'Pilotage' },
@@ -119,7 +120,7 @@ function Sidebar({ onNavigate }) {
           <ul id={id} aria-label={g.section} hidden={!ouverte} className="mt-0.5 space-y-0.5">
             {g.items.map((m) => (
               <li key={m.to}>
-                <NavLink to={m.to} end={m.end} onClick={onNavigate}
+                <NavLink to={m.to} end={m.end} onClick={onNavigate} {...prechargerAuSurvol(m.to)}
                   className={({ isActive }) => `flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${isActive ? 'bg-menu-actif font-semibold shadow-[inset_3px_0_0_#ffffff]' : 'hover:bg-menu-actif/70'}`}>
                   <m.icon size={17} aria-hidden />
                   <span className="flex-1">{m.label}</span>
@@ -223,7 +224,7 @@ export default function AppLayout() {
     <div className="flex h-full w-full flex-col bg-gradient-to-b from-menu-haut to-menu-bas text-white">
       <div className="h-1 tricolore-horizontal" aria-hidden />
       <div className="flex items-center gap-3 px-4 py-5">
-        <img src="/favicon.jpg" alt="Ministère de l’Économie Numérique" className="h-10 w-[5.75rem] shrink-0 rounded-md bg-white object-contain p-0.5" />
+        <img src="/favicon.jpg" width={92} height={40} decoding="async" alt="Ministère de l’Économie Numérique" className="h-10 w-[5.75rem] shrink-0 rounded-md bg-white object-contain p-0.5" />
         <div className="min-w-0">
           <div className="font-display text-lg font-bold leading-tight tracking-[0.2em] text-white">SIG-DEP</div>
           <div className="text-xs leading-tight text-white">{DEP_NOM}</div>
@@ -252,7 +253,7 @@ export default function AppLayout() {
             <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2">
               <div className="hidden min-w-0 max-w-md flex-1 justify-end md:flex"><GlobalSearch /></div>
               <IconButton label="Rechercher" icon={Search} size={20} className="text-slate-600 md:hidden" onClick={() => setRecherche(true)} />
-              <Link to="/notifications" className="relative rounded-full p-2.5 text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400">
+              <Link to="/notifications" {...prechargerAuSurvol('/notifications')} className="relative rounded-full p-2.5 text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-dep-400">
                 <Bell size={20} aria-hidden />
                 <span className="sr-only">Notifications</span>
                 {nonLues > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-red-700 px-1 text-center text-xs font-semibold text-white">{nonLues > 99 ? '99+' : nonLues}<span className="sr-only"> non lues</span></span>}
@@ -307,7 +308,7 @@ export default function AppLayout() {
         ))}
         <main id="contenu" ref={main} tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 pb-8 pt-5 focus:outline-none sm:px-6">
           {/* Le menu et l’en-tête restent affichés pendant le chargement d’une page. */}
-          <Suspense fallback={<Spinner />}><Outlet /></Suspense>
+          <Suspense fallback={<PageSquelette />}><Outlet /></Suspense>
         </main>
         <Modal open={recherche} title="Recherche" placement="top" onClose={() => setRecherche(false)}>
           <GlobalSearch panel onNavigate={() => setRecherche(false)} />

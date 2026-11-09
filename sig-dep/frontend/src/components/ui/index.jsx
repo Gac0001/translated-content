@@ -218,6 +218,30 @@ export function Stat({ label, value, hint, tone = 'dep', to }) {
 }
 
 // ─── États ──────────────────────────────────────────────────────────────────
+/**
+ * Squelette d’une page en cours de chargement (à la manière des `loading.js` de Next.js) : bandeau de titre,
+ * indicateurs et carte, pour que la mise en page ne saute pas à l’arrivée du contenu. Animation coupée si
+ * l’utilisateur réduit les animations.
+ */
+export function PageSquelette({ label = 'Chargement de la page…' }) {
+  const barre = (w, h = 'h-3') => <div className={`${h} rounded bg-slate-200 motion-safe:animate-pulse`} style={{ width: w }} />;
+  return (
+    <div role="status" aria-live="polite">
+      <span className="sr-only">{label}</span>
+      <div aria-hidden className="space-y-5">
+        <div className="card space-y-3 px-5 py-5">{barre('18%')}{barre('42%', 'h-7')}{barre('64%')}</div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => <div key={i} className="card space-y-3 p-5">{barre('55%')}{barre('30%', 'h-7')}</div>)}
+        </div>
+        <div className="card space-y-3 p-5">
+          <div className="rounded-md bg-fond-bandeau px-4 py-3">{barre('25%')}</div>
+          {['92%', '84%', '76%', '88%', '70%'].map((w) => <div key={w}>{barre(w)}</div>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Spinner({ label = 'Chargement…' }) {
   return <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500" role="status"><Loader2 className="animate-spin" size={18} aria-hidden /> {label}</div>;
 }

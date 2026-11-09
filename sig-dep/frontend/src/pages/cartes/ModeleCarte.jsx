@@ -12,7 +12,7 @@ function Armoirie({ version }) {
     return () => { if (lien) URL.revokeObjectURL(lien); };
   }, [version]);
   return src
-    ? <img src={src} alt="Bloc-armoirie" className="h-28 w-28 rounded-full border border-slate-200 bg-white object-contain p-1" />
+    ? <img src={src} width={112} height={112} loading="lazy" decoding="async" alt="Bloc-armoirie" className="h-28 w-28 rounded-full border border-slate-200 bg-white object-contain p-1" />
     : <div className="flex h-28 w-28 items-center justify-center rounded-full border border-dashed border-slate-300 text-center text-xs text-slate-500">Aucune armoirie : sceau provisoire</div>;
 }
 

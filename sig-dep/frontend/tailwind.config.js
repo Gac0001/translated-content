@@ -11,9 +11,13 @@ export default {
           500: '#1f77c9', 600: '#1669b8', 700: '#135ca3', 800: '#0f4b86', 900: '#0b3866',
         },
         // Menu latéral : dégradé vertical (texte blanc ≥ 5:1 sur toute sa hauteur).
-        menu: { haut: '#1a72c0', bas: '#135ca3', actif: '#0f4f8f' },
+        // Maquette : #006eae → #0091c0 ; le bas est foncé à #007db0 pour garder le texte blanc lisible (4,6:1).
+        menu: { haut: '#006eae', bas: '#007db0', actif: '#015b8d' },
+        // Page de connexion (maquette : #267dff, foncé à #1a6fe8 pour le texte blanc à 4,7:1) et accent vert des maquettes.
+        accueil: { bleu: '#1a6fe8', fond: '#e7e6eb', titre: '#6f6f73' },
+        accent: { vert: '#12c79c' },
         // Fond des pages et bandeaux de titre des cartes.
-        fond: { page: '#f3f5f8', bandeau: '#f2f4f7', bordure: '#e3e8ee' },
+        fond: { page: '#f8f8fa', bandeau: '#f3f4f7', bordure: '#e6e9ee' },
         // Gris du texte secondaire légèrement assombri (#64748b par défaut) : contraste AA (4,5:1) maintenu
         // sur les fonds clairs (survol des lignes, en-têtes et pieds de tableaux, encadrés).
         slate: { 500: '#5b677a' },
@@ -26,9 +30,9 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['"Source Sans 3"', 'Segoe UI', 'system-ui', 'sans-serif'],
-        // Typographie principale de la charte, pour les titres et les chiffres clés.
-        display: ['"Cooper Hewitt"', '"Source Sans 3"', 'Segoe UI', 'sans-serif'],
+        // Polices des maquettes de référence : Nunito Sans pour le texte, Ubuntu pour les titres et chiffres clés.
+        sans: ['"Nunito Sans"', 'Segoe UI', 'system-ui', 'sans-serif'],
+        display: ['Ubuntu', '"Nunito Sans"', 'Segoe UI', 'sans-serif'],
       },
     },
   },

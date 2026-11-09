@@ -159,7 +159,7 @@ function SignatureImage() {
     api.get('/cartes/specimen/image', { responseType: 'blob' }).then((r) => { lien = URL.createObjectURL(r.data); setSrc(lien); }).catch(() => {});
     return () => { if (lien) URL.revokeObjectURL(lien); };
   }, []);
-  return src ? <img src={src} alt="Spécimen de signature" className="h-20 rounded border border-slate-200 bg-white object-contain p-1" /> : null;
+  return src ? <img src={src} height={80} loading="lazy" decoding="async" alt="Spécimen de signature" className="h-20 rounded border border-slate-200 bg-white object-contain p-1" /> : null;
 }
 
 /** Registre des cartes de service (Directeur, Bureau Secrétariat de Direction). */

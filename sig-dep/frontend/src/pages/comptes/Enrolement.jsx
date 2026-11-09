@@ -87,7 +87,7 @@ function FileInput({ label, accept, file, onChange, error, preview, hint, icon: 
   return (
     <Field label={label} required error={error} hint={hint} id={id}>
       <label className={`flex cursor-pointer items-center gap-3 rounded-md border border-dashed p-3 text-sm hover:bg-slate-50 focus-within:ring-2 focus-within:ring-dep-400 ${error ? 'border-red-400' : 'border-slate-300'}`}>
-        {url ? <img src={url} alt="Aperçu" className="h-16 w-16 rounded object-cover" /> : <Icon size={22} className="shrink-0 text-slate-400" />}
+        {url ? <img src={url} width={64} height={64} decoding="async" alt="Aperçu" className="h-16 w-16 rounded object-cover" /> : <Icon size={22} className="shrink-0 text-slate-400" />}
         <span className="min-w-0 flex-1 truncate">{file ? file.name : 'Choisir un fichier…'}</span>
         <input id={id} type="file" className="sr-only" accept={accept} aria-invalid={error ? true : undefined} onChange={(e) => onChange(e.target.files?.[0] || null)} />
       </label>
